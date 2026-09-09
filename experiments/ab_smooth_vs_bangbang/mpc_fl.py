@@ -37,9 +37,10 @@ torque-box rows) is done by the `@njit` kernel `_assemble_fl` below, which
 takes those precomputed tensors plus the per-step MuJoCo-derived numpy
 arrays (M/c, references, collision-pair arrays) and replicates the ORIGINAL
 numpy code's math/row order/signs exactly (see `_assemble_fl`'s docstring
-and the equivalence test in the job scratch dir). The two OPTIONAL,
-low-row-count extras (cup-upright tilt rows, table-floor rows) stay in plain
-Python in `step()` -- they are cheap and default-off, so keeping them
+and the equivalence test in the job scratch dir). The OPTIONAL, low-row-count
+extras (cup-upright tilt rows, cup-arm displacement-leash rows, table-floor
+rows) stay in plain Python in `step()` -- they are cheap and default-off, so
+keeping them
 un-jitted minimizes the risk of a subtle refactor bug in a rarely-exercised
 path while the njit kernel captures essentially all of the original
 prototype's ~44-69ms/step cost. MuJoCo calls (full_mass_matrix,
@@ -96,9 +97,9 @@ def _assemble_fl(Phi_q_all, Phi_qd_all,
       (d) torque-box rows |M_e@a_e0+c_e|<=TAU_MAX, |M_i@a_i0+c_i|<=TAU_MAX
     in that exact row order (collision rows first, then torque rows) --
     matching the original's `a_rows`/`b_rows` append order for (1) and (2).
-    The optional cup-upright tilt / table-floor rows ((3)/(4) in the
-    original) are appended by FLMPC.step in plain Python afterward (cheap,
-    low row count, default-off) -- see FLMPC.step."""
+    The optional cup-upright tilt / cup-arm displacement-leash / table-floor
+    rows ((3)/(4)/(5) in FLMPC.step) are appended by FLMPC.step in plain
+    Python afterward (cheap, low row count, default-off) -- see FLMPC.step."""
     NP = Phi_q_all.shape[0] - 1
     ntot = 2 * n_blk
     H = np.zeros((ntot, ntot))
@@ -202,7 +203,8 @@ class FLMPC:
                  W_POS_EGO=3000.0, W_VEL_EGO=15.0, W_POS_INT=600.0, W_VEL_INT=8.0,
                  R_ACC=1e-4, W_JERK=1e-3, K_PAIRS=4, H_MARGIN=0.02,
                  coll_stride=2, a_box=800.0,
-                 left_ee_body=None, tilt_max_rad=None):
+                 left_ee_body=None, tilt_max_rad=None,
+                 leash_ee_body=None, leash_max_m=None):
         self.model = model
         self.NC, self.L, self.NV = NC, L, NV
         self.NP = NC * L
@@ -232,6 +234,18 @@ class FLMPC:
         # defines "vertical" for tilt0 below. Not knowable at __init__ time
         # (no `data` yet).
         self._cup_axis_local = None
+
+        # --- CUP-ARM DISPLACEMENT LEASH config (optional, default OFF so
+        # existing callers/tests are unaffected). leash_ee_body: the LEFT EE
+        # body id whose Cartesian displacement from the hold pose (q_ego_ref[0],
+        # i.e. q_lift) is bounded to +-leash_max_m per world axis over a few
+        # horizon steps. This is what lets W_POS_EGO be lowered (so the ego
+        # arm actually cooperates with the collision-avoidance/table rows
+        # instead of being glued in place by a crude high hold weight) while
+        # still guaranteeing the cup arm never wanders arbitrarily far from
+        # its hold pose. Either may also be supplied per-call to step().
+        self.leash_ee_body = leash_ee_body
+        self.leash_max_m = leash_max_m
 
         # --- numba precompute (see module docstring): Phi_q(t)/Phi_qd(t) are
         # CONSTANT -- build the full stacked tensors ONCE, by calling the
@@ -291,7 +305,8 @@ class FLMPC:
     def step(self, model, data, left_qposadr, left_dofadr, right_qposadr, right_dofadr,
              q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref,
              pairs_all, M_ego_extra=None, bias_ego_extra=None,
-             left_ee_body=None, tilt_max_rad=None, table_rows=None):
+             left_ee_body=None, tilt_max_rad=None, table_rows=None,
+             leash_ee_body=None, leash_max_m=None):
         """One control step. q_*_ref / qd_*_ref: (NP+1, NV) reference
         trajectories (index 0 = now). table_rows: optional
         (a_tab_e, b_tab_e, a_tab_i, b_tab_i) per-arm TABLE-FLOOR HOCBF rows in
@@ -300,7 +315,9 @@ class FLMPC:
         mpc7.JointMPCv7.step's own `table_rows` kwarg consumes on its
         first-block torque columns). Default None -> no rows added, so
         existing callers/tests that don't pass this are bit-for-bit
-        unaffected. Returns (tau_ego, tau_int, feasible)."""
+        unaffected. leash_ee_body/leash_max_m: optional CUP-ARM DISPLACEMENT
+        LEASH -- see the block below step()'s main body; default None -> no
+        rows added. Returns (tau_ego, tau_int, feasible)."""
         NV, NC, NP, DT = self.NV, self.NC, self.NP, self.DT
         n_blk = self.n_blk
         ntot = 2 * n_blk
@@ -396,7 +413,41 @@ class FLMPC:
                     r_lo = np.zeros(ntot); r_lo[eslice] = -row_coef
                     extra_a.append(r_lo); extra_b.append(tilt_max + drift)
 
-        # --- (4) TABLE FLOOR (optional, plain Python -- cheap/default-off,
+        # --- (4) CUP-ARM DISPLACEMENT LEASH (optional, plain Python --
+        # cheap/default-off; both leash_ee_body and leash_max_m None => no
+        # rows added, so existing callers/tests that don't pass these args
+        # are bit-for-bit unaffected). Bounds the LEFT EE's predicted
+        # Cartesian displacement from the HOLD pose q_ego_ref[0] (=q_lift) to
+        # +-leash_max_m per world axis over a few horizon steps -- this is
+        # what lets W_POS_EGO be lowered (see FLMPC.__init__'s docstring) so
+        # the ego arm actually cooperates with the collision-avoidance/table
+        # rows *within* the leash, while still guaranteeing it never wanders
+        # arbitrarily far from its hold pose (bounded, not glued). Linear in
+        # a_e (ego block columns only): with the exact prediction
+        # q_e(t) = qnom_e[t] + Phi_q(t)@a_e, the displacement from hold is
+        #   d(t) = Jp_leash @ (q_e(t) - q_ego_ref[0])
+        #        = Jp_leash @ (qnom_e[t] - q_ego_ref[0]) + (Jp_leash@Phi_q(t)) @ a_e
+        # Jp_leash (3xNV) is the EE's linear Jacobian at t=0 (frozen over the
+        # horizon -- same first-order approximation the cup-upright rows
+        # above use for Jr_ee). SAME a_rows/b_rows plain-Python convention as
+        # (3) above.
+        leash_body = leash_ee_body if leash_ee_body is not None else self.leash_ee_body
+        leash_max = leash_max_m if leash_max_m is not None else self.leash_max_m
+        if leash_body is not None and leash_max is not None:
+            Jp_leash = sc.body_jac_full(model, data, leash_body)[0][:, left_dofadr]  # (3,NV) at t=0
+            hold_e = q_ego_ref[0]
+            for t in self.tilt_steps:   # a few horizon steps (block boundaries)
+                Aq = self.Phi_q_all[t]
+                const_t = Jp_leash @ (qnom_e[t] - hold_e)   # (3,) drift-only displacement at step t
+                JA = Jp_leash @ Aq                          # (3, n_blk)
+                for ax in range(3):   # world x, y, z
+                    row_coef = JA[ax]
+                    r_up = np.zeros(ntot); r_up[eslice] = row_coef
+                    extra_a.append(r_up); extra_b.append(leash_max - const_t[ax])
+                    r_lo = np.zeros(ntot); r_lo[eslice] = -row_coef
+                    extra_a.append(r_lo); extra_b.append(leash_max + const_t[ax])
+
+        # --- (5) TABLE FLOOR (optional, plain Python -- cheap/default-off,
         # table_rows=None default so existing callers/tests are unaffected).
         # The caller builds these rows in the usual TORQUE convention on that
         # arm's OWN M_inv/bias (which may already include a payload
