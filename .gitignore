@@ -1,0 +1,26 @@
+# Generated / heavy — keep out of git, cdx-agent graph, and searches
+__pycache__/
+*.pyc
+*.log
+
+# regenerable graph artifacts (rebuild: cdx-agent --graph)
+.codex_graph/
+
+# experiment outputs & renders (reproducible; promote keepers to docs/figures/)
+artifacts/
+experiments/**/logs/
+box_spool/
+
+# common ML heavy dirs (pre-empt)
+outputs/
+checkpoints/
+ckpts/
+wandb/
+runs/
+data/
+datasets/
+videos/
+media/
+
+# NOTE: YOR/ is a nested git repo (platform). Decide submodule-vs-vendor before
+# the first commit; not ignored here so cdx-agent keeps indexing it.
