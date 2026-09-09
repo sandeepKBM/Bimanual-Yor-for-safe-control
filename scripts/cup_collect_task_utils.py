@@ -276,7 +276,10 @@ def load_yor_cup_collect_model(xml_path: str = YOR_CUP_COLLECT_XML,
         center_xy = keep_zone_center_xy
         if center_xy is None:
             cup_body_spec = spec.body(CUP_BODY_NAME)
-            center_xy = (float(cup_body_spec.pos[0]), float(cup_body_spec.pos[1]))
+            # match the demo's place_center offset (cup_ground + [-0.02, -0.06]) so the
+            # reference circle is centered on where cubes are ACTUALLY placed, not on the
+            # cup ground xy (they differ by ~6.6cm; keep in sync with build_episode's p_place).
+            center_xy = (float(cup_body_spec.pos[0]) - 0.02, float(cup_body_spec.pos[1]) - 0.06)
         add_keep_zone_marker(spec, center_xy, table_top_z, radius=keep_zone_radius_m)
     model = spec.compile()
     data = mujoco.MjData(model)

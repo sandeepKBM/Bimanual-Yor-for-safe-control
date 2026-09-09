@@ -156,10 +156,10 @@ N_CUBES = 6                   # ALL 6 cubes (cube_0..cube_5) -- select_crossing_
 CUBE_IK_ERR_MAX_M = 0.006     # 6mm -- IK-reachability cutoff for cube selection
 _CUBE_OVERRIDE = None         # set by --cubes (list of names) to force a specific cube set,
                               # e.g. ["cube_3","cube_4","cube_5"] -- still IK-filtered, order kept.
-CUBE_PLACE_SPACING_M = 0.05   # spacing [m] between adjacent place spots in the center cluster grid (see
+CUBE_PLACE_SPACING_M = 0.08   # spacing [m] between adjacent place spots in the center cluster grid (see
                               # _place_cluster_offsets below) -- lowered from the old single-row 0.06 so a
                               # full 6-cube 3x2 grid still fits comfortably inside KEEP_ZONE_RADIUS_M.
-KEEP_ZONE_RADIUS_M = 0.13     # [m] radius of the center "keep zone": (a) the visual reference circle
+KEEP_ZONE_RADIUS_M = 0.16     # [m] radius of the center "keep zone": (a) the visual reference circle
                               # drawn on the table (cup_collect_task_utils.add_keep_zone_marker, via
                               # load_yor_cup_collect_model's keep_zone_radius_m below) and (b) the exact
                               # same radius passed into count_placed_cubes' `radius` below, so the drawn
@@ -180,10 +180,43 @@ GRASP_Z_OFFSET = 0.020        # STANDOFF: grasp target sits ~2cm above the cube 
                               # fingertips) ABOVE the table surface instead of the wrist body sinking into
                               # it (measured: at the old 0.006 offset the gripper BASE reached z=0.528, ~2cm
                               # below the 0.55 tabletop, during place). See also PLACE_STANDOFF_M below.
-PLACE_STANDOFF_M = 0.070      # place target z = table_top_z + this. Raised from 0.03 so the wrist/gripper
-                              # base stays above the surface at release (magnet drops the cube the last cm).
+PLACE_STANDOFF_M = 0.020      # place target z = table_top_z + this. GENTLER-DROP FIX: lowered from 0.070
+                              # (was raised from an even older 0.03 -- see the stale comment this replaces --
+                              # back before the TABLE-FLOOR BARRIER FIX below existed, when nothing kept a
+                              # low target from actually sinking the gripper). At 0.070 the cube was
+                              # RELEASED (see cube_pin_active/REACH_TOL below) ~7cm above the table and
+                              # free-fell/bounced/rolled out of the keep zone -- widening cube spacing did
+                              # NOT fix this (ruling out crowding), confirming it was drop height + release
+                              # timing precision, not collisions between placed cubes. 0.020 sets the
+                              # gripper BASE (right_ee_body) down to ~2cm above the table at release --
+                              # a set-down, not a drop -- while the TABLE-FLOOR BARRIER FIX's real
+                              # collision-proxy-keypoint rows (table_floor=True, default on, wired into
+                              # v4c/v7c/flmpc alike -- see run_episode) still hard-stop the actual gripper
+                              # (base + fingertip keypoints) from sinking below TABLE_TOP_Z -
+                              # TABLE_FLOOR_MARGIN_M regardless of this target, so lowering the target alone
+                              # cannot reintroduce the old table-sinking problem. GRASP_Z_OFFSET (the PICKUP
+                              # standoff) is untouched -- only the RELEASE waypoint (place_xyzs[i], the sole
+                              # consumer of this constant) is lowered.
 CUP_HOVER_CLEARANCE = 0.11    # above the cup rim, for the carry-in hover waypoint
 CUP_RELEASE_CLEARANCE = 0.045 # above the cup rim, for the release waypoint (real drop from here)
+
+# PLACEMENT-PRECISION FIX (position-triggered release, replacing a pure phase
+# clock -- see cube_pin_active/right_gripper_opening below): the cube weld
+# used to deactivate at a FIXED TIME (the instant the release_i phase's MOVE
+# began -- i.e. before the arm had even started heading toward place_xyzs[i]
+# at all), regardless of whether the right EE had actually reached the place
+# spot. Under the FL-MPC's safety-constraint deflection the arm is often
+# short/wide of the target at that instant, so the cube got released nowhere
+# near its place spot and then (compounded by the old 7cm PLACE_STANDOFF_M
+# above) bounced/rolled out of the keep zone. Measured: only 3-4/6 cubes
+# ended counted in-zone.
+REACH_TOL = 0.03               # [m] release once ||right_ee_xy - place_xy_i|| < this (xy only -- z is
+                                # governed by PLACE_STANDOFF_M/the table-floor barrier, not this gate)
+RELEASE_SPEED_TOL_MS = 0.05    # [m/s] "settling" -- measured (finite-difference) right-EE speed must also
+                                # be under this before releasing, so a cube isn't dropped while still
+                                # sweeping through the target on its way past it
+GRIP_OPEN_RAMP_S = 0.3         # [s] visual gripper-open ramp duration, timed from the ACTUAL release
+                                # instant (not a fixed phase time) -- fits inside release_i's 0.35s hold
 
 # left-track (cup lift) timing
 T_LIFT_MOVE = 1.2
@@ -490,6 +523,17 @@ MONITOR_CHOICES = ("classifier", "value")
 # fragility signal saturates at 1.0/max-caution permanently rather than
 # being state-adaptive).
 CONTROLLER_CHOICES = ("v4c", "v7c", "flmpc")
+
+# --controller flmpc CUP-ARM YIELD REFINEMENT (see mpc_fl.py's cup-upright
+# tilt rows + new cup-arm displacement-leash rows): rather than gluing the
+# ego (cup) arm to its hold pose via a crude high W_POS_EGO, the flmpc branch
+# below lowers W_POS_EGO and instead bounds the cup EE's Cartesian
+# displacement from the hold pose with an explicit leash CONSTRAINT (so the
+# arm can cooperate with collision avoidance -- yield -- within a bounded
+# envelope) plus the existing cup-upright tilt constraint (so the cup stays
+# vertical while it yields); smoothness stays via W_VEL_EGO/W_JERK, unchanged.
+CUP_LEASH_M = 0.08       # [m] cup EE Cartesian-displacement leash radius (per world axis) from the hold pose
+CUP_TILT_MAX_RAD = 0.10  # [rad] cup-upright tilt bound (~5.7 deg) while yielding
 
 
 # ---------------------------------------------------------------------------
@@ -926,13 +970,21 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
     return info
 
 
-def right_gripper_opening(t: float, bounds: dict, n_cubes: int) -> float:
+def right_gripper_opening(t: float, bounds: dict, n_cubes: int,
+                           release_t: np.ndarray | None = None) -> float:
     """Open (1.0) by default; closed (0.0) from cube i's at_i grasp-close ramp
-    through the end of its carry_i; reopens (ramp to 1.0) across release_i.
-    Generalized from the old single-cube version by looping the SAME per-cube
-    open/close/reopen logic over every selected cube's `at_i`/`release_i`
-    phase-name bounds (only one cube's window can be active at a given t,
-    since the phases are sequential/non-overlapping)."""
+    through to its ACTUAL release. PLACEMENT-PRECISION FIX: the open ramp now
+    follows the REAL (position-triggered or timeout) release instant,
+    `release_t[i]` -- set by run_episode's main loop on the weld's falling
+    edge, np.nan while still held -- instead of a fixed phase-clock time:
+    the gripper stays shut through carry_i AND the move toward place_xyzs[i]
+    until cube_pin_active (below) actually lets go, then ramps open over
+    GRIP_OPEN_RAMP_S from that real instant. Falls back to the OLD fixed
+    release_i-hold ramp when `release_t` is omitted (kept for callers that
+    don't wire the new state). Generalized from the old single-cube version
+    by looping the SAME per-cube logic over every selected cube's
+    `at_i`/`release_i` phase-name bounds (only one cube's window can be
+    active at a given t, since the phases are sequential/non-overlapping)."""
     for i in range(n_cubes):
         at_key, rel_key = f"at_{i}", f"release_{i}"
         if at_key not in bounds or rel_key not in bounds:
@@ -942,27 +994,74 @@ def right_gripper_opening(t: float, bounds: dict, n_cubes: int) -> float:
         if at_move_end <= t < at_hold_end:
             s = (t - at_move_end) / max(at_hold_end - at_move_end, 1e-6)
             return float(1.0 - np.clip(s, 0.0, 1.0))
-        if at_hold_end <= t < rel_move_end:
-            return 0.0
-        if rel_move_end <= t < rel_hold_end:
-            s = (t - rel_move_end) / max(rel_hold_end - rel_move_end, 1e-6)
-            return float(np.clip(s, 0.0, 1.0))
+        if release_t is not None:
+            if at_hold_end <= t < rel_hold_end:
+                rt = release_t[i]
+                if not np.isnan(rt) and t >= rt:
+                    s = (t - rt) / GRIP_OPEN_RAMP_S
+                    return float(np.clip(s, 0.0, 1.0))
+                return 0.0
+        else:
+            if at_hold_end <= t < rel_move_end:
+                return 0.0
+            if rel_move_end <= t < rel_hold_end:
+                s = (t - rel_move_end) / max(rel_hold_end - rel_move_end, 1e-6)
+                return float(np.clip(s, 0.0, 1.0))
     return 1.0
 
 
-def cube_pin_active(t: float, bounds: dict, n_cubes: int) -> tuple[bool, int | None]:
+def cube_pin_active(t: float, bounds: dict, n_cubes: int, *,
+                     right_ee_xy: np.ndarray | None = None,
+                     place_xy_by_idx: list | None = None,
+                     right_ee_speed: float | None = None,
+                     released: np.ndarray | None = None,
+                     reach_tol: float = REACH_TOL,
+                     speed_tol: float = RELEASE_SPEED_TOL_MS) -> tuple[bool, int | None]:
     """Returns (active, cube_index): cube i's weld is active from its at_i
-    hold-end until its release_i move-start. Generalized from the old
-    single-cube bool-only version -- at most one cube can be active at a
-    given t (phases are sequential), so the first match wins."""
+    hold-end until release. Generalized from the old single-cube bool-only
+    version -- at most one cube can be active at a given t (phases are
+    sequential), so the first match wins.
+
+    PLACEMENT-PRECISION FIX: release is now POSITION-TRIGGERED, not a fixed
+    phase-clock instant. The OLD code deactivated the weld at exactly
+    bounds[f"release_{i}"][0] -- the release_i phase's MOVE-START, i.e.
+    before the arm had even begun heading toward place_xyzs[i] -- regardless
+    of whether the EE ever got there. The candidate window is now extended
+    through the WHOLE release_i phase (at_i hold-end -> release_i hold-end,
+    covering both the move toward place_xyzs[i] and its hold), and within
+    that window (once the move has actually started, t >= release_i's own
+    move-start) the weld deactivates (this function returns False for cube
+    i) as soon as BOTH right_ee_xy is within `reach_tol` of
+    place_xy_by_idx[i] (xy-only) AND right_ee_speed < speed_tol (settling,
+    not still sweeping through the target). If that condition never holds,
+    the window itself still closes at release_i's own hold_end -- a TIMEOUT
+    fallback, so a target the arm can't quite reach under safety-QP
+    deflection still releases eventually and can never hang the demo.
+    `released[i]` (set True by the caller on the actual falling edge, i.e.
+    once this function has returned False for cube i) permanently disables
+    cube i's window afterward, so the EE resting near an already-placed
+    cube's spot can't re-trigger its weld. When right_ee_xy/place_xy_by_idx
+    are omitted, falls back to the ORIGINAL fixed release_i-move-start
+    cutoff (kept for callers that don't wire the new kwargs)."""
     for i in range(n_cubes):
         at_key, rel_key = f"at_{i}", f"release_{i}"
         if at_key not in bounds or rel_key not in bounds:
             break
+        if released is not None and released[i]:
+            continue
         at_hold_end = bounds[at_key][2]
-        rel_move_start = bounds[rel_key][0]
-        if at_hold_end <= t < rel_move_start:
-            return True, i
+        rel_move_start, _rel_move_end, rel_hold_end = bounds[rel_key]
+        if right_ee_xy is None or place_xy_by_idx is None:
+            if at_hold_end <= t < rel_move_start:
+                return True, i
+            continue
+        if at_hold_end <= t < rel_hold_end:
+            if t >= rel_move_start:
+                dist = float(np.linalg.norm(right_ee_xy - place_xy_by_idx[i]))
+                slow = True if right_ee_speed is None else right_ee_speed < speed_tol
+                if dist < reach_tol and slow:
+                    return False, i   # reached + settled -> release now
+            return True, i   # still in-window, not yet released (timeout at rel_hold_end)
     return False, None
 
 
@@ -1060,6 +1159,21 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     left_qposadr, right_qposadr = info["left_qposadr"], info["right_qposadr"]
     left_ee_body, right_ee_body = info["left_ee_body"], info["right_ee_body"]
     cup_body = info["cup_body"]
+
+    # CUP-TILT MEASUREMENT (logging only, not a constraint): world-"up"
+    # expressed in the LEFT EE's local frame at the SETTLED q_lift hold pose
+    # (via a throwaway scratch mj_forward -- SAME "vertical" definition
+    # mpc_fl.FLMPC's own cup-upright rows lazily capture at their first
+    # step()). Used below to log log["left_cup_tilt_rad"] = the cup's actual
+    # tilt off vertical every step (arccos of the world-z component of the
+    # rotated axis), independent of controller -- so run_episode's smoke/eval
+    # callers can verify the cup-upright behavior regardless of whether the
+    # mpc_fl tilt CONSTRAINT is engaged for this run.
+    _tilt_scratch = mujoco.MjData(model)
+    _tilt_scratch.qpos[:] = data.qpos
+    _tilt_scratch.qpos[left_qposadr] = info["q_lift"]
+    mujoco.mj_forward(model, _tilt_scratch)
+    _cup_axis_local_log = _tilt_scratch.xmat[left_ee_body].reshape(3, 3).T @ np.array([0.0, 0.0, 1.0])
     cube_plan = info["cube_plan"]   # list of {body_id, eq_id, name, place_xyz}, one per selected cube (crossing only)
     n_cubes = len(cube_plan)
     track_l, track_r, bounds = info["track_l"], info["track_r"], info["bounds"]
@@ -1113,7 +1227,15 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     # 160ms horizon @ DT=0.005 (v7c's own horizon length).
     fl = None
     if controller == "flmpc" and qp_enabled:
-        fl = mpc_fl.FLMPC(model, NC=4, L=8)
+        # W_POS_EGO lowered from the mpc_fl.FLMPC default (3000 -> 800): the
+        # cup-upright tilt constraint + new cup-arm displacement-leash
+        # constraint (both wired into the fl.step() call below) now do the
+        # job of keeping the cup arm near its hold pose / upright -- via
+        # CONSTRAINTS, not a crude high hold-weight -- so the tracking cost
+        # can be loosened enough for the ego arm to actually cooperate
+        # (yield) with collision avoidance inside the leash. W_VEL_EGO/
+        # W_JERK (smoothness) are left at their FLMPC defaults.
+        fl = mpc_fl.FLMPC(model, NC=4, L=8, W_POS_EGO=800.0)
 
     # CUP-IN-BARRIER FIX: right-arm-vs-cup keypoints, resolved ONCE outside the
     # loop (both are static lists; sim_common.barrier_keypoints is itself
@@ -1159,7 +1281,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             "qp_feasible_left", "qp_feasible_right", "left_qp_deflect_nm",
             "right_qp_deflect_nm", "cup_z", "cube_pinned", "solve_time",
             "spill_risk", "spill_veto", "right_track_t", "left_tilt_t",
-            "right_cup_clearance_m", "left_min_arm_z", "right_min_arm_z"]}
+            "right_cup_clearance_m", "left_min_arm_z", "right_min_arm_z",
+            "left_cup_tilt_rad"]}
     log["left_q"] = np.zeros((n_steps, 6))
     log["right_q"] = np.zeros((n_steps, 6))
     log["left_ee_pos"] = np.zeros((n_steps, 3))
@@ -1175,6 +1298,18 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
 
     weld_active_prev = False  # tracks the cube weld's ACTIVE/INACTIVE edge (see CHANGE 1 below)
     active_cube_idx_prev = None  # which cube_plan[] index the (currently or most-recently) active weld belongs to
+
+    # PLACEMENT-PRECISION FIX state (position-triggered release -- see
+    # cube_pin_active/right_gripper_opening): per-cube xy place targets (for
+    # the reach-tolerance check), a "permanently released" latch (so a cube
+    # already set down can never be re-pinned by a later position match),
+    # the actual release time per cube (drives the gripper-open ramp off the
+    # REAL release instant instead of a fixed phase time), and the previous
+    # step's right-EE position (finite-difference -> measured settling speed).
+    place_xy_by_idx = [c["place_xyz"][:2].copy() for c in cube_plan]
+    released = np.zeros(n_cubes, dtype=bool)
+    release_t = np.full(n_cubes, np.nan)
+    prev_right_ee_pos = None
 
     # MULTI-CUBE placed-cube metric target (crossing only): the center of the
     # place-spot row (see build_episode) -- table_top_z + cube half-extent is
@@ -1200,7 +1335,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         data.ctrl[left_j7] = 0.0
         data.ctrl[left_j8] = 0.0
         if scenario == "crossing":
-            grip_r = right_gripper_opening(t, bounds, n_cubes) if t >= RIGHT_START_T else 1.0
+            grip_r = right_gripper_opening(t, bounds, n_cubes, release_t) if t >= RIGHT_START_T else 1.0
         else:
             grip_r = 1.0   # "spill": right arm just holds home, gripper stays open the whole episode
         bt.set_gripper(data, right_finger_act, grip_r)
@@ -1228,6 +1363,14 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 t_r = right_elapsed if t_r_wall >= 0 else t_r_wall
             else:
                 t_r = t_r_wall
+            # PLACEMENT-PRECISION FIX: measured EE speed (finite-difference of
+            # the ACTUAL simulated right-EE position across control steps, not
+            # the scripted reference) -- the "settling" half of the
+            # position-triggered release gate below.
+            right_ee_pos_now = data.xpos[right_ee_body].copy()
+            right_ee_speed_now = (float(np.linalg.norm(right_ee_pos_now - prev_right_ee_pos) / sc.DT)
+                                   if prev_right_ee_pos is not None else 0.0)
+            prev_right_ee_pos = right_ee_pos_now
             # -- CHANGE 1: cube "magnet" WELD attach (real constraint force),
             # replacing the old scripted-pin reattach_cup_rigidly(...cube...)
             # call. Activate exactly on the rising edge (captures the CURRENT
@@ -1236,9 +1379,24 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             # constraint holds every step via real physics, no per-step teleport.
             # MULTI-CUBE: pin_idx says WHICH cube (cube_plan[] index) is
             # currently held -- at most one at a time, phases are sequential --
-            # so each cube gets its OWN weld eq activated/deactivated in turn. --
+            # so each cube gets its OWN weld eq activated/deactivated in turn.
+            #
+            # PLACEMENT-PRECISION FIX (release gate): the OLD deactivation was
+            # a pure PHASE CLOCK (release_i's own move-START -- before the arm
+            # had even begun heading toward place_xyzs[i]), regardless of
+            # whether the right EE actually got there -- under the FL-MPC's
+            # safety-constraint deflection the arm is often short/wide of the
+            # target, so the cube got released nowhere near its place spot.
+            # NOW: cube_pin_active only lets go once the right EE is within
+            # REACH_TOL of that cube's place_xy AND settling (speed <
+            # RELEASE_SPEED_TOL_MS), with a TIMEOUT fallback at release_i's
+            # own hold_end so a target the arm can't quite reach still
+            # releases (never hangs). --
             if t_r >= 0:
-                pin_now, pin_idx = cube_pin_active(t_r, bounds, n_cubes)
+                pin_now, pin_idx = cube_pin_active(
+                    t_r, bounds, n_cubes, right_ee_xy=right_ee_pos_now[:2],
+                    place_xy_by_idx=place_xy_by_idx, right_ee_speed=right_ee_speed_now,
+                    released=released)
             else:
                 pin_now, pin_idx = False, None
             if pin_now and not weld_active_prev:
@@ -1247,6 +1405,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 active_cube_idx_prev = pin_idx
             elif not pin_now and weld_active_prev:
                 cct.deactivate_weld(data, cube_plan[active_cube_idx_prev]["eq_id"])
+                released[active_cube_idx_prev] = True   # latch: never re-pin this cube (see cube_pin_active)
+                release_t[active_cube_idx_prev] = t      # ACTUAL release time -> gripper-open ramp (see above)
             weld_active_prev = pin_now
             mujoco.mj_forward(model, data)
         else:
@@ -1408,11 +1568,20 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                     model, data, right_table_kps, right_dofadr, M_rr_inv, bias_r,
                     table_top_z, margin=TABLE_FLOOR_MARGIN_M)
                 fl_table_rows = (a_te, b_te, a_ti, b_ti)
+            # CUP-UPRIGHT + CUP-ARM DISPLACEMENT LEASH (both optional
+            # mpc_fl.FLMPC constraint rows -- see that module): keep the cup
+            # vertical (tilt_max_rad) and keep the cup arm's Cartesian
+            # excursion from its hold pose bounded (leash_max_m) while it
+            # yields, instead of relying on a crude high hold-weight (see the
+            # lowered W_POS_EGO at the fl = mpc_fl.FLMPC(...) construction
+            # above).
             tau_l_qp, tau_r_qp, feasible_fl = fl.step(
                 model, data, left_qposadr, left_dofadr, right_qposadr, right_dofadr,
                 q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref, pairs,
                 M_ego_extra=M_box, bias_ego_extra=bias_box,
-                table_rows=fl_table_rows)
+                table_rows=fl_table_rows,
+                left_ee_body=left_ee_body, tilt_max_rad=CUP_TILT_MAX_RAD,
+                leash_ee_body=left_ee_body, leash_max_m=CUP_LEASH_M)
             feasible_l = feasible_r = feasible_fl
             solve_time = time.perf_counter() - t_solve0
         else:
@@ -1562,6 +1731,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         log["left_ee_pos"][k] = data.xpos[left_ee_body]
         log["right_ee_pos"][k] = data.xpos[right_ee_body]
         log["cup_pos"][k] = data.xpos[cup_body]
+        _cup_axis_world_k = data.xmat[left_ee_body].reshape(3, 3) @ _cup_axis_local_log
+        log["left_cup_tilt_rad"][k] = float(np.arccos(np.clip(_cup_axis_world_k[2], -1.0, 1.0)))
 
         if capture and k % capture_stride == 0:
             renderer_main.update_scene(data, camera=cam_main)
@@ -1955,6 +2126,32 @@ def main():
     m_main = summarize(log_main)
     print("[main] metrics:")
     print(json.dumps(m_main, indent=2))
+
+    if args.controller == "flmpc":
+        # CUP-ARM YIELD-REFINEMENT smoke measurement (this task): the cup
+        # EE's Cartesian displacement + tilt should be BOUNDED (leash/tilt
+        # constraints), not glued (~0) nor unbounded. Two displacement
+        # numbers: the literal max||left_ee_pos - left_ee_pos[0]|| over the
+        # WHOLE episode (dominated by the ~11cm initial v4c-path lift ramp,
+        # which happens BEFORE flmpc/its leash even engage -- see the
+        # t_r>=0 gating in the flmpc branch above) and, more meaningfully,
+        # the max displacement from the SETTLED hold pose measured only once
+        # flmpc has actually taken over (t >= RIGHT_START_T) -- what the new
+        # leash constraint (CUP_LEASH_M) actually bounds.
+        ee_pos = log_main["left_ee_pos"]
+        ee_disp_from_t0 = np.linalg.norm(ee_pos - ee_pos[0], axis=1)
+        idx_settle = int(np.searchsorted(log_main["t"], RIGHT_START_T))
+        idx_settle = min(idx_settle, len(ee_pos) - 1)
+        ee_disp_from_hold = np.linalg.norm(ee_pos[idx_settle:] - ee_pos[idx_settle], axis=1)
+        tilt = log_main["left_cup_tilt_rad"]
+        print("[cup-arm yield refinement] smoke measurements:")
+        print(json.dumps(dict(
+            cup_ee_disp_max_from_t0_m=float(np.max(ee_disp_from_t0)),
+            cup_ee_disp_max_from_hold_pose_m=float(np.max(ee_disp_from_hold)),
+            cup_tilt_max_rad_whole_episode=float(np.max(tilt)),
+            cup_tilt_max_rad_after_hold=float(np.max(tilt[idx_settle:])),
+            leash_max_m=CUP_LEASH_M, tilt_max_rad_cfg=CUP_TILT_MAX_RAD,
+        ), indent=2))
 
     print("[baseline] running no-QP baseline (same references, safety filter OFF) for the deflection proof...")
     info_base = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"))  # fresh model/data instance, identical references
