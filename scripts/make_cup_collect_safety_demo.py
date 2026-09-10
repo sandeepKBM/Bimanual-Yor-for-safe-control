@@ -1360,6 +1360,11 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     left_tilt_elapsed = 0.0
     held_veto = False
     held_risk = 0.0
+    # CANONICAL ball-in-cup layout (home-keyframe offsets), used to carry the
+    # balls through the lift; NOT the live post-init positions, which are
+    # already scattered because init's grasp doesn't hold the cup (see
+    # scene_setup.canonical_ball_rel + the SPILL-ORACLE FIX note below).
+    _ball_rel = scene_setup.canonical_ball_rel(model, cup_body)
 
     for k in range(n_steps):
         t = k * sc.DT
@@ -1378,6 +1383,24 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         # -- kinematic reattachment (real cup carry technique; cube only while pinned) --
         scene_setup.reattach_cup_rigidly(model, data, left_ee_body, cup_body,
                                           info["cup_rel_pos0"], info["cup_rel_quat0"])
+
+        # -- SPILL-ORACLE FIX (2026-09-10): carry the balls rigidly WITH the cup
+        # through the initial LIFT phase (t < RIGHT_START_T), then release them.
+        # reattach_cup_rigidly teleports the cup with ZEROED velocity, so a
+        # moving cup sweeps its walls through the loose balls and scatters them
+        # out ("lift-loss") -- which made count_spilled read 6-8/8 balls out
+        # from step 0, corrupting the spill metric (it measured the setup lift,
+        # not the arm-arm dodges). Freezing the balls in the cup through the lift
+        # and releasing them exactly when the crossing/tilt begins
+        # (RIGHT_START_T == LEFT_TILT_START_T) makes count_spilled ~0 at the
+        # start of the measured window, so the spill signal reflects only
+        # DODGE/TILT-induced spill. Balls are ordinary free bodies from
+        # RIGHT_START_T onward. Uses the CANONICAL home-keyframe layout (see
+        # _ball_rel above) because init's grasp doesn't actually hold the cup,
+        # so the balls have already scattered by the time the loop starts --
+        # carrying with the canonical layout forces them back inside.
+        if t < RIGHT_START_T:
+            scene_setup.carry_balls_with_cup(model, data, cup_body, _ball_rel)
 
         # -- spill-aware semantic layer (config="geometric_spill" only): consult the
         # REAL WM monitor at a vision cadence (camera rate << control rate), hold its
