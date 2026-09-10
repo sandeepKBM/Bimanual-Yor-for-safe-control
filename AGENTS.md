@@ -40,12 +40,16 @@ how to *operate* here. Last updated 2026-09-08.
 - Flagship demo: `scripts/make_cup_collect_safety_demo.py --controller {v4c,v7c,flmpc}`.
 
 ## Known failure modes (honest)
-- FL-MPC **QP-infeasibility cliff**: ~7% of randomized runs; binary (feasible→clean,
-  infeasible→arm flung + collision + spill). It is **speed/horizon-governed, NOT
-  torque-limited** (40↔100 Nm identical; slowing 0.28→0.05 m/s cut it 21%→3%). Fix =
-  slack/safety-descent fallback + longer horizon/margin, not stronger actuators. See
-  memory `flmpc-qp-infeasibility-cliff`.
-- **Spill** is geometry-blind → the WM/latent-value shield's job, never the geometric QP.
+- FL-MPC **QP-infeasibility cliff**: RESOLVED (2026-09-09/10, commit adfa03e). The
+  graceful slack-QP fallback (mpc_fl.FLMPC `_relaxed_fallback` = slacken ONLY the
+  collision rows, torque box kept HARD; `_torque_safe_scale` closed-form backstop)
+  collapses it: collision **15%→0/50**, fling 7.45→1.80 m/s. It had been silently
+  bypassed — `make_cup_collect_safety_demo.run_episode` overrode fl.step's torque with
+  the crude `bias-INFEAS_BRAKE_KD*qvel` brake on infeasible steps (now skipped for
+  `flmpc`; v4c still uses it, no internal handler). Lesson: a controller's internal
+  fallback is worthless if the driver clobbers its output — check the call site.
+- **Spill** is geometry-blind → the WM/latent-value shield's job, never the geometric QP
+  (unchanged at 46/50 even with 0 collisions).
 
 ## Parallel sweeps
 - `--no-video` runs are CPU-only. Use ~78% of cores (72→56 workers). **Pin threads**:
