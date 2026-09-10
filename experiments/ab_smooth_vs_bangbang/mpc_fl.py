@@ -204,7 +204,10 @@ class FLMPC:
                  R_ACC=1e-4, W_JERK=1e-3, K_PAIRS=4, H_MARGIN=0.02,
                  coll_stride=2, a_box=800.0,
                  left_ee_body=None, tilt_max_rad=None,
-                 leash_ee_body=None, leash_max_m=None):
+                 leash_ee_body=None, leash_max_m=None,
+                 qp_fallback_rho=1.0e5, qp_fallback_eps=1.0e-3, qp_fallback_smax=5.0,
+                 adaptive_yield=False, H_MARGIN_URGENT=0.06, URGENCY_HDOT_REF=0.15,
+                 W_POS_EGO_MIN=None, LEASH_MAX_URGENT_M=None, CUP_TILT_SAFE_FRAC=0.6):
         self.model = model
         self.NC, self.L, self.NV = NC, L, NV
         self.NP = NC * L
@@ -215,6 +218,14 @@ class FLMPC:
         self.H_MARGIN = H_MARGIN
         self.coll_stride = coll_stride
         self.a_box = a_box
+        # --- GRACEFUL QP-INFEASIBILITY FALLBACK config (see step()'s
+        # docstring + `_relaxed_fallback` below for the full rationale). Only
+        # used on a step where the HARD QP reports feasible=False; feasible
+        # steps are completely unaffected (bit-identical to before this
+        # fallback was added). ---
+        self.RHO_SLACK = float(qp_fallback_rho)
+        self.EPS_SLACK = float(qp_fallback_eps)
+        self.S_MAX = float(qp_fallback_smax)
         self.cq, self.cqd = di_coeffs(NC, L, self.NP, self.DT)
         self.n_blk = NC * NV
         self.a_ego_prev = np.zeros(NV)
@@ -247,6 +258,101 @@ class FLMPC:
         self.leash_ee_body = leash_ee_body
         self.leash_max_m = leash_max_m
 
+        # --- ADAPTIVE COOPERATIVE YIELDING (optional, default OFF --
+        # adaptive_yield=False reproduces EXACTLY the prior behavior: no
+        # extra branches taken in step(), H_MARGIN/W_POS_EGO/leash_max_m
+        # used unmodified). See step()'s docstring for the full derivation;
+        # summary of the two mechanisms below (2026-09-09 review note /
+        # flmpc-adaptive-yield, motivated by the flmpc-qp-infeasibility-
+        # cliff note in this module's docstring: sweeps showed collisions
+        # come from the anticipatory clearance rows going QP-infeasible in
+        # crowded geometry, and once infeasible a collision is essentially
+        # unavoidable -- the fallback only softens the torque, it can't
+        # regain clearance. The rate-lever that fixed this in the sweep was
+        # SLOWING DOWN, i.e. giving the rows more margin/time to react before
+        # the pair actually closes -- this adaptive layer buys the same
+        # effect locally/on-demand instead of globally, by widening the
+        # margin (and, for the cup arm specifically, its willingness to move)
+        # exactly when a pair is closing fast and clearance is running out).
+        #
+        # (1) URGENCY u in [0,1], from the WORST (nearest) of the K_PAIRS
+        #     pairs already selected below in step() -- pairs[0] after the
+        #     existing `sorted(pairs_all, key=lambda p: p["h"])[:K_PAIRS]`
+        #     (global closest, since sorting-then-truncating preserves the
+        #     global min at index 0). Two independent axes, multiplied so
+        #     BOTH "close" and "closing fast" are required (matches the task
+        #     spec: high h0 or hdot>=0 (separating/stationary) => u=0):
+        #       u_h    = clip((H_MARGIN_URGENT - h0) / (H_MARGIN_URGENT - H_MARGIN), 0, 1)
+        #                -- 0 once h0 reaches the "urgent" band H_MARGIN_URGENT,
+        #                1 once h0 has shrunk down to (or past) the BASE
+        #                margin H_MARGIN (i.e. already at/through the normal
+        #                anticipatory threshold -- the edge of the
+        #                infeasibility cliff).
+        #       u_rate = clip(max(0, -hdot) / URGENCY_HDOT_REF, 0, 1)
+        #                -- 0 when the pair isn't closing (hdot>=0); ramps to
+        #                1 as the closing speed reaches URGENCY_HDOT_REF [m/s].
+        #       u      = u_h * u_rate
+        #     hdot itself: use the pair's own precomputed `hdot` field
+        #     (sim_common.all_pair_barriers already returns it -- n@(v_ego-
+        #     v_int)) when present; else recompute it from the pair's own
+        #     n/v_ego/v_int (also always present in that dict); else (some
+        #     other caller's pair dict has neither) fall back to a
+        #     finite-difference estimate from the PREVIOUS step's worst h0
+        #     (self._prev_worst_h0, an approximation across possibly-
+        #     different physical pairs -- last resort only); else 0 (treat as
+        #     not closing -- never fabricates urgency from missing data).
+        #
+        # (2) H_MARGIN_eff = H_MARGIN + u*(H_MARGIN_URGENT - H_MARGIN):
+        #     the SAME scalar `_assemble_fl` already takes as its `H_MARGIN`
+        #     argument (kernel untouched -- this just swaps which Python
+        #     float gets passed in, exactly like the fallback/tilt/leash
+        #     rows already do their work in plain Python around the kernel).
+        #     Bounded in [H_MARGIN, H_MARGIN_URGENT] by construction (u in
+        #     [0,1]) -- pushes BOTH arms apart earlier/harder as a pair
+        #     closes fast, before the hard-infeasible corner is entered.
+        #
+        # (3) ADAPTIVE CUP SHARE: how much of that yielding falls on the CUP
+        #     (ego/left) arm vs the collecting (int/right) arm, via a single
+        #     gain g = u*(1 - tilt_frac) in [0,1] (tilt_frac below):
+        #       W_pos_ego_eff = W_POS_EGO - g*(W_POS_EGO - W_POS_EGO_MIN)
+        #         -- lowers the cup arm's hold-tracking weight (so its own
+        #         acceleration is cheaper for the joint QP to spend on
+        #         yielding) as urgency rises; None (default) => disabled,
+        #         W_pos_ego_eff == W_POS_EGO always (byte-identical).
+        #       leash_max_eff = leash_max_m + g*(LEASH_MAX_URGENT_M - leash_max_m)
+        #         -- enlarges how far the cup EE may wander from its hold
+        #         pose while urgency is high; None (default, or leash not
+        #         configured at all) => disabled, leash_max_eff == leash_max_m.
+        #     tilt_frac = clip(||tilt0|| / (CUP_TILT_SAFE_FRAC * tilt_max_rad), 0, 1)
+        #     -- 0 (cup comfortably upright) => g == u (full urgency-driven
+        #     loosening); ramps to 1 (cup already tilted past
+        #     CUP_TILT_SAFE_FRAC of its hard bound) => g -> 0, so
+        #     W_pos_ego_eff/leash_max_eff relax back toward their BASELINE
+        #     (never below -- g in [0,1] makes both effective values a
+        #     convex combination of the baseline and the loosened bound), i.e.
+        #     the cup arm reverts to holding and the collecting arm does more
+        #     of the yielding. If the cup-upright constraint isn't engaged
+        #     (left_ee_body/tilt_max_rad both None) tilt_frac defaults to 0
+        #     (no tilt signal => assume safe, g == u) rather than blocking the
+        #     margin-only adaptation.
+        #
+        # All of (1)-(3) collapse to a no-op when adaptive_yield=False (the
+        # default) or when the relevant *_MIN/*_URGENT_M kwarg is left None
+        # -- existing callers (run_ab7.py, this module's own _warmup, any
+        # caller that doesn't pass these new kwargs) see EXACTLY the prior
+        # behavior. ---
+        self.adaptive_yield = bool(adaptive_yield)
+        self.H_MARGIN_URGENT = float(H_MARGIN_URGENT)
+        self.URGENCY_HDOT_REF = float(URGENCY_HDOT_REF)
+        self.W_POS_EGO_MIN = None if W_POS_EGO_MIN is None else float(W_POS_EGO_MIN)
+        self.LEASH_MAX_URGENT_M = None if LEASH_MAX_URGENT_M is None else float(LEASH_MAX_URGENT_M)
+        self.CUP_TILT_SAFE_FRAC = float(CUP_TILT_SAFE_FRAC)
+        self._prev_worst_h0 = None          # finite-difference hdot fallback only
+        self.last_urgency = 0.0             # u, for introspection/logging only
+        self.last_cup_share_gain = 0.0       # g, for introspection/logging only
+        self.last_H_MARGIN_eff = self.H_MARGIN
+        self.last_W_pos_ego_eff = self.W['pe']
+
         # --- numba precompute (see module docstring): Phi_q(t)/Phi_qd(t) are
         # CONSTANT -- build the full stacked tensors ONCE, by calling the
         # original per-t methods once each (so the cache is bit-identical to
@@ -276,6 +382,77 @@ class FLMPC:
         for b in range(NC):
             Phi[:, b * NV:(b + 1) * NV] = self.cqd[t, b] * np.eye(NV)
         return Phi
+
+    def _relaxed_fallback(self, H, f, lower, upper, a_ineq, b_ineq, m_coll):
+        """GRACEFUL QP-INFEASIBILITY FALLBACK (see step()'s docstring). Called
+        ONLY when the hard QP built in step() reports feasible=False (the
+        collision-clearance rows + the hard torque-box rows have no common
+        solution -- see the module's 2026-09-08 review note /
+        flmpc-qp-infeasibility-cliff: this is the FL-MPC's only failure mode,
+        and the OLD handling (using solve_constrained_box_qp's own
+        infeasible-problem `x`, which the dual ascent has driven to whatever
+        extreme point best fights the unsatisfiable row -- still inside the
+        acceleration box, but the resulting REALIZED torque tau=M@a+c is NOT
+        box-limited and can wildly exceed TAU_MAX) is what flings the arm.
+
+        Formulation chosen: SLACKEN ONLY THE COLLISION-CLEARANCE ROWS (the
+        leading `m_coll` rows of a_ineq/b_ineq -- see _assemble_fl's
+        docstring for the row order: collision rows first, then the torque
+        box, then step()'s optional cup-tilt/leash/table rows). Augment the
+        decision vector with ONE nonnegative slack s_k per collision row and
+        turn each hard row `a_k @ x <= b_k` into the always-satisfiable
+        `a_k @ x - s_k <= b_k` (s_k IS that row's clearance-constraint
+        violation, in the row's own units, if x can't satisfy it outright).
+        ALL other rows (torque box, cup-tilt, leash, table-floor) are passed
+        through completely UNCHANGED -- hard, never relaxed -- so the torque
+        box is enforced exactly as strictly as on a feasible step; the
+        actuator limit is never the thing that gets traded away.
+
+        Cost added on top of the ORIGINAL tracking/effort/jerk cost (H, f,
+        unchanged): RHO_SLACK*sum(s) [linear -- LARGE, dominates the
+        tracking-cost gradients, so the solver strongly prefers reducing the
+        worst clearance violation over tracking the reference -- this is what
+        makes the result "best clearance-improving" rather than merely
+        "won't fling"] + EPS_SLACK*sum(s^2) [tiny quadratic term, purely so
+        the augmented Hessian block on the slack columns is > 0 for the inner
+        box-QP's projected-gradient iteration; negligible next to
+        RHO_SLACK*s for any s worth mentioning]. Because a slack can always
+        absorb any positive `a_k@x - b_k` (S_MAX is generous -- far above any
+        one-step clearance violation this controller would ever see), the
+        AUGMENTED problem is feasible whenever the HARD rows alone (torque
+        box + optional tilt/leash/table) are jointly satisfiable by SOME x in
+        the box -- which is the normal case (a=0 always clears the torque
+        box for a physically-reachable M(q),c(q,q̇); the optional rows are
+        satisfied at the drift trajectory in every case exercised so far).
+        On the vanishingly rare case that even THAT fails, step() itself
+        falls back one level further, to a=0 (see step()'s tail).
+
+        Returns (x, feasible2): x has the ORIGINAL `ntot` dims (the slack
+        columns are dropped before returning -- callers never see them),
+        feasible2 is solve_constrained_box_qp's own feasibility flag on the
+        AUGMENTED problem."""
+        ntot = H.shape[0]
+        m_total = a_ineq.shape[0]
+        aug_n = ntot + m_coll
+
+        H_aug = np.zeros((aug_n, aug_n))
+        H_aug[:ntot, :ntot] = H
+        for j in range(m_coll):
+            H_aug[ntot + j, ntot + j] = 2.0 * self.EPS_SLACK
+        f_aug = np.concatenate([f, self.RHO_SLACK * np.ones(m_coll)])
+
+        lower_aug = np.concatenate([lower, np.zeros(m_coll)])
+        upper_aug = np.concatenate([upper, self.S_MAX * np.ones(m_coll)])
+
+        a_aug = np.zeros((m_total, aug_n))
+        a_aug[:, :ntot] = a_ineq
+        for j in range(m_coll):
+            a_aug[j, ntot + j] = -1.0   # a_k@x - s_k <= b_k, collision rows only
+        b_aug = b_ineq
+
+        y, _, feasible2 = sc.solve_constrained_box_qp(H_aug, f_aug, lower_aug, upper_aug,
+                                                        a_aug, b_aug)
+        return y[:ntot], bool(feasible2)
 
     def _warmup(self):
         """Trigger numba JIT compilation of `_assemble_fl` ONCE, here at
@@ -360,6 +537,66 @@ class FLMPC:
         Ji_arr = np.stack([p["Ji"] for p in pairs])
         h0_arr = np.array([p["h"] for p in pairs])
 
+        # --- ADAPTIVE COOPERATIVE YIELDING (optional, default OFF -- see
+        # __init__'s docstring for the full derivation/rationale). Computed
+        # here, in plain Python, from the SAME worst (nearest) pair the
+        # kernel's clearance rows use below (pairs[0] -- global closest,
+        # since `pairs` is already sorted-then-truncated above), BEFORE the
+        # numba kernel call, so H_MARGIN_eff/W_pe_eff can be fed straight
+        # into it. adaptive_yield=False (default) => u=g=0, H_MARGIN_eff==
+        # self.H_MARGIN, W_pe_eff==self.W['pe'] exactly -- byte-identical to
+        # the pre-adaptive kernel call. ---
+        u = 0.0
+        H_MARGIN_eff = self.H_MARGIN
+        if self.adaptive_yield and len(pairs) > 0:
+            worst = pairs[0]
+            h0_worst = float(worst["h"])
+            if "hdot" in worst:
+                hdot_worst = float(worst["hdot"])
+            elif "n" in worst and "v_ego" in worst and "v_int" in worst:
+                hdot_worst = float(worst["n"] @ (worst["v_ego"] - worst["v_int"]))
+            elif self._prev_worst_h0 is not None:
+                hdot_worst = (h0_worst - self._prev_worst_h0) / DT
+            else:
+                hdot_worst = 0.0
+            self._prev_worst_h0 = h0_worst
+            denom_h = max(self.H_MARGIN_URGENT - self.H_MARGIN, 1e-9)
+            u_h = float(np.clip((self.H_MARGIN_URGENT - h0_worst) / denom_h, 0.0, 1.0))
+            u_rate = float(np.clip(max(0.0, -hdot_worst) / max(self.URGENCY_HDOT_REF, 1e-9), 0.0, 1.0))
+            u = u_h * u_rate
+            H_MARGIN_eff = self.H_MARGIN + u * (self.H_MARGIN_URGENT - self.H_MARGIN)
+        self.last_urgency = u
+        self.last_H_MARGIN_eff = H_MARGIN_eff
+
+        # ADAPTIVE CUP SHARE gain g = u*(1-tilt_frac) -- needs a tilt-
+        # magnitude read on the cup (left) EE, computed the SAME way block
+        # (3) below computes its `tilt0` constraint-row anchor (and caches
+        # self._cup_axis_local so block (3) does not recapture it); done
+        # here only to feed g, block (3) still builds the actual tilt rows.
+        g = 0.0
+        tilt0_now = None
+        ee_body_early = left_ee_body if left_ee_body is not None else self.left_ee_body
+        tilt_max_early = tilt_max_rad if tilt_max_rad is not None else self.tilt_max_rad
+        if self.adaptive_yield and ee_body_early is not None and tilt_max_early is not None:
+            if self._cup_axis_local is None:
+                R_ee0 = data.xmat[ee_body_early].reshape(3, 3).copy()
+                self._cup_axis_local = R_ee0.T @ np.array([0.0, 0.0, 1.0])
+            R_ee = data.xmat[ee_body_early].reshape(3, 3)
+            cup_axis_world = R_ee @ self._cup_axis_local
+            tilt0_now = np.array([-cup_axis_world[1], cup_axis_world[0]])
+        if self.adaptive_yield:
+            tilt_frac = 0.0
+            if tilt0_now is not None and tilt_max_early:
+                tilt_frac = float(np.clip(
+                    np.linalg.norm(tilt0_now) / (self.CUP_TILT_SAFE_FRAC * tilt_max_early), 0.0, 1.0))
+            g = float(np.clip(u * (1.0 - tilt_frac), 0.0, 1.0))
+        self.last_cup_share_gain = g
+
+        W_pe_eff = self.W['pe']
+        if self.adaptive_yield and self.W_POS_EGO_MIN is not None:
+            W_pe_eff = self.W['pe'] - g * (self.W['pe'] - self.W_POS_EGO_MIN)
+        self.last_W_pos_ego_eff = W_pe_eff
+
         # --- numba-assembled: tracking cost + effort/jerk cost + (1)
         # anticipatory clearance rows + (2) torque-box rows. ---
         H, f, a_ineq, b_ineq = _assemble_fl(
@@ -371,8 +608,8 @@ class FLMPC:
             qd0_e, qd0_i, tvec,
             M_e, c_e, M_i, c_i,
             NC, NV, n_blk,
-            self.W['pe'], self.W['ve'], self.W['pi'], self.W['vi'], self.W['r'], self.W['j'],
-            self.H_MARGIN, sc.TAU_MAX)
+            W_pe_eff, self.W['ve'], self.W['pi'], self.W['vi'], self.W['r'], self.W['j'],
+            H_MARGIN_eff, sc.TAU_MAX)
 
         # --- (3) CUP-UPRIGHT (optional, plain Python -- cheap/default-off):
         # bound the LEFT EE's predicted small-rotation about world x,y over a
@@ -389,18 +626,27 @@ class FLMPC:
         ee_body = left_ee_body if left_ee_body is not None else self.left_ee_body
         tilt_max = tilt_max_rad if tilt_max_rad is not None else self.tilt_max_rad
         if ee_body is not None and tilt_max is not None:
-            if self._cup_axis_local is None:
-                # capture world-"up" in the EE's local frame ONCE, at whatever
-                # orientation the EE has on this first call -- this defines
-                # "vertical" (tilt0=0 there) for every later call.
-                R_ee0 = data.xmat[ee_body].reshape(3, 3).copy()
-                self._cup_axis_local = R_ee0.T @ np.array([0.0, 0.0, 1.0])
-            R_ee = data.xmat[ee_body].reshape(3, 3)
-            cup_axis_world = R_ee @ self._cup_axis_local
-            # small-angle rotation vector (world x,y) taking world-up "up" to
-            # the EE's CURRENT cup axis "b": b ~= up + omega x up, so with
-            # up=[0,0,1]:  omega_x = -b_y,  omega_y = b_x.
-            tilt0 = np.array([-cup_axis_world[1], cup_axis_world[0]])
+            if tilt0_now is not None:
+                # already computed above in the ADAPTIVE COOPERATIVE YIELDING
+                # block (same ee_body/tilt_max resolution) -- reuse rather
+                # than recapturing/recomputing; bit-identical to recomputing
+                # it here (tilt0_now is None whenever adaptive_yield=False,
+                # so that case falls through to the original computation
+                # below unchanged).
+                tilt0 = tilt0_now
+            else:
+                if self._cup_axis_local is None:
+                    # capture world-"up" in the EE's local frame ONCE, at whatever
+                    # orientation the EE has on this first call -- this defines
+                    # "vertical" (tilt0=0 there) for every later call.
+                    R_ee0 = data.xmat[ee_body].reshape(3, 3).copy()
+                    self._cup_axis_local = R_ee0.T @ np.array([0.0, 0.0, 1.0])
+                R_ee = data.xmat[ee_body].reshape(3, 3)
+                cup_axis_world = R_ee @ self._cup_axis_local
+                # small-angle rotation vector (world x,y) taking world-up "up" to
+                # the EE's CURRENT cup axis "b": b ~= up + omega x up, so with
+                # up=[0,0,1]:  omega_x = -b_y,  omega_y = b_x.
+                tilt0 = np.array([-cup_axis_world[1], cup_axis_world[0]])
             Jr_ee = sc.body_jac_full(model, data, ee_body)[1][:, left_dofadr]  # (3,NV) at t=0
             for t in self.tilt_steps:   # a few horizon steps (block boundaries)
                 Aq = self.Phi_q_all[t]
@@ -433,6 +679,15 @@ class FLMPC:
         # (3) above.
         leash_body = leash_ee_body if leash_ee_body is not None else self.leash_ee_body
         leash_max = leash_max_m if leash_max_m is not None else self.leash_max_m
+        # ADAPTIVE CUP SHARE (leash half): enlarge the leash toward
+        # LEASH_MAX_URGENT_M by the SAME gain `g` used for W_pe_eff above, so
+        # the cup arm is allowed to wander further from its hold pose (help
+        # avoid) exactly when urgency is high and the cup is not already
+        # near its tilt bound. Disabled (leash_max_eff == leash_max exactly)
+        # unless adaptive_yield AND LEASH_MAX_URGENT_M is configured.
+        leash_max_eff = leash_max
+        if self.adaptive_yield and leash_max is not None and self.LEASH_MAX_URGENT_M is not None:
+            leash_max_eff = leash_max + g * (self.LEASH_MAX_URGENT_M - leash_max)
         if leash_body is not None and leash_max is not None:
             Jp_leash = sc.body_jac_full(model, data, leash_body)[0][:, left_dofadr]  # (3,NV) at t=0
             hold_e = q_ego_ref[0]
@@ -443,9 +698,9 @@ class FLMPC:
                 for ax in range(3):   # world x, y, z
                     row_coef = JA[ax]
                     r_up = np.zeros(ntot); r_up[eslice] = row_coef
-                    extra_a.append(r_up); extra_b.append(leash_max - const_t[ax])
+                    extra_a.append(r_up); extra_b.append(leash_max_eff - const_t[ax])
                     r_lo = np.zeros(ntot); r_lo[eslice] = -row_coef
-                    extra_a.append(r_lo); extra_b.append(leash_max + const_t[ax])
+                    extra_a.append(r_lo); extra_b.append(leash_max_eff + const_t[ax])
 
         # --- (5) TABLE FLOOR (optional, plain Python -- cheap/default-off,
         # table_rows=None default so existing callers/tests are unaffected).
@@ -477,11 +732,80 @@ class FLMPC:
         x, _, feasible = sc.solve_constrained_box_qp(H, f, lower, upper, a_ineq, b_ineq)
         self.last_feasible = bool(feasible)
 
+        if not feasible:
+            # GRACEFUL QP-INFEASIBILITY FALLBACK (see _relaxed_fallback's
+            # docstring + the module docstring's 2026-09-08 review note /
+            # flmpc-qp-infeasibility-cliff). `x` above is the RAW dual-ascent
+            # result on an infeasible problem -- still inside the
+            # acceleration box, but NOT torque-box-consistent (the dual
+            # ascent pushed it to whatever extreme point best fights the
+            # unsatisfiable collision row; tau=M@a+c from that point can
+            # wildly exceed TAU_MAX -- this is the fling). Discard it and
+            # re-solve the collision-clearance-relaxed problem instead, which
+            # keeps the torque box HARD and returns the least-clearance-
+            # violating torque within it.
+            m_coll = int(n_arr.shape[0]) * int(self.coll_steps.shape[0])
+            x_relaxed, feasible2 = self._relaxed_fallback(H, f, lower, upper, a_ineq, b_ineq, m_coll)
+            if feasible2:
+                x = x_relaxed
+            else:
+                # Ultimate fallback (should essentially never fire -- see
+                # _relaxed_fallback's docstring for when it could): command
+                # ZERO acceleration. tau = c_e/c_i then is pure
+                # gravity/Coriolis/damping compensation, which trivially
+                # satisfies the (state-consistent-by-construction) torque
+                # box and adds no directional effort at all -- never flings,
+                # never amplifies velocity, though it no longer actively
+                # improves clearance either.
+                x = np.zeros(ntot)
+
         a_e0 = x[0:NV].copy()
         a_i0 = x[n_blk:n_blk + NV].copy()
+        if not feasible:
+            # FINAL EXACT TORQUE-BOX BACKSTOP (defense in depth). The
+            # relaxed-fallback QP above enforces the torque-box rows only to
+            # solve_constrained_box_qp's own numerical tolerance (bounded
+            # dual-ascent bisection) -- on the larger AUGMENTED problem, at
+            # high joint velocity/bias torque this was observed (smoke test)
+            # to occasionally clear TAU_MAX by a fraction of a percent.
+            # "Never exceed the torque box" is this fallback's top priority,
+            # so exactly clamp with a closed-form scale-toward-zero:
+            # tau(lambda) = c + lambda*(M@a0) is AFFINE in lambda, and
+            # lambda=0 (a0=0, tau=c) is, by construction, the torque-box-
+            # feasible point every physically-reachable state admits -- so
+            # the largest lambda in [0,1] keeping every joint's
+            # |tau(lambda)|<=TAU_MAX is exact and cheap (no re-solve). This
+            # can only SHRINK the fallback's commanded acceleration toward
+            # zero (never redirect/amplify it), so it tightens the torque
+            # guarantee to exact without undoing the fallback's
+            # "improve clearance, don't fling" property.
+            a_e0 = self._torque_safe_scale(M_e, c_e, a_e0, sc.TAU_MAX)
+            a_i0 = self._torque_safe_scale(M_i, c_i, a_i0, sc.TAU_MAX)
         self.a_ego_prev = a_e0.copy()
         self.a_int_prev = a_i0.copy()
         # realize the feedback-linearizing torque
         tau_e = M_e @ a_e0 + c_e
         tau_i = M_i @ a_i0 + c_i
         return tau_e, tau_i, bool(feasible)
+
+    @staticmethod
+    def _torque_safe_scale(M_arm, c_arm, a0, tau_max):
+        """Largest lambda in [0,1] such that |c_arm + lambda*(M_arm@a0)| <=
+        tau_max componentwise -- exact closed form (tau(lambda) is affine in
+        lambda; lambda=0 gives tau=c_arm, the pure gravity/Coriolis/damping
+        hold torque, torque-box-feasible for any physically-reachable state).
+        Returns lambda*a0 (a scaled-down copy of a0 -- never a different
+        direction, so it cannot flip the fallback's clearance-improving
+        acceleration into a clearance-worsening one, only shrink its
+        magnitude toward the always-safe a=0 point)."""
+        delta = M_arm @ a0
+        lam = 1.0
+        for j in range(delta.shape[0]):
+            d = float(delta[j])
+            if d == 0.0:
+                continue
+            lam_j = ((tau_max - c_arm[j]) / d) if d > 0.0 else ((-tau_max - c_arm[j]) / d)
+            if lam_j < lam:
+                lam = lam_j
+        lam = max(0.0, min(1.0, lam))
+        return lam * a0

@@ -740,8 +740,14 @@ def select_crossing_cubes(model, data, n_cubes: int = N_CUBES,
 # ---------------------------------------------------------------------------
 # Setup: model + grasp + IK-solved references (done ONCE, before the loop).
 # ---------------------------------------------------------------------------
-def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: bool = True, cup_jitter_m: float = 0.0):
+def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: bool = True, cup_jitter_m: float = 0.0,
+                   n_cubes: int | None = None):
+    """n_cubes: SMOKE-TEST ONLY override for the number of crossing cubes
+    (default None -> module constant N_CUBES=6, unchanged). Passed straight
+    through to select_crossing_cubes below; a smaller n_cubes (e.g. 3) makes
+    for a shorter/harder-to-clear crossing scenario in a quick sweep."""
     assert scenario in SCENARIO_CHOICES, f"unknown scenario {scenario!r}"
+    n_cubes_eff = N_CUBES if n_cubes is None else int(n_cubes)
 
     selected_cube_names = None
     if scenario == "crossing":
@@ -749,7 +755,7 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
         # docstring for why cube selection must happen BEFORE the real model load.
         _pre_model, _pre_data0 = cct.load_yor_cup_collect_model(keep_zone_marker=False)  # throwaway; skip the marker geom
         _pre_data = scene_setup.init_cup_grasped_state(_pre_model, seed=seed, cup_jitter_m=cup_jitter_m)
-        selected_cube_names = select_crossing_cubes(_pre_model, _pre_data, n_cubes=N_CUBES)
+        selected_cube_names = select_crossing_cubes(_pre_model, _pre_data, n_cubes=n_cubes_eff)
         del _pre_model, _pre_data0, _pre_data
 
     # CHANGE 1: the cube(s) are picked up via a WELD "magnet" attach (real
@@ -1074,7 +1080,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 capture_stride: int = 5, cam_main=None, cam_zed_size: int = 96,
                 spill_monitor=None, vision_cadence_steps: int = VISION_CADENCE_STEPS,
                 max_steps: int | None = None, cup_in_barrier: bool = True, table_floor: bool = True,
-                ee_speed_limit: bool = True):
+                ee_speed_limit: bool = True, adaptive_yield: bool = False):
     """spill_monitor=None -> byte-identical to the original (geometric_only)
     loop: t_r is the plain wall-clock-relative right-arm time, no freeze.
     spill_monitor=<RealWMSpillMonitor> -> config="geometric_spill": the WM
@@ -1235,7 +1241,27 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         # can be loosened enough for the ego arm to actually cooperate
         # (yield) with collision avoidance inside the leash. W_VEL_EGO/
         # W_JERK (smoothness) are left at their FLMPC defaults.
-        fl = mpc_fl.FLMPC(model, NC=4, L=8, W_POS_EGO=800.0)
+        #
+        # ADAPTIVE COOPERATIVE YIELDING (this task, default OFF -- see
+        # mpc_fl.FLMPC's __init__ docstring for the full derivation): when
+        # adaptive_yield=True, the anticipatory clearance margin widens
+        # (0.02 -> up to 0.06 m) as the worst pair closes fast, so both arms
+        # yield EARLIER and the anticipatory-clearance QP rows stay feasible
+        # more often (the actual rate-lever -- avoiding the QP-infeasibility
+        # cliff, not a fallback that only softens it); the cup(ego) arm's
+        # share of that yielding is separately modulated by the SAME urgency
+        # signal AND the live cup tilt (W_POS_EGO_MIN/LEASH_MAX_URGENT_M
+        # loosen the cup arm's hold weight/leash toward these bounds when
+        # urgency is high and the cup is upright, and revert toward the
+        # 800.0/CUP_LEASH_M baseline above as tilt approaches
+        # CUP_TILT_SAFE_FRAC of CUP_TILT_MAX_RAD). Off by default -> exactly
+        # the prior fl = mpc_fl.FLMPC(model, NC=4, L=8, W_POS_EGO=800.0)
+        # behavior (adaptive_yield=False is FLMPC's own default too).
+        fl_kwargs = dict(NC=4, L=8, W_POS_EGO=800.0)
+        if adaptive_yield:
+            fl_kwargs.update(adaptive_yield=True, H_MARGIN_URGENT=0.06, URGENCY_HDOT_REF=0.15,
+                              W_POS_EGO_MIN=200.0, LEASH_MAX_URGENT_M=0.14, CUP_TILT_SAFE_FRAC=0.6)
+        fl = mpc_fl.FLMPC(model, **fl_kwargs)
 
     # CUP-IN-BARRIER FIX: right-arm-vs-cup keypoints, resolved ONCE outside the
     # loop (both are static lists; sim_common.barrier_keypoints is itself
@@ -1666,9 +1692,23 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         # the box, brake the arm (gravity/coriolis comp + velocity damping) rather
         # than apply the least-violating QP torque, which otherwise destabilizes
         # the arm and flings the held cup. With the slowed crossing this rarely fires.
-        if not feasible_l:
+        #
+        # IMPORTANT (2026-09-09): the FL-MPC controller (`flmpc`) already runs its
+        # OWN graceful QP-infeasibility fallback INTERNALLY -- mpc_fl.FLMPC.step's
+        # `_relaxed_fallback` (slack-softened collision rows, torque box kept HARD)
+        # + `_torque_safe_scale` closed-form backstop -- and RETURNS a
+        # least-clearance-violating, torque-box-consistent tau on an infeasible
+        # step (see mpc_fl.py). Overwriting that here with the crude
+        # `bias - INFEAS_BRAKE_KD*qvel` brake would THROW AWAY that graceful
+        # fallback (it was doing exactly that in every prior sweep -- the reason
+        # the graceful fallback appeared not to move the collision rate). So for
+        # `flmpc` we KEEP the controller's own returned torque. The reactive v4c
+        # (`v7c`/default) branch has no internal graceful handler, so it still
+        # uses this brake.
+        _ctrl_has_graceful_fallback = (controller == "flmpc")
+        if not feasible_l and not _ctrl_has_graceful_fallback:
             tau_l_qp = bias_l - INFEAS_BRAKE_KD * data.qvel[left_dofadr]
-        if not feasible_r:
+        if not feasible_r and not _ctrl_has_graceful_fallback:
             tau_r_qp = bias_r - INFEAS_BRAKE_KD * data.qvel[right_dofadr]
 
         left_deflect = float(np.linalg.norm(tau_l_qp - np.clip(tau_task_l, -sc.TAU_MAX, sc.TAU_MAX)))
@@ -2064,6 +2104,19 @@ def main():
                          help="comma-separated cube body names to force the pick set, e.g. "
                               "'cube_3,cube_4,cube_5' (default: auto-select the N_CUBES farthest-from-cup "
                               "IK-reachable). Still IK-filtered; order kept.")
+    parser.add_argument("--cup-jitter-m", type=float, default=0.0,
+                         help="SMOKE ONLY: per-episode randomized cup placement jitter [m] "
+                              "(scene_setup.init_cup_grasped_state's cup_jitter_m; default 0.0, unchanged).")
+    parser.add_argument("--n-cubes", type=int, default=None,
+                         help="SMOKE ONLY: override the number of crossing cubes (default: module constant "
+                              "N_CUBES=6, unchanged).")
+    parser.add_argument("--adaptive-yield", choices=("on", "off"), default="off",
+                         help="--controller flmpc only: on (this task's ADAPTIVE COOPERATIVE YIELDING -- see "
+                              "mpc_fl.FLMPC's __init__ docstring): widens the anticipatory clearance margin "
+                              "as the worst pair closes fast (avoids the QP-infeasibility cliff instead of "
+                              "softening its fallout) and adaptively modulates the cup(ego) arm's hold "
+                              "weight/leash toward more-yielding bounds under urgency, reverting as cup tilt "
+                              "rises. off (default): byte-identical to the original flmpc behavior.")
     args = parser.parse_args()
     if args.cubes:
         global _CUBE_OVERRIDE
@@ -2073,7 +2126,8 @@ def main():
     t0 = time.perf_counter()
     print(f"[setup] building episode (seed={args.seed}, config={args.config}, "
           f"controller={args.controller}, scenario={args.scenario}, monitor={args.monitor})...")
-    info = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"))
+    info = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"),
+                         cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes)
     print(f"  left lift IK err={info['lift_err']:.4f} m; right-arm IK errs={info['ik_errs']}")
     print(f"  duration_s={info['duration_s_total']:.2f}  n_steps={info['n_steps_total']}  "
           f"RIGHT_START_T={RIGHT_START_T:.2f}"
@@ -2114,7 +2168,8 @@ def main():
     cam_main.elevation = -16
 
     print(f"[main] running {args.controller}-filtered episode ({args.config}) with capture...")
-    info_main = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"))  # fresh model/data instance for the real run
+    info_main = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"),
+                              cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes)  # fresh model/data instance for the real run
     if spill_monitor is not None:
         spill_monitor.reset()
     log_main, frames = run_episode(info_main, controller=args.controller, qp_enabled=True, capture=not args.no_video, ee_speed_limit=(args.ee_speed_limit == "on"),
@@ -2122,7 +2177,8 @@ def main():
                                     vision_cadence_steps=args.vision_cadence_steps,
                                     max_steps=args.max_steps,
                                     cup_in_barrier=(args.cup_in_barrier == "on"),
-                                    table_floor=(args.table_floor == "on"))
+                                    table_floor=(args.table_floor == "on"),
+                                    adaptive_yield=(args.adaptive_yield == "on"))
     m_main = summarize(log_main)
     print("[main] metrics:")
     print(json.dumps(m_main, indent=2))
@@ -2154,7 +2210,8 @@ def main():
         ), indent=2))
 
     print("[baseline] running no-QP baseline (same references, safety filter OFF) for the deflection proof...")
-    info_base = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"))  # fresh model/data instance, identical references
+    info_base = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"),
+                              cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes)  # fresh model/data instance, identical references
     if spill_monitor is not None:
         spill_monitor.reset()
     log_base, _ = run_episode(info_base, controller=args.controller, qp_enabled=False, capture=False, ee_speed_limit=(args.ee_speed_limit == "on"),
