@@ -50,19 +50,49 @@ if str(SELF_DIR) not in sys.path:
 from spill_predictors import LADDER, CupConfig, score_predictor, _auroc  # noqa: E402  (ladder physics; DO NOT modify)
 
 
+def corrected_onset(spilled_curve: np.ndarray, settle: int = 200) -> int | None:
+    """Spill ONSET = first step (after a settle window) where the ball-out count
+    rises PERMANENTLY above its settled post-lift baseline. CRITICAL (2026-09-10,
+    see memory wm-requirement-ladder): count_spilled reads 6-8/8 balls as "out"
+    from step 0 because the free balls spill during the initial cup LIFT, not the
+    dodges -- so the baseline is that lift-loss floor (median over the settle
+    window), and a genuine DYNAMIC (dodge-induced) spill is a PERMANENT increase
+    ABOVE it. Episodes whose count never rises above the floor had only lift-loss
+    (no dynamic spill) -> onset None -> pure negatives. This replaces the
+    collector's stored onset, which used base=count[0] and mislabeled episodes."""
+    c = np.asarray(spilled_curve).astype(int)
+    T = len(c)
+    if T == 0:
+        return None
+    s = min(settle, T - 1)
+    base = int(np.round(np.median(c[:s]))) if s > 0 else int(c[0])
+    for t in range(s, T):
+        if c[t] > base and int(c[t:].min()) > base:
+            return t
+    return None
+
+
 def load_episodes(data_path: str) -> list[dict]:
     npz = np.load(data_path)
     seeds = npz["seeds"]
     dt = float(npz["dt"])
+    has_curve = f"spilled_curve_{int(seeds[0])}" in npz.files if len(seeds) else False
     episodes = []
     for s in seeds:
         s = int(s)
-        onset_raw = int(npz[f"onset_{s}"])
+        # Prefer the CORRECTED onset recomputed from the raw per-step spill curve
+        # (permanent rise above the settled lift-loss floor); fall back to the
+        # collector's stored onset only for old npz files without the raw curve.
+        if has_curve:
+            onset = corrected_onset(npz[f"spilled_curve_{s}"])
+        else:
+            onset_raw = int(npz[f"onset_{s}"])
+            onset = None if onset_raw < 0 else onset_raw
         episodes.append(dict(
             seed=s,
             n_axis=npz[f"n_axis_{s}"],
             a_cup=npz[f"a_cup_{s}"],
-            onset=None if onset_raw < 0 else onset_raw,
+            onset=onset,
             T=int(npz[f"T_{s}"]),
             spilled_max=int(npz[f"spilled_max_{s}"]),
             dt=dt,
