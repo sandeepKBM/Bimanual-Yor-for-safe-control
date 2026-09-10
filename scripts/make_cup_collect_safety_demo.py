@@ -1314,6 +1314,13 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     log["left_ee_pos"] = np.zeros((n_steps, 3))
     log["right_ee_pos"] = np.zeros((n_steps, 3))
     log["cup_pos"] = np.zeros((n_steps, 3))
+    # WM-REQUIREMENT LADDER (experiments/wm_requirement/): the cup body's own
+    # world orientation axis, per step -- additive, least-invasive (one new
+    # log key + one line below); nothing existing renamed/removed. cup_pos
+    # above already proved data.xpos[cup_body] is valid every step (the cup
+    # is kinematically re-pinned via scene_setup.reattach_cup_rigidly before
+    # this point in the loop), so data.xmat[cup_body] is equally valid here.
+    log["cup_n_axis"] = np.zeros((n_steps, 3))
 
     frames = []
     renderer_main = renderer_zed = None
@@ -1771,6 +1778,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         log["left_ee_pos"][k] = data.xpos[left_ee_body]
         log["right_ee_pos"][k] = data.xpos[right_ee_body]
         log["cup_pos"][k] = data.xpos[cup_body]
+        log["cup_n_axis"][k] = data.xmat[cup_body].reshape(3, 3) @ np.array([0.0, 0.0, 1.0])
         _cup_axis_world_k = data.xmat[left_ee_body].reshape(3, 3) @ _cup_axis_local_log
         log["left_cup_tilt_rad"][k] = float(np.arccos(np.clip(_cup_axis_world_k[2], -1.0, 1.0)))
 
