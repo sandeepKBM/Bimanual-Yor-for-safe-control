@@ -293,6 +293,26 @@ def capture_ball_rel(model, data, cup_body_id) -> dict:
     return rel
 
 
+def cup_velocity_from_motion(model, prev_qpos, cur_qpos, dt):
+    """Finite-difference the cup's velocity from its pinned pose motion, in
+    MuJoCo's EXACT free-joint qvel convention (via mj_differentiatePos, which
+    handles the quaternion tangent correctly for every joint type). Returns the
+    FULL (model.nv,) qvel of the prev->cur motion; the caller extracts the cup's
+    6 dofs and writes ONLY those into data.qvel (leaving the arms' physics qvel
+    untouched). Used for the INERTIAL CUP-CARRY fidelity fix: reattach_cup_rigidly
+    pins the cup each step with ZEROED velocity, so the cup walls have no velocity
+    in contact resolution and the loose balls feel only geometric wall-sweep, not
+    the cup's true inertial forces -- an empirically-confirmed infidelity (the
+    effective-gravity cone gave no spill benefit because spill here isn't
+    inertial). Setting the cup qvel to this finite-difference BEFORE mj_step makes
+    the moving walls impart proper momentum to the balls (real sloshing). The cup
+    POSITION is still re-pinned to the EE next step (kinematic carry unchanged);
+    only its velocity in this step's dynamics is corrected."""
+    qvel = np.zeros(model.nv)
+    mujoco.mj_differentiatePos(model, qvel, dt, prev_qpos, cur_qpos)
+    return qvel
+
+
 def canonical_ball_rel(model, cup_body_id) -> dict:
     """The CANONICAL ball-in-cup layout, captured from the scene's `home`
     keyframe (where the balls are, by scene design, correctly settled inside the

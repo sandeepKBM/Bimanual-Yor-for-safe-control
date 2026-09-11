@@ -1091,7 +1091,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 capture_stride: int = 5, cam_main=None, cam_zed_size: int = 96,
                 spill_monitor=None, vision_cadence_steps: int = VISION_CADENCE_STEPS,
                 max_steps: int | None = None, cup_in_barrier: bool = True, table_floor: bool = True,
-                ee_speed_limit: bool = True, adaptive_yield: bool = False):
+                ee_speed_limit: bool = True, adaptive_yield: bool = False,
+                inertial_cup: bool = True):
     """spill_monitor=None -> byte-identical to the original (geometric_only)
     loop: t_r is the plain wall-clock-relative right-arm time, no freeze.
     spill_monitor=<RealWMSpillMonitor> -> config="geometric_spill": the WM
@@ -1176,6 +1177,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     left_qposadr, right_qposadr = info["left_qposadr"], info["right_qposadr"]
     left_ee_body, right_ee_body = info["left_ee_body"], info["right_ee_body"]
     cup_body = info["cup_body"]
+    # free-joint dof address of the cup, for the INERTIAL CUP-CARRY fix (see loop).
+    _cup_dofadr = int(model.jnt_dofadr[model.body_jntadr[cup_body]])
 
     # CUP-TILT MEASUREMENT (logging only, not a constraint): world-"up"
     # expressed in the LEFT EE's local frame at the SETTLED q_lift hold pose
@@ -1376,6 +1379,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     # already scattered because init's grasp doesn't hold the cup (see
     # scene_setup.canonical_ball_rel + the SPILL-ORACLE FIX note below).
     _ball_rel = scene_setup.canonical_ball_rel(model, cup_body)
+    _prev_qpos = None   # previous-step full qpos, for the inertial cup-carry velocity (see loop)
 
     for k in range(n_steps):
         t = k * sc.DT
@@ -1412,6 +1416,23 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         # carrying with the canonical layout forces them back inside.
         if t < RIGHT_START_T:
             scene_setup.carry_balls_with_cup(model, data, cup_body, _ball_rel)
+
+        # -- INERTIAL CUP-CARRY (2026-09-11, #31): reattach_cup_rigidly pinned the
+        # cup with ZEROED velocity, so its walls had no velocity in contact
+        # resolution and the loose balls felt only geometric wall-sweep, not the
+        # cup's true inertial forces (empirically: the effective-gravity cone gave
+        # zero spill benefit because spill wasn't inertial). Set the cup's
+        # free-joint qvel to the finite-difference of its pinned pose (exact
+        # free-joint convention via mj_differentiatePos) BEFORE mj_step, so the
+        # moving walls impart real momentum to the balls = faithful sloshing. The
+        # cup POSITION is still re-pinned to the EE each step (kinematic carry
+        # unchanged); only its per-step velocity is corrected. Cup dofs only --
+        # the arms' physics qvel is untouched. inertial_cup=False restores the old
+        # zeroed-velocity behavior.
+        if inertial_cup and _prev_qpos is not None:
+            _qvel_fd = scene_setup.cup_velocity_from_motion(model, _prev_qpos, data.qpos, sc.DT)
+            data.qvel[_cup_dofadr:_cup_dofadr + 6] = _qvel_fd[_cup_dofadr:_cup_dofadr + 6]
+        _prev_qpos = data.qpos.copy()
 
         # -- spill-aware semantic layer (config="geometric_spill" only): consult the
         # REAL WM monitor at a vision cadence (camera rate << control rate), hold its
