@@ -207,7 +207,8 @@ class FLMPC:
                  leash_ee_body=None, leash_max_m=None,
                  qp_fallback_rho=1.0e5, qp_fallback_eps=1.0e-3, qp_fallback_smax=5.0,
                  adaptive_yield=False, H_MARGIN_URGENT=0.06, URGENCY_HDOT_REF=0.15,
-                 W_POS_EGO_MIN=None, LEASH_MAX_URGENT_M=None, CUP_TILT_SAFE_FRAC=0.6):
+                 W_POS_EGO_MIN=None, LEASH_MAX_URGENT_M=None, CUP_TILT_SAFE_FRAC=0.6,
+                 cup_cone_facets=0, g_accel=9.81):
         self.model = model
         self.NC, self.L, self.NV = NC, L, NV
         self.NP = NC * L
@@ -240,6 +241,18 @@ class FLMPC:
         # +-tilt bound [rad]. Either may also be supplied per-call to step().
         self.left_ee_body = left_ee_body
         self.tilt_max_rad = tilt_max_rad
+        # --- CUP EFFECTIVE-GRAVITY CONE (optional, default OFF: cup_cone_facets=0
+        # => the per-axis small-angle tilt BOX below is used, byte-identical to
+        # before). When cup_cone_facets=K>0, the cup-upright rows instead bound
+        # the cup axis to within tilt_max of the EFFECTIVE-gravity up direction
+        # up_eff = (a_cup - g)/||a_cup - g|| (not just world-vertical), via K
+        # linear tangent facets of the L2 cone -- so it (a) accounts for
+        # ACCELERATION-induced effective-gravity tilt (the dynamic spill driver
+        # a pure-orientation box is blind to) and (b) is an L2 cone, not a
+        # per-axis L-inf box (which let the COMBINED tilt magnitude exceed
+        # tilt_max by up to sqrt(2)). See step()'s block (3). g_accel = |g|.
+        self.cup_cone_facets = int(cup_cone_facets)
+        self.G_ACCEL = float(g_accel)
         # world-"up" expressed in the EE body's own local frame, captured ONCE
         # (lazily, on the first step() call with the constraint enabled) --
         # defines "vertical" for tilt0 below. Not knowable at __init__ time
@@ -483,7 +496,7 @@ class FLMPC:
              q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref,
              pairs_all, M_ego_extra=None, bias_ego_extra=None,
              left_ee_body=None, tilt_max_rad=None, table_rows=None,
-             leash_ee_body=None, leash_max_m=None):
+             leash_ee_body=None, leash_max_m=None, cup_cone_facets=None):
         """One control step. q_*_ref / qd_*_ref: (NP+1, NV) reference
         trajectories (index 0 = now). table_rows: optional
         (a_tab_e, b_tab_e, a_tab_i, b_tab_i) per-arm TABLE-FLOOR HOCBF rows in
@@ -647,17 +660,61 @@ class FLMPC:
                 # the EE's CURRENT cup axis "b": b ~= up + omega x up, so with
                 # up=[0,0,1]:  omega_x = -b_y,  omega_y = b_x.
                 tilt0 = np.array([-cup_axis_world[1], cup_axis_world[0]])
-            Jr_ee = sc.body_jac_full(model, data, ee_body)[1][:, left_dofadr]  # (3,NV) at t=0
-            for t in self.tilt_steps:   # a few horizon steps (block boundaries)
-                Aq = self.Phi_q_all[t]
-                drift_t = qd0_e * tvec[t]
-                for ax in (0, 1):   # world x, y (tilt about the horizontal axes)
-                    row_coef = Jr_ee[ax] @ Aq            # (n_blk,) -- ego block columns only
-                    drift = tilt0[ax] + Jr_ee[ax] @ drift_t
-                    r_up = np.zeros(ntot); r_up[eslice] = row_coef
-                    extra_a.append(r_up); extra_b.append(tilt_max - drift)
-                    r_lo = np.zeros(ntot); r_lo[eslice] = -row_coef
-                    extra_a.append(r_lo); extra_b.append(tilt_max + drift)
+            Jr_ee = sc.body_jac_full(model, data, ee_body)[1][:, left_dofadr]  # (3,NV) rot Jac at t=0
+            n_facets = self.cup_cone_facets if cup_cone_facets is None else int(cup_cone_facets)
+            if n_facets and n_facets > 0:
+                # --- EFFECTIVE-GRAVITY CONE (K tangent facets of the L2 cone) ---
+                # Spill-free iff the cup axis stays within tilt_max of the
+                # EFFECTIVE-gravity "up", up_eff = (a_cup - g)/||a_cup - g||. In
+                # the small-angle 2-vector (world x,y) picture:
+                #   tau_geom(t) = cup-axis tilt from world-vertical (= the BOX's
+                #                 quantity: tilt0 + Jr_ee @ predicted dq), and
+                #   tau_grav    = up_eff's tilt from vertical ~ (1/g)*a_cup_xy,
+                # so the cup-axis tilt RELATIVE to up_eff is r(t) = tau_geom(t)
+                # - tau_grav, and the spill manifold is the CONE ||r(t)|| <=
+                # tilt_max. a_cup (cup linear accel) is linear in the FL accel:
+                # a_cup ~ Jp_ee @ a_e0 (first-block accel; the immediate command
+                # we control -- the J-dot*qd drift and later-block accels are
+                # omitted, a deliberate first-order approximation, so tau_grav
+                # is a constant-Jacobian linear map of a_e0). The L2 cone
+                # ||r|| <= tilt_max is inner-approximated by K linear facets
+                # u_k . r(t) <= tilt_max, u_k = (cos, sin)(2*pi*k/K) -- a
+                # conservative (inner) polygon, i.e. always safe. Each facet is
+                # linear in the ego block of the decision vector:
+                #   from tau_geom: sum_ax u_k[ax] * (Jr_ee[ax] @ Phi_q(t))  (all ego blocks)
+                #   from -tau_grav: +(1/g) sum_ax u_k[ax] * Jp_ee[ax]       (first-block cols only)
+                Jp_ee = sc.body_jac_full(model, data, ee_body)[0][:, left_dofadr]  # (3,NV) lin Jac at t=0
+                inv_g = 1.0 / self.G_ACCEL
+                dirs = [(np.cos(2.0 * np.pi * k / n_facets), np.sin(2.0 * np.pi * k / n_facets))
+                        for k in range(n_facets)]
+                for t in self.tilt_steps:
+                    Aq = self.Phi_q_all[t]
+                    drift_t = qd0_e * tvec[t]
+                    for (ux, uy) in dirs:
+                        # tau_geom(t) contribution (all ego-block columns via Phi)
+                        coef_geom = ux * (Jr_ee[0] @ Aq) + uy * (Jr_ee[1] @ Aq)   # (n_blk,)
+                        # -tau_grav contribution: +(1/g)*u . Jp_ee_xy, on the
+                        # FIRST-block accel a_e0 (first NV ego columns).
+                        grav_first = inv_g * (ux * Jp_ee[0] + uy * Jp_ee[1])      # (NV,)
+                        row = np.zeros(ntot)
+                        row[eslice] = coef_geom
+                        row[0:NV] += grav_first    # eslice starts at 0, so a_e0 == first NV cols
+                        const = (ux * (tilt0[0] + Jr_ee[0] @ drift_t)
+                                 + uy * (tilt0[1] + Jr_ee[1] @ drift_t))
+                        extra_a.append(row)
+                        extra_b.append(tilt_max - const)
+            else:
+                # --- original per-axis small-angle BOX (default, cup_cone_facets=0) ---
+                for t in self.tilt_steps:   # a few horizon steps (block boundaries)
+                    Aq = self.Phi_q_all[t]
+                    drift_t = qd0_e * tvec[t]
+                    for ax in (0, 1):   # world x, y (tilt about the horizontal axes)
+                        row_coef = Jr_ee[ax] @ Aq            # (n_blk,) -- ego block columns only
+                        drift = tilt0[ax] + Jr_ee[ax] @ drift_t
+                        r_up = np.zeros(ntot); r_up[eslice] = row_coef
+                        extra_a.append(r_up); extra_b.append(tilt_max - drift)
+                        r_lo = np.zeros(ntot); r_lo[eslice] = -row_coef
+                        extra_a.append(r_lo); extra_b.append(tilt_max + drift)
 
         # --- (4) CUP-ARM DISPLACEMENT LEASH (optional, plain Python --
         # cheap/default-off; both leash_ee_body and leash_max_m None => no

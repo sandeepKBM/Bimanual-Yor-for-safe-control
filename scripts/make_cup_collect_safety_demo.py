@@ -534,6 +534,10 @@ CONTROLLER_CHOICES = ("v4c", "v7c", "flmpc")
 # vertical while it yields); smoothness stays via W_VEL_EGO/W_JERK, unchanged.
 CUP_LEASH_M = 0.08       # [m] cup EE Cartesian-displacement leash radius (per world axis) from the hold pose
 CUP_TILT_MAX_RAD = 0.10  # [rad] cup-upright tilt bound (~5.7 deg) while yielding
+CUP_CONE_FACETS = 8      # >0 => use the EFFECTIVE-GRAVITY CONE (mpc_fl block 3): bound the cup
+                         # axis to within CUP_TILT_MAX_RAD of up_eff=(a_cup-g)/||.|| via 8 L2-cone
+                         # facets (accounts for accel-induced tilt + is a true cone, not a per-axis
+                         # box). 0 => the old per-axis small-angle box.
 
 
 # ---------------------------------------------------------------------------
@@ -1637,7 +1641,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 M_ego_extra=M_box, bias_ego_extra=bias_box,
                 table_rows=fl_table_rows,
                 left_ee_body=left_ee_body, tilt_max_rad=CUP_TILT_MAX_RAD,
-                leash_ee_body=left_ee_body, leash_max_m=CUP_LEASH_M)
+                leash_ee_body=left_ee_body, leash_max_m=CUP_LEASH_M,
+                cup_cone_facets=CUP_CONE_FACETS)
             feasible_l = feasible_r = feasible_fl
             solve_time = time.perf_counter() - t_solve0
         else:
