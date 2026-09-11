@@ -162,3 +162,23 @@ held-out data. Checkpoints + metrics: `ckpt_mlp_smoke.pt(.metrics.json)`,
   "explore the whole state space" sampler, not a task-specific one; a
   demo-rollout-biased sampler (mentioned as a "bonus" in the task) was not
   implemented for this smoke.
+
+## Full run result (2026-09-11, 60k samples)
+
+Collection: 60000 samples in 35.6s (0.59 ms/sample); nominal-plant residual
+max|.|=6.07e-3 (FL exact ✓); 0% of `a` torque-clipped; perturbed-plant residual
+rms=205 rad/s². Perturbation (per `perturbed_plant.py`): +friction, +damping,
+per-link mass scale ×U[0.85,1.15].
+
+| model | hidden | epochs | baseline RMSE | model val RMSE | **fraction removed** |
+|---|---|---|---|---|---|
+| MLP  | 512,512,256 | 60 | 204.4 | 34.1 | **0.833** |
+| SIREN | 256,256 (w0=6) | 60 | 204.4 | 37.3 | **0.818** |
+
+So the residual MLP recovers ~83% of the injected sim-to-real mismatch. MLP edges
+SIREN (plain MLP suits smooth low-frequency dynamics residuals; SIREN's sharp-signal
+advantage doesn't apply here). Remaining ~17% = harder nonlinear/contact residual +
+the finger/box off-diagonal coupling floor (~0.035 rad/s², see the sanity note above).
+Checkpoints/metrics were written to the run's scratch dir (not committed; data/*.pt).
+NEXT (phase 2): add the learned residual to the FL-MPC horizon prediction
+(q̈ = a + Δθ), evaluated at the current a-guess or linearized around a0.
