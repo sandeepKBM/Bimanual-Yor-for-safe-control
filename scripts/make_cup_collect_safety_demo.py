@@ -534,10 +534,17 @@ CONTROLLER_CHOICES = ("v4c", "v7c", "flmpc")
 # vertical while it yields); smoothness stays via W_VEL_EGO/W_JERK, unchanged.
 CUP_LEASH_M = 0.08       # [m] cup EE Cartesian-displacement leash radius (per world axis) from the hold pose
 CUP_TILT_MAX_RAD = 0.10  # [rad] cup-upright tilt bound (~5.7 deg) while yielding
-CUP_CONE_FACETS = 8      # >0 => use the EFFECTIVE-GRAVITY CONE (mpc_fl block 3): bound the cup
-                         # axis to within CUP_TILT_MAX_RAD of up_eff=(a_cup-g)/||.|| via 8 L2-cone
-                         # facets (accounts for accel-induced tilt + is a true cone, not a per-axis
-                         # box). 0 => the old per-axis small-angle box.
+CUP_CONE_FACETS = 0      # 0 => per-axis small-angle tilt BOX (the demo default). The
+                         # EFFECTIVE-GRAVITY CONE (mpc_fl block 3, set >0 e.g. 8) is
+                         # IMPLEMENTED and correct but OFF here: a 10-seed cone-vs-box
+                         # comparison (2026-09-11) found IDENTICAL spill (4/10 both) and
+                         # the cone allows MORE absolute tilt (16 vs 11 deg). Reason: the
+                         # cup is kinematically pinned with ZEROED velocity
+                         # (scene_setup.reattach_cup_rigidly), so the balls feel geometric
+                         # wall-sweep, NOT the cup's true inertial forces -- an effective-
+                         # gravity constraint can't help when spill isn't inertial. Enable
+                         # the cone once the cup-carry has faithful inertial dynamics (or on
+                         # hardware). See memory spill-oracle-lift-loss (fidelity note).
 
 
 # ---------------------------------------------------------------------------
