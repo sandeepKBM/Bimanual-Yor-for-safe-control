@@ -1490,9 +1490,15 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             if pin_now and not weld_active_prev:
                 cct.activate_weld(model, data, cube_plan[pin_idx]["eq_id"],
                                    right_ee_body, cube_plan[pin_idx]["body_id"])
+                # COLLISION-FIDELITY: while this cube is welded to the gripper,
+                # disable its arm-collision bits so the moving held cube does not
+                # fight the weld (un-held cubes still collide with both arms).
+                sc.set_cube_arm_collision(model, cube_plan[pin_idx]["body_id"], enabled=False)
                 active_cube_idx_prev = pin_idx
             elif not pin_now and weld_active_prev:
                 cct.deactivate_weld(data, cube_plan[active_cube_idx_prev]["eq_id"])
+                # restore the released cube's arm-collision (now a free obstacle again)
+                sc.set_cube_arm_collision(model, cube_plan[active_cube_idx_prev]["body_id"], enabled=True)
                 released[active_cube_idx_prev] = True   # latch: never re-pin this cube (see cube_pin_active)
                 release_t[active_cube_idx_prev] = t      # ACTUAL release time -> gripper-open ramp (see above)
             weld_active_prev = pin_now

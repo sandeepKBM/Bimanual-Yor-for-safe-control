@@ -262,46 +262,116 @@ def intruder_ctrl(t: float) -> np.ndarray:
 #   real geom vs table/box/etc (all bit0-only masks): 0b0100 & 0b0001 == 0 both ways        -> no spurious contact
 # The scene files on disk are never touched (in-memory MjSpec patch only).
 # ---------------------------------------------------------------------------
-_LEFT_BIT, _RIGHT_BIT = 0b0100, 0b1000
+_LEFT_BIT, _RIGHT_BIT = 0b0100, 0b1000        # 4, 8  -- arm<->arm (cross-arm) identity
+_LEFT_SELF, _RIGHT_SELF = 0b1_0000, 0b10_0000  # 16, 32 -- per-arm SELF-collision group
+CUBE_ARM_BITS = _LEFT_BIT | _RIGHT_BIT         # 12 -- put on a cube so BOTH arms avoid it
+# runtime helper below (set_cube_arm_collision) toggles CUBE_ARM_BITS on a cube's
+# conaffinity: cleared while the cube is welded to the gripper (so the held cube
+# does not fight the weld), restored on release.
 
 
 def _patch_real_collision_geoms(spec):
-    """Fix contype/conaffinity on every left_arm_*/right_arm_* "collision"
-    class (group==3, i.e. contype==0 and conaffinity==1 as shipped) geom so
-    the two arms' REAL fitted-capsule/box geometry can collide with each
-    other (and only each other -- not self, not table/box)."""
+    """Full-fidelity contype/conaffinity scheme for the bimanual scene. Each real
+    per-link "collision" geom ships as (contype=0, conaffinity=1) -> two such
+    geoms never collide. We rewrite them so the RIGHT things collide and the
+    grasp/weld isolations stay intact. Bit scheme:
+      left arm : contype = LEFT_BIT|LEFT_SELF (4|16),  conaffinity = RIGHT_BIT|LEFT_SELF (8|16)
+      right arm: contype = RIGHT_BIT|RIGHT_SELF(8|32), conaffinity = LEFT_BIT|RIGHT_SELF (4|32)
+    => arm<->arm collide (via 4/8), each arm SELF-collides (via its own 16/32 bit,
+       which the OTHER arm lacks, so self bits never cross arms), and neither self
+       bit reaches the objects. Then, on the object/world side (conaffinity ORed,
+       contype left at 1 so object<->object/world is unchanged):
+      table/floor/leg : += (4|8)  -> BOTH arms collide with fixed world structure
+      cup             : += 8      -> RIGHT arm collides with the cup, LEFT (holder) does NOT
+      cube            : += (4|8)  -> both arms collide with a cube... EXCEPT the welded/held
+                                     one, whose bits are cleared at pick time (see
+                                     set_cube_arm_collision) so it doesn't fight the weld.
+    Adjacent same-arm links overlap at the shared joint, which would spawn spurious
+    self-contacts; those pairs are excluded via _exclude_adjacent_links below."""
+    L_ct, L_ca = _LEFT_BIT | _LEFT_SELF,  _RIGHT_BIT | _LEFT_SELF
+    R_ct, R_ca = _RIGHT_BIT | _RIGHT_SELF, _LEFT_BIT | _RIGHT_SELF
     for b in spec.bodies:
         if b.name.startswith(EGO_PREFIX):
-            contype, conaffinity = _LEFT_BIT, _RIGHT_BIT
+            contype, conaffinity = L_ct, L_ca
         elif b.name.startswith(INT_PREFIX):
-            contype, conaffinity = _RIGHT_BIT, _LEFT_BIT
+            contype, conaffinity = R_ct, R_ca
         else:
             continue
         for g in b.geoms:
             if g.contype == 0 and g.conaffinity == 1:
                 g.contype, g.conaffinity = contype, conaffinity
 
-    # --- ARM <-> FIXED-WORLD collision (table, floor, legs) -----------------
-    # Previously arm<->table physics was DELIBERATELY masked off (the arm bits
-    # 4/8 don't overlap the table/floor's bit-0 masks, so no contact), with the
-    # analytic table_plane_barrier as the only protection. For full fidelity we
-    # now let the arms actually collide with the FIXED world structure: OR the
-    # arm bits (4|8) into the conaffinity of every collision-active table/floor/
-    # leg geom, so BOTH arms' contype (4 left / 8 right) overlaps it. This is
-    # applied ONLY to fixed world structure (matched by geom name), NEVER to the
-    # manipulable objects (cup/ball/cube) -- so the gripper<->grasped-cup and
-    # welded-cube isolations are untouched (arm 4/8 vs their 1/1 masks stay 0).
-    _arm_bits = _LEFT_BIT | _RIGHT_BIT   # 0b1100 = 12
-    _world_bodies = list(spec.bodies)
+    # --- object / fixed-world side: OR arm bits into CONAFFINITY only (contype
+    # stays 1, so object<->object and object<->world collisions are unchanged) ---
+    _bodies = list(spec.bodies)
     try:
-        _world_bodies.append(spec.worldbody)
+        _bodies.append(spec.worldbody)
     except Exception:
         pass
-    for b in _world_bodies:
+    _arm_both = _LEFT_BIT | _RIGHT_BIT   # 12
+    for b in _bodies:
         for g in b.geoms:
             gn = (g.name or "").lower()
-            if ("table" in gn or "floor" in gn or "leg" in gn) and (g.contype or g.conaffinity):
-                g.conaffinity |= _arm_bits
+            if not (g.contype or g.conaffinity):
+                continue
+            if "cup" in gn:                                   # right arm avoids the cup; left holds it
+                g.conaffinity |= _RIGHT_BIT
+            elif "cube" in gn:                                # both arms avoid un-held cubes
+                g.conaffinity |= _arm_both
+            elif "table" in gn or "floor" in gn or "leg" in gn:
+                g.conaffinity |= _arm_both
+    _exclude_adjacent_links(spec)
+
+
+def _exclude_adjacent_links(spec):
+    """Exclude collisions between ADJACENT (parent<->child) links within each arm,
+    whose fitted capsules overlap at the shared joint and would otherwise generate
+    a continuous spurious self-contact. Non-adjacent same-arm links are left to
+    collide (that IS the self-collision we want). Adds a MjSpec <exclude> for each
+    parent/child body pair whose names both start with an arm prefix."""
+    id2name = {b.id: b.name for b in spec.bodies}
+    added = 0
+    for b in spec.bodies:
+        nm = b.name or ""
+        if not (nm.startswith(EGO_PREFIX) or nm.startswith(INT_PREFIX)):
+            continue
+        pid = b.parent.id if b.parent is not None else -1
+        pnm = id2name.get(pid, "")
+        if pnm and (pnm.startswith(EGO_PREFIX) or pnm.startswith(INT_PREFIX)):
+            try:
+                spec.add_exclude(bodyname1=pnm, bodyname2=nm)
+                added += 1
+            except Exception:
+                pass
+    # Also exclude the two gripper FINGERS of each arm (link7<->link8): they are
+    # SIBLINGS (both children of gripper_base, so not caught by the parent-child
+    # loop above) and sit close together -- their jaw geoms overlap at rest and
+    # would spawn ~25 spurious self-contacts. The two jaws must never self-collide
+    # (they close on grasped objects, not each other).
+    for pre in (EGO_PREFIX, INT_PREFIX):
+        try:
+            spec.add_exclude(bodyname1=f"{pre}link7", bodyname2=f"{pre}link8")
+            added += 1
+        except Exception:
+            pass
+    return added
+
+
+def set_cube_arm_collision(model, cube_body_id: int, enabled: bool):
+    """Runtime toggle for the held cube: clear the arm bits (CUBE_ARM_BITS) from
+    every collision geom of the cube BODY while it is welded/held (enabled=False,
+    so no arm collides with the moving held cube and fights the mjEQ_WELD), and
+    restore them on release (enabled=True). Operates on the compiled MjModel in
+    place. Call on the weld rising edge (False) and falling edge (True)."""
+    for gid in range(model.ngeom):
+        if model.geom_bodyid[gid] != cube_body_id:
+            continue
+        if not (model.geom_contype[gid] or model.geom_conaffinity[gid]):
+            continue
+        if enabled:
+            model.geom_conaffinity[gid] |= CUBE_ARM_BITS
+        else:
+            model.geom_conaffinity[gid] &= ~CUBE_ARM_BITS
 
 
 def load_model():

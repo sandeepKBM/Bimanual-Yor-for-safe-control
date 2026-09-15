@@ -23,13 +23,19 @@ Bit scheme (`sim_common._patch_real_collision_geoms`): left-arm geoms → contyp
 | left gripper ↔ its **grasped cup** / balls | cup is kinematically PINNED to the left EE; a hard contact would fight the pin |
 | right arm ↔ the **cube it is holding** | picked cubes are WELDED to the gripper; contact would fight the weld |
 
-## ❌ Still missing (candidate next fidelity steps)
-| pair | now | note / difficulty |
+## ✅ Now represented (added 2026-09-14, full-fidelity pass)
+| pair | status | how |
 |---|---|---|
-| **arm ↔ self** (non-adjacent links, each arm) | 0/156 | real arm can't self-intersect. MED — needs adjacent-link `<exclude>`s to avoid spurious parent-child contacts |
-| **right arm ↔ cup** (the non-holding arm) | 0/169 | should avoid knocking the cup. EASY-ish — give the cup conaffinity bit 8 (right) but NOT bit 4 (left, which holds it) |
-| **arm ↔ cubes not being held** | 0/78 | HARD — the *held* cube changes per pick, so it needs a runtime `<exclude>` of the current welded cube, not a static bit |
-| arm ↔ balls | 0/104 | LOW — balls live inside the cup |
+| **arm ↔ self** (non-adjacent links, each arm) | **156/156** | per-arm SELF bits (16 left / 32 right, disjoint so they never cross arms or reach objects); 16 `<exclude>`s (parent-child + the two gripper fingers link7↔link8) → 0 spurious contacts at rest |
+| **right arm ↔ cup** (non-holding arm) | **169/169** | cup conaffinity += bit 8 (right) only; left/holder stays 0/169 |
+| **arm ↔ cubes not held** | **78/78** | cubes get both arm bits; a runtime toggle (`set_cube_arm_collision`) clears them on the weld rising edge and restores on release, so only the *held* cube is exempt |
+
+Bit scheme: left arm contype/conaff = (4|16)/(8|16), right = (8|32)/(4|32); table/floor/leg
+conaffinity += 12; cup += 8; cube += 12 (runtime-cleared while held). Verified: full matrix
+correct, all isolations intact, 0 self-contacts at rest, full pick→place episode stable
+(no NaN, no spurious contacts, cubes placed).
+
+Remaining (low priority): arm ↔ balls (0/104) — balls live inside the cup, negligible.
 
 ## The arm↔table fix (2026-09-14)
 Arm↔table was previously *deliberately* masked off (`sim_common` comment ~L234/641),
