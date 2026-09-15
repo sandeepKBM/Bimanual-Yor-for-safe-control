@@ -1670,7 +1670,15 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 table_rows=fl_table_rows,
                 left_ee_body=left_ee_body, tilt_max_rad=CUP_TILT_MAX_RAD,
                 leash_ee_body=left_ee_body, leash_max_m=CUP_LEASH_M,
-                cup_cone_facets=CUP_CONE_FACETS)
+                cup_cone_facets=CUP_CONE_FACETS,
+                # EGO POSITION-HOLD RELEASE: hold the left arm to its reference
+                # ONLY during the initial lift (t < RIGHT_START_T, where q_ego_ref
+                # drives the arm up into its working pose); once the crossing
+                # begins, release the position-hold so the left arm moves AWAY from
+                # the approaching right arm and stays there (no spring-back to its
+                # initial pose). Velocity-damping + collision-avoidance + the leash
+                # keep it at rest, safe, and bounded. (see mpc_fl.FLMPC.step ego_hold)
+                ego_hold=(t < RIGHT_START_T))
             feasible_l = feasible_r = feasible_fl
             solve_time = time.perf_counter() - t_solve0
         else:

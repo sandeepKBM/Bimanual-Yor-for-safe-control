@@ -496,7 +496,8 @@ class FLMPC:
              q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref,
              pairs_all, M_ego_extra=None, bias_ego_extra=None,
              left_ee_body=None, tilt_max_rad=None, table_rows=None,
-             leash_ee_body=None, leash_max_m=None, cup_cone_facets=None):
+             leash_ee_body=None, leash_max_m=None, cup_cone_facets=None,
+             ego_hold=True):
         """One control step. q_*_ref / qd_*_ref: (NP+1, NV) reference
         trajectories (index 0 = now). table_rows: optional
         (a_tab_e, b_tab_e, a_tab_i, b_tab_i) per-arm TABLE-FLOOR HOCBF rows in
@@ -608,6 +609,19 @@ class FLMPC:
         W_pe_eff = self.W['pe']
         if self.adaptive_yield and self.W_POS_EGO_MIN is not None:
             W_pe_eff = self.W['pe'] - g * (self.W['pe'] - self.W_POS_EGO_MIN)
+        # EGO POSITION-HOLD RELEASE (ego_hold=False): drop the ego (left/cup) arm's
+        # position-tracking term entirely (W_pe -> 0), so the arm has NO restoring
+        # pull toward q_ego_ref. It then only (a) damps its velocity toward
+        # qd_ego_ref (=0 for a hold -> comes to rest wherever it is), (b) avoids
+        # collisions, and (c) stays smooth (effort/jerk). Net behavior: the arm
+        # holds its current pose until the other arm threatens, moves AWAY to stay
+        # safe, and STAYS there -- it never springs back to its initial pose. The
+        # cup-arm leash (if configured) still hard-bounds how far it can wander, so
+        # "move away" stays "move away SAFELY". Use ego_hold=True during any initial
+        # positioning/lift (where q_ego_ref DOES need to drive the arm into place),
+        # then ego_hold=False for the reactive phase.
+        if not ego_hold:
+            W_pe_eff = 0.0
         self.last_W_pos_ego_eff = W_pe_eff
 
         # --- numba-assembled: tracking cost + effort/jerk cost + (1)
