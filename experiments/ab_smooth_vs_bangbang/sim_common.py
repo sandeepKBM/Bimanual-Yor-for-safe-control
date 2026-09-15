@@ -281,6 +281,28 @@ def _patch_real_collision_geoms(spec):
             if g.contype == 0 and g.conaffinity == 1:
                 g.contype, g.conaffinity = contype, conaffinity
 
+    # --- ARM <-> FIXED-WORLD collision (table, floor, legs) -----------------
+    # Previously arm<->table physics was DELIBERATELY masked off (the arm bits
+    # 4/8 don't overlap the table/floor's bit-0 masks, so no contact), with the
+    # analytic table_plane_barrier as the only protection. For full fidelity we
+    # now let the arms actually collide with the FIXED world structure: OR the
+    # arm bits (4|8) into the conaffinity of every collision-active table/floor/
+    # leg geom, so BOTH arms' contype (4 left / 8 right) overlaps it. This is
+    # applied ONLY to fixed world structure (matched by geom name), NEVER to the
+    # manipulable objects (cup/ball/cube) -- so the gripper<->grasped-cup and
+    # welded-cube isolations are untouched (arm 4/8 vs their 1/1 masks stay 0).
+    _arm_bits = _LEFT_BIT | _RIGHT_BIT   # 0b1100 = 12
+    _world_bodies = list(spec.bodies)
+    try:
+        _world_bodies.append(spec.worldbody)
+    except Exception:
+        pass
+    for b in _world_bodies:
+        for g in b.geoms:
+            gn = (g.name or "").lower()
+            if ("table" in gn or "floor" in gn or "leg" in gn) and (g.contype or g.conaffinity):
+                g.conaffinity |= _arm_bits
+
 
 def load_model():
     spec = mujoco.MjSpec.from_file(SCENE)
