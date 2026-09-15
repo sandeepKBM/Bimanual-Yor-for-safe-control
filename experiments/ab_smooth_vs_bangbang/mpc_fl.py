@@ -619,7 +619,11 @@ class FLMPC:
         # cup-arm leash (if configured) still hard-bounds how far it can wander, so
         # "move away" stays "move away SAFELY". Use ego_hold=True during any initial
         # positioning/lift (where q_ego_ref DOES need to drive the arm into place),
-        # then ego_hold=False for the reactive phase.
+        # then ego_hold=False for the reactive phase. NOTE: ego_hold=False FULLY
+        # supersedes the adaptive_yield partial W_pe release computed just above
+        # (a full release is the stronger, explicit intent of ego_hold=False) --
+        # so with ego_hold=False the W_POS_EGO_MIN/cup-share-gain tuning is inert
+        # by design. (adaptive_yield is off/deprecated by default anyway.)
         if not ego_hold:
             W_pe_eff = 0.0
         self.last_W_pos_ego_eff = W_pe_eff
