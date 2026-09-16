@@ -96,7 +96,7 @@ CONTROLLERS = ("flmpc", "flmpc_bangbang", "flmpc_unilateral", "v4c")
 VARIANT_OVERRIDES = {
     "flmpc":            dict(demo_controller="flmpc", w_jerk=None, w_pos_int=None),
     "flmpc_bangbang":   dict(demo_controller="flmpc", w_jerk=0.0,  w_pos_int=None),
-    "flmpc_unilateral": dict(demo_controller="flmpc", w_jerk=None, w_pos_int=1e6),
+    "flmpc_unilateral": dict(demo_controller="flmpc", w_jerk=None, w_pos_int=5000.0),
     "v4c":              dict(demo_controller="v4c",   w_jerk=None, w_pos_int=None),
 }
 
