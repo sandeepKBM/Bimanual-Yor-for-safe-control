@@ -306,6 +306,21 @@ INFEAS_BRAKE_KD = 8.0  # velocity-damping gain for the QP-infeasibility recovery
 #       the nominal motion off the constraint; part (2) is the guarantee.
 V_EE_MAX_MS = 0.28     # [m/s] Cartesian EE speed cap (leaves carry ~0.24 untouched; tames park 0.79)
 
+# FL-MPC ABLATION OVERRIDES (workshop-paper knobs, default-OFF -- None means
+# byte-identical to the prior fl_kwargs = dict(NC=4, L=8, W_POS_EGO=800.0)
+# behavior). Set by experiments/ab_smooth_vs_bangbang/comprehensive_eval.py's
+# --variants BEFORE build_episode, read once at FLMPC construction below.
+#   FL_W_JERK_OVERRIDE:    "bang-bang" ablation -- 0.0 disables mpc_fl.FLMPC's
+#                          jerk regularization (W_JERK, isolates the SMOOTH claim).
+#   FL_W_POS_INT_OVERRIDE: "unilateral" ablation -- a large value (e.g. 1e6)
+#                          makes the intruder/right arm rigidly track its task
+#                          reference, so it will NOT deviate to help avoid
+#                          collisions -- only the ego/left arm can yield
+#                          (isolates the COOPERATIVE claim: the shared QP can
+#                          no longer spend the intruder's accel on avoidance).
+FL_W_JERK_OVERRIDE = None
+FL_W_POS_INT_OVERRIDE = None
+
 # COOPERATIVE YIELD BALANCE (both arms move): v4-C* gives the collecting arm a
 # +0.03m extra collision margin (run_ab4 INTRUDER_EXTRA_MARGIN["C"]) so it
 # yields FIRST and FULLY -- which is why the cup arm never had to move (its own
@@ -1275,6 +1290,12 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         if adaptive_yield:
             fl_kwargs.update(adaptive_yield=True, H_MARGIN_URGENT=0.06, URGENCY_HDOT_REF=0.15,
                               W_POS_EGO_MIN=200.0, LEASH_MAX_URGENT_M=0.14, CUP_TILT_SAFE_FRAC=0.6)
+        # ABLATION OVERRIDES (see FL_W_JERK_OVERRIDE/FL_W_POS_INT_OVERRIDE
+        # module-level docstring above) -- both default None -> unchanged.
+        if FL_W_JERK_OVERRIDE is not None:
+            fl_kwargs["W_JERK"] = FL_W_JERK_OVERRIDE
+        if FL_W_POS_INT_OVERRIDE is not None:
+            fl_kwargs["W_POS_INT"] = FL_W_POS_INT_OVERRIDE
         fl = mpc_fl.FLMPC(model, **fl_kwargs)
 
     # CUP-IN-BARRIER FIX: right-arm-vs-cup keypoints, resolved ONCE outside the

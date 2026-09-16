@@ -77,7 +77,28 @@ for _p in (str(REPO_ROOT), str(SCRIPTS_DIR), str(AB4_DIR), str(EVAL_DIR)):
 
 DT = 0.005  # scripts/make_cup_collect_safety_demo.py / sim_common.DT (scene_yor_canonical.xml timestep)
 
-CONTROLLERS = ("flmpc", "v4c")
+# ABLATION VARIANTS (workshop-paper knobs isolating the FL-MPC "cooperative"
+# and "smooth" claims -- see make_cup_collect_safety_demo.py's
+# FL_W_JERK_OVERRIDE / FL_W_POS_INT_OVERRIDE module docstring). Each maps to
+# the underlying demo controller string ("flmpc" for all 3 flmpc variants --
+# only the module-global overrides differ) plus the two override values to
+# set on the demo module BEFORE build_episode (None => leave at FLMPC's own
+# default, i.e. identical to plain "flmpc").
+#   flmpc            baseline: joint QP, W_JERK/W_POS_INT at FLMPC defaults.
+#   flmpc_bangbang   SMOOTHNESS ablation: W_JERK=0.0 (no jerk regularization)
+#                    -> right-EE jerk_rms should be >> flmpc's.
+#   flmpc_unilateral COOPERATION ablation: W_POS_INT=1e6 (intruder/right arm
+#                    rigidly tracks its task, can't deviate to help avoid) ->
+#                    only the ego/left arm should show large deflection during
+#                    the crossing, unlike flmpc's shared left/right split.
+#   v4c              reactive baseline (decentralized box-QP, no FLMPC).
+CONTROLLERS = ("flmpc", "flmpc_bangbang", "flmpc_unilateral", "v4c")
+VARIANT_OVERRIDES = {
+    "flmpc":            dict(demo_controller="flmpc", w_jerk=None, w_pos_int=None),
+    "flmpc_bangbang":   dict(demo_controller="flmpc", w_jerk=0.0,  w_pos_int=None),
+    "flmpc_unilateral": dict(demo_controller="flmpc", w_jerk=None, w_pos_int=1e6),
+    "v4c":              dict(demo_controller="v4c",   w_jerk=None, w_pos_int=None),
+}
 
 
 def jerk_rms(ee_pos: np.ndarray, dt: float = DT) -> float:
@@ -91,16 +112,45 @@ def jerk_rms(ee_pos: np.ndarray, dt: float = DT) -> float:
     return float(np.sqrt(np.mean(np.sum(jerk ** 2, axis=1))))
 
 
+def deflection_max_m(ee_pos: np.ndarray, idx_settle: int) -> float:
+    """max ||ee_pos[k] - ee_pos[idx_settle]|| for k >= idx_settle -- the
+    per-arm Cartesian motion DURING the crossing (from the settled hold pose
+    at RIGHT_START_T onward), the cooperation-axis observable: see the
+    variant docstring in CONTROLLERS/VARIANT_OVERRIDES above."""
+    idx_settle = min(idx_settle, ee_pos.shape[0] - 1)
+    if idx_settle >= ee_pos.shape[0] - 1:
+        return 0.0
+    dev = np.linalg.norm(ee_pos[idx_settle:] - ee_pos[idx_settle], axis=1)
+    return float(np.max(dev))
+
+
 def run_one(args: dict) -> dict:
     """Runs in a worker process. Returns a flat metric row (or ok=False + err)."""
     seed = args["seed"]
-    controller = args["controller"]
+    variant = args["controller"]
     max_steps = args.get("max_steps")
     t0 = time.perf_counter()
     try:
         import make_cup_collect_safety_demo as demo
+        import sim_common as sc
         demo.N_CUBES = 3
-        demo.V_EE_MAX_MS = 0.28
+        # SPEED-ENVELOPE sweep (#3): the intruder-EE Cartesian speed cap. Default
+        # 0.28 (the hard-geometry setting); --v-ee-max overrides it per run so the
+        # same benchmark is swept over a range of speeds (0.10/0.20/0.28/0.40) to
+        # show FL-MPC's operating envelope vs v4c, not a single point.
+        demo.V_EE_MAX_MS = float(args.get("v_ee_max") or 0.28)
+        # ABLATION WIRING: set the demo module's FL-MPC override globals
+        # BEFORE build_episode (fl = mpc_fl.FLMPC(...) is constructed inside
+        # build_episode's setup, reading these at construction time -- see
+        # FL_W_JERK_OVERRIDE/FL_W_POS_INT_OVERRIDE in
+        # make_cup_collect_safety_demo.py). Explicitly reset both every call
+        # (workers are reused across jobs via maxtasksperchild) so a prior
+        # job's override can never leak into this one.
+        ov = VARIANT_OVERRIDES[variant]
+        demo.FL_W_JERK_OVERRIDE = ov["w_jerk"]
+        demo.FL_W_POS_INT_OVERRIDE = ov["w_pos_int"]
+        controller = ov["demo_controller"]
+
         info = demo.build_episode(seed=seed, scenario="crossing", ee_speed_limit=True,
                                    cup_jitter_m=0.04, n_cubes=3)
         log, _ = demo.run_episode(info, controller=controller, qp_enabled=True, capture=False,
@@ -115,9 +165,34 @@ def run_one(args: dict) -> dict:
 
         right_ee = np.asarray(log["right_ee_pos"])
         jerk = jerk_rms(right_ee, DT)
+        # SPARC smoothness (#1): spectral arc length of the right-EE SPEED profile
+        # -- a robust, established smoothness metric (sim_common.sparc) that does
+        # NOT triple-differentiate, so it is far less noise-sensitive than jerk_rms
+        # (more negative = LESS smooth; a straight/smooth move is near 0). This is
+        # the primary smoothness number for the paper; jerk_rms is kept as a
+        # secondary/relative check.
+        _rspeed = np.linalg.norm(np.diff(right_ee, axis=0) / DT, axis=1) if right_ee.shape[0] > 1 else np.zeros(1)
+        try:
+            sparc_right = float(sc.sparc(_rspeed, DT))
+        except Exception:
+            sparc_right = float("nan")
+
+        # COOPERATION-AXIS metrics: per-arm Cartesian deflection during the
+        # crossing, measured from the settled hold pose at RIGHT_START_T
+        # (demo.RIGHT_START_T -- same "settle index" convention already used
+        # in make_cup_collect_safety_demo.py's own __main__ smoke, see
+        # idx_settle = searchsorted(log["t"], RIGHT_START_T) there). Compares
+        # how much EACH arm moved to negotiate the crossing: flmpc should
+        # split this across both arms; flmpc_unilateral should push nearly
+        # all of it onto the left/ego arm (right/intruder rigidly tracks its
+        # task and can't help avoid).
+        idx_settle = int(np.searchsorted(log["t"], demo.RIGHT_START_T))
+        left_ee = np.asarray(log["left_ee_pos"])
+        left_deflect_max_m = deflection_max_m(left_ee, idx_settle)
+        right_deflect_max_m = deflection_max_m(right_ee, idx_settle)
 
         return dict(
-            seed=seed, controller=controller, ok=True,
+            seed=seed, controller=variant, ok=True,
             n_steps=int(len(log["t"])),
             collision=bool(m["collision"]),
             spilled_max=int(m["spilled_max"]),
@@ -131,10 +206,14 @@ def run_one(args: dict) -> dict:
             placed_max=int(m["placed_max"]),
             left_qp_deflect_max_nm=float(m["left_qp_deflect_max_nm"]),
             jerk_rms_right_ee=jerk,
+            sparc_right_ee=sparc_right,
+            left_deflect_max_m=left_deflect_max_m,
+            right_deflect_max_m=right_deflect_max_m,
+            v_ee_max=float(args.get("v_ee_max") or 0.28),
             wall_s=time.perf_counter() - t0,
         )
     except Exception as e:
-        return dict(seed=seed, controller=controller, ok=False,
+        return dict(seed=seed, controller=variant, ok=False,
                      err=str(e)[:200], tb=traceback.format_exc()[-800:],
                      wall_s=time.perf_counter() - t0)
 
@@ -157,24 +236,34 @@ def aggregate(rows: list[dict], controller: str) -> dict:
         placed_final_mean=float(np.mean([r["placed_final"] for r in g])),
         jerk_rms_mean=float(np.mean([r["jerk_rms_right_ee"] for r in g])),
         jerk_rms_worst=float(np.max([r["jerk_rms_right_ee"] for r in g])),
+        sparc_mean=float(np.nanmean([r.get("sparc_right_ee", float("nan")) for r in g])),
+        left_deflect_mean_m=float(np.mean([r["left_deflect_max_m"] for r in g])),
+        right_deflect_mean_m=float(np.mean([r["right_deflect_max_m"] for r in g])),
+        v_ee_max=float(g[0].get("v_ee_max", 0.28)),
     )
 
 
 def print_aggregate_table(rows: list[dict], controllers: list[str]) -> None:
     aggs = [aggregate(rows, c) for c in controllers]
-    hdr = f"{'controller':10s} {'n':>3s} {'coll%':>6s} {'spill%':>7s} {'fling_mean':>10s} {'fling_worst':>11s} {'h_min_worst':>11s} {'infeas_mean':>11s} {'placed_mean':>11s} {'jerk_rms_mean':>13s}"
+    # jerk_rms_mean = SMOOTH axis (bangbang should blow this up vs flmpc);
+    # left/right_defl_mean = COOPERATION axis (unilateral should push nearly
+    # all deflection onto left/ego vs flmpc's more even split).
+    hdr = (f"{'controller':17s} {'n':>3s} {'coll%':>6s} {'spill%':>7s} {'fling_mean':>10s} {'fling_worst':>11s} "
+           f"{'h_min_worst':>11s} {'infeas_mean':>11s} {'placed_mean':>11s} {'jerk_rms_mean':>13s} "
+           f"{'sparc':>8s} {'left_defl_m':>11s} {'right_defl_m':>12s}")
     print("\n=== AGGREGATE (comprehensive_eval) ===")
     print(hdr)
     print("-" * len(hdr))
     for a in aggs:
         if a["n"] == 0:
-            print(f"{a['controller']:10s}   0  (no successful episodes)")
+            print(f"{a['controller']:17s}   0  (no successful episodes)")
             continue
-        print(f"{a['controller']:10s} {a['n']:3d} "
+        print(f"{a['controller']:17s} {a['n']:3d} "
               f"{100*a['collision_rate']:5.1f}% {100*a['spill_rate']:6.1f}% "
               f"{a['fling_mean_ms']:10.3f} {a['fling_worst_ms']:11.3f} "
               f"{a['h_min_worst']:11.3f} {a['qp_infeasible_frac_mean']:11.3f} "
-              f"{a['placed_final_mean']:11.2f} {a['jerk_rms_mean']:13.1f}")
+              f"{a['placed_final_mean']:11.2f} {a['jerk_rms_mean']:13.1f} "
+              f"{a['sparc_mean']:8.2f} {a['left_deflect_mean_m']:11.4f} {a['right_deflect_mean_m']:12.4f}")
     print()
 
 
@@ -188,7 +277,10 @@ def parse_seed_range(s: str) -> list[int]:
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--seeds", type=str, required=True, help="e.g. '0-49' or '0,1,2,5'")
-    ap.add_argument("--controllers", type=str, default="flmpc,v4c", help="comma-separated subset of {flmpc,v4c}")
+    ap.add_argument("--controllers", type=str, default="flmpc,v4c",
+                     help="comma-separated subset of {flmpc,flmpc_bangbang,flmpc_unilateral,v4c} "
+                          "(the 3 flmpc_* names are ablation VARIANTS, not separate controllers -- "
+                          "see VARIANT_OVERRIDES above)")
     ap.add_argument("--workers", type=int, default=14)
     ap.add_argument("--out", type=str, default="experiments/ab_smooth_vs_bangbang/results.json")
     ap.add_argument("--max-steps", type=int, default=None,
@@ -196,6 +288,10 @@ def main():
                           "Metrics computed on the truncated log are PARTIAL -- most useful for confirming "
                           "the harness end-to-end, not for real collision/spill statistics.")
     ap.add_argument("--maxtasksperchild", type=int, default=1)
+    ap.add_argument("--v-ee-max", type=float, default=None,
+                     help="Speed-envelope sweep (#3): override the intruder-EE Cartesian speed cap "
+                          "(demo.V_EE_MAX_MS; default 0.28). Sweep by launching one run per value "
+                          "(e.g. 0.10 0.20 0.28 0.40) to trace FL-MPC's operating envelope vs v4c.")
     args = ap.parse_args()
 
     seeds = parse_seed_range(args.seeds)
@@ -203,7 +299,8 @@ def main():
     for c in controllers:
         assert c in CONTROLLERS, f"unknown controller {c!r}, expected one of {CONTROLLERS}"
 
-    jobs = [dict(seed=s, controller=c, max_steps=args.max_steps) for c in controllers for s in seeds]
+    jobs = [dict(seed=s, controller=c, max_steps=args.max_steps, v_ee_max=args.v_ee_max)
+            for c in controllers for s in seeds]
     n_jobs = len(jobs)
     print(f"[comprehensive_eval] {n_jobs} episodes ({len(seeds)} seeds x {len(controllers)} controllers), "
           f"workers={args.workers}, max_steps={args.max_steps or 'FULL'}", flush=True)
@@ -215,12 +312,12 @@ def main():
         for i, r in enumerate(pool.imap_unordered(run_one, jobs)):
             rows.append(r)
             if r.get("ok"):
-                print(f"[{i+1}/{n_jobs}] seed={r['seed']:3d} ctrl={r['controller']:6s} "
+                print(f"[{i+1}/{n_jobs}] seed={r['seed']:3d} ctrl={r['controller']:17s} "
                       f"OK collision={r['collision']} spill_max={r['spilled_max']} "
                       f"fling={r['right_ee_speed_max_ms']:.3f}m/s h_min={r['h_min']:+.3f} "
                       f"jerk_rms={r['jerk_rms_right_ee']:.1f} wall={r['wall_s']:.0f}s", flush=True)
             else:
-                print(f"[{i+1}/{n_jobs}] seed={r['seed']:3d} ctrl={r['controller']:6s} "
+                print(f"[{i+1}/{n_jobs}] seed={r['seed']:3d} ctrl={r['controller']:17s} "
                       f"FAILED: {r.get('err')}", flush=True)
 
     wall = time.perf_counter() - t0
