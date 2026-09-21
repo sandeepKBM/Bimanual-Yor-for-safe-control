@@ -94,11 +94,7 @@ dist/
 # ─── from_viam5: staging bundle, do NOT commit (to be dissolved later) ───
 from_viam5/
 
-# ─── YOR/ nested git repo (platform, github.com/YOR-robot/YOR) ───
-# Ignored so a bare `git add -A` cannot commit it as a broken gitlink.
-# It stays on disk (upstream is independently public). Convert to a proper
-# git submodule when we decide submodule-vs-vendor.
-YOR/
+# ─── YOR/ is a proper git SUBMODULE (see .gitmodules), not ignored. ───
 
 # ─────────────────────────────────────────────────────────────────────────
 # DOCS / markdown: tracked on the local branch, STRIPPED from the pushed
