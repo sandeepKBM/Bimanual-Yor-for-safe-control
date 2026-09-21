@@ -126,6 +126,7 @@ import sim_common as sc  # noqa: E402  (read-only import)
 import run_ab4  # noqa: E402  (read-only import; reuses the v4-C* intruder-margin law)
 import mpc7 as mpc7_mod  # noqa: E402  (read-only import; --controller v7c reuses this UNMODIFIED)
 import mpc_fl  # noqa: E402  (feedback-linearized cooperative MPC; --controller flmpc)
+import mpc_fl_decentralized  # noqa: E402  (Option B: decentralized worst-case FL-MPC; --controller flmpc_decentB)
 import ee_speed_limit as ee_speed_limit_mod  # noqa: E402  (EE-SPEED-LIMIT FIX; module aliased to avoid the `ee_speed_limit` bool)
 import scene_setup  # noqa: E402  (eval/, read-only import)
 import safety_module as safety_mod  # noqa: E402  (eval/, read-only import; SemanticObservation only)
@@ -537,7 +538,7 @@ MONITOR_CHOICES = ("classifier", "value")
 # kinematically reattached, not really gripped, so mpc7's contact-based
 # fragility signal saturates at 1.0/max-caution permanently rather than
 # being state-adaptive).
-CONTROLLER_CHOICES = ("v4c", "v7c", "flmpc")
+CONTROLLER_CHOICES = ("v4c", "v7c", "flmpc", "flmpc_decentB")
 
 # --controller flmpc CUP-ARM YIELD REFINEMENT (see mpc_fl.py's cup-upright
 # tilt rows + new cup-arm displacement-leash rows): rather than gluing the
@@ -1261,7 +1262,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     # flmpc branch in the control loop below. NC=4,L=8 => NP=32 steps =
     # 160ms horizon @ DT=0.005 (v7c's own horizon length).
     fl = None
-    if controller == "flmpc" and qp_enabled:
+    if controller in ("flmpc", "flmpc_decentB") and qp_enabled:
         # W_POS_EGO lowered from the mpc_fl.FLMPC default (3000 -> 800): the
         # cup-upright tilt constraint + new cup-arm displacement-leash
         # constraint (both wired into the fl.step() call below) now do the
@@ -1296,7 +1297,13 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             fl_kwargs["W_JERK"] = FL_W_JERK_OVERRIDE
         if FL_W_POS_INT_OVERRIDE is not None:
             fl_kwargs["W_POS_INT"] = FL_W_POS_INT_OVERRIDE
-        fl = mpc_fl.FLMPC(model, **fl_kwargs)
+        # Option B: decentralized worst-case variant reuses the SAME kwargs/roles
+        # (mpc_fl_decentralized.FLMPCDecentralized subclasses FLMPC; identical
+        # .NP and .step() signature) so the control-loop branch below is shared.
+        if controller == "flmpc_decentB":
+            fl = mpc_fl_decentralized.FLMPCDecentralized(model, **fl_kwargs)
+        else:
+            fl = mpc_fl.FLMPC(model, **fl_kwargs)
 
     # CUP-IN-BARRIER FIX: right-arm-vs-cup keypoints, resolved ONCE outside the
     # loop (both are static lists; sim_common.barrier_keypoints is itself
@@ -1657,7 +1664,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 table_rows=mpc_table_rows)
             feasible_l = feasible_r = feasible_mpc
             solve_time = mpc_solve_time
-        elif controller == "flmpc" and scenario == "crossing" and t_r >= 0:
+        elif controller in ("flmpc", "flmpc_decentB") and scenario == "crossing" and t_r >= 0:
             # -- feedback-linearized cooperative MPC (mpc_fl.FLMPC): BOTH arms
             # via a joint QP over PLANNED ACCELERATIONS (tau = M*a+c realizes
             # q̈=a EXACTLY every step, so the horizon prediction is exact/
@@ -1806,7 +1813,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         # `flmpc` we KEEP the controller's own returned torque. The reactive v4c
         # (`v7c`/default) branch has no internal graceful handler, so it still
         # uses this brake.
-        _ctrl_has_graceful_fallback = (controller == "flmpc")
+        _ctrl_has_graceful_fallback = (controller in ("flmpc", "flmpc_decentB"))
         if not feasible_l and not _ctrl_has_graceful_fallback:
             tau_l_qp = bias_l - INFEAS_BRAKE_KD * data.qvel[left_dofadr]
         if not feasible_r and not _ctrl_has_graceful_fallback:

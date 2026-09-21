@@ -1,0 +1,91 @@
+<mujoco model="bimanual_pickup_scene">
+    <!--
+    Bimanual pick-up scene, derived from YOR/robot/arm/mujoco/scene_bimanual_table.xml.
+    Arms come from scenes/bimanual_piper_pickup.xml (see that file's header comment for the
+    exact gripper-actuation additions vs. the read-only YOR original bimanual_piper_table.xml).
+    This file additionally adds: a static table (top z=0.20 m) and three free-floating
+    graspable boxes. Lighting/skybox/groundplane/floor are copied verbatim from YOR's
+    scene_bimanual_table.xml.
+    -->
+    <include file="bimanual_piper_pickup.xml" />
+
+    <statistic center="0.3 0 0.25" extent="0.6" />
+
+    <visual>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+        <rgba haze="0.15 0.25 0.35 1" />
+        <global azimuth="120" elevation="-20" offwidth="1280" offheight="960" />
+    </visual>
+
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512"
+            height="3072" />
+        <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4"
+            rgb2="0.1 0.2 0.3"
+            markrgb="0.8 0.8 0.8" width="300" height="300" />
+        <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5"
+            reflectance="0.2" />
+        <material name="table_mat" rgba="0.45 0.32 0.22 1" />
+        <material name="box_center_mat" rgba="0.85 0.1 0.1 1" />
+        <material name="box_left_mat" rgba="0.1 0.7 0.15 1" />
+        <material name="box_right_mat" rgba="0.15 0.35 0.85 1" />
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
+        <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+
+        <!-- Static table: slab from floor (z=0) up to top surface z=0.20 m.
+             x in [0.2, 0.5] -> half-size 0.15, center x=0.35
+             y in [-0.35, 0.35] -> half-size 0.35, center y=0.0
+             slab thickness -> half-size 0.10, center z=0.10 (top face at z=0.20) -->
+        <body name="table" pos="0.35 0 0.10">
+            <geom name="table" type="box" size="0.15 0.35 0.10" material="table_mat"
+                friction="1.0 0.02 0.0002" condim="3" contype="1" conaffinity="1" />
+        </body>
+
+        <!-- Three graspable boxes: 0.04 m cube (half-size 0.02), mass 0.05 kg,
+             resting on the table top (center z = 0.20 + 0.02 = 0.22 m). -->
+        <body name="box_center" pos="0.35 0.0 0.22">
+            <freejoint name="box_center_free" />
+            <inertial pos="0 0 0" mass="0.05" diaginertia="1.333e-5 1.333e-5 1.333e-5" />
+            <geom name="box_center" type="box" size="0.02 0.02 0.02" material="box_center_mat"
+                friction="1.0 0.02 0.0002" condim="4" contype="1" conaffinity="1" />
+        </body>
+        <body name="box_left" pos="0.32 0.12 0.22">
+            <freejoint name="box_left_free" />
+            <inertial pos="0 0 0" mass="0.05" diaginertia="1.333e-5 1.333e-5 1.333e-5" />
+            <geom name="box_left" type="box" size="0.02 0.02 0.02" material="box_left_mat"
+                friction="1.0 0.02 0.0002" condim="4" contype="1" conaffinity="1" />
+        </body>
+        <body name="box_right" pos="0.32 -0.12 0.22">
+            <freejoint name="box_right_free" />
+            <inertial pos="0 0 0" mass="0.05" diaginertia="1.333e-5 1.333e-5 1.333e-5" />
+            <geom name="box_right" type="box" size="0.02 0.02 0.02" material="box_right_mat"
+                friction="1.0 0.02 0.0002" condim="4" contype="1" conaffinity="1" />
+        </body>
+    </worldbody>
+
+    <!-- Full-model keyframes (nq = 16 arm/finger DOF + 3*7 free-box DOF = 37).
+         Arm angles match YOR's bimanual_piper_table.xml "home"/"zero" keyframes exactly;
+         fingers are appended fully OPEN (0.035 / -0.035); boxes appended at their resting
+         pose (position above, identity quaternion "1 0 0 0"). -->
+    <keyframe>
+        <key name="home"
+             qpos="0 1.5857 -1.4835 0 0 0 0.035 -0.035
+                   0 1.5857 -1.4835 0 0 0 0.035 -0.035
+                   0.35 0.0 0.22 1 0 0 0
+                   0.32 0.12 0.22 1 0 0 0
+                   0.32 -0.12 0.22 1 0 0 0"
+             ctrl="0 1.5857 -1.4835 0 0 0 0.035 -0.035
+                   0 1.5857 -1.4835 0 0 0 0.035 -0.035" />
+        <key name="zero"
+             qpos="0 0 0 0 0 0 0.035 -0.035
+                   0 0 0 0 0 0 0.035 -0.035
+                   0.35 0.0 0.22 1 0 0 0
+                   0.32 0.12 0.22 1 0 0 0
+                   0.32 -0.12 0.22 1 0 0 0"
+             ctrl="0 0 0 0 0 0 0.035 -0.035
+                   0 0 0 0 0 0 0.035 -0.035" />
+    </keyframe>
+</mujoco>

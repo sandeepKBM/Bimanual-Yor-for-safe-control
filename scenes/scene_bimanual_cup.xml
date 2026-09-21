@@ -1,0 +1,209 @@
+<mujoco model="bimanual_cup_scene">
+    <!--
+    "Don't-spill-the-cup" bimanual scene, derived from scenes/scene_bimanual_pickup.xml
+    (same M0 base: dual Piper arms + actuated grippers via bimanual_piper_pickup.xml,
+    same static table with top z=0.20 m, same lighting/skybox/groundplane conventions).
+    This file swaps the pickup scene's three graspable boxes for:
+      1. A "cup": a light open-top container built from 12 thin box wall segments
+         (approximating a hollow cylinder) plus one flat cylindrical bottom disc,
+         all attached to a single free body "cup" (freejoint "cup_free"). See
+         scenes/CUP_TASK.md for exact dimensions/derivation.
+      2. N=8 small free-body balls ("ball_0".."ball_7") resting inside the cup.
+      3. A world-fixed "head_cam" (declarative, below). The wrist-mounted
+         "right/wrist_cam" is NOT defined in XML -- bimanual_piper_pickup.xml is
+         treated as read-only (no new filenames rule), so it is attached at load
+         time to body "right/gripper_base" via mujoco.MjSpec in
+         scripts/cup_task_utils.py (see build_cup_spec()/load_cup_model()).
+    Ground-truth spill detection (count_spilled) lives in scripts/cup_task_utils.py.
+    -->
+    <include file="bimanual_piper_pickup.xml" />
+
+    <statistic center="0.32 0.1 0.24" extent="0.6" />
+
+    <visual>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0" />
+        <rgba haze="0.15 0.25 0.35 1" />
+        <global azimuth="120" elevation="-20" offwidth="1280" offheight="960" />
+    </visual>
+
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512"
+            height="3072" />
+        <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4"
+            rgb2="0.1 0.2 0.3"
+            markrgb="0.8 0.8 0.8" width="300" height="300" />
+        <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5"
+            reflectance="0.2" />
+        <material name="table_mat" rgba="0.45 0.32 0.22 1" />
+        <material name="cup_mat" rgba="0.85 0.15 0.15 0.95" />
+        <material name="ball_mat" rgba="0.15 0.55 0.9 1" />
+    </asset>
+
+    <worldbody>
+        <light pos="0 0 1.5" dir="0 0 -1" directional="true" />
+        <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+
+        <!-- Onboard "head" camera: world-fixed, framing the workspace from the front.
+             mode="targetbody" target="cup" keeps the cup in frame even while it is
+             tilted/shaken during the spill test. NOTE: this is a wide establishing
+             shot (distance ~0.7m) kept only for debug/visualization montages -- it is
+             NOT one of the two world-model-facing cameras (the cup + ball level are
+             too small/low-res in this view; see cup_cam_a/cup_cam_b below and
+             collection/CUP_DATA.md). -->
+        <camera name="head_cam" pos="0.95 0.05 0.60" mode="targetbody" target="cup" fovy="45" />
+
+        <!-- ====== World-model observation cameras (FIXED, not targetbody) ======
+             Both are close-in (~0.17m from the cup's ball-pile centroid), angled
+             oblique/partial-top-down views chosen empirically (see
+             scripts/_probe_cup_obs_cam.py sweep + collection/CUP_DATA.md) so the
+             ball level inside the cup is actually resolvable in a 64x64 render
+             (measured ~250-330 "blueish" ball pixels out of 4096, i.e. several
+             pixels per ball -- not a 2px blob), and so an emptied cup after a spill
+             is visually distinguishable from a full one. Deliberately FIXED
+             (mode="fixed", rigidly attached to worldbody, pose does NOT track the
+             cup) per the world-model requirement that the observation viewpoint be
+             static -- a targetbody camera re-centers/re-scales every frame, which
+             is bad for an RSSM's implicit assumption of a consistent observation
+             frame. pos/xyaxes computed via a look-at helper (target = approx cup
+             ball-pile centroid (0.32, 0.13, 0.23)), two different azimuths
+             (0 deg / 25 deg around the cup's vertical axis) for a mild stereo-like
+             baseline. These are the two cameras collection/cameras.py's
+             CupDualCameraRenderer renders (recorded into the episode schema's
+             rgb_head/rgb_wrist_right array keys -- repurposed field names, see
+             collection/CUP_DATA.md). -->
+        <camera name="cup_cam_a" pos="0.41380 0.13000 0.37060" mode="fixed"
+            xyaxes="0.000000 1.000000 -0.000000 -0.831868 0.000000 0.554973" fovy="45" />
+        <camera name="cup_cam_b" pos="0.40501 0.16964 0.37060" mode="fixed"
+            xyaxes="-0.422618 0.906308 0.000000 -0.753929 -0.351563 0.554973" fovy="45" />
+
+        <!-- Static table: identical to scene_bimanual_pickup.xml (top surface z=0.20 m). -->
+        <body name="table" pos="0.35 0 0.10">
+            <geom name="table" type="box" size="0.15 0.35 0.10" material="table_mat"
+                friction="1.0 0.02 0.0002" condim="3" contype="1" conaffinity="1" />
+        </body>
+
+        <!-- ================= Cup =================
+             Local frame (relative to this body's pos, identity quat at rest):
+               z=0        -> bottom exterior face (rests on table top, body pos z=0.20)
+               z=0..0.003 -> bottom disc (cylinder, radius 0.030, half-thickness 0.0015)
+               z=0..0.08  -> 12 wall-segment boxes forming a dodecagon shell,
+                             wall centerline radius 0.030, thickness 0.003, height 0.08
+               z=0.08     -> open rim (top)
+             So world rim height at rest = 0.20 + 0.08 = 0.28 m.
+             Usable interior radius for balls ~= 0.030 - 0.0015(wall) ~= 0.0285 m. -->
+        <body name="cup" pos="0.32 0.13 0.20">
+            <freejoint name="cup_free" />
+            <inertial pos="0 0 0.03" mass="0.03" diaginertia="2.5e-5 2.5e-5 1.5e-5" />
+
+            <!-- bottom disc -->
+            <geom name="cup_bottom" type="cylinder" size="0.030 0.0015" pos="0 0 0.0015"
+                material="cup_mat" friction="0.6 0.01 0.0001" condim="4"
+                contype="1" conaffinity="1" />
+
+            <!-- 12 wall segments (dodecagon shell), generated for centerline radius
+                 R=0.030, thickness t=0.003, height H=0.08, tangential half-width
+                 arc_half=0.00785 (~= half the per-segment arc length, so adjacent
+                 segments meet edge-to-edge with ~0 gap). -->
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="0.03000 0.00000 0.0400" quat="1.000000 0 0 0.000000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_0"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="0.02598 0.01500 0.0400" quat="0.965926 0 0 0.258819" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_1"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="0.01500 0.02598 0.0400" quat="0.866025 0 0 0.500000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_2"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="0.00000 0.03000 0.0400" quat="0.707107 0 0 0.707107" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_3"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.01500 0.02598 0.0400" quat="0.500000 0 0 0.866025" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_4"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.02598 0.01500 0.0400" quat="0.258819 0 0 0.965926" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_5"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.03000 0.00000 0.0400" quat="0.000000 0 0 1.000000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_6"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.02598 -0.01500 0.0400" quat="-0.258819 0 0 0.965926" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_7"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.01500 -0.02598 0.0400" quat="-0.500000 0 0 0.866025" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_8"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.00000 -0.03000 0.0400" quat="-0.707107 0 0 0.707107" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_9"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="0.01500 -0.02598 0.0400" quat="-0.866025 0 0 0.500000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_10"/>
+            <geom type="box" size="0.00150 0.00785 0.0400" pos="0.02598 -0.01500 0.0400" quat="-0.965926 0 0 0.258819" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_11"/>
+        </body>
+
+        <!-- ================= Balls (N=8, r=0.008 m, density=900 -> ~2.4 g each) =================
+             Initial positions = cup body pos (0.32 0.13 0.20) + local offset below, two
+             layers of 4 so they settle into a stable resting pile inside the cup before
+             any shake is applied. friction has a rolling term (3rd coeff) + condim=6 so
+             balls damp out and rest instead of rolling indefinitely. -->
+        <body name="ball_0" pos="0.332 0.130 0.2085">
+            <freejoint name="ball_0_free" />
+            <geom name="ball_0" type="sphere" size="0.008" material="ball_mat" density="900"
+                friction="0.5 0.005 0.0003" condim="6" priority="1"
+                solref="0.004 1" solimp="0.9 0.95 0.001" />
+        </body>
+        <body name="ball_1" pos="0.320 0.142 0.2085">
+            <freejoint name="ball_1_free" />
+            <geom name="ball_1" type="sphere" size="0.008" material="ball_mat" density="900"
+                friction="0.5 0.005 0.0003" condim="6" priority="1"
+                solref="0.004 1" solimp="0.9 0.95 0.001" />
+        </body>
+        <body name="ball_2" pos="0.308 0.130 0.2085">
+            <freejoint name="ball_2_free" />
+            <geom name="ball_2" type="sphere" size="0.008" material="ball_mat" density="900"
+                friction="0.5 0.005 0.0003" condim="6" priority="1"
+                solref="0.004 1" solimp="0.9 0.95 0.001" />
+        </body>
+        <body name="ball_3" pos="0.320 0.118 0.2085">
+            <freejoint name="ball_3_free" />
+            <geom name="ball_3" type="sphere" size="0.008" material="ball_mat" density="900"
+                friction="0.5 0.005 0.0003" condim="6" priority="1"
+                solref="0.004 1" solimp="0.9 0.95 0.001" />
+        </body>
+        <body name="ball_4" pos="0.32849 0.13849 0.226">
+            <freejoint name="ball_4_free" />
+            <geom name="ball_4" type="sphere" size="0.008" material="ball_mat" density="900"
+                friction="0.5 0.005 0.0003" condim="6" priority="1"
+                solref="0.004 1" solimp="0.9 0.95 0.001" />
+        </body>
+        <body name="ball_5" pos="0.31151 0.13849 0.226">
+            <freejoint name="ball_5_free" />
+            <geom name="ball_5" type="sphere" size="0.008" material="ball_mat" density="900"
+                friction="0.5 0.005 0.0003" condim="6" priority="1"
+                solref="0.004 1" solimp="0.9 0.95 0.001" />
+        </body>
+        <body name="ball_6" pos="0.31151 0.12151 0.226">
+            <freejoint name="ball_6_free" />
+            <geom name="ball_6" type="sphere" size="0.008" material="ball_mat" density="900"
+                friction="0.5 0.005 0.0003" condim="6" priority="1"
+                solref="0.004 1" solimp="0.9 0.95 0.001" />
+        </body>
+        <body name="ball_7" pos="0.32849 0.12151 0.226">
+            <freejoint name="ball_7_free" />
+            <geom name="ball_7" type="sphere" size="0.008" material="ball_mat" density="900"
+                friction="0.5 0.005 0.0003" condim="6" priority="1"
+                solref="0.004 1" solimp="0.9 0.95 0.001" />
+        </body>
+    </worldbody>
+
+    <!-- Full-model keyframes (nq = 16 arm/finger DOF + 7 cup free DOF + 8*7 ball free DOF = 79).
+         Arm angles match scene_bimanual_pickup.xml's "home"/"zero" keyframes; fingers open;
+         cup + balls at their declared resting pose (matches body pos above, identity quat). -->
+    <keyframe>
+        <key name="home"
+             qpos="0 1.5857 -1.4835 0 0 0 0.035 -0.035
+                   0 1.5857 -1.4835 0 0 0 0.035 -0.035
+                   0.32 0.13 0.20 1 0 0 0
+                   0.332 0.130 0.2085 1 0 0 0
+                   0.320 0.142 0.2085 1 0 0 0
+                   0.308 0.130 0.2085 1 0 0 0
+                   0.320 0.118 0.2085 1 0 0 0
+                   0.32849 0.13849 0.226 1 0 0 0
+                   0.31151 0.13849 0.226 1 0 0 0
+                   0.31151 0.12151 0.226 1 0 0 0
+                   0.32849 0.12151 0.226 1 0 0 0"
+             ctrl="0 1.5857 -1.4835 0 0 0 0.035 -0.035
+                   0 1.5857 -1.4835 0 0 0 0.035 -0.035" />
+        <key name="zero"
+             qpos="0 0 0 0 0 0 0.035 -0.035
+                   0 0 0 0 0 0 0.035 -0.035
+                   0.32 0.13 0.20 1 0 0 0
+                   0.332 0.130 0.2085 1 0 0 0
+                   0.320 0.142 0.2085 1 0 0 0
+                   0.308 0.130 0.2085 1 0 0 0
+                   0.320 0.118 0.2085 1 0 0 0
+                   0.32849 0.13849 0.226 1 0 0 0
+                   0.31151 0.13849 0.226 1 0 0 0
+                   0.31151 0.12151 0.226 1 0 0 0
+                   0.32849 0.12151 0.226 1 0 0 0"
+             ctrl="0 0 0 0 0 0 0.035 -0.035
+                   0 0 0 0 0 0 0.035 -0.035" />
+    </keyframe>
+</mujoco>

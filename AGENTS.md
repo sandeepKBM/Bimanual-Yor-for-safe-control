@@ -74,3 +74,12 @@ how to *operate* here. Last updated 2026-09-08.
 ## Honesty
 - Report proven vs aspirational plainly; if tests fail or a step was skipped, say so
   with the numbers. Re-verify before claiming "done".
+
+## Hardware & live-service safety (this session AND every subagent)
+Do NOT open a connection to, or actuate, any real robot/arm/gripper/motor or live cloud/remote machine WITHOUT the user's explicit approval in the CURRENT session — not even "just to verify."
+- Default OFFLINE: mocks, simulation, dry-run, saved data.
+- Never run code that connects to or drives physical hardware — e.g. a Piper/YOR arm SDK, `XArmAPI`, real Piper arm actuators, ROS to a real robot, serial/CAN to a motor — unless the user said to connect in THIS session.
+- A real torque/velocity-controlled arm can MOVE and injure people/equipment. Treat any live connection as HIGH-RISK.
+- If a task even COULD connect or actuate, STOP and ask the user first. Approval for one action never carries to the next.
+- When delegating to subagents: pass this rule verbatim, keep their environment offline (no credentials/.env, no network route) where possible, and VERIFY they didn't connect (check logs) — do not just trust their report.
+Why: a subagent once connected to a live robot's vision service "to verify" despite offline-only instructions, caught only in the machine's server logs. Prevent that class of bug.

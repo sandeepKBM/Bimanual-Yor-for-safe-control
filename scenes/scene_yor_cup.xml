@@ -1,0 +1,168 @@
+<mujoco model="yor_cup">
+  <!--
+  "Don't-spill-the-cup" scene on the PROPER YOR robot (welded swerve base +
+  vertical lift + two full Piper arms, via scenes/yor_robot_derived.mjcf --
+  see scenes/YOR_CANONICAL.md for the locked interface). Supersedes the old
+  cup scene (scenes/scene_bimanual_cup.xml), which was built on the
+  SIMPLIFIED rig (bimanual_piper_pickup.xml, arms 0.5m apart, floor-mounted,
+  no base/lift). Table + robot geometry here are copied verbatim from
+  scenes/scene_yor_canonical.xml (same table pos/top-z=0.55, same floor/
+  skybox/lighting), with the canonical scene's single graspable test_box
+  replaced by a cup + N=8 balls (geometry/dimensions unchanged from the old
+  cup scene -- see scenes/CUP_TASK.md for the derivation -- only the WORLD
+  POSITION is translated into this scene's shared-workspace region).
+
+  Cup placement: body pos (0.42, -0.21, 0.55) -- x,y match the shared-
+  workspace column used by scene_yor_canonical.xml's test_box (reachable by
+  both arms, see YOR_CANONICAL.md's reachability sweep); z=0.55 is the TABLE
+  TOP height itself (not 0.57, which was the test_box's *center* height for
+  a box whose origin is its geometric center -- the cup body's origin is its
+  BOTTOM face, same convention as the old cup scene where cup pos.z == table
+  top exactly, so the cup's bottom disc rests flush on the table surface).
+  Balls keep their old cup-relative offsets, translated by the same amount.
+
+  NO fixed/external "close-up" camera is defined in this file. Per the task's
+  sim2real correction: the world model's two image channels must be cameras
+  that exist on the REAL robot -- the wrist egocentric cams
+  (left_arm_egocentric / right_arm_egocentric, both already defined in
+  yor_robot_derived.mjcf, unmodified). A synthetic top-down "cup_cam" (as the
+  old scene used) is not physically realizable on hardware and is
+  deliberately NOT reintroduced here. See collection/CUP_DATA_V2.md for the
+  egocentric-camera hover-pose search that replaces it.
+  -->
+  <include file="yor_robot_derived.mjcf" />
+
+  <statistic center="0.42 -0.21 0.6" extent="1.0" meansize="0.03" />
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.2 0.2 0.2" specular="0 0 0" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <global azimuth="120" elevation="-20" offwidth="1280" offheight="960" />
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+    <material name="table_material" rgba="0.55 0.4 0.28 1" />
+    <material name="cup_mat" rgba="0.85 0.15 0.15 0.95" />
+    <material name="ball_mat" rgba="0.15 0.55 0.9 1" />
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 2.0" directional="true" />
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+
+    <!-- Table: identical to scenes/scene_yor_canonical.xml (top surface z=0.55). -->
+    <body name="table" pos="0.42 -0.21 0">
+      <geom name="table_top" type="box" pos="0 0 0.535" size="0.30 0.30 0.015" material="table_material" />
+      <geom name="table_leg_fl" type="box" pos="0.26 0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <geom name="table_leg_fr" type="box" pos="0.26 -0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <geom name="table_leg_bl" type="box" pos="-0.26 0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <geom name="table_leg_br" type="box" pos="-0.26 -0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+    </body>
+
+    <!-- ================= Cup ================= (dimensions unchanged from
+         scenes/scene_bimanual_cup.xml / scenes/CUP_TASK.md; only translated
+         by delta=(+0.10,-0.34,+0.35) from the old scene's cup pos so x,y
+         land on the YOR shared-workspace column and z lands on this scene's
+         table top.)
+         Local frame (relative to this body's pos, identity quat at rest):
+           z=0        -> bottom exterior face (rests on table top)
+           z=0..0.003 -> bottom disc (cylinder, radius 0.030, half-thickness 0.0015)
+           z=0..0.08  -> 12 wall-segment boxes forming a dodecagon shell,
+                         wall centerline radius 0.030, thickness 0.003, height 0.08
+           z=0.08     -> open rim (top)
+         World rim height at rest = 0.55 + 0.08 = 0.63 m. -->
+    <body name="cup" pos="0.42 -0.21 0.55">
+      <freejoint name="cup_free" />
+      <inertial pos="0 0 0.03" mass="0.03" diaginertia="2.5e-5 2.5e-5 1.5e-5" />
+
+      <geom name="cup_bottom" type="cylinder" size="0.030 0.0015" pos="0 0 0.0015"
+        material="cup_mat" friction="0.6 0.01 0.0001" condim="4"
+        contype="1" conaffinity="1" />
+
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.03000 0.00000 0.0400" quat="1.000000 0 0 0.000000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_0"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.02598 0.01500 0.0400" quat="0.965926 0 0 0.258819" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_1"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.01500 0.02598 0.0400" quat="0.866025 0 0 0.500000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_2"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.00000 0.03000 0.0400" quat="0.707107 0 0 0.707107" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_3"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.01500 0.02598 0.0400" quat="0.500000 0 0 0.866025" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_4"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.02598 0.01500 0.0400" quat="0.258819 0 0 0.965926" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_5"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.03000 0.00000 0.0400" quat="0.000000 0 0 1.000000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_6"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.02598 -0.01500 0.0400" quat="-0.258819 0 0 0.965926" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_7"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.01500 -0.02598 0.0400" quat="-0.500000 0 0 0.866025" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_8"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.00000 -0.03000 0.0400" quat="-0.707107 0 0 0.707107" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_9"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.01500 -0.02598 0.0400" quat="-0.866025 0 0 0.500000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_10"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.02598 -0.01500 0.0400" quat="-0.965926 0 0 0.258819" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_11"/>
+    </body>
+
+    <!-- ================= Balls (N=8, r=0.008 m, density=900) =================
+         Positions = cup pos (0.42 -0.21 0.55) + the same local offsets used
+         in scenes/scene_bimanual_cup.xml (two 4-ball layers). -->
+    <body name="ball_0" pos="0.432 -0.210 0.5585">
+      <freejoint name="ball_0_free" />
+      <geom name="ball_0" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_1" pos="0.420 -0.198 0.5585">
+      <freejoint name="ball_1_free" />
+      <geom name="ball_1" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_2" pos="0.408 -0.210 0.5585">
+      <freejoint name="ball_2_free" />
+      <geom name="ball_2" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_3" pos="0.420 -0.222 0.5585">
+      <freejoint name="ball_3_free" />
+      <geom name="ball_3" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_4" pos="0.42849 -0.20151 0.576">
+      <freejoint name="ball_4_free" />
+      <geom name="ball_4" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_5" pos="0.41151 -0.20151 0.576">
+      <freejoint name="ball_5_free" />
+      <geom name="ball_5" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_6" pos="0.41151 -0.21849 0.576">
+      <freejoint name="ball_6_free" />
+      <geom name="ball_6" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_7" pos="0.42849 -0.21849 0.576">
+      <freejoint name="ball_7_free" />
+      <geom name="ball_7" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+  </worldbody>
+
+  <keyframe>
+    <!-- Full-scene "home" keyframe: both arms at the YOR canonical ready pose
+         (scenes/scene_yor_canonical.xml's own home ctrl/qpos for the arm DOF),
+         fingers open, cup + balls at their declared resting pose.
+         qpos layout: left_arm[joint1..6,7,8](8) + right_arm[joint1..6,7,8](8)
+                       + cup_free[x,y,z,qw,qx,qy,qz](7)
+                       + 8 * ball_free[x,y,z,qw,qx,qy,qz](7) = 16+7+56 = 79 = nq. -->
+    <key name="home"
+      qpos="0.0 1.58065 -0.578175 0.0 -0.912 0.78 0.03 -0.03
+            0.0 1.58065 -0.578175 0.0 -0.912 -0.78 0.03 -0.03
+            0.42 -0.21 0.55 1 0 0 0
+            0.432 -0.210 0.5585 1 0 0 0
+            0.420 -0.198 0.5585 1 0 0 0
+            0.408 -0.210 0.5585 1 0 0 0
+            0.420 -0.222 0.5585 1 0 0 0
+            0.42849 -0.20151 0.576 1 0 0 0
+            0.41151 -0.20151 0.576 1 0 0 0
+            0.41151 -0.21849 0.576 1 0 0 0
+            0.42849 -0.21849 0.576 1 0 0 0"
+      ctrl="0.0 1.58065 -0.578175 0.0 -0.912 0.78
+            0.0 1.58065 -0.578175 0.0 -0.912 -0.78
+            0.03 -0.03 0.03 -0.03" />
+  </keyframe>
+</mujoco>

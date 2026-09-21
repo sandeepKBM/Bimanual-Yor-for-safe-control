@@ -151,6 +151,29 @@ def run_one(args: dict) -> dict:
         demo.FL_W_POS_INT_OVERRIDE = ov["w_pos_int"]
         controller = ov["demo_controller"]
 
+        # V4C-ONLY KEEP-OUT RETUNE (env-driven, reset EVERY call). v4c's reactive
+        # HOCBF keep-out margin (sim_common.D_MIN) and ego class-K gains
+        # (sim_common.ALPHA1=ALPHA2) were tuned for the OLD smaller-gripper proxy
+        # spheres; on the final full-fidelity (bigger-gripper) model it collides
+        # ~58%. These two globals are read LIVE at QP-build time -- D_MIN inside
+        # sim_common.all_pair_barriers (`h = dist - (er+ir+D_MIN)`) and
+        # sc.ALPHA1/sc.ALPHA2 inside the demo's v4c ego-arm HOCBF-QP row
+        # construction (make_cup_collect_safety_demo.py's reactive `else` branch:
+        # psi1 = hdot + sc.ALPHA1*h ; const_term += sc.ALPHA1*hdot + sc.ALPHA2*psi1)
+        # -- so a runtime reassignment DOES reach them. We reset on EVERY call
+        # (not just the v4c ones) because spawn-Pool workers are reused across
+        # controller types and D_MIN/ALPHA are shared module globals: a v4c job
+        # would otherwise contaminate a later flmpc job in the same worker.
+        v4c_d_min = float(os.environ.get("V4C_D_MIN", "0.03"))
+        v4c_alpha = float(os.environ.get("V4C_ALPHA", "30"))
+        if controller == "v4c":
+            sc.D_MIN = v4c_d_min
+            sc.ALPHA1 = sc.ALPHA2 = v4c_alpha
+        else:
+            sc.D_MIN = 0.03
+            sc.ALPHA1 = sc.ALPHA2 = 30.0
+        sc.COMBINED_RADIUS = sc.R_EGO + sc.R_INT + sc.D_MIN
+
         info = demo.build_episode(seed=seed, scenario="crossing", ee_speed_limit=True,
                                    cup_jitter_m=0.04, n_cubes=3)
         log, _ = demo.run_episode(info, controller=controller, qp_enabled=True, capture=False,
