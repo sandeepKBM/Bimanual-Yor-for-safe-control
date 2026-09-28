@@ -208,7 +208,9 @@ class FLMPC:
                  qp_fallback_rho=1.0e5, qp_fallback_eps=1.0e-3, qp_fallback_smax=5.0,
                  adaptive_yield=False, H_MARGIN_URGENT=0.06, URGENCY_HDOT_REF=0.15,
                  W_POS_EGO_MIN=None, LEASH_MAX_URGENT_M=None, CUP_TILT_SAFE_FRAC=0.6,
-                 cup_cone_facets=0, g_accel=9.81):
+                 cup_cone_facets=0, g_accel=9.81,
+                 ee_speed_cap=None, ee_speed_body_int=None, speed_cap_steps=None,
+                 delay_steps=0, tau_max_vec=None, cone_mode="effgrav"):
         self.model = model
         self.NC, self.L, self.NV = NC, L, NV
         self.NP = NC * L
@@ -379,6 +381,45 @@ class FLMPC:
         self.coll_steps = np.arange(self.coll_stride, self.NP + 1, self.coll_stride,
                                      dtype=np.int64)
         self.tilt_steps = np.arange(self.L, self.NP + 1, self.L, dtype=np.int64)
+
+        # --- 2026-09-25 CONTROLLER FIXES (all default OFF -> step() byte-identical) ---
+        # F1 EE SPEED CAP (int/right arm): ee_speed_cap=V [m/s] + ee_speed_body_int
+        # (body id) -> rows |Jp_int @ qd_int(t)| <= V per world axis, plus one row
+        # along the current EE motion direction u (u . v(t) <= V), at the horizon
+        # steps `speed_cap_steps` (default: step coll_stride + every block boundary).
+        # qd_int(t) = qd0 + Phi_qd(t) @ a_int is EXACT for the FL double integrator
+        # (Jp frozen at t=0). Slackened together with the collision rows on an
+        # infeasible step (_relaxed_fallback); the torque box stays HARD.
+        self.ee_speed_cap = None if ee_speed_cap is None else float(ee_speed_cap)
+        self.ee_speed_body_int = ee_speed_body_int
+        if speed_cap_steps is None:
+            speed_cap_steps = sorted(set([self.coll_stride] + list(range(self.L, self.NP + 1, self.L))))
+        self.speed_cap_steps = np.asarray(speed_cap_steps, dtype=np.int64)
+        # F5 DELAY COMPENSATION: delay_steps=d>0 -> the state the plan acts on is
+        # forward-predicted d steps with the already-committed accelerations
+        # (queue of the last d applied (a_ego, a_int); EXACT for the double
+        # integrator, semi-implicit Euler like MuJoCo). The caller must sample the
+        # references d steps ahead (index 0 = when this command takes effect).
+        self.delay_steps = int(delay_steps)
+        self._a_queue = []                   # oldest first, len <= delay_steps
+        # F6 PER-JOINT TORQUE LIMIT: tau_max_vec (NV,) replaces the scalar
+        # sc.TAU_MAX in the torque-box rows and _torque_safe_scale. If gravity/bias
+        # alone exceeds a joint's limit (|c_j| > tau_max_j), a=0 is NOT feasible; that
+        # joint's box is explicitly relaxed to |c_j| (the controller then adds no
+        # torque beyond the bias on that joint) and counted in n_taumax_relaxed.
+        self.tau_max_vec = None if tau_max_vec is None else np.asarray(tau_max_vec, dtype=np.float64).copy()
+        self.n_taumax_relaxed = 0            # steps on which >=1 joint's box had to be relaxed
+        # F4 CONE MODE: "effgrav" (the original K-facet effective-gravity cone,
+        # facet RHS tilt_max -> a CIRCUMSCRIBED polygon, up to tilt_max/cos(pi/K)) or
+        # "true" (K facets on the geometric/true cup tilt ONLY, no acceleration term,
+        # RHS tilt_max*cos(pi/K) -> an INSCRIBED polygon, so ||tilt|| <= tilt_max).
+        assert cone_mode in ("effgrav", "true"), cone_mode
+        self.cone_mode = cone_mode
+        # fallback bookkeeping (introspection/logging only)
+        self.last_fallback = 0               # 0 feasible, 1 relaxed-slack QP, 2 a=0
+        self.n_relaxed = 0
+        self.n_zero_fallback = 0
+        self.last_M_e = self.last_c_e = self.last_M_i = self.last_c_i = None
         self._warmup()
 
     def _phi_q(self, t):
@@ -396,7 +437,7 @@ class FLMPC:
             Phi[:, b * NV:(b + 1) * NV] = self.cqd[t, b] * np.eye(NV)
         return Phi
 
-    def _relaxed_fallback(self, H, f, lower, upper, a_ineq, b_ineq, m_coll):
+    def _relaxed_fallback(self, H, f, lower, upper, a_ineq, b_ineq, m_coll, slack_idx=None):
         """GRACEFUL QP-INFEASIBILITY FALLBACK (see step()'s docstring). Called
         ONLY when the hard QP built in step() reports feasible=False (the
         collision-clearance rows + the hard torque-box rows have no common
@@ -446,6 +487,9 @@ class FLMPC:
         AUGMENTED problem."""
         ntot = H.shape[0]
         m_total = a_ineq.shape[0]
+        if slack_idx is not None:
+            # F1: slacken an explicit row set (collision rows + EE speed-cap rows).
+            m_coll = len(slack_idx)
         aug_n = ntot + m_coll
 
         H_aug = np.zeros((aug_n, aug_n))
@@ -460,7 +504,8 @@ class FLMPC:
         a_aug = np.zeros((m_total, aug_n))
         a_aug[:, :ntot] = a_ineq
         for j in range(m_coll):
-            a_aug[j, ntot + j] = -1.0   # a_k@x - s_k <= b_k, collision rows only
+            r = j if slack_idx is None else int(slack_idx[j])
+            a_aug[r, ntot + j] = -1.0   # a_k@x - s_k <= b_k, collision rows only (+ speed rows, F1)
         b_aug = b_ineq
 
         y, _, feasible2 = sc.solve_constrained_box_qp(H_aug, f_aug, lower_aug, upper_aug,
@@ -497,7 +542,7 @@ class FLMPC:
              pairs_all, M_ego_extra=None, bias_ego_extra=None,
              left_ee_body=None, tilt_max_rad=None, table_rows=None,
              leash_ee_body=None, leash_max_m=None, cup_cone_facets=None,
-             ego_hold=True):
+             ego_hold=True, int_ee_body=None, v_ee_max=None):
         """One control step. q_*_ref / qd_*_ref: (NP+1, NV) reference
         trajectories (index 0 = now). table_rows: optional
         (a_tab_e, b_tab_e, a_tab_i, b_tab_i) per-arm TABLE-FLOOR HOCBF rows in
@@ -535,6 +580,15 @@ class FLMPC:
             M_e = M_e + M_ego_extra
         if bias_ego_extra is not None:
             c_e = c_e + bias_ego_extra
+        self.last_M_e, self.last_c_e, self.last_M_i, self.last_c_i = M_e, c_e, M_i, c_i
+
+        # F5 DELAY COMPENSATION (default off: delay_steps=0 -> skipped entirely).
+        # Plan from the state the command will act on: advance (q, qd) over the
+        # d in-flight steps with the already-committed accelerations (exact for
+        # the double integrator; padded with a=0 at start-up).
+        dq_e_pred = dq_i_pred = None
+        if self.delay_steps > 0:
+            q0_e, qd0_e, q0_i, qd0_i, dq_e_pred, dq_i_pred = self._predict_over_delay(q0_e, qd0_e, q0_i, qd0_i)
 
         # nominal (a=0) drift trajectory, EXACT double integrator
         tvec = np.arange(NP + 1) * DT
@@ -550,6 +604,12 @@ class FLMPC:
         Je_arr = np.stack([p["Je"] for p in pairs])
         Ji_arr = np.stack([p["Ji"] for p in pairs])
         h0_arr = np.array([p["h"] for p in pairs])
+        if dq_e_pred is not None:
+            # F5: first-order barrier value at the predicted state (same constant
+            # n, J linearization the clearance rows already use over the horizon).
+            for k in range(h0_arr.shape[0]):
+                h0_arr[k] = (h0_arr[k] + float((n_arr[k] @ Je_arr[k]) @ dq_e_pred)
+                             - float((n_arr[k] @ Ji_arr[k]) @ dq_i_pred))
 
         # --- ADAPTIVE COOPERATIVE YIELDING (optional, default OFF -- see
         # __init__'s docstring for the full derivation/rationale). Computed
@@ -641,6 +701,21 @@ class FLMPC:
             NC, NV, n_blk,
             W_pe_eff, self.W['ve'], self.W['pi'], self.W['vi'], self.W['r'], self.W['j'],
             H_MARGIN_eff, sc.TAU_MAX)
+        m_coll_rows = int(n_arr.shape[0]) * int(self.coll_steps.shape[0])
+        tau_lim_e = tau_lim_i = sc.TAU_MAX        # scalar (default) or per-joint vector (F6)
+        if self.tau_max_vec is not None:
+            # F6: per-joint torque-box RHS (the kernel's rows are rebuilt in place;
+            # coefficient rows M_e/M_i are unchanged). Guard a=0 feasibility.
+            tau_lim_e = np.maximum(self.tau_max_vec, np.abs(c_e))
+            tau_lim_i = np.maximum(self.tau_max_vec, np.abs(c_i))
+            if np.any(tau_lim_e > self.tau_max_vec) or np.any(tau_lim_i > self.tau_max_vec):
+                self.n_taumax_relaxed += 1
+            base = m_coll_rows
+            for j in range(NV):
+                b_ineq[base + 2 * j] = tau_lim_e[j] - c_e[j]
+                b_ineq[base + 2 * j + 1] = tau_lim_e[j] + c_e[j]
+                b_ineq[base + 2 * NV + 2 * j] = tau_lim_i[j] - c_i[j]
+                b_ineq[base + 2 * NV + 2 * j + 1] = tau_lim_i[j] + c_i[j]
 
         # --- (3) CUP-UPRIGHT (optional, plain Python -- cheap/default-off):
         # bound the LEFT EE's predicted small-rotation about world x,y over a
@@ -679,8 +754,32 @@ class FLMPC:
                 # up=[0,0,1]:  omega_x = -b_y,  omega_y = b_x.
                 tilt0 = np.array([-cup_axis_world[1], cup_axis_world[0]])
             Jr_ee = sc.body_jac_full(model, data, ee_body)[1][:, left_dofadr]  # (3,NV) rot Jac at t=0
+            if dq_e_pred is not None:
+                tilt0 = tilt0 + Jr_ee[0:2] @ dq_e_pred     # F5: tilt at the predicted state
             n_facets = self.cup_cone_facets if cup_cone_facets is None else int(cup_cone_facets)
-            if n_facets and n_facets > 0:
+            if n_facets and n_facets > 0 and self.cone_mode == "true":
+                # --- F4 TRUE-TILT CONE: K facets on the geometric tilt ONLY, RHS
+                # tilt_max*cos(pi/K) -> INSCRIBED polygon => ||tilt(t)|| <= tilt_max
+                # (the per-axis box allows sqrt(2)*tilt_max on the diagonal; the
+                # effective-gravity cone below additionally PERMITS tilting into
+                # the cup acceleration, a/g rad, and its tangent facets
+                # circumscribe the circle). ---
+                rhs = tilt_max * np.cos(np.pi / n_facets)
+                dirs = [(np.cos(2.0 * np.pi * k / n_facets), np.sin(2.0 * np.pi * k / n_facets))
+                        for k in range(n_facets)]
+                for t in self.tilt_steps:
+                    Aq = self.Phi_q_all[t]
+                    drift_t = qd0_e * tvec[t]
+                    g0 = Jr_ee[0] @ Aq
+                    g1 = Jr_ee[1] @ Aq
+                    c0 = tilt0[0] + Jr_ee[0] @ drift_t
+                    c1 = tilt0[1] + Jr_ee[1] @ drift_t
+                    for (ux, uy) in dirs:
+                        row = np.zeros(ntot)
+                        row[eslice] = ux * g0 + uy * g1
+                        extra_a.append(row)
+                        extra_b.append(rhs - (ux * c0 + uy * c1))
+            elif n_facets and n_facets > 0:
                 # --- EFFECTIVE-GRAVITY CONE (K tangent facets of the L2 cone) ---
                 # Spill-free iff the cup axis stays within tilt_max of the
                 # EFFECTIVE-gravity "up", up_eff = (a_cup - g)/||a_cup - g||. In
@@ -797,6 +896,36 @@ class FLMPC:
                     extra_a.append(row)
                     extra_b.append(float(b_tab[r] - a_tab[r] @ c_a))
 
+        # --- (6) F1 EE SPEED CAP on the int/right arm (optional, default off:
+        # ee_speed_cap None and v_ee_max None -> no rows, slack_idx stays None).
+        # v(t) = Jp_int @ (qd0_i + Phi_qd(t) @ a_int)  (exact FL prediction, Jp
+        # frozen at t=0). Rows: +-v_ax(t) <= V (3 axes) and u.v(t) <= V along the
+        # current EE motion direction u (tightens the sqrt(3) box corner exactly
+        # where the arm is heading).
+        slack_idx = None
+        v_cap = v_ee_max if v_ee_max is not None else self.ee_speed_cap
+        sp_body = int_ee_body if int_ee_body is not None else self.ee_speed_body_int
+        if v_cap is not None and sp_body is not None:
+            Jp_int = sc.body_jac_full(model, data, sp_body)[0][:, right_dofadr]   # (3,NV)
+            v_now = Jp_int @ qd0_i
+            v_norm = float(np.linalg.norm(v_now))
+            u_dir = v_now / v_norm if v_norm > 1e-3 else None
+            row0 = a_ineq.shape[0] + len(extra_a)
+            n_sp = 0
+            for t in self.speed_cap_steps:
+                JA = Jp_int @ self.Phi_qd_all[t]          # (3, n_blk)
+                for ax in range(3):
+                    r_up = np.zeros(ntot); r_up[islice] = JA[ax]
+                    extra_a.append(r_up); extra_b.append(v_cap - v_now[ax])
+                    r_lo = np.zeros(ntot); r_lo[islice] = -JA[ax]
+                    extra_a.append(r_lo); extra_b.append(v_cap + v_now[ax])
+                    n_sp += 2
+                if u_dir is not None:
+                    r_u = np.zeros(ntot); r_u[islice] = u_dir @ JA
+                    extra_a.append(r_u); extra_b.append(v_cap - float(u_dir @ v_now))
+                    n_sp += 1
+            slack_idx = np.concatenate([np.arange(m_coll_rows), np.arange(row0, row0 + n_sp)]).astype(np.int64)
+
         if extra_a:
             a_ineq = np.vstack([a_ineq, np.stack(extra_a)])
             b_ineq = np.concatenate([b_ineq, np.array(extra_b)])
@@ -820,10 +949,18 @@ class FLMPC:
             # keeps the torque box HARD and returns the least-clearance-
             # violating torque within it.
             m_coll = int(n_arr.shape[0]) * int(self.coll_steps.shape[0])
-            x_relaxed, feasible2 = self._relaxed_fallback(H, f, lower, upper, a_ineq, b_ineq, m_coll)
+            if slack_idx is None:
+                x_relaxed, feasible2 = self._relaxed_fallback(H, f, lower, upper, a_ineq, b_ineq, m_coll)
+            else:
+                x_relaxed, feasible2 = self._relaxed_fallback(H, f, lower, upper, a_ineq, b_ineq, m_coll,
+                                                              slack_idx=slack_idx)
             if feasible2:
                 x = x_relaxed
+                self.last_fallback = 1
+                self.n_relaxed += 1
             else:
+                self.last_fallback = 2
+                self.n_zero_fallback += 1
                 # Ultimate fallback (should essentially never fire -- see
                 # _relaxed_fallback's docstring for when it could): command
                 # ZERO acceleration. tau = c_e/c_i then is pure
@@ -854,14 +991,52 @@ class FLMPC:
             # zero (never redirect/amplify it), so it tightens the torque
             # guarantee to exact without undoing the fallback's
             # "improve clearance, don't fling" property.
-            a_e0 = self._torque_safe_scale(M_e, c_e, a_e0, sc.TAU_MAX)
-            a_i0 = self._torque_safe_scale(M_i, c_i, a_i0, sc.TAU_MAX)
+            a_e0 = self._torque_safe_scale(M_e, c_e, a_e0, tau_lim_e)
+            a_i0 = self._torque_safe_scale(M_i, c_i, a_i0, tau_lim_i)
+        else:
+            self.last_fallback = 0
         self.a_ego_prev = a_e0.copy()
         self.a_int_prev = a_i0.copy()
+        if self.delay_steps > 0:
+            # F5: this command is now in flight (callers may overwrite it with the
+            # accel the plant will actually see, e.g. post torque-filter).
+            self._a_queue.append((a_e0.copy(), a_i0.copy()))
+            if len(self._a_queue) > self.delay_steps:
+                self._a_queue.pop(0)
         # realize the feedback-linearizing torque
         tau_e = M_e @ a_e0 + c_e
         tau_i = M_i @ a_i0 + c_i
         return tau_e, tau_i, bool(feasible)
+
+    # ---------------- F5 delay-compensation helpers ----------------------
+    def _predict_over_delay(self, q_e, qd_e, q_i, qd_i):
+        """Advance both arms' (q, qd) over `delay_steps` in-flight control steps
+        with the committed accelerations (oldest first; missing entries at
+        start-up = 0). Semi-implicit Euler, the same integrator di_coeffs and
+        MuJoCo use -> exact for the FL double integrator."""
+        d = self.delay_steps
+        queue = [(np.zeros(self.NV), np.zeros(self.NV))] * (d - len(self._a_queue)) + list(self._a_queue)
+        qe, qde, qi, qdi = q_e.copy(), qd_e.copy(), q_i.copy(), qd_i.copy()
+        for a_e, a_i in queue:
+            qde = qde + a_e * self.DT
+            qe = qe + qde * self.DT
+            qdi = qdi + a_i * self.DT
+            qi = qi + qdi * self.DT
+        return qe, qde, qi, qdi, qe - q_e, qi - q_i
+
+    def replace_last_applied(self, a_e, a_i):
+        """F5: overwrite the newest in-flight entry with the accel the plant will
+        actually receive (e.g. after the caller's torque filter / clip)."""
+        if self.delay_steps > 0 and self._a_queue:
+            self._a_queue[-1] = (np.asarray(a_e, float).copy(), np.asarray(a_i, float).copy())
+
+    def push_applied(self, a_e, a_i):
+        """F5: record a command issued by ANOTHER controller (e.g. the demo's
+        lift branch) so the in-flight queue is correct when FL-MPC takes over."""
+        if self.delay_steps > 0:
+            self._a_queue.append((np.asarray(a_e, float).copy(), np.asarray(a_i, float).copy()))
+            if len(self._a_queue) > self.delay_steps:
+                self._a_queue.pop(0)
 
     @staticmethod
     def _torque_safe_scale(M_arm, c_arm, a0, tau_max):
@@ -875,11 +1050,13 @@ class FLMPC:
         magnitude toward the always-safe a=0 point)."""
         delta = M_arm @ a0
         lam = 1.0
+        vec = np.ndim(tau_max) > 0          # F6: per-joint limits (scalar path unchanged)
         for j in range(delta.shape[0]):
             d = float(delta[j])
             if d == 0.0:
                 continue
-            lam_j = ((tau_max - c_arm[j]) / d) if d > 0.0 else ((-tau_max - c_arm[j]) / d)
+            tm = float(tau_max[j]) if vec else tau_max
+            lam_j = ((tm - c_arm[j]) / d) if d > 0.0 else ((-tm - c_arm[j]) / d)
             if lam_j < lam:
                 lam = lam_j
         lam = max(0.0, min(1.0, lam))

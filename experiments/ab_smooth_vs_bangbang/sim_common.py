@@ -741,7 +741,7 @@ def all_pair_barriers(model, data, ego_dofadr, int_dofadr,
 # default.
 # ---------------------------------------------------------------------------
 def table_plane_barrier_rows(model, data, kps, dofadr, M_inv, bias, z_floor,
-                              margin=0.0, alpha1=ALPHA1, alpha2=ALPHA2):
+                              margin=0.0, alpha1=ALPHA1, alpha2=ALPHA2, kp_radius=False):
     """HOCBF-QP rows for a STATIC horizontal half-space floor barrier
     (h_plane = z_keypoint - (z_floor - margin) >= 0) over an arbitrary set of
     (body_id, local_offset(3,), radius) keypoints -- the SAME per-keypoint
@@ -775,6 +775,12 @@ def table_plane_barrier_rows(model, data, kps, dofadr, M_inv, bias, z_floor,
     few mm above the table). margin=0.0 enforces the table's own surface
     height exactly.
 
+    kp_radius (default False = unchanged): True -> each keypoint's proxy-sphere
+    radius is included, h = z_kp - r - (z_floor - margin), i.e. the sphere's
+    SURFACE (not its centre) is kept above the threshold (2026-09-25 --ctrlfixes
+    F2: without it the r=0.05 palm capsule touches the table while its centre is
+    still ~55 mm above the threshold).
+
     Returns (a_rows, b_rows): (len(kps), len(dofadr)) / (len(kps),) arrays,
     ready to np.vstack/np.concatenate alongside an existing a_ineq/b_ineq.
     """
@@ -786,7 +792,7 @@ def table_plane_barrier_rows(model, data, kps, dofadr, M_inv, bias, z_floor,
         J = point_jac_at(model, data, bid, off)[:, dofadr]
         Jd = point_jacdot_at(model, data, bid, off)[:, dofadr]
         v = J @ data.qvel[dofadr]
-        h = float(p[2] - z_thresh)
+        h = float(p[2] - z_thresh) if not kp_radius else float(p[2] - _r - z_thresh)
         hdot = float(v[2])
         hddot_rest = float(n @ (Jd @ data.qvel[dofadr]))
         psi1 = hdot + alpha1 * h

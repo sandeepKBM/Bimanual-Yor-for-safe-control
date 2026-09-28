@@ -166,16 +166,67 @@ def run_one(args: dict) -> dict:
         # would otherwise contaminate a later flmpc job in the same worker.
         v4c_d_min = float(os.environ.get("V4C_D_MIN", "0.03"))
         v4c_alpha = float(os.environ.get("V4C_ALPHA", "30"))
+        # --v4c-* CLI knobs (2026-09-25 retune; see demo V4C_* globals). A CLI value
+        # overrides the env var; the demo V4C_* globals are RESET every call (workers
+        # are reused) and only ever set for v4c jobs.
+        v4c_kn = args.get("v4c") or {}
+        if v4c_kn.get("d_min") is not None:
+            v4c_d_min = float(v4c_kn["d_min"])
+        if v4c_kn.get("alpha") is not None:
+            v4c_alpha = float(v4c_kn["alpha"])
+        demo.V4C_INT_ALPHA = demo.V4C_TABLE_ALPHA = demo.V4C_ANTIWINDUP_M = None
+        demo.V4C_INFEAS_BRAKE_KD = demo.V4C_TORQUE_FILTER = None
+        demo.V4C_QP_METRIC, demo.V4C_FILTER_MODE, demo.V4C_SPEEDCAP_DIR = "torque", "post", False
         if controller == "v4c":
             sc.D_MIN = v4c_d_min
             sc.ALPHA1 = sc.ALPHA2 = v4c_alpha
+            if v4c_kn.get("alpha") is not None:      # CLI alpha: ego AND intruder AND table rows
+                demo.V4C_INT_ALPHA = demo.V4C_TABLE_ALPHA = v4c_alpha
+            if v4c_kn.get("metric") is not None:
+                demo.V4C_QP_METRIC = v4c_kn["metric"]
+            if v4c_kn.get("filter_mode") is not None:
+                demo.V4C_FILTER_MODE = v4c_kn["filter_mode"]
+            if v4c_kn.get("antiwindup_m") is not None:
+                demo.V4C_ANTIWINDUP_M = float(v4c_kn["antiwindup_m"])
+            if v4c_kn.get("speedcap_dir") is not None:
+                demo.V4C_SPEEDCAP_DIR = bool(v4c_kn["speedcap_dir"])
+            if v4c_kn.get("brake_kd") is not None:
+                demo.V4C_INFEAS_BRAKE_KD = float(v4c_kn["brake_kd"])
         else:
             sc.D_MIN = 0.03
             sc.ALPHA1 = sc.ALPHA2 = 30.0
         sc.COMBINED_RADIUS = sc.R_EGO + sc.R_INT + sc.D_MIN
 
+        # --grasp-mode passthrough (default "faked" => build_episode called
+        # exactly as before; "real" => genuine friction grasp, FL-MPC lift,
+        # see make_cup_collect_safety_demo --grasp-mode).
+        grasp_mode = args.get("grasp_mode") or "faked"
+        # --bugfixes (CHANGE 2): passed EXPLICITLY (never rely on the module
+        # global -- workers are reused across jobs).
+        bugfixes = (args.get("bugfixes") or "on") == "on"
+        # --ctrlfixes (F1-F6): passed EXPLICITLY per job, and the part set / delay /
+        # per-joint tau_max / cone globals are RESET every call (workers are reused).
+        ctrlfixes = (args.get("ctrlfixes") or "on") == "on"
+        if not hasattr(demo, "_CE_CF_DEFAULTS"):     # module defaults, captured once per worker
+            demo._CE_CF_DEFAULTS = dict(cone=demo.CTRLFIX_CONE_FACETS, taumax=demo.CTRLFIX_TAU_MAX_VEC)
+        demo.CTRLFIX_PARTS = demo.parse_ctrlfix_parts(args.get("ctrlfix_parts"))
+        demo.CTRLFIX_DELAY_STEPS = int(args.get("ctrlfix_delay_steps") or 0)
+        demo.CTRLFIX_CONE_FACETS = (demo._CE_CF_DEFAULTS["cone"] if args.get("ctrlfix_cone_facets") is None
+                                    else int(args["ctrlfix_cone_facets"]))
+        demo.CTRLFIX_TAU_MAX_VEC = (demo._CE_CF_DEFAULTS["taumax"] if args.get("ctrlfix_tau_max_vec") is None
+                                    else list(args["ctrlfix_tau_max_vec"]))
+        if not hasattr(demo, "_CE_CONE_ANCHOR_DEFAULT"):
+            demo._CE_CONE_ANCHOR_DEFAULT = demo.CTRLFIX_CONE_ANCHOR
+        demo.CTRLFIX_CONE_ANCHOR = args.get("ctrlfix_cone_anchor") or demo._CE_CONE_ANCHOR_DEFAULT
+        # REAL_CUP_CONE_FACETS (the pre-existing real-mode cone knob) -- job override, reset each call
+        if not hasattr(demo, "_CE_REAL_CONE_DEFAULT"):
+            demo._CE_REAL_CONE_DEFAULT = demo.REAL_CUP_CONE_FACETS
+        demo.REAL_CUP_CONE_FACETS = (demo._CE_REAL_CONE_DEFAULT if args.get("real_cup_cone_facets") is None
+                                     else int(args["real_cup_cone_facets"]))
         info = demo.build_episode(seed=seed, scenario="crossing", ee_speed_limit=True,
-                                   cup_jitter_m=0.04, n_cubes=3)
+                                   cup_jitter_m=0.04, n_cubes=3, grasp_mode=grasp_mode,
+                                   bugfixes=bugfixes, weld_gate_m=args.get("weld_gate_m"),
+                                   ctrlfixes=ctrlfixes)
         log, _ = demo.run_episode(info, controller=controller, qp_enabled=True, capture=False,
                                    ee_speed_limit=True, table_floor=True, max_steps=max_steps)
         m = demo.summarize(log)
@@ -222,6 +273,13 @@ def run_one(args: dict) -> dict:
             spill_at_lift=spill_at_lift,
             right_ee_speed_max_ms=float(m["right_ee_speed_max_ms"]),
             h_min=float(m["h_min"]),
+            # h_min at the NOMINAL 0.03 keep-out margin (logged h uses the live sc.D_MIN,
+            # so a v4c D_MIN retune would otherwise shift it): comparable across configs.
+            h_min_ref=float(m["h_min"]) + (float(sc.D_MIN) - 0.03),
+            v4c_knobs=(dict(d_min=float(sc.D_MIN), alpha_ego=float(sc.ALPHA1), alpha_int=demo.V4C_INT_ALPHA,
+                            alpha_table=demo.V4C_TABLE_ALPHA, metric=demo.V4C_QP_METRIC,
+                            filter_mode=demo.V4C_FILTER_MODE, antiwindup_m=demo.V4C_ANTIWINDUP_M,
+                            brake_kd=demo.V4C_INFEAS_BRAKE_KD, speedcap_dir=demo.V4C_SPEEDCAP_DIR) if controller == "v4c" else None),
             qp_infeasible_frac_left=float(m["qp_infeasible_frac_left"]),
             qp_infeasible_frac_right=float(m["qp_infeasible_frac_right"]),
             qp_infeasible_frac_max=float(max(m["qp_infeasible_frac_left"], m["qp_infeasible_frac_right"])),
@@ -233,6 +291,32 @@ def run_one(args: dict) -> dict:
             left_deflect_max_m=left_deflect_max_m,
             right_deflect_max_m=right_deflect_max_m,
             v_ee_max=float(args.get("v_ee_max") or 0.28),
+            grasp_mode=grasp_mode,
+            cup_dropped=bool(m.get("cup_dropped", False)),
+            true_cup_tilt_max_deg=float(m.get("true_cup_tilt_max_deg", float("nan"))),
+            true_cup_tilt_max_deg_after_lift=float(m.get("true_cup_tilt_max_deg_after_lift", float("nan"))),
+            grip_slip_max_m=float(m.get("grip_slip_max_m", float("nan"))),
+            pad_contacts_min=int(m.get("pad_contacts_min", 0)),
+            pad_contacts_min_raw=int(m.get("pad_contacts_min_raw", m.get("pad_contacts_min", 0))),
+            cup_low_legacy=bool(m.get("cup_low_legacy", False)),
+            pads_touching_min=int(m.get("pads_touching_min", 0)),
+            finger_force_max_n=float(m.get("finger_force_max_n", float("nan"))),
+            bugfixes=bool(m.get("bugfixes", bugfixes)),
+            ctrlfixes=bool(m.get("ctrlfixes", ctrlfixes)),
+            ctrlfix_parts=sorted(demo.CTRLFIX_PARTS) if ctrlfixes else [],
+            fl_relaxed_steps=int(m.get("fl_relaxed_steps", 0)),
+            fl_zero_fallback_steps=int(m.get("fl_zero_fallback_steps", 0)),
+            aw_frozen_steps=int(m.get("aw_frozen_steps", 0)),
+            aw_clamped_steps=int(m.get("aw_clamped_steps", 0)),
+            right_ee_speed_max_cross_ms=float(m.get("right_ee_speed_max_cross_ms", float("nan"))),
+            placed_strict_final=int(m.get("placed_strict_final", -1)),
+            placed_strict_max=int(m.get("placed_strict_max", -1)),
+            cup_init_tilt_deg=float(m.get("cup_init_tilt_deg", float("nan"))),
+            left_ee_tilt_max_deg=float(m.get("left_ee_tilt_max_deg", float("nan"))),
+            n_welds=int(m.get("n_welds", -1)),
+            weld_missed=int(m.get("weld_missed", 0)),
+            weld_onset_site_target_dist_m=m.get("weld_onset_site_target_dist_m"),
+            weld_onset_site_cube_dist_m=m.get("weld_onset_site_cube_dist_m"),
             wall_s=time.perf_counter() - t0,
         )
     except Exception as e:
@@ -241,11 +325,26 @@ def run_one(args: dict) -> dict:
                      wall_s=time.perf_counter() - t0)
 
 
+# FAIR-RETUNE best v4c config (2026-09-25, --v4c-preset tuned). See the retune report.
+# Grid (seeds 0-7, faked, ctrlfixes on): QP metric {torque, accel} x D_MIN {0.03,0.05,0.08} x
+# ALPHA {5,10,30,60} (+ filter / anti-windup / speed-row ablations). The decisive fix is the QP
+# METRIC (torque-space min-norm deflects through the light wrist -> cup whipped to 150-179 deg,
+# 7/8 collisions); with "accel" every D_MIN/ALPHA<=30 point is collision-free; D_MIN 0.05 is the
+# smallest margin with h_min_ref >= 0 on every seed, ALPHA 30 the best task success there.
+V4C_TUNED = dict(d_min=0.05, alpha=30.0, metric="accel", antiwindup_m=0.03, speedcap_dir=True)
+
+MAX_INIT_TILT_DEG = None   # set by --max-init-tilt-deg: exclude rows whose cup_init_tilt_deg exceeds it
+
+
 def aggregate(rows: list[dict], controller: str) -> dict:
-    g = [r for r in rows if r.get("ok") and r["controller"] == controller]
+    g_all = [r for r in rows if r.get("ok") and r["controller"] == controller]
+    g = g_all
+    if MAX_INIT_TILT_DEG is not None:
+        g = [r for r in g_all if not (r.get("cup_init_tilt_deg", 0.0) > MAX_INIT_TILT_DEG)]
+    n_excluded = len(g_all) - len(g)
     n = len(g)
     if n == 0:
-        return dict(controller=controller, n=0)
+        return dict(controller=controller, n=0, n_excluded_init_tilt=n_excluded)
     return dict(
         controller=controller, n=n,
         collision_rate=sum(r["collision"] for r in g) / n,
@@ -255,6 +354,8 @@ def aggregate(rows: list[dict], controller: str) -> dict:
         fling_worst_ms=float(np.max([r["right_ee_speed_max_ms"] for r in g])),
         h_min_mean=float(np.mean([r["h_min"] for r in g])),
         h_min_worst=float(np.min([r["h_min"] for r in g])),
+        h_min_ref_worst=float(np.min([r.get("h_min_ref", r["h_min"]) for r in g])),
+        true_cup_tilt_max_deg_median=float(np.nanmedian([r.get("true_cup_tilt_max_deg", float("nan")) for r in g])),
         qp_infeasible_frac_mean=float(np.mean([r["qp_infeasible_frac_max"] for r in g])),
         placed_final_mean=float(np.mean([r["placed_final"] for r in g])),
         jerk_rms_mean=float(np.mean([r["jerk_rms_right_ee"] for r in g])),
@@ -263,6 +364,18 @@ def aggregate(rows: list[dict], controller: str) -> dict:
         left_deflect_mean_m=float(np.mean([r["left_deflect_max_m"] for r in g])),
         right_deflect_mean_m=float(np.mean([r["right_deflect_max_m"] for r in g])),
         v_ee_max=float(g[0].get("v_ee_max", 0.28)),
+        grasp_mode=str(g[0].get("grasp_mode", "faked")),
+        cup_drop_rate=sum(bool(r.get("cup_dropped", False)) for r in g) / n,
+        true_cup_tilt_max_deg_mean=float(np.nanmean([r.get("true_cup_tilt_max_deg", float("nan")) for r in g])),
+        true_cup_tilt_max_deg_worst=float(np.nanmax([r.get("true_cup_tilt_max_deg", float("nan")) for r in g])),
+        grip_slip_max_m_worst=float(np.nanmax([r.get("grip_slip_max_m", float("nan")) for r in g])),
+        pad_contacts_min_worst=int(min(r.get("pad_contacts_min", 0) for r in g)),
+        n_excluded_init_tilt=n_excluded,
+        max_init_tilt_deg=MAX_INIT_TILT_DEG,
+        placed_strict_final_mean=float(np.mean([r.get("placed_strict_final", -1) for r in g])),
+        cup_init_tilt_deg_worst=float(np.nanmax([r.get("cup_init_tilt_deg", float("nan")) for r in g])),
+        left_ee_tilt_max_deg_mean=float(np.nanmean([r.get("left_ee_tilt_max_deg", float("nan")) for r in g])),
+        weld_missed_total=int(sum(r.get("weld_missed", 0) for r in g)),
     )
 
 
@@ -287,6 +400,20 @@ def print_aggregate_table(rows: list[dict], controllers: list[str]) -> None:
               f"{a['h_min_worst']:11.3f} {a['qp_infeasible_frac_mean']:11.3f} "
               f"{a['placed_final_mean']:11.2f} {a['jerk_rms_mean']:13.1f} "
               f"{a['sparc_mean']:8.2f} {a['left_deflect_mean_m']:11.4f} {a['right_deflect_mean_m']:12.4f}")
+    print(f"{'  grasp:':17s} " + " | ".join(
+        f"{a['controller']}[{a.get('grasp_mode', 'faked')}] cup_drop={100*a.get('cup_drop_rate', 0):.1f}% "
+        f"true_tilt_max mean/worst={a.get('true_cup_tilt_max_deg_mean', float('nan')):.2f}/"
+        f"{a.get('true_cup_tilt_max_deg_worst', float('nan')):.2f}deg "
+        f"slip_worst={100*a.get('grip_slip_max_m_worst', float('nan')):.2f}cm "
+        f"pad_contacts_min={a.get('pad_contacts_min_worst', 0)}" for a in aggs if a["n"] > 0))
+    print(f"{'  fixes:':17s} " + " | ".join(
+        f"{a['controller']} placed_strict_mean={a.get('placed_strict_final_mean', float('nan')):.2f} "
+        f"init_tilt_worst={a.get('cup_init_tilt_deg_worst', float('nan')):.1f}deg "
+        f"excluded(init_tilt>{a.get('max_init_tilt_deg')})="
+        f"{a.get('n_excluded_init_tilt', 0)} gripper_tilt_mean={a.get('left_ee_tilt_max_deg_mean', float('nan')):.2f}deg "
+        f"weld_missed={a.get('weld_missed_total', 0)} "
+        f"h_min_ref_worst(@D_MIN=0.03)={a.get('h_min_ref_worst', float('nan')):+.3f} "
+        f"tilt_median={a.get('true_cup_tilt_max_deg_median', float('nan')):.1f}deg" for a in aggs if a["n"] > 0))
     print()
 
 
@@ -315,18 +442,75 @@ def main():
                      help="Speed-envelope sweep (#3): override the intruder-EE Cartesian speed cap "
                           "(demo.V_EE_MAX_MS; default 0.28). Sweep by launching one run per value "
                           "(e.g. 0.10 0.20 0.28 0.40) to trace FL-MPC's operating envelope vs v4c.")
+    ap.add_argument("--grasp-mode", choices=("faked", "real"), default="faked",
+                     help="faked (default, unchanged) | real: genuine friction cup grasp + FL-MPC lift "
+                          "(make_cup_collect_safety_demo --grasp-mode real; flmpc* controllers only).")
+    ap.add_argument("--bugfixes", choices=("on", "off"), default="on",
+                     help="CHANGE-2 harness bug fixes (make_cup_collect_safety_demo --bugfixes): on (default) | "
+                          "off (pre-fix behavior, byte-identical).")
+    ap.add_argument("--ctrlfixes", choices=("on", "off"), default="on",
+                     help="controller fixes F1-F6 (make_cup_collect_safety_demo --ctrlfixes): on (default) | "
+                          "off (pre-fix behavior, byte-identical).")
+    ap.add_argument("--ctrlfix-parts", type=str, default="all",
+                     help="comma subset of the ctrlfix parts (make_cup_collect_safety_demo.CTRLFIX_ALL_PARTS), "
+                          "default all -- per-fix ablations.")
+    ap.add_argument("--ctrlfix-delay-steps", type=int, default=0,
+                     help="F5 delay compensation: known actuation delay [control steps] (default 0 = none).")
+    ap.add_argument("--ctrlfix-cone-facets", type=int, default=None,
+                     help="F4: true-tilt cone facets K (default: demo CTRLFIX_CONE_FACETS).")
+    ap.add_argument("--ctrlfix-tau-max", type=str, default=None,
+                     help="F6: per-joint FL-MPC torque limit, comma list of 6 (default: demo CTRLFIX_TAU_MAX_VEC).")
+    ap.add_argument("--weld-gate-m", type=float, default=None,
+                     help="(4) cube-weld proximity gate [m] (default None = off; see make_cup_collect_safety_demo).")
+    ap.add_argument("--max-init-tilt-deg", type=float, default=None,
+                     help="exclude episodes whose cup_init_tilt_deg (cup world tilt at pin time) exceeds this "
+                          "from the AGGREGATE (rows are still written). e.g. 30 = drop sideways-cup seeds.")
+    ap.add_argument("--v4c-preset", choices=("none", "tuned"), default="none",
+                     help="v4c knob preset: none (default = original v4-C*, env V4C_D_MIN/V4C_ALPHA still honored) | "
+                          "tuned (the 2026-09-25 fair-retune best config, V4C_TUNED below; explicit --v4c-* flags "
+                          "override single fields).")
+    ap.add_argument("--v4c-d-min", type=float, default=None, help="v4c keep-out margin sim_common.D_MIN [m]")
+    ap.add_argument("--v4c-alpha", type=float, default=None,
+                     help="v4c HOCBF class-K gain for the ego, intruder AND table rows (env V4C_ALPHA sets ego only)")
+    ap.add_argument("--v4c-metric", choices=("torque", "accel"), default=None,
+                     help="v4c QP cost: torque ||tau-tau_task|| (original) | accel ||M^-1(tau-tau_task)||")
+    ap.add_argument("--v4c-filter-mode", choices=("post", "pre"), default=None,
+                     help="v4c torque filter: post (original, after the QP) | pre (low-pass the nominal; QP last "
+                          "with the slew limit as a box)")
+    ap.add_argument("--v4c-antiwindup-m", type=float, default=None,
+                     help="v4c right-arm PD reference clamp [m] (ctrlfix F1 antiwindup analog); default off")
+    ap.add_argument("--v4c-speedcap-dir", choices=("on", "off"), default=None,
+                     help="v4c: add FL-MPC's motion-direction EE speed row to the per-axis box (ctrlfix F1 analog)")
+    ap.add_argument("--v4c-brake-kd", type=float, default=None, help="v4c QP-infeasibility brake damping")
     args = ap.parse_args()
+    global MAX_INIT_TILT_DEG
+    MAX_INIT_TILT_DEG = args.max_init_tilt_deg
 
     seeds = parse_seed_range(args.seeds)
     controllers = [c.strip() for c in args.controllers.split(",") if c.strip()]
     for c in controllers:
         assert c in CONTROLLERS, f"unknown controller {c!r}, expected one of {CONTROLLERS}"
 
-    jobs = [dict(seed=s, controller=c, max_steps=args.max_steps, v_ee_max=args.v_ee_max)
+    if args.grasp_mode == "real":
+        bad = [c for c in controllers if VARIANT_OVERRIDES[c]["demo_controller"] not in ("flmpc", "flmpc_decentB")]
+        assert not bad, f"--grasp-mode real needs flmpc-family controllers; got {bad}"
+    v4c_kn = dict(V4C_TUNED) if args.v4c_preset == "tuned" else {}
+    for _k in ("d_min", "alpha", "metric", "filter_mode", "antiwindup_m", "brake_kd", "speedcap_dir"):
+        _v = getattr(args, "v4c_" + _k)
+        if _v is not None:
+            v4c_kn[_k] = (_v == "on") if _k == "speedcap_dir" else _v
+    jobs = [dict(seed=s, controller=c, v4c=v4c_kn, max_steps=args.max_steps, v_ee_max=args.v_ee_max,
+                 grasp_mode=args.grasp_mode, bugfixes=args.bugfixes, weld_gate_m=args.weld_gate_m,
+                 ctrlfixes=args.ctrlfixes, ctrlfix_parts=args.ctrlfix_parts,
+                 ctrlfix_delay_steps=args.ctrlfix_delay_steps, ctrlfix_cone_facets=args.ctrlfix_cone_facets,
+                 ctrlfix_tau_max_vec=(None if args.ctrlfix_tau_max is None
+                                      else [float(x) for x in args.ctrlfix_tau_max.split(",")]))
             for c in controllers for s in seeds]
     n_jobs = len(jobs)
     print(f"[comprehensive_eval] {n_jobs} episodes ({len(seeds)} seeds x {len(controllers)} controllers), "
-          f"workers={args.workers}, max_steps={args.max_steps or 'FULL'}", flush=True)
+          f"workers={args.workers}, max_steps={args.max_steps or 'FULL'}, grasp_mode={args.grasp_mode}, "
+          f"bugfixes={args.bugfixes}, ctrlfixes={args.ctrlfixes}({args.ctrlfix_parts}), "
+          f"max_init_tilt_deg={args.max_init_tilt_deg}", flush=True)
     t0 = time.perf_counter()
 
     rows: list[dict] = []
@@ -338,7 +522,10 @@ def main():
                 print(f"[{i+1}/{n_jobs}] seed={r['seed']:3d} ctrl={r['controller']:17s} "
                       f"OK collision={r['collision']} spill_max={r['spilled_max']} "
                       f"fling={r['right_ee_speed_max_ms']:.3f}m/s h_min={r['h_min']:+.3f} "
-                      f"jerk_rms={r['jerk_rms_right_ee']:.1f} wall={r['wall_s']:.0f}s", flush=True)
+                      f"jerk_rms={r['jerk_rms_right_ee']:.1f} placed={r['placed_final']}/strict={r.get('placed_strict_final')} "
+                      f"init_tilt={r.get('cup_init_tilt_deg', float('nan')):.1f}deg"
+                      f" true_tilt_max={r.get('true_cup_tilt_max_deg', float('nan')):.1f}deg "
+                      f"welds={r.get('n_welds')} missed={r.get('weld_missed')} wall={r['wall_s']:.0f}s", flush=True)
             else:
                 print(f"[{i+1}/{n_jobs}] seed={r['seed']:3d} ctrl={r['controller']:17s} "
                       f"FAILED: {r.get('err')}", flush=True)
@@ -357,7 +544,10 @@ def main():
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload = dict(
-        seeds=seeds, controllers=controllers, max_steps=args.max_steps,
+        seeds=seeds, controllers=controllers, max_steps=args.max_steps, grasp_mode=args.grasp_mode,
+        bugfixes=args.bugfixes, max_init_tilt_deg=args.max_init_tilt_deg, weld_gate_m=args.weld_gate_m,
+        ctrlfixes=args.ctrlfixes, ctrlfix_parts=args.ctrlfix_parts, ctrlfix_delay_steps=args.ctrlfix_delay_steps,
+        v4c_knobs=v4c_kn,
         n_jobs=n_jobs, wall_s=wall,
         rows=rows,
         aggregate={c: aggregate(rows, c) for c in controllers},

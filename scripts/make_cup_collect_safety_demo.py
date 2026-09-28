@@ -101,6 +101,16 @@ Run (GPU 5 only -- GPUs 1-4 busy):
     forces this OFF (geometric run only, see CHANGE 2).
 --controller v4c (default) | v7c : see CHANGE 2 above.
 
+--grasp-mode faked (default, byte-identical to before) | real : REAL friction grasp of the cup (SIM ONLY):
+    the left pads physically pinch the cup under grip-force control (control/realgrasp_flmpc.py +
+    control/grasp_routines.py), NO reattach_cup_rigidly / carry_balls_with_cup / cup-velocity overwrite;
+    the balls ride in the cup under physics from t=0; FL-MPC (--controller flmpc|flmpc_decentB required)
+    also drives the LIFT (ego_hold=True, orientation-holding IK lift reference, joint dry-friction
+    feedforward); cup barrier keypoints + the cup-upright tilt anchor are recomputed from the ACTUAL cup
+    body pose every step; the RIGHT arm's cubes stay WELDED (unchanged). Adds cup_dropped /
+    true_cup_tilt_max_deg / grip_slip_max_m / pad_contacts_min metrics. Output files get a "_realgrasp"
+    suffix so faked artifacts are never overwritten.
+
 Writes artifacts/cup_collect_safety_demo_{config}[_v7c].mp4 + artifacts/cup_collect_safety_demo_meta_{config}[_v7c].json
 (the "_v7c" suffix is only appended for --controller v7c; v4c keeps the original filenames unchanged).
 """
@@ -132,6 +142,7 @@ import scene_setup  # noqa: E402  (eval/, read-only import)
 import safety_module as safety_mod  # noqa: E402  (eval/, read-only import; SemanticObservation only)
 from scripts import cup_collect_task_utils as cct  # noqa: E402  (read-only import)
 from teleop import bimanual_teleop as bt  # noqa: E402  (read-only import)
+from control import realgrasp_flmpc as rg  # noqa: E402  (--grasp-mode real helpers; measurement-only in faked mode)
 from world_model.wm_semantic_monitor import RealWMSpillMonitor, LatentValueShield  # noqa: E402  (real WM; LatentValueShield = the learned-HJ-in-the-loop shield)
 
 ART_DIR = REPO_ROOT / "artifacts"
@@ -284,6 +295,23 @@ SPILL_N_STEPS = int(round(SPILL_DURATION_S / sc.DT))
 ENGAGE_H_M = 0.05      # HUD "engaged" threshold, chosen for visualization (see make_safety_demo.py precedent)
 QP_DEFLECT_NM = 0.5    # || tau_qp - clip(tau_task) || threshold [Nm] to call the left QP "actively deflecting"
 INFEAS_BRAKE_KD = 8.0  # velocity-damping gain for the QP-infeasibility recovery brake (Nm per rad/s)
+
+# V4C RETUNE KNOBS (2026-09-25, --controller v4c ONLY; all None/"torque" = the
+# original v4-C* reactive branch, byte-identical). Set per job by
+# experiments/ab_smooth_vs_bangbang/comprehensive_eval.py (--v4c-* flags / V4C_* env).
+# The ego (left) class-K gains are sim_common.ALPHA1/ALPHA2 and the keep-out margin
+# sim_common.D_MIN (both read live); these cover what those do not reach:
+SELECT_D_MIN_REF = 0.03     # [m] nominal keep-out margin the F2 cube SELECTION uses (== sc.D_MIN default)
+V4C_INT_ALPHA = None       # intruder (right) HOCBF class-K gain; None -> run_ab4.INTRUDER_ALPHA["C"] (30)
+V4C_TABLE_ALPHA = None      # table-floor HOCBF class-K gain (v4c rows); None -> the def-time sc.ALPHA1/2 (30)
+V4C_QP_METRIC = "torque"    # "torque": min||tau - tau_task||^2 (original) | "accel": min||M^-1(tau - tau_task)||^2
+V4C_ANTIWINDUP_M = None     # [m] clamp the right-arm PD reference so its EE error <= this (F1 analog); None = off
+V4C_INFEAS_BRAKE_KD = None  # QP-infeasibility brake damping for v4c; None -> INFEAS_BRAKE_KD
+V4C_SPEEDCAP_DIR = False    # True: add FL-MPC's motion-direction speed row (u . v_next <= V_EE_MAX_MS) to v4c's
+                            # per-axis EE speed box (which alone lets the speed NORM reach sqrt(3)*V)
+V4C_FILTER_MODE = "post"    # "post": torque filter AFTER the QP (original) | "pre": low-pass the NOMINAL,
+                            # QP last with the slew limit as a box around the last applied torque
+V4C_TORQUE_FILTER = None    # (lowpass_alpha, rate_limit_nm_s) for v4c's torque command filter; None -> sc.FILTER_*
 
 # EE-SPEED-LIMIT FIX (--ee-speed-limit {on,off}, default on): neither the
 # reactive HOCBF-QP (v4c) nor the MPC-HOCBF (v7c) bounded how fast an
@@ -564,6 +592,183 @@ CUP_CONE_FACETS = 0      # 0 => per-axis small-angle tilt BOX (the demo default)
 
 
 # ---------------------------------------------------------------------------
+# --grasp-mode {faked,real} (default faked = byte-identical to before). See the
+# module docstring + build_episode/run_episode. REAL = genuine two-pad friction
+# pinch of the cup (SIMULATION ONLY), no teleport/weld/velocity-zeroing on the cup.
+# ---------------------------------------------------------------------------
+GRASP_MODE_CHOICES = ("faked", "real")
+REAL_GRIP_FORCE_N = 8.0            # grip-force target [N] (finger forcerange stays +-20 N, never exceeded)
+REAL_GRASP_LEVELED = True          # level the jaw axis before closing (LEFT_GRASP_Q's jaw is ~6 deg off
+                                   # horizontal -> Stage-1 grasp leaves the cup ~5.4 deg tilted; see
+                                   # control/realgrasp_flmpc.grasp_cup_real_leveled). False = Stage-1 exact.
+REAL_FRICTION_FF = True            # joint dry-friction feedforward on FL-MPC's LIFT torque (frictionloss
+                                   # 0.3 Nm/joint is NOT in FL's c term -> the wrist stalls, EE rolls ~12 deg)
+REAL_BALL_JITTER_MAX_M = 0.003     # per-seed ball-layout jitter [m] inside the cup (real mode's seed variation;
+                                   # scaled by cup_jitter_m>0, capped here so balls start inside the cup)
+REAL_CUP_DROP_NO_CONTACT_STEPS = 20  # cup_dropped if pads lose ALL cup contact for >= this many steps (0.1 s)...
+REAL_CUP_DROP_RISE_MIN_M = 0.03      # ...or, once the crossing starts, the cup sits < this above its grasp height
+REAL_CUP_CONE_FACETS = None        # real mode only: None => same tilt rows as faked (CUP_CONE_FACETS, the per-axis
+                                   # BOX: each world-x/y small-angle component <= CUP_TILT_MAX_RAD, so the L2 tilt can
+                                   # reach ~sqrt(2)*5.73 deg). K>0 => mpc_fl's K-facet inner L2 cone (effective-gravity
+                                   # up), a TIGHTER bound on the combined tilt. Default keeps faked-vs-real apples-to-apples.
+
+
+# ---------------------------------------------------------------------------
+# --bugfixes {on,off} (CHANGE 2, 2026-09-24). CLI default ON (this script's
+# main() and comprehensive_eval.py); LIBRARY default OFF (module BUGFIXES=False,
+# so other build_episode/run_episode callers -- collect_ladder, realtime,
+# imitation, teleop -- stay byte-identical unless they opt in with
+# bugfixes=True). Behavior-changing fixes for verified harness bugs; `off`
+# reproduces the pre-fix behavior byte-for-byte (the new METRICS below are
+# logged either way):
+#   (1) SIDEWAYS CUP INIT (faked mode). Root cause (owner-verified):
+#       eval/scene_setup.init_cup_grasped_state applies cup_jitter_m ONLY to
+#       old_cup_pos, while the cup always goes to the pad midpoint -- so the
+#       balls are shifted by (pad_mid - JITTERED old pos), landing 8-43 mm
+#       off-centre inside the cup walls; their push topples the free
+#       (unheld) cup, and cup_rel_quat0 then pins it ON ITS SIDE for the whole
+#       episode (10/24 seeds at jitter 0.04: 83-97 deg). Fix (demo-local copy,
+#       scene_setup.py is not edited): _init_cup_grasped_state_fixed shifts the
+#       balls by (pad_mid - TRUE old pos) and keeps per-seed variation as an
+#       in-cup ball-layout jitter of <= FAKED_BALL_JITTER_MAX_M; then ASSERTS
+#       the pinned cup tilt < CUP_INIT_TILT_ASSERT_DEG. Real mode: a toppled
+#       cup (> CUP_INIT_TOPPLED_DEG) is a reported grasp FAILURE.
+#       Metric: cup_init_tilt_deg (both modes, fixes on or off).
+#   (3) GRIPPER CLOCK: right_gripper_opening() was called with ABSOLUTE t
+#       while its `bounds` live on the right-arm track clock t_r (=t-RIGHT_START_T
+#       when unfrozen) -> the gripper animation fired RIGHT_START_T (1.6 s) early.
+#       Fix: pass t_r (and store release_t on the same clock).
+#   (4) WELD PROXIMITY -- MEASURED + GATE AVAILABLE, but NOT part of --bugfixes
+#       (off by default, enable with --weld-gate-m 0.02). Measured (flmpc, seeds
+#       0/1/2/5, 3 cubes, jitter 0.04): the clock-timed weld attaches with the
+#       right grasp site 10.0-12.2 cm from its grasp target (11.6-15.1 cm from the
+#       cube). Root cause is NOT the weld: the right arm cannot reach the IK grasp
+#       pose -- at that reference pose the gripper-base collision proxy (r=5 cm)
+#       sits inside the table-floor barrier and the gripper-base geom physically
+#       touches the table/cube, so the arm stops ~12 cm short. Gating at 2 cm
+#       therefore turns EVERY pick into a miss (12/12) -- the grasp reference (or
+#       the real cube grasp, #51) must be fixed first. With the gate on, the weld
+#       only attaches once the site is within the gate of p_at_i, else the cube is
+#       a MISSED pick (no long-range weld).
+#   (6) FL-MPC JOINT-FRICTION STALL (found while measuring (4)): every arm joint
+#       has frictionloss=0.3 Nm (unmodified YOR model), a MuJoCo CONSTRAINT force
+#       that FL-MPC's tau = M a + c never cancels. With the arms' built-in gravcomp
+#       the planned M a on the light wrist joints is < 0.3 Nm, so under --controller
+#       flmpc the RIGHT wrist (joints 4-6) essentially never leaves q_home: the
+#       gripper arrives mis-oriented, its base jams on the table/cube 10-12 cm from
+#       the grasp target, and the clock-timed weld then yanks the cube in from
+#       there (measured, seeds 0/1/2/5: onset 10.0-12.2 cm from target). Fix: the
+#       same Coulomb feedforward the real-grasp lift uses
+#       (control/realgrasp_flmpc.friction_feedforward, along FL-MPC's commanded
+#       motion; re-clipped to TAU_MAX) on BOTH arms in the flmpc crossing branch.
+#   (2)/(5) are metrics only (placed_strict, true cup-body tilt), no behavior change.
+# ---------------------------------------------------------------------------
+BUGFIXES = False                   # LIBRARY default (see above); the CLIs default to --bugfixes on
+FAKED_BALL_JITTER_MAX_M = 0.003    # (1) faked+fixes: per-seed in-cup ball-layout jitter cap [m]
+CUP_INIT_TILT_ASSERT_DEG = 15.0    # (1) faked+fixes: build_episode raises if the pinned cup is tilted more than this
+CUP_INIT_TOPPLED_DEG = 30.0        # real: grasp FAILURE if the gripped cup is tilted more than this after the close
+WELD_ATTACH_GATE_M = None          # (4): None = off (default). e.g. 0.02 = weld attaches only within 2 cm of p_at_i
+PLACED_STRICT_MIN_MOVE_M = 0.05    # (2): a selected cube must have moved > this from its t=0 position
+
+
+# ---------------------------------------------------------------------------
+# --ctrlfixes {on,off} (2026-09-25). Same pattern as --bugfixes: LIBRARY default
+# OFF (module CTRLFIXES=False -> every existing build_episode/run_episode caller
+# is byte-identical), CLI default ON (this script's main() and
+# comprehensive_eval.py pass it explicitly per job). Controller fixes:
+#   F3 "gravity": the computed-torque branch (lift / v4c task torque / v4c HOCBF
+#       + table rows / infeasible brake) used bias = qfrc_bias, but the arm bodies
+#       have gravcomp=1, so gravity is ALSO in qfrc_passive -> double gravity
+#       compensation. Fix: bias = qfrc_bias - qfrc_passive (as mpc_fl.FLMPC does).
+#       NOTE: this also corrects the TABLE rows' dynamics model under flmpc (they
+#       are built from bias_l/bias_r and mapped into accel space by FLMPC).
+#   F1 "speedcap": right-EE speed-cap rows inside FL-MPC over the horizon
+#       (|Jp_r qd_r(t)| <= V_EE_MAX_MS per axis + along the current motion
+#       direction), slackable like the collision rows on an infeasible step.
+#   F1 "antiwindup": the right-arm reference clock t_r is frozen while the
+#       right-EE tracking error exceeds CTRLFIX_AW_ERR_M (flmpc only); the
+#       episode is extended by at most CTRLFIX_AW_MAX_FREEZE_S so the task can finish.
+#   F2 "waypoints": top-down (fingers down), table-aware right-arm cube
+#       waypoints (control/cube_grasp.plan_top_down_pregrasp) for cubes where it
+#       IK-solves cleanly (else the old position-only IK is kept for that cube).
+#   F2 "tableradius": table-floor rows include each keypoint's radius
+#       (sim_common.table_plane_barrier_rows(kp_radius=True)).
+#   F5 "delaycomp": FL-MPC forward-predicts the state over CTRLFIX_DELAY_STEPS
+#       using the already-committed accelerations (default 0 -> no-op).
+#   F6 "taumax": FL-MPC per-joint torque limits CTRLFIX_TAU_MAX_VEC (default
+#       None -> scalar sc.TAU_MAX); |c_i| > tau_max_i is handled explicitly.
+#   F4 "cone": FL-MPC tilt rows as a K-facet L2 cone on the TRUE tilt (no
+#       effective-gravity term), see CTRLFIX_CONE_FACETS.
+#   F2b "realsel" (--grasp-mode real + "waypoints" only): the cube-selection
+#       pre-pass (select_crossing_cubes_topdown) checks the right arm's hover/grasp
+#       poses against the ACTUAL real-grasp cup-arm lift pose + cup pose
+#       (_real_grasp_prepass) instead of the unfixed-init pose (whose cup is ~17 cm
+#       off). No effect in faked mode (whose pre-pass has the same stale cup pose).
+# CTRLFIX_PARTS selects which of the parts are active when ctrlfixes is on
+# (default: all). --ctrlfix-parts overrides it (for per-fix ablations).
+# ---------------------------------------------------------------------------
+CTRLFIXES = False                  # LIBRARY default; the CLIs default to --ctrlfixes on
+CTRLFIX_ALL_PARTS = ("gravity", "speedcap", "antiwindup", "waypoints", "tableradius",
+                     "delaycomp", "taumax", "cone", "realsel")
+CTRLFIX_PARTS = set(CTRLFIX_ALL_PARTS)
+# OPT-IN parts: accepted by --ctrlfix-parts (e.g. "all,heldcube") but NOT in the default "all",
+# so the default ctrlfixes-on behavior (and its owner-verified numbers) is unchanged.
+#   "heldcube" (F8): while a cube is welded, the right arm's table-floor rows get one extra
+#       keypoint at the held cube (radius CUBE_HALF + TABLE_FLOOR_MARGIN_M + HELDCUBE_TABLE_CLEAR_M,
+#       needs "tableradius"), so the carried cube is not dragged along / into the table; and on
+#       release the cube's arm-collision is re-enabled only once the grasp site is
+#       HELDCUBE_REENABLE_DIST_M away from it (re-enabling while the lagging cube overlaps the
+#       fingers made the contact solver kick the gripper up -- the faked-mode 0.458 m/s "fling" --
+#       or eject the cube ~20 cm out of the keep zone -- faked seed 3's placed_strict=0).
+#   "retreat" (F9): between cubes the right arm transits via q_home (see build_episode).
+CTRLFIX_OPTIONAL_PARTS = ("heldcube", "retreat")
+HELDCUBE_TABLE_CLEAR_M = 0.002
+HELDCUBE_REENABLE_DIST_M = 0.06
+CTRLFIX_REF_SPEED_FRAC = 0.9       # F1: scripted right-EE PEAK speed <= this * V_EE_MAX_MS (FK-sampled path)
+CTRLFIX_AW_MODE = "clamp"          # F1 anti-windup: "clamp" (default) = the right-arm reference that enters the
+                                   # FL-MPC cost is pulled toward the current q so the EE error is <= CTRLFIX_AW_ERR_M
+                                   # (the clock keeps running); "freeze" = freeze t_r while the error exceeds it.
+                                   # "freeze" deadlocks whenever the reference passes through the collision barrier
+                                   # (the intended crossing dodge): the clock stops at a point the arm may never reach.
+CTRLFIX_AW_ERR_M = 0.03            # F1 anti-windup: EE tracking-error threshold [m]
+CTRLFIX_AW_GRASP_FREEZE = True     # F1 ("clamp" mode): ALSO freeze t_r inside the at_i grasp windows while the
+                                   # EE error > CTRLFIX_AW_ERR_M (budget CTRLFIX_AW_MAX_FREEZE_S), so the timed weld
+                                   # does not attach from afar when the arm lags
+CTRLFIX_AW_MAX_FREEZE_S = 3.0      # F1 anti-windup ("freeze" mode): total freeze budget [s] (episode extended by this)
+CTRLFIX_DELAY_STEPS = 0            # F5: known actuation delay [control steps] to compensate (0 = none)
+CTRLFIX_TAU_MAX_VEC = None         # F6: per-joint |tau| limit (6,) for FL-MPC; None = scalar sc.TAU_MAX
+CTRLFIX_CONE_ANCHOR = "once"       # F4 (real grasp): "once" = anchor the cone on the true cup axis at the first
+                                   # crossing step; "per_step" = re-anchor every step (the pre-existing behavior)
+CTRLFIX_CONE_FACETS = 8            # F4: >0 -> true-tilt K-facet INSCRIBED cone (mpc_fl cone_mode="true", ||tilt||
+                                   # <= CUP_TILT_MAX_RAD), anchored per CTRLFIX_CONE_ANCHOR; 0 = keep the per-axis box
+CTRLFIX_WP_HOVER_M = 0.10          # F2: top-down hover height above the grasp depth [m]
+CTRLFIX_WP_IK_ERR_MAX_M = 0.006    # F2: use the top-down waypoints only if both IK solves are < this
+CTRLFIX_WP_MAX_TILT_DEG = 20.0     # F2: near-top-down fallback: approach axis within this of vertical
+CTRLFIX_PLACE_DROP_M = 0.010       # F2: place the welded cube this much higher than it was grasped [m]
+CTRLFIX_DROP_SLIP_M = 0.05         # F7: cup "dropped" if its EE-frame offset exceeds this (sustained)
+CTRLFIX_PAD_FLICKER_STEPS = 5      # F7: pad_contacts_min ignores no-contact flicker shorter than this
+
+
+def parse_ctrlfix_parts(spec: str | None) -> set:
+    """'all' / None -> every part; else a comma list (validated)."""
+    if spec is None or spec.strip() in ("", "all"):
+        return set(CTRLFIX_ALL_PARTS)
+    parts = {p.strip() for p in spec.split(",") if p.strip()}
+    if "all" in parts:
+        parts = (parts - {"all"}) | set(CTRLFIX_ALL_PARTS)
+    bad = parts - set(CTRLFIX_ALL_PARTS) - set(CTRLFIX_OPTIONAL_PARTS)
+    assert not bad, (f"unknown --ctrlfix-parts {sorted(bad)}; expected a subset of "
+                     f"{CTRLFIX_ALL_PARTS + CTRLFIX_OPTIONAL_PARTS}")
+    return parts
+
+
+def _cf(info_or_flag, part: str) -> bool:
+    """True iff ctrlfixes is on (bool or info dict) AND `part` is enabled."""
+    on = bool(info_or_flag.get("ctrlfixes", False)) if isinstance(info_or_flag, dict) else bool(info_or_flag)
+    return on and (part in CTRLFIX_PARTS)
+
+
+# ---------------------------------------------------------------------------
 # Joint-space waypoint reference (smoothstep-eased, C1-continuous -- same
 # easing sim_common._smoothstep already uses for the v4-C* intruder ramp).
 # ---------------------------------------------------------------------------
@@ -764,16 +969,322 @@ def select_crossing_cubes(model, data, n_cubes: int = N_CUBES,
     return selected
 
 
+def _ctrlfix_down_grasp(model, data, bid: int, ik, q_home: np.ndarray, table_thr: float | None = None,
+                        table_kps: list | None = None) -> dict | None:
+    """--ctrlfixes F2: fingers-DOWN grasp waypoints for one cube (hover + grasp depth).
+    First the exact top-down plan (control/cube_grasp.plan_top_down_pregrasp); if its
+    IK misses (> CTRLFIX_WP_IK_ERR_MAX_M, e.g. cubes near the reach boundary), a
+    NEAR-top-down fallback: the same site targets with a down-pointing orientation
+    target at reduced orientation weight (4 face-aligned yaws), accepted only if the
+    approach axis is within CTRLFIX_WP_MAX_TILT_DEG of vertical. If table_thr/
+    table_kps are given, the grasp pose is raised until every keypoint SURFACE
+    (z - r) clears table_thr. Returns None if the cube is not reachable this way."""
+    from control import cube_grasp as cg
+    tol = CTRLFIX_WP_IK_ERR_MAX_M
+    pg = cg.plan_top_down_pregrasp(model, data, bid, "right", hover=CTRLFIX_WP_HOVER_M, ik=ik, prefer_q=q_home)
+    ee_b = model.body("right_arm_gripper_base").id
+    _, rqa, _ = sc.joint_addrs(model, sc.RIGHT_ARM_JOINTS)
+    scr = mujoco.MjData(model)
+    scr.qpos[:] = data.qpos
+
+    def _fk(q):
+        scr.qpos[rqa] = q
+        mujoco.mj_kinematics(model, scr)
+        return scr.xpos[ee_b].copy(), scr.xmat[ee_b].reshape(3, 3).copy()
+
+    def _tilt_deg(q):
+        return float(np.degrees(np.arccos(np.clip(-_fk(q)[1][2, 2], -1.0, 1.0))))
+
+    def _table_clr(q):
+        if table_thr is None or table_kps is None:
+            return np.inf
+        scr.qpos[rqa] = q
+        mujoco.mj_kinematics(model, scr)
+        return min(float((scr.xpos[b_] + scr.xmat[b_].reshape(3, 3) @ o_)[2] - r_ - table_thr)
+                   for b_, o_, r_ in table_kps)
+
+    cand = None
+    if max(pg.ik_err_hover, pg.ik_err_at) < tol:
+        cand = dict(q_hover=pg.q_hover.copy(), q_at=pg.q_at.copy(), e_h=float(pg.ik_err_hover),
+                    e_a=float(pg.ik_err_at), site_at=pg.site_pos_at.copy(), site_quat=pg.site_quat.copy(),
+                    mode="topdown")
+    else:
+        for w in (0.3, 0.1, 0.03):
+            for kk in range(4):
+                psi = pg.yaw + kk * 0.5 * np.pi
+                zb = np.array([0.0, 0.0, -1.0])
+                yb = np.array([np.cos(psi), np.sin(psi), 0.0])
+                Rk = np.column_stack([np.cross(yb, zb), yb, zb])
+                qb = np.zeros(4)
+                mujoco.mju_mat2Quat(qb, Rk.reshape(9))
+                qs = np.zeros(4)
+                mujoco.mju_mulQuat(qs, qb, model.site_quat[ik.site_id])
+                ik.last_q = q_home.copy()
+                q_h, e_h = ik.solve(data, pg.site_pos_hover, qs, ori_weight=w, iters=300)
+                ik.last_q = q_h.copy()
+                q_a, e_a = ik.solve(data, pg.site_pos_at, qs, ori_weight=w, iters=300)
+                if max(e_h, e_a) < tol and max(_tilt_deg(q_h), _tilt_deg(q_a)) <= CTRLFIX_WP_MAX_TILT_DEG:
+                    cand = dict(q_hover=q_h, q_at=q_a, e_h=float(e_h), e_a=float(e_a), site_at=pg.site_pos_at.copy(),
+                                site_quat=qs, ori_w=w, mode=f"near_topdown_w{w}")
+                    break
+            if cand is not None:
+                break
+    if cand is None:
+        return None
+    # table-aware: raise the grasp pose until every keypoint surface clears the floor threshold
+    for _ in range(4):
+        clr = _table_clr(cand["q_at"])
+        if clr >= 0.0:
+            break
+        cand["site_at"] = cand["site_at"] + np.array([0.0, 0.0, -clr + 0.002])
+        ik.last_q = cand["q_at"].copy()
+        cand["q_at"], cand["e_a"] = ik.solve(data, cand["site_at"], cand["site_quat"],
+                                             ori_weight=cand.get("ori_w", 1.0), iters=300)
+        cand["mode"] += "+raised"
+    cand["table_clr_at"] = _table_clr(cand["q_at"])
+    ee_at, R_at = _fk(cand["q_at"])
+    cand.update(R_at=R_at, tip_local=pg.tip_local.copy(), tip_at=ee_at + R_at @ pg.tip_local, yaw=float(pg.yaw),
+                tilt_at_deg=_tilt_deg(cand["q_at"]))
+    return cand
+
+
+def _ctrlfix_table_safe_segments(model, data, site_id, qposadr, q_start, targets, phases, table_kps, table_thr,
+                                 n_sample: int = 41, n_via: int = 3, max_iter: int = 4):
+    """--ctrlfixes F2: split right-arm reference segments that dip below the table.
+    For each move q_prev -> q_t (smoothstep joint interpolation, as JointWaypointTrack
+    samples it), FK-sample the min keypoint-surface clearance; if < 0, replace the move
+    by n_via+1 sub-moves through IK via-points on the straight Cartesian site line
+    (orientation slerped), raising the via-points until every sub-move clears. The
+    original waypoint keeps its (name, hold); vias are unnamed with zero hold and an
+    equal share of the move duration. Returns (targets, phases, n_vias_added)."""
+    scr = mujoco.MjData(model)
+    scr.qpos[:] = data.qpos
+
+    def _clr_path(qa, qb):
+        worst = np.inf
+        for sft in np.linspace(0.0, 1.0, n_sample):
+            scr.qpos[qposadr] = qa + sft * (qb - qa)
+            mujoco.mj_kinematics(model, scr)
+            for b_, o_, r_ in table_kps:
+                worst = min(worst, float((scr.xpos[b_] + scr.xmat[b_].reshape(3, 3) @ o_)[2] - r_ - table_thr))
+        return worst
+
+    def _site_pose(q):
+        scr.qpos[qposadr] = q
+        mujoco.mj_kinematics(model, scr)
+        quat = np.zeros(4)
+        mujoco.mju_mat2Quat(quat, scr.site_xmat[site_id].copy())
+        return scr.site_xpos[site_id].copy(), quat
+
+    def _slerp(q0, q1, u):
+        q0 = q0 / np.linalg.norm(q0); q1 = q1 / np.linalg.norm(q1)
+        dot = float(np.dot(q0, q1))
+        if dot < 0.0:
+            q1, dot = -q1, -dot
+        if dot > 0.9995:
+            q = q0 + u * (q1 - q0)
+            return q / np.linalg.norm(q)
+        th = np.arccos(dot)
+        return (np.sin((1 - u) * th) * q0 + np.sin(u * th) * q1) / np.sin(th)
+
+    ik = bt.ArmIK(model, "right")
+    out_t, out_p, added = [], [], 0
+    q_prev = np.asarray(q_start, float)
+    for qt, (name, dur, hold) in zip(targets, phases):
+        if _clr_path(q_prev, qt) >= 0.0:
+            out_t.append(qt); out_p.append((name, dur, hold)); q_prev = qt
+            continue
+        pa, qa_ = _site_pose(q_prev)
+        pb, qb_ = _site_pose(qt)
+        lift = 0.0
+        vias = None
+        for _ in range(max_iter):
+            vias, qs = [], q_prev
+            for k in range(1, n_via + 1):
+                u = k / (n_via + 1)
+                ik.last_q = qs.copy()
+                qv, _e = ik.solve(data, pa + u * (pb - pa) + np.array([0.0, 0.0, lift]), _slerp(qa_, qb_, u),
+                                  ori_weight=0.3, iters=200)
+                vias.append(qv); qs = qv
+            chain = [q_prev] + vias + [qt]
+            worst = min(_clr_path(chain[j], chain[j + 1]) for j in range(len(chain) - 1))
+            if worst >= 0.0:
+                break
+            lift += -worst + 0.01
+        for qv in vias:
+            out_t.append(qv); out_p.append((None, dur / (n_via + 1), 0.0)); added += 1
+        out_t.append(qt); out_p.append((name, dur / (n_via + 1), hold))
+        q_prev = qt
+    return out_t, out_p, added
+
+
+def select_crossing_cubes_topdown(model, data, n_cubes: int = N_CUBES, *, left_q_lift: np.ndarray | None = None,
+                                  cup_rel: tuple | None = None) -> list[str]:
+    """--ctrlfixes F2: like select_crossing_cubes (farthest-from-cup first, or the
+    --cubes override order), but a cube qualifies only if (a) a fingers-DOWN grasp
+    (_ctrlfix_down_grasp) IK-solves at hover and grasp depth and (b) those two poses
+    clear the LEFT arm + held cup (arm-arm barrier h >= 0 and right-arm-to-cup
+    clearance >= 0) with the left arm at its lift pose -- a cube right next to the
+    lifted cup (e.g. cube_4) cannot be picked without the barrier blocking it.
+
+    left_q_lift / cup_rel (default None = the FAKED-grasp lift pose, IK-solved here,
+    and the cup pose in `data`): the --ctrlfix-parts "realsel" pre-pass passes the
+    ACTUAL real-grasp lift pose and cup-in-EE pose (_real_grasp_prepass) instead."""
+    _, right_qposadr, _ = sc.joint_addrs(model, sc.RIGHT_ARM_JOINTS)
+    _, left_qposadr, _ = sc.joint_addrs(model, sc.LEFT_ARM_JOINTS)
+    q_home = data.qpos[right_qposadr].copy()
+    cup_body = model.body(cct.CUP_BODY_NAME).id
+    cup_xy = data.xpos[cup_body][:2].copy()
+    left_ee_body = model.body(scene_setup.EE_BODY_NAME).id
+    # left lift pose (same IK as build_episode's faked path) + cup keypoints
+    if left_q_lift is None:
+        left_ik = bt.ArmIK(model, "left")
+        left_ik.last_q = data.qpos[left_qposadr].copy()
+        q_lift, _ = left_ik.solve(data, data.site_xpos[left_ik.site_id].copy() + np.array([0.0, 0.0, LIFT_HEIGHT_M]))
+    else:
+        q_lift = np.asarray(left_q_lift, dtype=float).copy()
+    if cup_rel is None:
+        rel_p, rel_q = scene_setup.cup_rel_pose(model, data, left_ee_body, cup_body)
+    else:
+        rel_p, rel_q = cup_rel
+    cup_kps = build_cup_barrier_keypoints(left_ee_body, rel_p, rel_q)
+    right_kps = sc.barrier_keypoints(model, sc.INT_PREFIX)
+    scr = mujoco.MjData(model)
+    scr.qpos[:] = data.qpos
+    scr.qpos[left_qposadr] = q_lift
+    cand = []
+    for bid in cct.cube_body_ids(model):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, bid)
+        cand.append((float(np.linalg.norm(data.xpos[bid][:2] - cup_xy)), name, bid))
+    if _CUBE_OVERRIDE is not None:
+        by_name = {nm: (dd, nm, bb) for dd, nm, bb in cand}
+        cand = [by_name[n] for n in _CUBE_OVERRIDE if n in by_name]
+    else:
+        cand.sort(key=lambda c: -c[0])
+    ik = bt.ArmIK(model, "right")
+    selected = []
+    for _d, name, bid in cand:
+        g = _ctrlfix_down_grasp(model, data, bid, ik, q_home)
+        if g is None:
+            continue
+        clear = True
+        for q in (g["q_hover"], g["q_at"]):
+            scr.qpos[right_qposadr] = q
+            mujoco.mj_kinematics(model, scr)
+            # TASK definition is independent of the controller's keep-out margin: the
+            # clearance test uses the nominal SELECT_D_MIN_REF, not the live sc.D_MIN
+            # (a v4c D_MIN retune must not change WHICH cubes are picked). Exactly h
+            # when sc.D_MIN == SELECT_D_MIN_REF (the default).
+            h = sc.min_pair_distance(model, scr)[0] + (sc.D_MIN - SELECT_D_MIN_REF)
+            c = right_arm_to_cup_clearance(model, scr, cup_kps, right_kps, left_ee_body)
+            if h < 0.0 or c < 0.0:
+                clear = False
+        if clear:
+            selected.append(name)
+        if len(selected) >= n_cubes:
+            break
+    assert len(selected) >= 2, f"ctrlfixes F2: need >=2 fingers-down reachable, clear cubes, found {selected}"
+    if len(selected) < n_cubes:
+        print(f"[build_episode] ctrlfixes F2: only {len(selected)}/{n_cubes} cubes are fingers-down reachable and "
+              f"clear of the cup arm -- using {selected}")
+    return selected
+
+
+def _real_grasp_prepass(model, seed: int, cup_jitter_m: float):
+    """--ctrlfixes F2b "realsel" (real grasp only): the cube-selection pre-pass
+    runs the SAME real friction grasp + dense lift IK that build_episode's real
+    branch runs (same seed/rng, same constants) on the throwaway pre-pass model and
+    returns (data, q_lift, (cup_rel_pos, cup_rel_quat)) -- the ACTUAL real-mode
+    cup-arm lift pose and cup-in-EE pose, so select_crossing_cubes_topdown checks
+    the right arm's hover/grasp poses against where the cup arm and cup really are.
+    MEASURED (seed 0): the default pre-pass takes the cup pose from the UNFIXED
+    scene_setup.init_cup_grasped_state (the sideways-cup bug, --bugfixes (1)), which
+    puts the lifted cup ~17 cm from where it actually is at lift ([0.49,-0.37,0.68]
+    vs [0.42,-0.21,0.66]); the actual real-mode and faked(+bugfixes) lifted cup
+    agree within ~1 cm, and this pre-pass reproduces them. SIMULATION ONLY."""
+    rg.restore_left_pad_object_collision(model)
+    data = mujoco.MjData(model)
+    ball_jit = min(REAL_BALL_JITTER_MAX_M, float(cup_jitter_m)) if cup_jitter_m > 0.0 else 0.0
+    _arm, gres, _gi = rg.grasp_cup_real_leveled(
+        model, data, grip_force=REAL_GRIP_FORCE_N, level=REAL_GRASP_LEVELED,
+        ball_jitter_m=ball_jit, rng=np.random.default_rng(seed))
+    if not gres.held:
+        raise RuntimeError(f"real grasp failed (selection pre-pass): {gres}")
+    _, lqa, _ = sc.joint_addrs(model, sc.LEFT_ARM_JOINTS)
+    q_grasp = data.qpos[lqa].copy()
+    left_ik = bt.ArmIK(model, "left")
+    left_ik.last_q = q_grasp.copy()
+    _trk, q_lift, _e, _o = rg.build_dense_lift_track(
+        model, data, left_ik, q_grasp, np.array([0.0, 0.0, LIFT_HEIGHT_M]), T_LIFT_MOVE, T_LIFT_HOLD)
+    cup_rel = rg.cup_rel_pose_in_ee(data, model.body(scene_setup.EE_BODY_NAME).id, model.body(cct.CUP_BODY_NAME).id)
+    return data, q_lift, cup_rel
+
+
+def _init_cup_grasped_state_fixed(model, seed: int = 0, cup_jitter_m: float = 0.0):
+    """(1) SIDEWAYS-CUP FIX: a demo-local copy of eval/scene_setup.
+    init_cup_grasped_state (same reset, LEFT_GRASP_Q teleport, cup-to-pad-
+    midpoint placement, gravity-off close, 500+300 settle) with ONE change:
+    the balls are translated by (new_cup_pos - TRUE old_cup_pos), so they stay
+    in the canonical in-cup layout; per-seed variation (when cup_jitter_m>0)
+    is an in-cup ball-layout xy jitter of at most FAKED_BALL_JITTER_MAX_M. With
+    cup_jitter_m == 0 this is step-for-step identical to the original."""
+    rng = np.random.default_rng(seed)
+    data = mujoco.MjData(model)
+    mujoco.mj_resetDataKeyframe(model, data, model.key("home").id)
+    mujoco.mj_forward(model, data)
+    _, lqa, _ = sc.joint_addrs(model, sc.LEFT_ARM_JOINTS)
+    data.qpos[lqa] = sc.LEFT_GRASP_Q
+    left_act_ids = [model.actuator(f"left_arm_joint{i}_pos").id for i in range(1, 7)]
+    data.ctrl[left_act_ids] = sc.LEFT_GRASP_Q
+    mujoco.mj_forward(model, data)
+    pad7 = model.geom("left_arm_link7_pad").id
+    pad8 = model.geom("left_arm_link8_pad").id
+    pad_mid = 0.5 * (data.geom_xpos[pad7] + data.geom_xpos[pad8])
+    cup_jid = model.joint("cup_free").id
+    cqa, cda = int(model.jnt_qposadr[cup_jid]), int(model.jnt_dofadr[cup_jid])
+    old_cup_pos = data.qpos[cqa:cqa + 3].copy()          # TRUE old position (no jitter here)
+    new_cup_pos = pad_mid - np.array([0.0, 0.0, scene_setup.CUP_GRASP_Z_FRAC * cct.CUP_HEIGHT])
+    delta = new_cup_pos - old_cup_pos
+    data.qpos[cqa:cqa + 3] = new_cup_pos
+    data.qpos[cqa + 3:cqa + 7] = np.array([1.0, 0.0, 0.0, 0.0])
+    data.qvel[cda:cda + 6] = 0.0
+    ball_jit = min(FAKED_BALL_JITTER_MAX_M, float(cup_jitter_m)) if cup_jitter_m > 0.0 else 0.0
+    for bid in cct.ball_body_ids(model):
+        jadr = model.body_jntadr[bid]
+        bqa, bda = int(model.jnt_qposadr[jadr]), int(model.jnt_dofadr[jadr])
+        data.qpos[bqa:bqa + 3] += delta
+        if ball_jit > 0.0:
+            data.qpos[bqa:bqa + 2] += rng.uniform(-ball_jit, ball_jit, size=2)
+        data.qvel[bda:bda + 6] = 0.0
+    mujoco.mj_forward(model, data)
+    g0 = model.opt.gravity.copy()
+    model.opt.gravity[:] = 0.0
+    data.ctrl[model.actuator("left_arm_joint7_pos").id] = 0.0
+    data.ctrl[model.actuator("left_arm_joint8_pos").id] = 0.0
+    for _ in range(500):
+        mujoco.mj_step(model, data)
+    model.opt.gravity[:] = g0
+    for _ in range(300):
+        mujoco.mj_step(model, data)
+    return data
+
+
 # ---------------------------------------------------------------------------
 # Setup: model + grasp + IK-solved references (done ONCE, before the loop).
 # ---------------------------------------------------------------------------
 def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: bool = True, cup_jitter_m: float = 0.0,
-                   n_cubes: int | None = None):
+                   n_cubes: int | None = None, grasp_mode: str = "faked", bugfixes: bool | None = None,
+                   weld_gate_m: float | None = None, ctrlfixes: bool | None = None):
     """n_cubes: SMOKE-TEST ONLY override for the number of crossing cubes
     (default None -> module constant N_CUBES=6, unchanged). Passed straight
     through to select_crossing_cubes below; a smaller n_cubes (e.g. 3) makes
     for a shorter/harder-to-clear crossing scenario in a quick sweep."""
     assert scenario in SCENARIO_CHOICES, f"unknown scenario {scenario!r}"
+    assert grasp_mode in GRASP_MODE_CHOICES, f"unknown grasp_mode {grasp_mode!r}"
+    bugfixes = BUGFIXES if bugfixes is None else bool(bugfixes)
+    ctrlfixes = CTRLFIXES if ctrlfixes is None else bool(ctrlfixes)
+    if grasp_mode == "real" and scenario != "crossing":
+        raise ValueError("--grasp-mode real is implemented for --scenario crossing only")
     n_cubes_eff = N_CUBES if n_cubes is None else int(n_cubes)
 
     selected_cube_names = None
@@ -782,7 +1293,16 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
         # docstring for why cube selection must happen BEFORE the real model load.
         _pre_model, _pre_data0 = cct.load_yor_cup_collect_model(keep_zone_marker=False)  # throwaway; skip the marker geom
         _pre_data = scene_setup.init_cup_grasped_state(_pre_model, seed=seed, cup_jitter_m=cup_jitter_m)
-        selected_cube_names = select_crossing_cubes(_pre_model, _pre_data, n_cubes=n_cubes_eff)
+        if _cf(ctrlfixes, "waypoints") and grasp_mode == "real" and _cf(ctrlfixes, "realsel"):
+            # F2b: check reachability/clearance against the ACTUAL real-grasp cup-arm
+            # lift pose (the faked-init pose above is ~cm off -- see _real_grasp_prepass).
+            _pre_data, _q_lift_real, _cup_rel_real = _real_grasp_prepass(_pre_model, seed, cup_jitter_m)
+            selected_cube_names = select_crossing_cubes_topdown(_pre_model, _pre_data, n_cubes=n_cubes_eff,
+                                                                left_q_lift=_q_lift_real, cup_rel=_cup_rel_real)
+        elif _cf(ctrlfixes, "waypoints"):
+            selected_cube_names = select_crossing_cubes_topdown(_pre_model, _pre_data, n_cubes=n_cubes_eff)
+        else:
+            selected_cube_names = select_crossing_cubes(_pre_model, _pre_data, n_cubes=n_cubes_eff)
         del _pre_model, _pre_data0, _pre_data
 
     # CHANGE 1: the cube(s) are picked up via a WELD "magnet" attach (real
@@ -801,7 +1321,29 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
     else:
         # "spill": no cube collection at all in this scenario -- skip the keep-zone marker.
         model, _ = cct.load_yor_cup_collect_model(keep_zone_marker=False)
-    data = scene_setup.init_cup_grasped_state(model, seed=seed, cup_jitter_m=cup_jitter_m)
+    grip_ctrl = None
+    grasp_info = None
+    if grasp_mode == "real":
+        # REAL friction grasp (SIM ONLY): LEFT pads only get object-contact bits
+        # (right fingers untouched -> the cube-weld path is identical to faked),
+        # then a genuine grip-force-controlled pinch with gravity ON. No pin.
+        rg.restore_left_pad_object_collision(model)
+        data = mujoco.MjData(model)
+        ball_jit = min(REAL_BALL_JITTER_MAX_M, float(cup_jitter_m)) if cup_jitter_m > 0.0 else 0.0
+        _rg_arm, gres, grasp_info = rg.grasp_cup_real_leveled(
+            model, data, grip_force=REAL_GRIP_FORCE_N, level=REAL_GRASP_LEVELED,
+            ball_jitter_m=ball_jit, rng=np.random.default_rng(seed))
+        grasp_info["held"] = bool(gres.held)
+        grasp_info["n_pad_contacts"] = int(gres.n_pad_contacts)
+        grasp_info["grip_force_measured_n"] = float(gres.grip_force_measured)
+        if not gres.held:
+            raise RuntimeError(f"real grasp failed: {gres}")
+        grip_ctrl = _rg_arm.grip          # keep ONLY the grip-force controller; the OSC arm controller is retired
+        grip_ctrl.set_target_force(REAL_GRIP_FORCE_N)
+    elif bugfixes:
+        data = _init_cup_grasped_state_fixed(model, seed=seed, cup_jitter_m=cup_jitter_m)   # (1)
+    else:
+        data = scene_setup.init_cup_grasped_state(model, seed=seed, cup_jitter_m=cup_jitter_m)
 
     _, left_qposadr, left_dofadr = sc.joint_addrs(model, sc.LEFT_ARM_JOINTS)
     _, right_qposadr, right_dofadr = sc.joint_addrs(model, sc.RIGHT_ARM_JOINTS)
@@ -822,6 +1364,16 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
 
     # Cup rigid-attach offset, captured ONCE right after grasp settle (same
     # technique eval/scene_setup.py's own harness uses).
+    # (1) cup orientation at PIN time (world tilt of the cup body's own +z).
+    cup_init_tilt_deg = float(np.degrees(rg.cup_true_tilt_rad(data, cup_body)))
+    if grasp_mode == "real":
+        if cup_init_tilt_deg > CUP_INIT_TOPPLED_DEG:
+            raise RuntimeError(f"real grasp failed: cup toppled in the grip "
+                               f"(tilt {cup_init_tilt_deg:.1f} deg > {CUP_INIT_TOPPLED_DEG:.0f})")
+    elif bugfixes and cup_init_tilt_deg > CUP_INIT_TILT_ASSERT_DEG:
+        raise RuntimeError(f"faked init: pinned cup tilted {cup_init_tilt_deg:.1f} deg "
+                           f"(> {CUP_INIT_TILT_ASSERT_DEG:.0f}) even with the fixed init (seed {seed})")
+
     cup_rel_pos0, cup_rel_quat0 = scene_setup.cup_rel_pose(model, data, left_ee_body, cup_body)
 
     # CUP-IN-BARRIER FIX: cup keypoints (rim ring + body points), in the LEFT
@@ -843,10 +1395,16 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
     left_ik = bt.ArmIK(model, "left")
     left_ik.last_q = q_grasp.copy()
     site_pos0 = data.site_xpos[left_ik.site_id].copy()
-    q_lift, lift_err = left_ik.solve(data, site_pos0 + np.array([0.0, 0.0, LIFT_HEIGHT_M]))
+    if grasp_mode == "real":
+        # straight vertical lift with the EE (hence the really-gripped cup)
+        # orientation HELD: dense orientation-weighted IK knots, smoothstep-timed.
+        track_l, q_lift, lift_err, _lift_ori = rg.build_dense_lift_track(
+            model, data, left_ik, q_grasp, np.array([0.0, 0.0, LIFT_HEIGHT_M]), T_LIFT_MOVE, T_LIFT_HOLD)
+    else:
+        q_lift, lift_err = left_ik.solve(data, site_pos0 + np.array([0.0, 0.0, LIFT_HEIGHT_M]))
 
-    track_l = JointWaypointTrack(q_grasp)
-    track_l.add(q_lift, T_LIFT_MOVE, T_LIFT_HOLD)
+        track_l = JointWaypointTrack(q_grasp)
+        track_l.add(q_lift, T_LIFT_MOVE, T_LIFT_HOLD)
 
     # Nominal (undisturbed) lifted cup position, via forward kinematics on a
     # scratch copy at q_lift -- used only to plan the RIGHT arm's IK targets;
@@ -905,24 +1463,119 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
         right_targets = []
         phases = []
         ik_errs = {}
+        wp_topdown = _cf(ctrlfixes, "waypoints")
+        wp_modes = []
+        if wp_topdown:
+            from control import cube_grasp as cg
+            _td_ik = bt.ArmIK(model, "right")
+            _site_local = model.site_pos[right_ik.site_id].copy()
+            _td_used_slots = []
+            # table-floor threshold + right keypoints (incl. fingertip/wrist extras, same as run_episode)
+            _td_table_thr = table_top_z - TABLE_FLOOR_MARGIN_M
+            _td_table_kps = list(sc.barrier_keypoints(model, sc.INT_PREFIX))
+            for _gname, _r in (("right_arm_link7_pad", 0.006), ("right_arm_link8_pad", 0.006)):
+                _gid = model.geom(_gname).id
+                _td_table_kps.append((int(model.geom_bodyid[_gid]), model.geom_pos[_gid].copy(), _r))
+            _td_table_kps.append((model.body("right_arm_gripper_base").id, np.zeros(3), 0.01))
         for i, name in enumerate(selected_cube_names):
             bid = cube_ids_by_name[name]
             cxyz = data.xpos[bid].copy()
             p_hover_i = cxyz + np.array([0.0, 0.0, HOVER])
             p_at_i = cxyz + np.array([0.0, 0.0, GRASP_Z_OFFSET])
 
-            q_hover_i, e_h = right_ik.solve(data, p_hover_i)
-            q_at_i, e_a = right_ik.solve(data, p_at_i)
-            q_lift_i, e_l = right_ik.solve(data, p_hover_i)   # reuse hover pose for the lift-back waypoint
-            q_cross_i, e_c = right_ik.solve(data, p_cross)
-            q_place_i, e_p = right_ik.solve(data, place_xyzs[i])
+            if wp_topdown:
+                # F2 FINGERS-DOWN, TABLE-AWARE waypoints (_ctrlfix_down_grasp): top-down
+                # (or near-top-down, <= CTRLFIX_WP_MAX_TILT_DEG) hover + grasp with the
+                # jaws straddling the cube and every keypoint surface above the table
+                # threshold; lift = hover; the carry (p_cross) and place keep a
+                # top-down orientation (best of the 4 face yaws); the place puts the
+                # fingertips (hence the welded cube's bottom) CTRLFIX_PLACE_DROP_M above
+                # their grasp height. An orientation-IK miss (> CTRLFIX_WP_IK_ERR_MAX_M)
+                # falls back to the old position-only solve for that waypoint.
+                g = _ctrlfix_down_grasp(model, data, bid, _td_ik, q_home, table_thr=_td_table_thr,
+                                        table_kps=_td_table_kps)
+                assert g is not None, f"ctrlfixes F2: {name} not fingers-down reachable (selection bug)"
+                q_hover_i, e_h = g["q_hover"].copy(), g["e_h"]
+                q_at_i, e_a = g["q_at"].copy(), g["e_a"]
+                q_lift_i, e_l = q_hover_i.copy(), e_h
+                p_at_i = g["site_at"].copy()
+                wp_modes.append(g["mode"])
+                tip_at_z = float(g["tip_at"][2])
+
+                class pg:   # the two fields _td_best / the place solve read
+                    yaw = g["yaw"]
+                    tip_local = g["tip_local"]
+
+                def _td_best(site_target_fn, q_seed):
+                    # the cube is square and welded in the jaws -> any of the 4 top-down
+                    # yaws (pg.yaw + k*pi/2) is a valid carry/place orientation; pick the
+                    # best IK (then least joint travel from q_seed).
+                    best = None
+                    for kk in range(4):
+                        psi = pg.yaw + kk * 0.5 * np.pi
+                        zb = np.array([0.0, 0.0, -1.0])
+                        yb = np.array([np.cos(psi), np.sin(psi), 0.0])
+                        Rk = np.column_stack([np.cross(yb, zb), yb, zb])
+                        qb = np.zeros(4)
+                        mujoco.mju_mat2Quat(qb, Rk.reshape(9))
+                        qsk = np.zeros(4)
+                        mujoco.mju_mulQuat(qsk, qb, model.site_quat[right_ik.site_id])
+                        _td_ik.last_q = q_seed.copy()
+                        qk, ek = _td_ik.solve(data, site_target_fn(Rk), qsk, ori_weight=1.0, iters=200)
+                        sc_k = (round(ek, 3), float(np.linalg.norm(qk - q_seed)))
+                        if best is None or sc_k < best[0]:
+                            best = (sc_k, qk, ek)
+                    return best[1], best[2]
+
+                q_cross_i, e_c = _td_best(lambda Rk: p_cross, q_lift_i)
+                if e_c > CTRLFIX_WP_IK_ERR_MAX_M:
+                    right_ik.last_q = q_lift_i.copy()
+                    q_cross_i, e_c = right_ik.solve(data, p_cross)
+                # place slot: this cube's own grid slot if the top-down place IK-solves,
+                # else the nearest still-free slot of the 6-slot grid that does (the
+                # right arm cannot reach every slot fingers-down). place_xyzs[i] is
+                # updated so the release gate / placed metrics use the real slot.
+                _cands = [place_xyzs[i]] + sorted(
+                    [place_center + np.array([dx, dy, 0.0])
+                     for dx, dy in _place_cluster_offsets(6, CUBE_PLACE_SPACING_M)],
+                    key=lambda p_: float(np.linalg.norm(p_[:2] - place_xyzs[i][:2])))
+                q_place_i, e_p = None, np.inf
+                for _pc in _cands:
+                    if any(np.linalg.norm(_pc[:2] - u[:2]) < 0.01 for u in _td_used_slots):
+                        continue
+                    _tip_pc = np.array([_pc[0], _pc[1], tip_at_z + CTRLFIX_PLACE_DROP_M])
+                    _q, _e = _td_best(
+                        lambda Rk: cg.ee_targets_for_tip(_tip_pc, Rk, pg.tip_local, _site_local)[1], q_cross_i)
+                    if _e <= CTRLFIX_WP_IK_ERR_MAX_M:
+                        q_place_i, e_p = _q, _e
+                        place_xyzs[i] = _pc.copy()
+                        break
+                if q_place_i is None:
+                    right_ik.last_q = q_cross_i.copy()
+                    q_place_i, e_p = right_ik.solve(data, place_xyzs[i])
+                _td_used_slots.append(place_xyzs[i].copy())
+                right_ik.last_q = q_place_i.copy()
+            else:
+                q_hover_i, e_h = right_ik.solve(data, p_hover_i)
+                q_at_i, e_a = right_ik.solve(data, p_at_i)
+                q_lift_i, e_l = right_ik.solve(data, p_hover_i)   # reuse hover pose for the lift-back waypoint
+                q_cross_i, e_c = right_ik.solve(data, p_cross)
+                q_place_i, e_p = right_ik.solve(data, place_xyzs[i])
             ik_errs[f"hover_{i}"], ik_errs[f"at_{i}"], ik_errs[f"lift_{i}"] = e_h, e_a, e_l
             ik_errs[f"cross_{i}"], ik_errs[f"place_{i}"] = e_c, e_p
 
             eq_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_EQUALITY, f"{cct.CUBE_WELD_EQ_NAME}_{i}")
             assert eq_id >= 0, f"cube weld equality '{cct.CUBE_WELD_EQ_NAME}_{i}' not found -- wiring broken"
-            cube_plan.append(dict(body_id=bid, eq_id=eq_id, name=name, place_xyz=place_xyzs[i]))
+            cube_plan.append(dict(body_id=bid, eq_id=eq_id, name=name, place_xyz=place_xyzs[i],
+                                  grasp_xyz=p_at_i.copy()))
 
+            if i > 0 and _cf(ctrlfixes, "retreat"):
+                # F9 "retreat" (opt-in): transit between cubes via the home pose instead of the
+                # straight joint-space move from the place zone (under the cup arm) to the next
+                # hover -- that move can dead-lock against the arm-arm barrier (real grasp, a
+                # cube on the far side of the cup arm: the weld then attaches from ~34 cm).
+                right_targets.append(q_home.copy())
+                phases.append((None, RIGHT_PHASES[5][1], 0.0))
             right_targets += [q_hover_i, q_at_i, q_lift_i, q_cross_i, q_place_i]
             # phase NAMES suffixed by cube index; SAME per-phase (move_dur, hold)
             # template as RIGHT_PHASES' first 5 entries (hover/at/lift/carry/release).
@@ -935,6 +1588,15 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
             ]
         right_targets.append(q_home)
         phases.append(RIGHT_PHASES[5])   # ONE final ("park", 1.0, 0.30) home, after every cube
+        if wp_topdown:
+            # F2 TABLE-AWARE PATHS: a joint-space move between two table-clear waypoints
+            # can still sweep a keypoint below the table (big wrist re-orientations).
+            # Segments whose FK-sampled keypoint-surface clearance dips below 0 are split
+            # into Cartesian via-points (site lerp + orientation slerp, raised as needed).
+            right_targets, phases, n_vias = _ctrlfix_table_safe_segments(
+                model, data, right_ik.site_id, right_qposadr, q_home, right_targets, phases,
+                _td_table_kps, _td_table_thr)
+            ik_errs["table_vias"] = n_vias
 
         track_r = JointWaypointTrack(q_home)
         # EE-SPEED-LIMIT FIX part (1): stretch each phase's MOVE duration so the
@@ -963,6 +1625,32 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
             move_durs = scaled
             data.qpos[:] = _qpos_save
             mujoco.mj_forward(model, data)
+            if _cf(ctrlfixes, "speedcap"):
+                # F1 (reference side): the smoothstep joint-space move peaks at ~1.5x
+                # its average speed, and its EE path is not a straight line, so the
+                # straight-line dist/V scaling above still commands up to ~0.4 m/s at
+                # the peak -- faster than the in-QP cap allows -> the arm lags and the
+                # anti-windup freezes the clock all the time. Scale each move so the
+                # PEAK EE speed along the actual joint-space path (FK-sampled) is
+                # <= CTRLFIX_REF_SPEED_FRAC * V_EE_MAX_MS.
+                _scr = mujoco.MjData(model)
+                _scr.qpos[:] = data.qpos
+                _ss = np.linspace(0.0, 1.0, 81)
+                _ease = _ss * _ss * (3.0 - 2.0 * _ss)
+                q_prev = q_home
+                peak_scaled = []
+                for dur, qt in zip(move_durs, right_targets):
+                    pts = []
+                    for e in _ease:
+                        _scr.qpos[right_qposadr] = q_prev + e * (qt - q_prev)
+                        mujoco.mj_kinematics(model, _scr)
+                        pts.append(_scr.xpos[right_ee_body].copy())
+                    pts = np.asarray(pts)
+                    # EE path speed for a unit-duration move: |dp| / ds (s in [0,1])
+                    v_unit = float(np.max(np.linalg.norm(np.diff(pts, axis=0), axis=1)) / (_ss[1] - _ss[0]))
+                    peak_scaled.append(max(dur, v_unit / (CTRLFIX_REF_SPEED_FRAC * V_EE_MAX_MS)))
+                    q_prev = qt
+                move_durs = peak_scaled
         for (name, _dur, hold), qt, dur in zip(phases, right_targets, move_durs):
             track_r.add(qt, dur, hold, name=name)
         bounds = track_r.bounds()
@@ -999,6 +1687,11 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
         cup_lift_pos=cup_lift_pos,
         ik_errs=ik_errs, lift_err=lift_err,
         n_steps_total=n_steps_total, duration_s_total=duration_s_total,
+        grasp_mode=grasp_mode, grip_ctrl=grip_ctrl, grasp_info=grasp_info,
+        bugfixes=bugfixes, cup_init_tilt_deg=cup_init_tilt_deg,
+        ctrlfixes=ctrlfixes, ctrlfix_parts=sorted(CTRLFIX_PARTS) if ctrlfixes else [],
+        wp_modes=(list(wp_modes) if scenario == "crossing" else []),
+        weld_gate_m=(WELD_ATTACH_GATE_M if weld_gate_m is None else float(weld_gate_m)),
     )
     return info
 
@@ -1098,6 +1791,33 @@ def cube_pin_active(t: float, bounds: dict, n_cubes: int, *,
     return False, None
 
 
+def count_placed_strict(model, data, cube_plan, cube_init_pos, center_xy, table_z,
+                        radius: float = None, z_tol: float = 0.05, vel_tol: float = 0.05,
+                        min_move_m: float = None) -> int:
+    """(2) STRICT placed metric: only the SELECTED cubes (cube_plan), each must be
+    in the keep zone (same radius/height/settled tests as count_placed_cubes)
+    AND have moved > min_move_m from its t=0 position -- the stock metric also
+    counts un-selected cubes that START inside the zone (seed 0: placed=1 at
+    t=0). Same rule as experiments/imitation/il_common.placed_selected."""
+    radius = KEEP_ZONE_RADIUS_M if radius is None else radius
+    min_move_m = PLACED_STRICT_MIN_MOVE_M if min_move_m is None else min_move_m
+    n = 0
+    for c in cube_plan:
+        b = c["body_id"]
+        p = data.xpos[b]
+        if np.hypot(p[0] - center_xy[0], p[1] - center_xy[1]) > radius:
+            continue
+        if abs(p[2] - (table_z + cct.CUBE_HALF)) > z_tol:
+            continue
+        if np.linalg.norm(p[:2] - cube_init_pos[b][:2]) < min_move_m:
+            continue
+        da = model.body_dofadr[b]
+        if np.linalg.norm(data.qvel[da:da + 3]) > vel_tol:
+            continue
+        n += 1
+    return n
+
+
 # ---------------------------------------------------------------------------
 # Main per-step control loop. qp_enabled=False => pure computed-torque PD,
 # no HOCBF-QP safety filter on EITHER arm (used only for the baseline
@@ -1193,6 +1913,44 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     left_qposadr, right_qposadr = info["left_qposadr"], info["right_qposadr"]
     left_ee_body, right_ee_body = info["left_ee_body"], info["right_ee_body"]
     cup_body = info["cup_body"]
+    # --grasp-mode (build_episode decides; default faked => every `real` branch
+    # below is skipped and the loop is byte-identical to before).
+    grasp_mode = info.get("grasp_mode", "faked")
+    real_grasp = grasp_mode == "real"
+    grip_ctrl = info.get("grip_ctrl")
+    if real_grasp:
+        if qp_enabled and controller not in ("flmpc", "flmpc_decentB"):
+            raise ValueError("--grasp-mode real requires --controller flmpc|flmpc_decentB "
+                             "(FL-MPC drives the lift of the really-gripped cup)")
+        if scenario != "crossing":
+            raise ValueError("--grasp-mode real is implemented for --scenario crossing only")
+        assert grip_ctrl is not None, "real grasp_mode needs info['grip_ctrl'] (build_episode)"
+    left_pad_ids = (info["left_pad7_geom"], info["left_pad8_geom"])
+    bugfixes = bool(info.get("bugfixes", False))
+    weld_gate_m = info.get("weld_gate_m")
+    # --ctrlfixes parts (all False when ctrlfixes is off -> byte-identical)
+    cf_gravity = _cf(info, "gravity")
+    _is_fl = controller in ("flmpc", "flmpc_decentB") and qp_enabled
+    cf_speedcap = _cf(info, "speedcap") and _is_fl and ee_speed_limit
+    cf_aw = _cf(info, "antiwindup") and _is_fl and scenario == "crossing"
+    cf_aw_clamp = cf_aw and CTRLFIX_AW_MODE == "clamp"
+    # the clock-freeze machinery: everywhere ("freeze" mode) or, in "clamp" mode, only
+    # inside the grasp windows (CTRLFIX_AW_GRASP_FREEZE) so the clock-timed weld waits
+    # for the gripper to actually reach the cube (those poses are barrier-clear by the
+    # F2 selection, so the freeze there cannot deadlock on the crossing dodge).
+    cf_aw_grasp_only = cf_aw_clamp and CTRLFIX_AW_GRASP_FREEZE
+    cf_aw = cf_aw and (CTRLFIX_AW_MODE == "freeze" or cf_aw_grasp_only)
+    _aw_grasp_windows = ([(b_[0], b_[2]) for n_, b_ in info["bounds"].items() if n_.startswith("at_")]
+                         if (cf_aw_grasp_only and info.get("bounds")) else [])
+    aw_clamped = 0
+    _cone_anchored = False
+    cf_tabler = _cf(info, "tableradius")
+    cf_delay = int(CTRLFIX_DELAY_STEPS) if (_cf(info, "delaycomp") and _is_fl) else 0
+    cf_taumax = (np.asarray(CTRLFIX_TAU_MAX_VEC, dtype=np.float64)
+                 if (_cf(info, "taumax") and CTRLFIX_TAU_MAX_VEC is not None) else None)
+    cf_cone = int(CTRLFIX_CONE_FACETS) if _cf(info, "cone") else 0
+    _tab_kw = dict(kp_radius=True) if cf_tabler else {}
+    right_site_id = model.site("right_arm_ee_grasp").id
     # free-joint dof address of the cup, for the INERTIAL CUP-CARRY fix (see loop).
     _cup_dofadr = int(model.jnt_dofadr[model.body_jntadr[cup_body]])
 
@@ -1223,10 +1981,26 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     sc.disable_left_arm_position_servos(model)
     sc.disable_right_arm_position_servos(model)
 
-    tau_filter_l = sc.TorqueCommandFilter(6, sc.FILTER_LOWPASS_ALPHA, np.full(6, sc.FILTER_RATE_LIMIT_NM_S))
-    tau_filter_r = sc.TorqueCommandFilter(6, sc.FILTER_LOWPASS_ALPHA, np.full(6, sc.FILTER_RATE_LIMIT_NM_S))
+    _flt_a, _flt_r = sc.FILTER_LOWPASS_ALPHA, sc.FILTER_RATE_LIMIT_NM_S
+    if controller == "v4c" and qp_enabled and V4C_TORQUE_FILTER is not None:
+        _flt_a, _flt_r = float(V4C_TORQUE_FILTER[0]), float(V4C_TORQUE_FILTER[1])
+    tau_filter_l = sc.TorqueCommandFilter(6, _flt_a, np.full(6, _flt_r))
+    tau_filter_r = sc.TorqueCommandFilter(6, _flt_a, np.full(6, _flt_r))
 
     alpha1_int = alpha2_int = run_ab4.INTRUDER_ALPHA["C"]
+    # V4C RETUNE KNOBS (v4c only; every one None/default -> byte-identical, see V4C_* above)
+    _v4c = (controller == "v4c") and qp_enabled
+    if _v4c and V4C_INT_ALPHA is not None:
+        alpha1_int = alpha2_int = float(V4C_INT_ALPHA)
+    _v4c_tab_kw = {}
+    if _v4c and V4C_TABLE_ALPHA is not None:
+        _v4c_tab_kw = dict(alpha1=float(V4C_TABLE_ALPHA), alpha2=float(V4C_TABLE_ALPHA))
+    _v4c_metric = V4C_QP_METRIC if _v4c else "torque"
+    _v4c_aw = _v4c and V4C_ANTIWINDUP_M is not None and scenario == "crossing"
+    _v4c_pre = _v4c and V4C_FILTER_MODE == "pre"
+    _v4c_y_l = _v4c_y_r = None          # previously APPLIED torques (V4C_FILTER_MODE="pre")
+    _v4c_brake_kd = (float(V4C_INFEAS_BRAKE_KD) if (_v4c and V4C_INFEAS_BRAKE_KD is not None)
+                     else INFEAS_BRAKE_KD)
 
     left_geoms, right_geoms = run_ab4.left_right_geom_sets(model)
 
@@ -1300,6 +2074,15 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         # Option B: decentralized worst-case variant reuses the SAME kwargs/roles
         # (mpc_fl_decentralized.FLMPCDecentralized subclasses FLMPC; identical
         # .NP and .step() signature) so the control-loop branch below is shared.
+        # --ctrlfixes FL-MPC options (none added when ctrlfixes is off -> identical ctor)
+        if cf_speedcap:
+            fl_kwargs.update(ee_speed_cap=V_EE_MAX_MS, ee_speed_body_int=info["right_ee_body"])
+        if cf_delay > 0:
+            fl_kwargs.update(delay_steps=cf_delay)
+        if cf_taumax is not None:
+            fl_kwargs.update(tau_max_vec=cf_taumax)
+        if cf_cone > 0:
+            fl_kwargs.update(cone_mode="true")
         if controller == "flmpc_decentB":
             fl = mpc_fl_decentralized.FLMPCDecentralized(model, **fl_kwargs)
         else:
@@ -1344,6 +2127,16 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
 
     n_steps_total = info["n_steps_total"]
     n_steps = n_steps_total if max_steps is None else int(min(n_steps_total, max_steps))
+    # F1 ANTI-WINDUP (ctrlfixes, flmpc crossing only): the right-arm reference
+    # clock is frozen while the right-EE tracking error exceeds CTRLFIX_AW_ERR_M,
+    # for at most CTRLFIX_AW_MAX_FREEZE_S in total; the episode runs n_steps +
+    # (frozen steps) so the (delayed) task still finishes. Buffers are allocated
+    # for the worst case and truncated after the loop. Off -> n_alloc == n_steps.
+    n_steps_run = n_steps
+    aw_budget = int(round(CTRLFIX_AW_MAX_FREEZE_S / sc.DT)) if cf_aw else 0
+    aw_frozen = 0
+    aw_clock = 0.0
+    n_steps = n_steps + aw_budget          # allocation size (== n_steps_run when off)
     log = {k: np.zeros(n_steps) for k in
            ["t", "h_min", "dist_min", "collision", "spilled", "deposited", "placed",
             "qp_feasible_left", "qp_feasible_right", "left_qp_deflect_nm",
@@ -1363,6 +2156,27 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     # is kinematically re-pinned via scene_setup.reattach_cup_rigidly before
     # this point in the loop), so data.xmat[cup_body] is equally valid here.
     log["cup_n_axis"] = np.zeros((n_steps, 3))
+    # --grasp-mode metrics (logged in BOTH modes, read-only measurements; in
+    # faked mode the pads never touch the cup, so pad_* are 0 there).
+    for _key in ("true_cup_tilt_rad", "grip_slip_m", "pad_contacts", "pads_touching",
+                 "finger_force_max_n", "pad_normal_force_n"):
+        log[_key] = np.zeros(n_steps)
+    log["grasp_mode_real"] = np.array(1.0 if real_grasp else 0.0)
+    # CHANGE 2 metrics (logged regardless of --bugfixes)
+    log["placed_strict"] = np.zeros(n_steps)
+    log["cup_init_tilt_deg"] = np.array(float(info.get("cup_init_tilt_deg", np.nan)))
+    log["bugfixes"] = np.array(1.0 if bugfixes else 0.0)
+    log["ctrlfixes"] = np.array(1.0 if bool(info.get("ctrlfixes", False)) else 0.0)
+    _n_plan = len(info["cube_plan"])
+    log["weld_onset_t"] = np.full(_n_plan, np.nan)
+    log["weld_onset_site_cube_dist_m"] = np.full(_n_plan, np.nan)
+    log["weld_onset_site_target_dist_m"] = np.full(_n_plan, np.nan)
+    log["weld_deferred_steps"] = np.zeros(_n_plan)
+    # selected cubes' t=0 positions (free-joint qpos = world position; no kinematics call)
+    cube_init_pos = {}
+    for _c in info["cube_plan"]:
+        _qa = int(model.jnt_qposadr[model.body_jntadr[_c["body_id"]]])
+        cube_init_pos[_c["body_id"]] = data.qpos[_qa:_qa + 3].copy()
 
     frames = []
     renderer_main = renderer_zed = None
@@ -1382,6 +2196,9 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     # REAL release instant instead of a fixed phase time), and the previous
     # step's right-EE position (finite-difference -> measured settling speed).
     place_xy_by_idx = [c["place_xyz"][:2].copy() for c in cube_plan]
+    cf_heldcube = _cf(info, "heldcube") and scenario == "crossing"
+    _held_kp = None            # F8: (right_ee_body, local offset, radius) of the welded cube
+    _reenable_pending = []     # F8: released cube indices whose arm-collision is not re-enabled yet
     released = np.zeros(n_cubes, dtype=bool)
     release_t = np.full(n_cubes, np.nan)
     prev_right_ee_pos = None
@@ -1410,13 +2227,28 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     _prev_qpos = None   # previous-step full qpos, for the inertial cup-carry velocity (see loop)
 
     for k in range(n_steps):
+        if cf_aw and k >= n_steps_run + aw_frozen:
+            break
         t = k * sc.DT
 
         # -- gripper ctrls (position-servo, real; always applied) --
-        data.ctrl[left_j7] = 0.0
-        data.ctrl[left_j8] = 0.0
+        if real_grasp:
+            # REAL grasp: grip-force control (servo-emulated, finger forcerange
+            # +-20 N) maintained EVERY step for the whole episode.
+            grip_ctrl.apply(data)
+        else:
+            data.ctrl[left_j7] = 0.0
+            data.ctrl[left_j8] = 0.0
         if scenario == "crossing":
-            grip_r = right_gripper_opening(t, bounds, n_cubes, release_t) if t >= RIGHT_START_T else 1.0
+            if bugfixes:
+                # (3) GRIPPER CLOCK FIX: bounds are on the right-track clock t_r
+                # (right_elapsed when the WM freeze-clock is active).
+                _t_r_grip = right_elapsed if spill_monitor is not None else t - RIGHT_START_T
+                if cf_aw and t >= RIGHT_START_T:
+                    _t_r_grip = aw_clock   # F1 anti-windup clock (== the t_r used this step)
+                grip_r = right_gripper_opening(_t_r_grip, bounds, n_cubes, release_t) if t >= RIGHT_START_T else 1.0
+            else:
+                grip_r = right_gripper_opening(t, bounds, n_cubes, release_t) if t >= RIGHT_START_T else 1.0
         else:
             grip_r = 1.0   # "spill": right arm just holds home, gripper stays open the whole episode
         bt.set_gripper(data, right_finger_act, grip_r)
@@ -1424,8 +2256,10 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         mujoco.mj_forward(model, data)
 
         # -- kinematic reattachment (real cup carry technique; cube only while pinned) --
-        scene_setup.reattach_cup_rigidly(model, data, left_ee_body, cup_body,
-                                          info["cup_rel_pos0"], info["cup_rel_quat0"])
+        # (--grasp-mode real: SKIPPED -- the cup is held only by the pad pinch)
+        if not real_grasp:
+            scene_setup.reattach_cup_rigidly(model, data, left_ee_body, cup_body,
+                                              info["cup_rel_pos0"], info["cup_rel_quat0"])
 
         # -- SPILL-ORACLE FIX (2026-09-10): carry the balls rigidly WITH the cup
         # through the initial LIFT phase (t < RIGHT_START_T), then release them.
@@ -1442,7 +2276,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         # _ball_rel above) because init's grasp doesn't actually hold the cup,
         # so the balls have already scattered by the time the loop starts --
         # carrying with the canonical layout forces them back inside.
-        if t < RIGHT_START_T:
+        if t < RIGHT_START_T and not real_grasp:   # real: balls ride in the gripped cup under physics
             scene_setup.carry_balls_with_cup(model, data, cup_body, _ball_rel)
 
         # -- INERTIAL CUP-CARRY (2026-09-11, #31): reattach_cup_rigidly pinned the
@@ -1457,7 +2291,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         # unchanged); only its per-step velocity is corrected. Cup dofs only --
         # the arms' physics qvel is untouched. inertial_cup=False restores the old
         # zeroed-velocity behavior.
-        if inertial_cup and _prev_qpos is not None:
+        # (--grasp-mode real: SKIPPED -- the cup's velocity is its own physics)
+        if inertial_cup and _prev_qpos is not None and not real_grasp:
             _qvel_fd = scene_setup.cup_velocity_from_motion(model, _prev_qpos, data.qpos, sc.DT)
             data.qvel[_cup_dofadr:_cup_dofadr + 6] = _qvel_fd[_cup_dofadr:_cup_dofadr + 6]
         _prev_qpos = data.qpos.copy()
@@ -1479,6 +2314,18 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 t_r = right_elapsed if t_r_wall >= 0 else t_r_wall
             else:
                 t_r = t_r_wall
+            if cf_aw and t_r_wall >= 0:
+                # F1 ANTI-WINDUP: use the (possibly frozen) clock; advance it for the
+                # NEXT step only if the right EE is within CTRLFIX_AW_ERR_M of the
+                # reference at the current clock (linearized: ||Jp_r (q_ref - q)||).
+                t_r = aw_clock
+                _Jp_r_aw = sc.body_jac_full(model, data, right_ee_body)[0][:, right_dofadr]
+                _e_aw = float(np.linalg.norm(_Jp_r_aw @ (track_r.sample(t_r) - data.qpos[right_qposadr])))
+                _aw_in_win = (not cf_aw_grasp_only) or any(a_ <= t_r < c_ for a_, c_ in _aw_grasp_windows)
+                if _e_aw > CTRLFIX_AW_ERR_M and aw_frozen < aw_budget and _aw_in_win:
+                    aw_frozen += 1
+                else:
+                    aw_clock += sc.DT
             # PLACEMENT-PRECISION FIX: measured EE speed (finite-difference of
             # the ACTUAL simulated right-EE position across control steps, not
             # the scripted reference) -- the "settling" half of the
@@ -1516,6 +2363,20 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             else:
                 pin_now, pin_idx = False, None
             if pin_now and not weld_active_prev:
+                _site = data.site_xpos[right_site_id]
+                _d_tgt = float(np.linalg.norm(_site - cube_plan[pin_idx]["grasp_xyz"]))
+                if weld_gate_m is not None and _d_tgt > weld_gate_m:
+                    # (4) WELD PROXIMITY GATE: not at the grasp target yet -> defer
+                    # (re-checked every step inside the pin window; never attaches
+                    # from afar -> a MISSED pick if the site never gets there).
+                    log["weld_deferred_steps"][pin_idx] += 1
+                    pin_now, pin_idx = False, None
+            if pin_now and not weld_active_prev:
+                log["weld_onset_t"][pin_idx] = t
+                log["weld_onset_site_cube_dist_m"][pin_idx] = float(np.linalg.norm(
+                    data.site_xpos[right_site_id] - data.xpos[cube_plan[pin_idx]["body_id"]]))
+                log["weld_onset_site_target_dist_m"][pin_idx] = float(np.linalg.norm(
+                    data.site_xpos[right_site_id] - cube_plan[pin_idx]["grasp_xyz"]))
                 cct.activate_weld(model, data, cube_plan[pin_idx]["eq_id"],
                                    right_ee_body, cube_plan[pin_idx]["body_id"])
                 # COLLISION-FIDELITY: while this cube is welded to the gripper,
@@ -1523,13 +2384,29 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 # fight the weld (un-held cubes still collide with both arms).
                 sc.set_cube_arm_collision(model, cube_plan[pin_idx]["body_id"], enabled=False)
                 active_cube_idx_prev = pin_idx
+                if cf_heldcube:
+                    _Ree = data.xmat[right_ee_body].reshape(3, 3)
+                    _held_kp = (right_ee_body,
+                                _Ree.T @ (data.xpos[cube_plan[pin_idx]["body_id"]] - data.xpos[right_ee_body]),
+                                cct.CUBE_HALF + TABLE_FLOOR_MARGIN_M + HELDCUBE_TABLE_CLEAR_M)
             elif not pin_now and weld_active_prev:
                 cct.deactivate_weld(data, cube_plan[active_cube_idx_prev]["eq_id"])
                 # restore the released cube's arm-collision (now a free obstacle again)
-                sc.set_cube_arm_collision(model, cube_plan[active_cube_idx_prev]["body_id"], enabled=True)
+                if cf_heldcube:
+                    _held_kp = None
+                    _reenable_pending.append(active_cube_idx_prev)   # F8: deferred (see below)
+                else:
+                    sc.set_cube_arm_collision(model, cube_plan[active_cube_idx_prev]["body_id"], enabled=True)
                 released[active_cube_idx_prev] = True   # latch: never re-pin this cube (see cube_pin_active)
-                release_t[active_cube_idx_prev] = t      # ACTUAL release time -> gripper-open ramp (see above)
+                release_t[active_cube_idx_prev] = t_r if bugfixes else t   # ACTUAL release time (gripper-open ramp clock; (3))
             weld_active_prev = pin_now
+            if _reenable_pending:
+                # F8: re-enable a released cube's arm-collision once the grasp site is clear of it
+                for _ci in list(_reenable_pending):
+                    if (np.linalg.norm(data.site_xpos[right_site_id] - data.xpos[cube_plan[_ci]["body_id"]])
+                            > HELDCUBE_REENABLE_DIST_M):
+                        sc.set_cube_arm_collision(model, cube_plan[_ci]["body_id"], enabled=True)
+                        _reenable_pending.remove(_ci)
             mujoco.mj_forward(model, data)
         else:
             # "spill" scenario: no cube pick, right arm never leaves home --
@@ -1566,6 +2443,17 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         if scenario == "crossing" and t_r >= 0:
             q_right_des = track_r.sample(t_r)
             qd_right_des = track_r.sample_dot(t_r)
+            if _v4c_aw:
+                # V4C_ANTIWINDUP_M (v4c analog of ctrlfix F1 "antiwindup" clamp): pull the PD
+                # reference toward the current q so the right-EE error it commands is <= this.
+                _Jp_v4aw = sc.body_jac_full(model, data, right_ee_body)[0][:, right_dofadr]
+                _q_r_now = data.qpos[right_qposadr]
+                _e_v4aw = float(np.linalg.norm(_Jp_v4aw @ (q_right_des - _q_r_now)))
+                if _e_v4aw > V4C_ANTIWINDUP_M:
+                    _s_v4aw = V4C_ANTIWINDUP_M / _e_v4aw
+                    q_right_des = _q_r_now + _s_v4aw * (q_right_des - _q_r_now)
+                    qd_right_des = _s_v4aw * qd_right_des
+                    aw_clamped += 1
         else:
             q_right_des = info["q_home"]
             qd_right_des = np.zeros(6)
@@ -1574,6 +2462,10 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         M_full = sc.full_mass_matrix(model, data)
         M_ll = M_full[np.ix_(left_dofadr, left_dofadr)]
         bias_l = data.qfrc_bias[left_dofadr]
+        if cf_gravity:
+            # F3: gravcomp=1 puts gravity in qfrc_passive -> subtract it (and the
+            # joint damping) so tau = M a + bias realizes q'' = a (no double gravity).
+            bias_l = bias_l - data.qfrc_passive[left_dofadr]
         M_box, bias_box = sc.payload_reflected_terms(model, data, left_ee_body, cup_body, left_dofadr)
         M_ll = M_ll + M_box
         bias_l = bias_l + bias_box
@@ -1585,6 +2477,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
 
         M_rr = M_full[np.ix_(right_dofadr, right_dofadr)]
         bias_r = data.qfrc_bias[right_dofadr]
+        if cf_gravity:
+            bias_r = bias_r - data.qfrc_passive[right_dofadr]   # F3 (see bias_l above)
         if pin_now:
             # MULTI-CUBE: reflect the CURRENTLY-held cube's own body (pin_idx),
             # not a fixed single cube -- different cubes in cube_plan may have
@@ -1600,8 +2494,17 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         tau_task_r = M_rr @ qacc_des_r + bias_r
         M_rr_inv = np.linalg.inv(M_rr)
 
+        if real_grasp:
+            # CUP-IN-BARRIER from the ACTUAL cup body pose this step (the cup may
+            # slip/rotate in the grip): same rings/radius as build_cup_barrier_
+            # keypoints, re-expressed as EE-local offsets (Jacobian via the arm).
+            _rel_p, _rel_q = rg.cup_rel_pose_in_ee(data, left_ee_body, cup_body)
+            cup_kps_for_log = build_cup_barrier_keypoints(left_ee_body, _rel_p, _rel_q)
+            cup_kps_for_barrier = cup_kps_for_log if cup_in_barrier else None
         pairs = sc.all_pair_barriers(model, data, left_dofadr, right_dofadr,
                                       extra_ego_keypoints=cup_kps_for_barrier)
+        # F8 "heldcube": the welded cube joins the right arm's TABLE-floor keypoints only
+        _rtk_eff = right_table_kps if _held_kp is None else (right_table_kps + [_held_kp])
         qacc_left_known = data.qacc[left_dofadr]
         qacc_right_known = data.qacc[right_dofadr]
 
@@ -1609,6 +2512,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         upper = sc.TAU_MAX * np.ones(6)
 
         t_solve0 = time.perf_counter()
+        _fl_stepped_this_k = False
         if not qp_enabled:
             # Safety-filter-agnostic baseline (no HOCBF-QP, no MPC): plain
             # clipped task torque -- used for the deflection-proof comparison
@@ -1654,10 +2558,10 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             if table_floor:
                 a_te, b_te = sc.table_plane_barrier_rows(
                     model, data, left_table_kps, left_dofadr, M_ll_inv, bias_l,
-                    table_top_z, margin=TABLE_FLOOR_MARGIN_M)
+                    table_top_z, margin=TABLE_FLOOR_MARGIN_M, **_tab_kw)
                 a_ti, b_ti = sc.table_plane_barrier_rows(
-                    model, data, right_table_kps, right_dofadr, M_rr_inv, bias_r,
-                    table_top_z, margin=TABLE_FLOOR_MARGIN_M)
+                    model, data, _rtk_eff, right_dofadr, M_rr_inv, bias_r,
+                    table_top_z, margin=TABLE_FLOOR_MARGIN_M, **_tab_kw)
                 mpc_table_rows = (a_te, b_te, a_ti, b_ti)
             tau_l_qp, tau_r_qp, feasible_mpc, mpc_solve_time = joint_mpc.step(
                 model, data, q_int_des_traj, qd_int_des_traj, pairs, fragility,
@@ -1673,8 +2577,26 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             # (SAME gating/rationale as v7c above: t_r>=0, i.e. after the
             # LEFT arm's initial lift has already settled on the v4c ramp
             # path); RIGHT=int tracks the SAME track_r used by v7c/v4c.
-            q_int_ref = np.stack([track_r.sample(t_r + tt * sc.DT) for tt in range(fl.NP + 1)])
-            qd_int_ref = np.stack([track_r.sample_dot(t_r + tt * sc.DT) for tt in range(fl.NP + 1)])
+            if cf_delay > 0:
+                # F5: index 0 of the reference = when this command takes effect (t + d*DT)
+                q_int_ref = np.stack([track_r.sample(t_r + (tt + cf_delay) * sc.DT) for tt in range(fl.NP + 1)])
+                qd_int_ref = np.stack([track_r.sample_dot(t_r + (tt + cf_delay) * sc.DT)
+                                       for tt in range(fl.NP + 1)])
+            else:
+                q_int_ref = np.stack([track_r.sample(t_r + tt * sc.DT) for tt in range(fl.NP + 1)])
+                qd_int_ref = np.stack([track_r.sample_dot(t_r + tt * sc.DT) for tt in range(fl.NP + 1)])
+            if cf_aw_clamp:
+                # F1 ANTI-WINDUP (clamp): scale the int reference's deviation from the
+                # current q (and its velocity) so the EE error entering the cost is
+                # <= CTRLFIX_AW_ERR_M -- no wound-up pull when the arm is held back
+                # (jam / barrier), and no clock stall (the task keeps its timing).
+                _Jp_aw = sc.body_jac_full(model, data, right_ee_body)[0][:, right_dofadr]
+                _e_aw = float(np.linalg.norm(_Jp_aw @ (q_int_ref[0] - q_r)))
+                if _e_aw > CTRLFIX_AW_ERR_M:
+                    _s_aw = CTRLFIX_AW_ERR_M / _e_aw
+                    q_int_ref = q_r[None, :] + _s_aw * (q_int_ref - q_r[None, :])
+                    qd_int_ref = _s_aw * qd_int_ref
+                    aw_clamped += 1
             q_ego_ref = np.tile(info["q_lift"], (fl.NP + 1, 1))
             qd_ego_ref = np.zeros((fl.NP + 1, 6))
             # TABLE FLOOR (optional, same per-arm HOCBF rows v7c builds above,
@@ -1685,10 +2607,10 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             if table_floor:
                 a_te, b_te = sc.table_plane_barrier_rows(
                     model, data, left_table_kps, left_dofadr, M_ll_inv, bias_l,
-                    table_top_z, margin=TABLE_FLOOR_MARGIN_M)
+                    table_top_z, margin=TABLE_FLOOR_MARGIN_M, **_tab_kw)
                 a_ti, b_ti = sc.table_plane_barrier_rows(
-                    model, data, right_table_kps, right_dofadr, M_rr_inv, bias_r,
-                    table_top_z, margin=TABLE_FLOOR_MARGIN_M)
+                    model, data, _rtk_eff, right_dofadr, M_rr_inv, bias_r,
+                    table_top_z, margin=TABLE_FLOOR_MARGIN_M, **_tab_kw)
                 fl_table_rows = (a_te, b_te, a_ti, b_ti)
             # CUP-UPRIGHT + CUP-ARM DISPLACEMENT LEASH (both optional
             # mpc_fl.FLMPC constraint rows -- see that module): keep the cup
@@ -1697,6 +2619,19 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             # yields, instead of relying on a crude high hold-weight (see the
             # lowered W_POS_EGO at the fl = mpc_fl.FLMPC(...) construction
             # above).
+            if real_grasp and cf_cone > 0 and CTRLFIX_CONE_ANCHOR == "once":
+                # F4: anchor the cone ONCE (true cup axis in the EE frame at the first
+                # crossing step), then bound the GRIPPER's rotation from there. Re-anchoring
+                # every step on the live cup axis makes the tight cone CHASE a cup that
+                # pivots in the hinge-like two-pad pinch: the EE rotates to right the
+                # cup, the pinch transmits little of that rotation, the gripper tilts
+                # further, and the grip slips (smoke: seed 26 gripper 38 deg, slip 25 cm).
+                if not _cone_anchored:
+                    fl._cup_axis_local = rg.cup_axis_in_ee(data, left_ee_body, cup_body)
+                    _cone_anchored = True
+            elif real_grasp:
+                # cup-upright rows anchored on the TRUE cup axis (cup body pose), not a captured EE axis
+                fl._cup_axis_local = rg.cup_axis_in_ee(data, left_ee_body, cup_body)
             tau_l_qp, tau_r_qp, feasible_fl = fl.step(
                 model, data, left_qposadr, left_dofadr, right_qposadr, right_dofadr,
                 q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref, pairs,
@@ -1704,7 +2639,9 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 table_rows=fl_table_rows,
                 left_ee_body=left_ee_body, tilt_max_rad=CUP_TILT_MAX_RAD,
                 leash_ee_body=left_ee_body, leash_max_m=CUP_LEASH_M,
-                cup_cone_facets=CUP_CONE_FACETS,
+                cup_cone_facets=(cf_cone if cf_cone > 0 else
+                                 (CUP_CONE_FACETS if (not real_grasp or REAL_CUP_CONE_FACETS is None)
+                                  else REAL_CUP_CONE_FACETS)),
                 # EGO POSITION-HOLD RELEASE (always False here). This flmpc branch
                 # only runs once t_r>=0 (i.e. t>=RIGHT_START_T, the crossing): the
                 # initial lift is driven by the else/computed-torque ramp branch,
@@ -1716,9 +2653,74 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 # mpc_fl.FLMPC.step for other callers, e.g. a future teleop mode where
                 # the protected arm must hold a commanded pose between dodges.)
                 ego_hold=False)
+            _fl_stepped_this_k = True
+            if bugfixes:
+                # (6) joint dry-friction feedforward (see the --bugfixes block comment)
+                tau_l_qp = tau_l_qp + rg.friction_feedforward(model, left_dofadr, data.qvel[left_dofadr],
+                                                              fl.a_ego_prev, sc.DT)
+                tau_r_qp = tau_r_qp + rg.friction_feedforward(model, right_dofadr, data.qvel[right_dofadr],
+                                                              fl.a_int_prev, sc.DT)
+            feasible_l = feasible_r = feasible_fl
+            solve_time = time.perf_counter() - t_solve0
+        elif real_grasp and controller in ("flmpc", "flmpc_decentB") and scenario == "crossing" and t_r < 0:
+            # -- --grasp-mode real LIFT: FL-MPC (not v4c) lifts the really-gripped
+            # cup. Ego (left) TRACKS the orientation-holding lift reference
+            # track_l over the horizon (ego_hold=True); int (right) holds q_home.
+            # ALL hard rows active: arm-arm HOCBF (cup keypoints from the actual
+            # cup pose, above), torque box, cup-upright tilt (anchored on the
+            # TRUE cup axis), leash, table floor; real cup payload via M_box/bias_box.
+            if cf_delay > 0:
+                q_ego_ref = np.stack([track_l.sample(t + (tt + cf_delay) * sc.DT) for tt in range(fl.NP + 1)])
+                qd_ego_ref = np.stack([track_l.sample_dot(t + (tt + cf_delay) * sc.DT) for tt in range(fl.NP + 1)])
+            else:
+                q_ego_ref = np.stack([track_l.sample(t + tt * sc.DT) for tt in range(fl.NP + 1)])
+                qd_ego_ref = np.stack([track_l.sample_dot(t + tt * sc.DT) for tt in range(fl.NP + 1)])
+            q_int_ref = np.tile(info["q_home"], (fl.NP + 1, 1))
+            qd_int_ref = np.zeros((fl.NP + 1, 6))
+            fl_table_rows = None
+            if table_floor:
+                a_te, b_te = sc.table_plane_barrier_rows(
+                    model, data, left_table_kps, left_dofadr, M_ll_inv, bias_l,
+                    table_top_z, margin=TABLE_FLOOR_MARGIN_M, **_tab_kw)
+                a_ti, b_ti = sc.table_plane_barrier_rows(
+                    model, data, _rtk_eff, right_dofadr, M_rr_inv, bias_r,
+                    table_top_z, margin=TABLE_FLOOR_MARGIN_M, **_tab_kw)
+                fl_table_rows = (a_te, b_te, a_ti, b_ti)
+            fl._cup_axis_local = rg.cup_axis_in_ee(data, left_ee_body, cup_body)
+            tau_l_qp, tau_r_qp, feasible_fl = fl.step(
+                model, data, left_qposadr, left_dofadr, right_qposadr, right_dofadr,
+                q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref, pairs,
+                M_ego_extra=M_box, bias_ego_extra=bias_box,
+                table_rows=fl_table_rows,
+                left_ee_body=left_ee_body, tilt_max_rad=CUP_TILT_MAX_RAD,
+                leash_ee_body=left_ee_body, leash_max_m=CUP_LEASH_M,
+                cup_cone_facets=(cf_cone if cf_cone > 0 else
+                                 (CUP_CONE_FACETS if REAL_CUP_CONE_FACETS is None else REAL_CUP_CONE_FACETS)),
+                ego_hold=True)
+            _fl_stepped_this_k = True
+            if REAL_FRICTION_FF:
+                # joint dry-friction feedforward (frictionloss is a constraint force,
+                # not in FL's c) along FL-MPC's commanded motion -- see
+                # control/realgrasp_flmpc.friction_feedforward. Final clip below keeps TAU_MAX.
+                tau_l_qp = tau_l_qp + rg.friction_feedforward(model, left_dofadr, data.qvel[left_dofadr],
+                                                              fl.a_ego_prev, sc.DT)
+                tau_r_qp = tau_r_qp + rg.friction_feedforward(model, right_dofadr, data.qvel[right_dofadr],
+                                                              fl.a_int_prev, sc.DT)
             feasible_l = feasible_r = feasible_fl
             solve_time = time.perf_counter() - t_solve0
         else:
+            # nominal torque + torque box of the reactive QP. Default (post-filter): the
+            # raw task torque and the static +-TAU_MAX box (original). V4C_FILTER_MODE=
+            # "pre" (v4c only): the SAFETY QP IS LAST -- the nominal is low-passed toward
+            # the previously APPLIED torque and the box also carries the actuator slew
+            # limit around it, so the CBF rows constrain the torque the plant actually gets.
+            if _v4c_pre and _v4c_y_l is not None:
+                _nom_l = _flt_a * tau_task_l + (1.0 - _flt_a) * _v4c_y_l
+                _nom_r = _flt_a * tau_task_r + (1.0 - _flt_a) * _v4c_y_r
+                _lo_l = np.maximum(lower, _v4c_y_l - _flt_r * sc.DT); _hi_l = np.minimum(upper, _v4c_y_l + _flt_r * sc.DT)
+                _lo_r = np.maximum(lower, _v4c_y_r - _flt_r * sc.DT); _hi_r = np.minimum(upper, _v4c_y_r + _flt_r * sc.DT)
+            else:
+                _nom_l, _nom_r, _lo_l, _hi_l, _lo_r, _hi_r = tau_task_l, tau_task_r, lower, upper, lower, upper
             a_rows, b_rows = [], []
             for p in pairs:
                 n_p, Je_p, Ji_p = p["n"], p["Je"], p["Ji"]
@@ -1745,11 +2747,18 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             if table_floor:
                 a_table_l, b_table_l = sc.table_plane_barrier_rows(
                     model, data, left_table_kps, left_dofadr, M_ll_inv, bias_l,
-                    table_top_z, margin=TABLE_FLOOR_MARGIN_M)
+                    table_top_z, margin=TABLE_FLOOR_MARGIN_M, **_tab_kw, **_v4c_tab_kw)
                 a_ineq = np.vstack([a_ineq, a_table_l])
                 b_ineq = np.concatenate([b_ineq, b_table_l])
-            H_qp, f_qp = sc.build_weighted_least_squares_qp([(np.eye(6), tau_task_l, 1.0)])
-            tau_l_qp, _, feasible_l = sc.solve_constrained_box_qp(H_qp, f_qp, lower, upper, a_ineq, b_ineq)
+            if _v4c_metric == "accel":
+                # V4C_QP_METRIC="accel": min ||M^-1 (tau - tau_task)|| (joint-ACCELERATION deviation)
+                # instead of the torque-space ||tau - tau_task||, which deflects mostly through
+                # the low-inertia wrist joints (cheap torque, huge acceleration -> cup whipped).
+                _Wl = M_ll_inv / float(np.max(np.abs(np.diag(M_ll_inv))))
+                H_qp, f_qp = sc.build_weighted_least_squares_qp([(_Wl, _Wl @ _nom_l, 1.0)])
+            else:
+                H_qp, f_qp = sc.build_weighted_least_squares_qp([(np.eye(6), _nom_l, 1.0)])
+            tau_l_qp, _, feasible_l = sc.solve_constrained_box_qp(H_qp, f_qp, _lo_l, _hi_l, a_ineq, b_ineq)
 
             ai_rows, bi_rows = [], []
             for p in pairs:
@@ -1777,8 +2786,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             # most here -- see the task's measurement).
             if table_floor:
                 a_table_r, b_table_r = sc.table_plane_barrier_rows(
-                    model, data, right_table_kps, right_dofadr, M_rr_inv, bias_r,
-                    table_top_z, margin=TABLE_FLOOR_MARGIN_M)
+                    model, data, _rtk_eff, right_dofadr, M_rr_inv, bias_r,
+                    table_top_z, margin=TABLE_FLOOR_MARGIN_M, **_tab_kw, **_v4c_tab_kw)
                 ai_ineq = np.vstack([ai_ineq, a_table_r])
                 bi_ineq = np.concatenate([bi_ineq, b_table_r])
             # EE-SPEED-LIMIT FIX part (2), reactive branch: hard-cap the RIGHT
@@ -1792,8 +2801,24 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                     Jp_r_ee, qd_r, M_rr_inv, bias_r, V_EE_MAX_MS, sc.DT)
                 ai_ineq = np.vstack([ai_ineq, a_vcap])
                 bi_ineq = np.concatenate([bi_ineq, b_vcap])
-            Hi_qp, fi_qp = sc.build_weighted_least_squares_qp([(np.eye(6), tau_task_r, 1.0)])
-            tau_r_qp, _, feasible_r = sc.solve_constrained_box_qp(Hi_qp, fi_qp, lower, upper, ai_ineq, bi_ineq)
+                if _v4c and V4C_SPEEDCAP_DIR:
+                    # V4C_SPEEDCAP_DIR (ctrlfix F1 analog): the per-axis box above lets the
+                    # Cartesian NORM reach sqrt(3)*V; add FL-MPC's row along the current EE
+                    # motion direction u: u . v_next <= V.
+                    _v_now = Jp_r_ee @ qd_r
+                    _vn = float(np.linalg.norm(_v_now))
+                    if _vn > 1e-3:
+                        _u = _v_now / _vn
+                        _G = sc.DT * (Jp_r_ee @ M_rr_inv)
+                        _c = _v_now - sc.DT * (Jp_r_ee @ (M_rr_inv @ bias_r))
+                        ai_ineq = np.vstack([ai_ineq, (_u @ _G)[None, :]])
+                        bi_ineq = np.concatenate([bi_ineq, [V_EE_MAX_MS - float(_u @ _c)]])
+            if _v4c_metric == "accel":
+                _Wr = M_rr_inv / float(np.max(np.abs(np.diag(M_rr_inv))))
+                Hi_qp, fi_qp = sc.build_weighted_least_squares_qp([(_Wr, _Wr @ _nom_r, 1.0)])
+            else:
+                Hi_qp, fi_qp = sc.build_weighted_least_squares_qp([(np.eye(6), _nom_r, 1.0)])
+            tau_r_qp, _, feasible_r = sc.solve_constrained_box_qp(Hi_qp, fi_qp, _lo_r, _hi_r, ai_ineq, bi_ineq)
             solve_time = time.perf_counter() - t_solve0
 
         # QP-infeasibility recovery (safety net): if no safe torque exists within
@@ -1815,15 +2840,48 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         # uses this brake.
         _ctrl_has_graceful_fallback = (controller in ("flmpc", "flmpc_decentB"))
         if not feasible_l and not _ctrl_has_graceful_fallback:
-            tau_l_qp = bias_l - INFEAS_BRAKE_KD * data.qvel[left_dofadr]
+            tau_l_qp = bias_l - _v4c_brake_kd * data.qvel[left_dofadr]
         if not feasible_r and not _ctrl_has_graceful_fallback:
-            tau_r_qp = bias_r - INFEAS_BRAKE_KD * data.qvel[right_dofadr]
+            tau_r_qp = bias_r - _v4c_brake_kd * data.qvel[right_dofadr]
 
         left_deflect = float(np.linalg.norm(tau_l_qp - np.clip(tau_task_l, -sc.TAU_MAX, sc.TAU_MAX)))
         right_deflect = float(np.linalg.norm(tau_r_qp - np.clip(tau_task_r, -sc.TAU_MAX, sc.TAU_MAX)))
 
-        tau_l_cmd = np.clip(tau_filter_l.apply(tau_l_qp, sc.DT), -sc.TAU_MAX, sc.TAU_MAX)
-        tau_r_cmd = np.clip(tau_filter_r.apply(tau_r_qp, sc.DT), -sc.TAU_MAX, sc.TAU_MAX)
+        if _v4c_pre:
+            # V4C_FILTER_MODE="pre": the QP output IS the applied torque (already inside the
+            # slew box); the infeasibility brake is clipped into the same box.
+            if _v4c_y_l is not None:
+                tau_l_qp = np.clip(tau_l_qp, _v4c_y_l - _flt_r * sc.DT, _v4c_y_l + _flt_r * sc.DT)
+                tau_r_qp = np.clip(tau_r_qp, _v4c_y_r - _flt_r * sc.DT, _v4c_y_r + _flt_r * sc.DT)
+            tau_l_cmd = np.clip(tau_l_qp, -sc.TAU_MAX, sc.TAU_MAX)
+            tau_r_cmd = np.clip(tau_r_qp, -sc.TAU_MAX, sc.TAU_MAX)
+            _v4c_y_l, _v4c_y_r = tau_l_cmd.copy(), tau_r_cmd.copy()
+        elif cf_taumax is None:
+            tau_l_cmd = np.clip(tau_filter_l.apply(tau_l_qp, sc.DT), -sc.TAU_MAX, sc.TAU_MAX)
+            tau_r_cmd = np.clip(tau_filter_r.apply(tau_r_qp, sc.DT), -sc.TAU_MAX, sc.TAU_MAX)
+        else:
+            # F6: per-joint actuator limit on the final command too
+            tau_l_cmd = np.clip(tau_filter_l.apply(tau_l_qp, sc.DT), -cf_taumax, cf_taumax)
+            tau_r_cmd = np.clip(tau_filter_r.apply(tau_r_qp, sc.DT), -cf_taumax, cf_taumax)
+        if cf_delay > 0 and fl is not None:
+            # F5: the plant will see the FILTERED/clipped torque, not FL-MPC's raw
+            # tau = M a + c -> record the acceleration it actually realizes
+            # (a = M^-1 (tau_cmd - c), c = bias - passive (+ cup payload on the ego)),
+            # so the in-flight prediction is exact w.r.t. what was sent.
+            _c_l = data.qfrc_bias[left_dofadr] - data.qfrc_passive[left_dofadr] + bias_box
+            _c_r = data.qfrc_bias[right_dofadr] - data.qfrc_passive[right_dofadr]
+            _M_l = M_full[np.ix_(left_dofadr, left_dofadr)] + M_box
+            _M_r = M_full[np.ix_(right_dofadr, right_dofadr)]
+            # joint dry friction (frictionloss constraint) opposes the motion: same
+            # Coulomb model the friction feedforward uses, along the planned motion
+            _fr_l = rg.friction_feedforward(model, left_dofadr, data.qvel[left_dofadr], fl.a_ego_prev, sc.DT)
+            _fr_r = rg.friction_feedforward(model, right_dofadr, data.qvel[right_dofadr], fl.a_int_prev, sc.DT)
+            _a_l = np.linalg.solve(_M_l, tau_l_cmd - _c_l - _fr_l)
+            _a_r = np.linalg.solve(_M_r, tau_r_cmd - _c_r - _fr_r)
+            if _fl_stepped_this_k:
+                fl.replace_last_applied(_a_l, _a_r)
+            else:
+                fl.push_applied(_a_l, _a_r)
         data.qfrc_applied[left_dofadr] = tau_l_cmd
         data.qfrc_applied[right_dofadr] = tau_r_cmd
 
@@ -1863,6 +2921,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         log["spilled"][k] = spilled
         log["deposited"][k] = deposited
         log["placed"][k] = placed
+        log["placed_strict"][k] = (count_placed_strict(model, data, cube_plan, cube_init_pos, placed_center_xy,
+                                                        table_top_z) if placed_center_xy is not None else 0)
         log["qp_feasible_left"][k] = float(feasible_l)
         log["qp_feasible_right"][k] = float(feasible_r)
         log["left_qp_deflect_nm"][k] = left_deflect
@@ -1882,6 +2942,14 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         log["cup_n_axis"][k] = data.xmat[cup_body].reshape(3, 3) @ np.array([0.0, 0.0, 1.0])
         _cup_axis_world_k = data.xmat[left_ee_body].reshape(3, 3) @ _cup_axis_local_log
         log["left_cup_tilt_rad"][k] = float(np.arccos(np.clip(_cup_axis_world_k[2], -1.0, 1.0)))
+        # --grasp-mode metrics (read-only; both modes)
+        _rel_now, _ = rg.cup_rel_pose_in_ee(data, left_ee_body, cup_body)
+        log["true_cup_tilt_rad"][k] = rg.cup_true_tilt_rad(data, cup_body)
+        log["grip_slip_m"][k] = float(np.linalg.norm(_rel_now - info["cup_rel_pos0"]))
+        log["pad_contacts"][k] = rg.pad_cup_contacts(model, data, left_pad_ids, cup_body)
+        log["pads_touching"][k] = rg.pads_touching_cup(model, data, left_pad_ids, cup_body)
+        log["finger_force_max_n"][k] = float(np.max(np.abs(rg.finger_actuator_forces(model, data))))
+        log["pad_normal_force_n"][k] = rg.pad_normal_force_sum(model, data, left_pad_ids, cup_body)
 
         if capture and k % capture_stride == 0:
             renderer_main.update_scene(data, camera=cam_main)
@@ -1896,6 +2964,18 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         renderer_main.close()
         renderer_zed.close()
 
+    if cf_aw:
+        # truncate the worst-case buffers to the steps actually run
+        n_done = min(n_steps, n_steps_run + aw_frozen)
+        for _k, _v in list(log.items()):
+            if isinstance(_v, np.ndarray) and _v.ndim >= 1 and _v.shape[0] == n_steps:
+                log[_k] = _v[:n_done]
+    # --ctrlfixes bookkeeping (scalars; additive keys)
+    log["aw_frozen_steps"] = np.array(float(aw_frozen))
+    log["aw_clamped_steps"] = np.array(float(aw_clamped))
+    log["fl_relaxed_steps"] = np.array(float(fl.n_relaxed if fl is not None else 0))
+    log["fl_zero_fallback_steps"] = np.array(float(fl.n_zero_fallback if fl is not None else 0))
+    log["fl_taumax_relaxed_steps"] = np.array(float(fl.n_taumax_relaxed if fl is not None else 0))
     return log, frames
 
 
@@ -2082,7 +3162,90 @@ def build_hud_and_encode(log: dict, frames: list, out_path: Path, config: str = 
                 ever_spilled=ever_spilled, ever_deposited=ever_deposited)
 
 
+def _longest_true_run(mask: np.ndarray) -> int:
+    best = cur = 0
+    for v in mask:
+        cur = cur + 1 if v else 0
+        best = max(best, cur)
+    return best
+
+
 def summarize(log: dict) -> dict:
+    out = _summarize_core(log)
+    if "true_cup_tilt_rad" in log:
+        real = bool(float(np.asarray(log.get("grasp_mode_real", 0.0))) > 0.5)
+        n = len(log["t"])
+        idx_cross = int(np.searchsorted(log["t"], RIGHT_START_T))
+        z0 = float(log["cup_z"][0])
+        cup_low = bool(idx_cross < n and np.any(log["cup_z"][idx_cross:] < z0 + REAL_CUP_DROP_RISE_MIN_M))
+        no_contact_run = _longest_true_run(log["pad_contacts"] < 0.5)
+        cf_on = bool(float(np.asarray(log.get("ctrlfixes", 0.0))) > 0.5)
+        if cf_on:
+            # F7 (ctrlfixes): a DROP is gripper-relative -- the cup's offset in the
+            # EE frame (grip_slip_m) beyond CTRLFIX_DROP_SLIP_M for >=
+            # REAL_CUP_DROP_NO_CONTACT_STEPS consecutive steps, or (real mode) a
+            # SUSTAINED no-contact run. The legacy `cup_low` (cup_z < z0+3 cm after
+            # the crossing starts) false-alarms when the cooperative yield merely
+            # lowers the held cup; it is kept as cup_low_legacy for reference.
+            slip_run = _longest_true_run(np.asarray(log["grip_slip_m"]) > CTRLFIX_DROP_SLIP_M)
+            cup_dropped_v = bool(slip_run >= REAL_CUP_DROP_NO_CONTACT_STEPS
+                                 or (real and no_contact_run >= REAL_CUP_DROP_NO_CONTACT_STEPS))
+        else:
+            cup_dropped_v = bool(cup_low or (real and no_contact_run >= REAL_CUP_DROP_NO_CONTACT_STEPS))
+        pc = np.asarray(log["pad_contacts"])
+        w = CTRLFIX_PAD_FLICKER_STEPS
+        # robust min: min over k of max(pc[k:k+w]) -> ignores dropouts shorter than w steps
+        pc_robust = (int(np.min(np.lib.stride_tricks.sliding_window_view(pc, w).max(axis=1)))
+                     if pc.shape[0] >= w else int(np.min(pc)))
+        out.update(
+            grasp_mode="real" if real else "faked",
+            # pad-contact loss only counts in real mode (faked pads never touch the cup by design)
+            cup_dropped=cup_dropped_v,
+            cup_low_legacy=bool(cup_low),
+            true_cup_tilt_max_deg=float(np.degrees(np.max(log["true_cup_tilt_rad"]))),
+            true_cup_tilt_max_deg_after_lift=(float(np.degrees(np.max(log["true_cup_tilt_rad"][idx_cross:])))
+                                              if idx_cross < n else float("nan")),
+            grip_slip_max_m=float(np.max(log["grip_slip_m"])),
+            pad_contacts_min=(pc_robust if cf_on else int(np.min(log["pad_contacts"]))),
+            pad_contacts_min_raw=int(np.min(log["pad_contacts"])),
+            pad_contacts_min_robust=pc_robust,
+            pads_touching_min=int(np.min(log["pads_touching"])),
+            pad_no_contact_longest_steps=int(no_contact_run),
+            finger_force_max_n=float(np.max(log["finger_force_max_n"])),
+            pad_normal_force_mean_n=float(np.mean(log["pad_normal_force_n"])),
+            left_ee_tilt_max_deg=float(np.degrees(np.max(log["left_cup_tilt_rad"]))),
+        )
+    if "aw_frozen_steps" in log:
+        idx_x = int(np.searchsorted(log["t"], RIGHT_START_T))
+        rp = np.asarray(log["right_ee_pos"])
+        sp = np.linalg.norm(np.diff(rp, axis=0), axis=1) / sc.DT if rp.shape[0] > 1 else np.zeros(1)
+        out.update(
+            aw_frozen_steps=int(float(np.asarray(log["aw_frozen_steps"]))),
+            aw_clamped_steps=int(float(np.asarray(log.get("aw_clamped_steps", 0.0)))),
+            fl_relaxed_steps=int(float(np.asarray(log["fl_relaxed_steps"]))),
+            fl_zero_fallback_steps=int(float(np.asarray(log["fl_zero_fallback_steps"]))),
+            fl_taumax_relaxed_steps=int(float(np.asarray(log["fl_taumax_relaxed_steps"]))),
+            right_ee_speed_max_cross_ms=(float(np.max(sp[idx_x:])) if idx_x < sp.shape[0] else float("nan")),
+        )
+    if "placed_strict" in log:
+        wd = np.asarray(log["weld_onset_site_cube_dist_m"])
+        wt = np.asarray(log["weld_onset_site_target_dist_m"])
+        out.update(
+            bugfixes=bool(float(np.asarray(log["bugfixes"])) > 0.5),
+            ctrlfixes=bool(float(np.asarray(log.get("ctrlfixes", 0.0))) > 0.5),
+            placed_strict_final=int(log["placed_strict"][-1]),
+            placed_strict_max=int(np.max(log["placed_strict"])),
+            cup_init_tilt_deg=float(np.asarray(log["cup_init_tilt_deg"])),
+            n_welds=int(np.sum(np.isfinite(wd))),
+            weld_missed=int(np.sum(~np.isfinite(wd) & (np.asarray(log["weld_deferred_steps"]) > 0))),
+            weld_onset_site_cube_dist_m=[float(x) for x in wd],
+            weld_onset_site_target_dist_m=[float(x) for x in wt],
+            weld_onset_site_target_dist_max_m=(float(np.nanmax(wt)) if np.any(np.isfinite(wt)) else float("nan")),
+        )
+    return out
+
+
+def _summarize_core(log: dict) -> dict:
     return dict(
         h_min=float(np.min(log["h_min"])),
         h_final=float(log["h_min"][-1]),
@@ -2226,7 +3389,39 @@ def main():
                               "softening its fallout) and adaptively modulates the cup(ego) arm's hold "
                               "weight/leash toward more-yielding bounds under urgency, reverting as cup tilt "
                               "rises. off (default): byte-identical to the original flmpc behavior.")
+    parser.add_argument("--grasp-mode", choices=GRASP_MODE_CHOICES, default="faked",
+                         help="faked (default, byte-identical to before): fake grasp close + reattach_cup_rigidly "
+                              "+ ball carry. real (SIM ONLY): genuine two-pad friction pinch under grip-force "
+                              "control, no cup teleport/weld/velocity overwrite, FL-MPC drives the lift, cup "
+                              "barrier keypoints from the actual cup pose (requires --controller flmpc|"
+                              "flmpc_decentB, --scenario crossing). Output files get a '_realgrasp' suffix.")
+    parser.add_argument("--bugfixes", choices=("on", "off"), default="on",
+                         help="on (default): CHANGE-2 harness bug fixes (re-seat a toppled faked cup, gripper "
+                              "clock on t_r, FL-MPC joint-friction feedforward; the weld gate is separate: --weld-gate-m). off: "
+                              "pre-fix behavior, byte-identical. New metrics are logged either way.")
+    parser.add_argument("--weld-gate-m", type=float, default=None,
+                         help="(4) OFF by default: attach a cube weld only once the right grasp site is within this "
+                              "distance [m] of the cube's grasp target (else a missed pick). See the --bugfixes block "
+                              "comment: with the current right-arm grasp reference, 0.02 misses every pick.")
+    parser.add_argument("--ctrlfixes", choices=("on", "off"), default="on",
+                         help="on (default): controller fixes F1-F6 (see the --ctrlfixes block comment: "
+                              "gravity double-comp, FL-MPC EE speed cap + anti-windup, top-down table-aware "
+                              "waypoints, keypoint radii in the table rows, delay compensation, per-joint "
+                              "tau_max, true-tilt cone). off: pre-fix behavior, byte-identical.")
+    parser.add_argument("--ctrlfix-parts", type=str, default="all",
+                         help=f"comma subset of {','.join(CTRLFIX_ALL_PARTS)} active under --ctrlfixes on "
+                              "(default all) -- for per-fix ablations.")
+    parser.add_argument("--ctrlfix-delay-steps", type=int, default=None,
+                         help="F5: known actuation delay [control steps] FL-MPC compensates (default: "
+                              "CTRLFIX_DELAY_STEPS=0 -> no-op).")
     args = parser.parse_args()
+    global BUGFIXES, WELD_ATTACH_GATE_M, CTRLFIXES, CTRLFIX_PARTS, CTRLFIX_DELAY_STEPS
+    WELD_ATTACH_GATE_M = args.weld_gate_m
+    BUGFIXES = (args.bugfixes == "on")
+    CTRLFIXES = (args.ctrlfixes == "on")
+    CTRLFIX_PARTS = parse_ctrlfix_parts(args.ctrlfix_parts)
+    if args.ctrlfix_delay_steps is not None:
+        CTRLFIX_DELAY_STEPS = int(args.ctrlfix_delay_steps)
     if args.cubes:
         global _CUBE_OVERRIDE
         _CUBE_OVERRIDE = [c.strip() for c in args.cubes.split(",") if c.strip()]
@@ -2234,9 +3429,11 @@ def main():
 
     t0 = time.perf_counter()
     print(f"[setup] building episode (seed={args.seed}, config={args.config}, "
-          f"controller={args.controller}, scenario={args.scenario}, monitor={args.monitor})...")
+          f"controller={args.controller}, scenario={args.scenario}, monitor={args.monitor}, "
+          f"grasp_mode={args.grasp_mode})...")
     info = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"),
-                         cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes)
+                         cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes,
+                         grasp_mode=args.grasp_mode)
     print(f"  left lift IK err={info['lift_err']:.4f} m; right-arm IK errs={info['ik_errs']}")
     print(f"  duration_s={info['duration_s_total']:.2f}  n_steps={info['n_steps_total']}  "
           f"RIGHT_START_T={RIGHT_START_T:.2f}"
@@ -2278,7 +3475,8 @@ def main():
 
     print(f"[main] running {args.controller}-filtered episode ({args.config}) with capture...")
     info_main = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"),
-                              cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes)  # fresh model/data instance for the real run
+                              cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes,
+                         grasp_mode=args.grasp_mode)  # fresh model/data instance for the real run
     if spill_monitor is not None:
         spill_monitor.reset()
     log_main, frames = run_episode(info_main, controller=args.controller, qp_enabled=True, capture=not args.no_video, ee_speed_limit=(args.ee_speed_limit == "on"),
@@ -2320,7 +3518,8 @@ def main():
 
     print("[baseline] running no-QP baseline (same references, safety filter OFF) for the deflection proof...")
     info_base = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"),
-                              cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes)  # fresh model/data instance, identical references
+                              cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes,
+                         grasp_mode=args.grasp_mode)  # fresh model/data instance, identical references
     if spill_monitor is not None:
         spill_monitor.reset()
     log_base, _ = run_episode(info_base, controller=args.controller, qp_enabled=False, capture=False, ee_speed_limit=(args.ee_speed_limit == "on"),
@@ -2350,8 +3549,12 @@ def main():
 
     meta = dict(config=args.config, controller=args.controller, scenario=args.scenario,
                 monitor=args.monitor, cup_in_barrier=args.cup_in_barrier,
+                grasp_mode=args.grasp_mode, grasp_info=info_main.get("grasp_info"),
                 table_floor=args.table_floor,
                 ee_speed_limit=args.ee_speed_limit, v_ee_max_ms=V_EE_MAX_MS,
+                bugfixes=args.bugfixes, ctrlfixes=args.ctrlfixes,
+                ctrlfix_parts=sorted(CTRLFIX_PARTS) if CTRLFIXES else [],
+                ctrlfix_delay_steps=CTRLFIX_DELAY_STEPS, wp_modes=info_main.get("wp_modes"),
                 main_metrics=m_main, baseline_metrics=m_base,
                 deflection_proof=deflection_proof,
                 duration_s=info_main["duration_s_total"], n_steps=info_main["n_steps_total"],
@@ -2368,6 +3571,7 @@ def main():
     ctrl_suffix = "" if args.controller == "v4c" else f"_{args.controller}"
     scenario_suffix = "" if args.scenario == "crossing" else f"_{args.scenario}"
     monitor_suffix = "" if args.monitor == "classifier" else f"_{args.monitor}"
+    monitor_suffix += "" if args.grasp_mode == "faked" else "_realgrasp"   # never overwrite faked artifacts
     video_path = ART_DIR / f"cup_collect_safety_demo_{args.config}{ctrl_suffix}{scenario_suffix}{monitor_suffix}.mp4"
     meta_path = ART_DIR / f"cup_collect_safety_demo_meta_{args.config}{ctrl_suffix}{scenario_suffix}{monitor_suffix}.json"
 
