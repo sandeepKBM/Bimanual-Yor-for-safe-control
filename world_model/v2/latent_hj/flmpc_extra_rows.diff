@@ -1,0 +1,52 @@
+PROPOSED (NOT APPLIED) minimal hook for experiments/ab_smooth_vs_bangbang/mpc_fl.py.
+ValueFLMPC (flmpc_value.py) currently gets the same effect by swapping the module
+global `mpc_fl.sc` for a solver proxy during step(); this patch would make that
+unnecessary. Default extra_rows=None -> byte-identical behaviour for every caller.
+
+--- a/experiments/ab_smooth_vs_bangbang/mpc_fl.py
++++ b/experiments/ab_smooth_vs_bangbang/mpc_fl.py
+@@ -495,9 +495,15 @@ class FLMPC:
+     def step(self, model, data, left_qposadr, left_dofadr, right_qposadr, right_dofadr,
+              q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref,
+              pairs_all, M_ego_extra=None, bias_ego_extra=None,
+              left_ee_body=None, tilt_max_rad=None, table_rows=None,
+              leash_ee_body=None, leash_max_m=None, cup_cone_facets=None,
+-             ego_hold=True):
++             ego_hold=True, extra_rows=None, extra_rho=1.0e5):
++        """... extra_rows: optional (A (m, 2*n_blk), b (m,)) SOFT rows A x <= b on the
++        full accel plan (e.g. a linearized learned-value constraint). Each gets a
++        nonnegative slack with cost extra_rho*s + EPS_SLACK*s^2 (exact penalty); the
++        torque box and every other row stay hard. Default None -> no change."""
+@@ -800,10 +806,32 @@ class FLMPC:
+         if extra_a:
+             a_ineq = np.vstack([a_ineq, np.stack(extra_a)])
+             b_ineq = np.concatenate([b_ineq, np.array(extra_b)])
+         a_ineq = np.ascontiguousarray(a_ineq)
+         b_ineq = np.ascontiguousarray(b_ineq)
+         lower = -self.a_box * np.ones(ntot)
+         upper = self.a_box * np.ones(ntot)
+-        x, _, feasible = sc.solve_constrained_box_qp(H, f, lower, upper, a_ineq, b_ineq)
++        if extra_rows is not None and len(extra_rows[1]) > 0:
++            A_x, b_x = extra_rows
++            m_x = len(b_x)
++            H = np.pad(H, ((0, m_x), (0, m_x)))
++            H[ntot:, ntot:] = 2.0 * self.EPS_SLACK * np.eye(m_x)
++            f = np.concatenate([f, extra_rho * np.ones(m_x)])
++            lower = np.concatenate([lower, np.zeros(m_x)])
++            upper = np.concatenate([upper, self.S_MAX * np.ones(m_x)])
++            a_ineq = np.hstack([a_ineq, np.zeros((a_ineq.shape[0], m_x))])
++            a_ineq = np.ascontiguousarray(np.vstack([a_ineq, np.hstack([A_x, -np.eye(m_x)])]))
++            b_ineq = np.concatenate([b_ineq, b_x])
++        x, _, feasible = sc.solve_constrained_box_qp(H, f, lower, upper, a_ineq, b_ineq)
++        self.last_extra_slack = x[ntot:].copy() if extra_rows is not None else None
++        x = x[:ntot] if extra_rows is not None else x
+         self.last_feasible = bool(feasible)
+
+         if not feasible:
+@@ -822,3 +850,5 @@ class FLMPC:
+             m_coll = int(n_arr.shape[0]) * int(self.coll_steps.shape[0])
+-            x_relaxed, feasible2 = self._relaxed_fallback(H, f, lower, upper, a_ineq, b_ineq, m_coll)
++            # (_relaxed_fallback works unchanged on the augmented H/f/bounds/rows: it only
++            #  appends slack to the leading m_coll collision rows; returns y[:H.shape[0]])
++            x_relaxed, feasible2 = self._relaxed_fallback(H, f, lower, upper, a_ineq, b_ineq, m_coll)
++            x_relaxed = x_relaxed[:ntot]
