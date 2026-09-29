@@ -25,6 +25,11 @@ Modes (all FL-MPC underneath: hard arm-arm clearance + torque box + collision-re
   d_value     OURS: FL-MPC + linearized latent-value rows V_k >= eps (slackable)
   e_margin    physics oracle: same rows with the TRUE instantaneous margin l over the
               160 ms horizon (no reachability)
+  f_cbf_sample  LatentCBF (Nakamura et al. 2025, arXiv 2511.18606), faithful: one-step
+              Q(z,a)-eps >= alpha (Q(z,pi_dag)-eps), sampling-based zeroth-order solve around
+              {pi_nom, pi_dag}; see cbf_filter.py
+  g_cbf_row   same one-step CBF condition, linearised, as ONE slackable row in FL-MPC
+              (mechanism-isolating variant vs d_value's horizon rows)
 
   python -m world_model.v2.latent_hj.scenario --modes a_none,b_box,c_switch,d_value,e_margin \
       --seeds 0-4 --workers 5 --ckpt $S/v0/value.pt --tag smoke
@@ -63,6 +68,10 @@ EPS_L = 0.3           # margin threshold (e)
 REFRESH = 1           # value-row refresh [sim steps]; 13 (15.4 Hz ZOH) fails on this task -- see report
 FB_QDD_MAX = 40.0     # [rad/s^2] fallback joint-accel clip (== ValueFLMPC trust region)
 FL_KW = dict(NC=4, L=8, W_POS_EGO=3000.0, W_VEL_EGO=15.0)
+CBF_MODES = ("f_cbf_sample", "g_cbf_row")
+# LatentCBF defaults: alpha in [0.85, 0.925] (paper); eps=None -> --eps-v; N=7600 (paper's hardware count);
+# steps = control steps per latent step (2 x 5 ms = the 10 ms Bellman step V was trained with)
+CBF_DEFAULTS = dict(alpha=0.9, eps=None, n=7600, steps=2, sig_lo=0.5, sig_hi=30.0, rows="all")
 
 
 # =============================================================================== task generation
@@ -136,6 +145,11 @@ def ik_track(model, data0, qadr, dadr, ee, piv_local, task, q0, iters=3, lam=0.0
 
 
 # =============================================================================== episode
+def _load_meta(ckpt):
+    from world_model.v2.latent_hj import reach_value as rv
+    return rv.load(ckpt)[1]
+
+
 def _load_value(ckpt):
     from world_model.v2.latent_hj import reach_value as rv
     net, meta = rv.load(ckpt)
@@ -144,7 +158,7 @@ def _load_value(ckpt):
 
 
 def run_episode(seed, mode, ckpt=None, max_steps=None, eps_v=EPS_V, eps_l=EPS_L, refresh=REFRESH,
-                record=False, rho_v=1.0e4, trust=10.0, wm_path=None, wm_value=None, a_cap=60.0):
+                record=False, rho_v=1.0e4, trust=10.0, wm_path=None, wm_value=None, a_cap=60.0, cbf=None):
     import make_cup_collect_safety_demo as demo
     import scene_setup
     import run_ab4
@@ -204,9 +218,17 @@ def run_episode(seed, mode, ckpt=None, max_steps=None, eps_v=EPS_V, eps_l=EPS_L,
     cup_kps = info["cup_barrier_keypoints"]
 
     # ---- controller
-    fl = fv.ValueFLMPC(model, rho_v=rho_v, trust=trust, a_cap=(a_cap if a_cap and a_cap > 0 else None), **FL_KW)
     use_wm = mode.endswith("_wm")
     base = mode[:-3] if use_wm else mode
+    cbfc = None                      # LatentCBF modes only (f_cbf_sample / g_cbf_row); None for every other mode
+    if base in CBF_MODES:
+        from world_model.v2.latent_hj import cbf_filter as cbf_mod
+        cbf = dict(CBF_DEFAULTS, **(cbf or {}))
+        if cbf["eps"] is None:
+            cbf["eps"] = eps_v
+        fl = cbf_mod.CBFFLMPC(model, rho_v=rho_v, trust=trust, a_cap=(a_cap if a_cap and a_cap > 0 else None), **FL_KW)
+    else:
+        fl = fv.ValueFLMPC(model, rho_v=rho_v, trust=trust, a_cap=(a_cap if a_cap and a_cap > 0 else None), **FL_KW)
     vc = None; net = None; wobs = None; dyn_fb = None; contents = None
     fb_hold = None
     import torch
@@ -231,6 +253,18 @@ def run_episode(seed, mode, ckpt=None, max_steps=None, eps_v=EPS_V, eps_l=EPS_L,
         dyn_fb = _PD(Pv, torch.tensor(sp.control_set(Pv), dtype=torch.float32), sp.torch_fns())
     elif base == "e_margin":
         contents = fv.PendContents(Pp, None, "margin")
+    elif base in CBF_MODES:
+        net, Pv = _load_value(ckpt)
+        for p_ in net.parameters():
+            p_.requires_grad_(False)
+        Pv.dt, Pv.sub = 0.01, 4
+        dyn_fb = _PD(Pv, torch.tensor(sp.control_set(Pv), dtype=torch.float32), sp.torch_fns())
+        gamma = float(_load_meta(ckpt)["gamma"])
+        cbfc = cbf_mod.LatentCBF(fv.PendContents(Pv, net, "value"), net, dyn_fb, gamma=gamma, alpha=cbf["alpha"],
+                                 eps=cbf["eps"], n_samples=cbf["n"], steps=cbf["steps"], dt=DT,
+                                 sig_lo=cbf["sig_lo"], sig_hi=cbf["sig_hi"], a_cap=a_cap, rows_mode=cbf["rows"],
+                                 seed=20_000 + seed)
+        cbf["gamma"] = gamma
     if contents is not None:
         vc = fv.ValueConstraint(fl, contents, eps=(eps_l if base == "e_margin" else eps_v), refresh_every=refresh)
     obs = sp.PendulumObserver(Pp, DT, sub=4)
@@ -243,6 +277,7 @@ def run_episode(seed, mode, ckpt=None, max_steps=None, eps_v=EPS_V, eps_l=EPS_L,
                             "fb", "ms", "vms", "V", "cup_tilt")}
     fb_mode = False
     prev_qpos = None
+    CL = {k: [] for k in ("ovr", "anom", "q_nom", "q_star", "q_pi", "thr", "fb", "fms", "n_ok", "n_hard", "n_cbf")}
     for k in range(T):
         t = k * DT
         data.ctrl[lj7] = 0.0; data.ctrl[lj8] = 0.0
@@ -270,9 +305,18 @@ def run_episode(seed, mode, ckpt=None, max_steps=None, eps_v=EPS_V, eps_l=EPS_L,
         pairs = sc.all_pair_barriers(model, data, ld, rd_, extra_ego_keypoints=cup_kps)
         M_box, bias_box = sc.payload_reflected_terms(model, data, lee, cup, ld)
 
+        a_nom_cbf = None
+        if base == "g_cbf_row":
+            # nominal (no CBF row; same trust region / a-cap) accel for the override metric ONLY -- untimed dry run
+            a_nom_cbf, _ = cbf_mod.dry_nominal(fl, (model, data, lq, ld, rq, rd_, q_ego_ref, qd_ego_ref, q_int_ref,
+                                                    qd_int_ref, pairs),
+                                               dict(M_ego_extra=M_box, bias_ego_extra=bias_box, ego_hold=True),
+                                               dummy_row=True)
         t0 = time.perf_counter()
         vrows = None; vms = 0.0; Vnow = np.nan
         jac = None
+        if base in CBF_MODES:
+            jac = fv.pivot_jacobians(model, data, lee, piv, ld)
         if vc is not None:
             jac = fv.pivot_jacobians(model, data, lee, piv, ld)
         if base in ("d_value", "e_margin"):
@@ -312,6 +356,9 @@ def run_episode(seed, mode, ckpt=None, max_steps=None, eps_v=EPS_V, eps_l=EPS_L,
                 q_ego_ref = q0f[None] + np.outer(tt, qd0f) + 0.5 * np.outer(tt ** 2, qddf)
                 qd_ego_ref = qd0f[None] + np.outer(tt, qddf)
             vms = 1e3 * (time.perf_counter() - t1)
+        elif base == "g_cbf_row":
+            vrows = cbfc.row(fl, z0, qd_l, jac)
+            vms = cbfc.last["ms"]
         kw = {}
         if mode == "b_box":
             kw = dict(left_ee_body=lee, tilt_max_rad=0.10)
@@ -320,6 +367,13 @@ def run_episode(seed, mode, ckpt=None, max_steps=None, eps_v=EPS_V, eps_l=EPS_L,
         tau_l, tau_r, feas = fl.step(model, data, lq, ld, rq, rd_, q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref,
                                      pairs, M_ego_extra=M_box, bias_ego_extra=bias_box, ego_hold=True,
                                      value_rows=vrows, **kw)
+        if base == "f_cbf_sample":
+            # LatentCBF filter on the ego first-block accel; the FL-MPC step above (no cup rows) IS pi_nom
+            a_nom_cbf = fl.a_ego_prev.copy()
+            a_star = cbfc.filter(fl, z0, qd_l, jac, a_nom_cbf)
+            tau_l = fl.last_M_e @ a_star + fl.last_c_e
+            fl.a_ego_prev = a_star.copy()
+            vms = cbfc.last["ms"]
         # joint dry-friction feedforward (frictionloss 0.3 Nm/joint is a constraint force FL's c
         # does not cancel; without it realized qacc deviates ~60% from the plan -- validate_rows),
         # same compensation the demo applies (control/realgrasp_flmpc.friction_feedforward)
@@ -340,6 +394,19 @@ def run_episode(seed, mode, ckpt=None, max_steps=None, eps_v=EPS_V, eps_l=EPS_L,
         log["a_e0"].append(fl.a_ego_prev.copy()); log["feas"].append(bool(feas))
         log["vslack"].append(float(sl.max()) if len(sl) else 0.0)
         log["vbind"].append(bool(len(fl._last_lam_v) and (np.max(fl._last_lam_v) > 1e-9 or (len(sl) and sl.max() > 1e-7))))
+        if base in CBF_MODES:
+            a_app = fl.a_ego_prev
+            if base == "g_cbf_row":
+                Vnow = cbfc.q_of(z0, jac, qd_l, a_app)
+                cbfc.last.update(q_star=Vnow, q_nom=cbfc.q_of(z0, jac, qd_l, a_nom_cbf),
+                                 ovr=float(np.linalg.norm(a_app - a_nom_cbf)), fb=0, n_ok=np.nan, n_hard=np.nan, n_cbf=np.nan)
+            else:
+                Vnow = cbfc.last["q_star"]
+            for k_, v_ in (("ovr", cbfc.last["ovr"]), ("anom", float(np.linalg.norm(a_nom_cbf))),
+                           ("q_nom", cbfc.last["q_nom"]), ("q_star", cbfc.last["q_star"]), ("q_pi", cbfc.last["q_pi"]),
+                           ("thr", cbfc.last["thr"]), ("fb", cbfc.last["fb"]), ("fms", vms),
+                           ("n_ok", cbfc.last["n_ok"]), ("n_hard", cbfc.last["n_hard"]), ("n_cbf", cbfc.last["n_cbf"])):
+                CL[k_].append(v_)
         log["fb"].append(bool(fb_mode)); log["ms"].append(ms); log["vms"].append(vms); log["V"].append(Vnow)
         log["cup_tilt"].append(float(np.arccos(np.clip(cax[2], -1, 1))))
 
@@ -353,7 +420,12 @@ def run_episode(seed, mode, ckpt=None, max_steps=None, eps_v=EPS_V, eps_l=EPS_L,
         if wobs is not None:
             wobs.update(data.xpos[cup].copy(), Rc2[:, 2].copy())
     L = {k: np.asarray(v) for k, v in log.items()}
-    return summarize(L, Pp, task, mode, seed, ce), (L if record else None)
+    summ = summarize(L, Pp, task, mode, seed, ce)
+    if cbfc is not None:
+        summ.update(cbf_mod.summarize_cbf(CL, base, cbf))
+        summ["cbf_gamma"] = cbf["gamma"]
+        L.update({"cbf_" + k: np.asarray(v, float) for k, v in CL.items()})
+    return summ, (L if record else None)
 
 
 class _PD:
@@ -431,13 +503,15 @@ def reference_spill_rate(seeds, P=None):
 
 def _job(a):
     seed, mode, kw = a
+    kw = dict(kw); out_dir = Path(kw.pop("_out", OUT_DIR))
     t0 = time.perf_counter()
     try:
         s, L = run_episode(seed, mode, **kw)
         s.update(ok=True, wall_s=time.perf_counter() - t0)
         if L is not None:
-            OUT_DIR.mkdir(parents=True, exist_ok=True)
-            np.savez_compressed(OUT_DIR / f"rec_{mode}_s{seed}.npz", **L)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            cfg = "" if mode not in CBF_MODES else "_a%g_e%g_n%d" % (s["cbf_alpha"], s["cbf_eps"], s["cbf_N"])
+            np.savez_compressed(out_dir / f"rec_{mode}{cfg}_s{seed}.npz", **L)
     except Exception as e:  # noqa: BLE001
         s = dict(seed=seed, mode=mode, ok=False, err=str(e)[:300], tb=traceback.format_exc()[-2000:])
     print(json.dumps(s, default=float), flush=True)
@@ -461,12 +535,27 @@ def main():
     ap.add_argument("--trust", type=float, default=10.0)
     ap.add_argument("--a-cap", type=float, default=60.0, help="0 = no absolute ego-accel cap")
     ap.add_argument("--record", action="store_true", help="save per-step logs (npz) next to the json")
+    ap.add_argument("--out-dir", default=None, help="output dir for the json / npz (default: results/ next to this file)")
+    # ---- LatentCBF modes (f_cbf_sample, g_cbf_row); ignored by every other mode
+    ap.add_argument("--alpha", type=float, default=CBF_DEFAULTS["alpha"], help="CBF alpha (paper 0.85-0.925)")
+    ap.add_argument("--eps-cbf", type=float, default=None, help="CBF epsilon on the V scale (default: --eps-v)")
+    ap.add_argument("--cbf-alphas", default=None, help="comma list -> grid over alpha for the CBF modes")
+    ap.add_argument("--cbf-epss", default=None, help="comma list -> grid over eps for the CBF modes")
+    ap.add_argument("--n-samples", type=int, default=CBF_DEFAULTS["n"], help="f_cbf_sample: #sampled actions (paper: 7600)")
+    ap.add_argument("--cbf-steps", type=int, default=CBF_DEFAULTS["steps"], help="control steps (5 ms) per latent step; 2 = Bellman dt")
+    ap.add_argument("--sig-lo", type=float, default=CBF_DEFAULTS["sig_lo"], help="sample noise sigma range [rad/s^2], log-uniform")
+    ap.add_argument("--sig-hi", type=float, default=CBF_DEFAULTS["sig_hi"])
+    ap.add_argument("--cbf-rows", default=CBF_DEFAULTS["rows"], choices=("block1", "all"),
+                    help="hard FL-MPC rows a sample must satisfy: only those on the first blocks, or all")
     ap.add_argument("--ref-only", action="store_true")
     a = ap.parse_args()
     if "-" in a.seeds:
         lo, hi = a.seeds.split("-"); seeds = list(range(int(lo), int(hi) + 1))
     else:
         seeds = [int(x) for x in a.seeds.split(",")]
+    global OUT_DIR
+    if a.out_dir:
+        OUT_DIR = Path(a.out_dir)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     if a.ref_only:
         r = reference_spill_rate(seeds)
@@ -476,7 +565,20 @@ def main():
     modes = [m for m in a.modes.split(",") if m]
     kw = dict(ckpt=a.ckpt, max_steps=a.max_steps, eps_v=a.eps_v, eps_l=a.eps_l, refresh=a.refresh,
               wm_path=a.wm, wm_value=a.wm_value, rho_v=a.rho_v, trust=a.trust, record=a.record, a_cap=a.a_cap)
-    jobs = [(s, m, kw) for s in seeds for m in modes]
+    kw["_out"] = str(OUT_DIR)
+    jobs = []
+    for s in seeds:
+        for m in modes:
+            if m in CBF_MODES:
+                als = [float(x) for x in a.cbf_alphas.split(",")] if a.cbf_alphas else [a.alpha]
+                eps_l = [float(x) for x in a.cbf_epss.split(",")] if a.cbf_epss else [a.eps_cbf]
+                for al in als:
+                    for ep in eps_l:
+                        kw_c = dict(kw, cbf=dict(alpha=al, eps=ep, n=a.n_samples, steps=a.cbf_steps,
+                                                 sig_lo=a.sig_lo, sig_hi=a.sig_hi, rows=a.cbf_rows))
+                        jobs.append((s, m, kw_c))
+            else:
+                jobs.append((s, m, kw))
     if a.workers > 1:
         import multiprocessing as mp
         with mp.get_context("spawn").Pool(min(a.workers, len(jobs)), maxtasksperchild=3) as pool:
