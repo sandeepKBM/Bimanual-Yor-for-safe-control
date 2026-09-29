@@ -313,6 +313,7 @@ def run_one(args: dict) -> dict:
             placed_strict_max=int(m.get("placed_strict_max", -1)),
             cup_init_tilt_deg=float(m.get("cup_init_tilt_deg", float("nan"))),
             left_ee_tilt_max_deg=float(m.get("left_ee_tilt_max_deg", float("nan"))),
+            selected_cubes=[c["name"] for c in info.get("cube_plan", [])],
             n_welds=int(m.get("n_welds", -1)),
             weld_missed=int(m.get("weld_missed", 0)),
             weld_onset_site_target_dist_m=m.get("weld_onset_site_target_dist_m"),

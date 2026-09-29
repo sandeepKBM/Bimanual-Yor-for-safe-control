@@ -704,12 +704,19 @@ PLACED_STRICT_MIN_MOVE_M = 0.05    # (2): a selected cube must have moved > this
 #       poses against the ACTUAL real-grasp cup-arm lift pose + cup pose
 #       (_real_grasp_prepass) instead of the unfixed-init pose (whose cup is ~17 cm
 #       off). No effect in faked mode (whose pre-pass has the same stale cup pose).
+#   F2c "fakedsel" (--grasp-mode faked + --bugfixes on + "waypoints" only): the same
+#       fix for FAKED mode. The pre-pass built its state with the UNFIXED
+#       scene_setup.init_cup_grasped_state (sideways cup, ~17 cm off) while the episode
+#       holds the cup with _init_cup_grasped_state_fixed, so reachability/clearance
+#       were checked against the wrong cup + cup-arm pose. fakedsel runs the SAME fixed
+#       init + lift IK + cup_rel as the episode (_faked_grasp_prepass). Old
+#       `--ctrlfixes on` results reproduce with an explicit parts list omitting "fakedsel".
 # CTRLFIX_PARTS selects which of the parts are active when ctrlfixes is on
 # (default: all). --ctrlfix-parts overrides it (for per-fix ablations).
 # ---------------------------------------------------------------------------
 CTRLFIXES = False                  # LIBRARY default; the CLIs default to --ctrlfixes on
 CTRLFIX_ALL_PARTS = ("gravity", "speedcap", "antiwindup", "waypoints", "tableradius",
-                     "delaycomp", "taumax", "cone", "realsel")
+                     "delaycomp", "taumax", "cone", "realsel", "fakedsel")
 CTRLFIX_PARTS = set(CTRLFIX_ALL_PARTS)
 # OPT-IN parts: accepted by --ctrlfix-parts (e.g. "all,heldcube") but NOT in the default "all",
 # so the default ctrlfixes-on behavior (and its owner-verified numbers) is unchanged.
@@ -1220,6 +1227,23 @@ def _real_grasp_prepass(model, seed: int, cup_jitter_m: float):
     return data, q_lift, cup_rel
 
 
+def _faked_grasp_prepass(model, seed: int, cup_jitter_m: float):
+    """--ctrlfixes F2c "fakedsel" (faked grasp + bugfixes only): the cube-selection
+    pre-pass state = the SAME upright (_init_cup_grasped_state_fixed) init that the
+    faked episode uses, plus the same single-IK lift pose (left_ik.solve from the
+    settled grasp, +LIFT_HEIGHT_M in z) and the same cup-in-EE pose the episode
+    computes in build_episode. Returns (data, q_lift, (cup_rel_pos, cup_rel_quat)).
+    SIMULATION ONLY."""
+    data = _init_cup_grasped_state_fixed(model, seed=seed, cup_jitter_m=cup_jitter_m)
+    _, lqa, _ = sc.joint_addrs(model, sc.LEFT_ARM_JOINTS)
+    left_ik = bt.ArmIK(model, "left")
+    left_ik.last_q = data.qpos[lqa].copy()
+    q_lift, _err = left_ik.solve(data, data.site_xpos[left_ik.site_id].copy() + np.array([0.0, 0.0, LIFT_HEIGHT_M]))
+    cup_rel = scene_setup.cup_rel_pose(model, data, model.body(scene_setup.EE_BODY_NAME).id,
+                                       model.body(cct.CUP_BODY_NAME).id)
+    return data, q_lift, cup_rel
+
+
 def _init_cup_grasped_state_fixed(model, seed: int = 0, cup_jitter_m: float = 0.0):
     """(1) SIDEWAYS-CUP FIX: a demo-local copy of eval/scene_setup.
     init_cup_grasped_state (same reset, LEFT_GRASP_Q teleport, cup-to-pad-
@@ -1292,8 +1316,16 @@ def build_episode(seed: int = 0, scenario: str = "crossing", ee_speed_limit: boo
         # Pre-pass (throwaway model, no welds) -- see select_crossing_cubes' own
         # docstring for why cube selection must happen BEFORE the real model load.
         _pre_model, _pre_data0 = cct.load_yor_cup_collect_model(keep_zone_marker=False)  # throwaway; skip the marker geom
-        _pre_data = scene_setup.init_cup_grasped_state(_pre_model, seed=seed, cup_jitter_m=cup_jitter_m)
-        if _cf(ctrlfixes, "waypoints") and grasp_mode == "real" and _cf(ctrlfixes, "realsel"):
+        _use_fakedsel = (_cf(ctrlfixes, "waypoints") and grasp_mode == "faked" and bugfixes
+                         and _cf(ctrlfixes, "fakedsel"))
+        _pre_data = None if _use_fakedsel else scene_setup.init_cup_grasped_state(
+            _pre_model, seed=seed, cup_jitter_m=cup_jitter_m)
+        if _use_fakedsel:
+            # F2c: the SAME upright init + lift pose + cup_rel as the faked episode below.
+            _pre_data, _q_lift_f, _cup_rel_f = _faked_grasp_prepass(_pre_model, seed, cup_jitter_m)
+            selected_cube_names = select_crossing_cubes_topdown(_pre_model, _pre_data, n_cubes=n_cubes_eff,
+                                                                left_q_lift=_q_lift_f, cup_rel=_cup_rel_f)
+        elif _cf(ctrlfixes, "waypoints") and grasp_mode == "real" and _cf(ctrlfixes, "realsel"):
             # F2b: check reachability/clearance against the ACTUAL real-grasp cup-arm
             # lift pose (the faked-init pose above is ~cm off -- see _real_grasp_prepass).
             _pre_data, _q_lift_real, _cup_rel_real = _real_grasp_prepass(_pre_model, seed, cup_jitter_m)
