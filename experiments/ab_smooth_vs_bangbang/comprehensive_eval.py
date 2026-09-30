@@ -210,6 +210,15 @@ def run_one(args: dict) -> dict:
         if not hasattr(demo, "_CE_CF_DEFAULTS"):     # module defaults, captured once per worker
             demo._CE_CF_DEFAULTS = dict(cone=demo.CTRLFIX_CONE_FACETS, taumax=demo.CTRLFIX_TAU_MAX_VEC)
         demo.CTRLFIX_PARTS = demo.parse_ctrlfix_parts(args.get("ctrlfix_parts"))
+        # --controller-impl (flmpc only; experiments/realtime/rt_flmpc.py): passed EXPLICITLY and
+        # reset every call (workers are reused). Default "py" = mpc_fl.FLMPC, unchanged.
+        controller_impl = args.get("controller_impl") or "py"
+        demo.CONTROLLER_IMPL = controller_impl
+        _inj = args.get("rt_pipe_inject")
+        demo.RT_PIPE_OPTS = ({} if not _inj else
+                             dict(inject_p=float(_inj.split(":")[0]),
+                                  inject_ms=tuple(float(v) for v in _inj.split(":")[1].split(",")),
+                                  inject_seed=int(seed)))
         demo.CTRLFIX_DELAY_STEPS = int(args.get("ctrlfix_delay_steps") or 0)
         demo.CTRLFIX_CONE_FACETS = (demo._CE_CF_DEFAULTS["cone"] if args.get("ctrlfix_cone_facets") is None
                                     else int(args["ctrlfix_cone_facets"]))
@@ -230,6 +239,10 @@ def run_one(args: dict) -> dict:
         log, _ = demo.run_episode(info, controller=controller, qp_enabled=True, capture=False,
                                    ee_speed_limit=True, table_floor=True, max_steps=max_steps)
         m = demo.summarize(log)
+        rt_fields = ({} if controller_impl == "py" else
+                     dict(controller_impl=controller_impl,
+                          **{k: (np.asarray(v).tolist() if np.ndim(v) else float(v))
+                             for k, v in log.items() if k.startswith("fl_rt_")}))
 
         # spill@lift: same convention noted in the task context -- spill
         # flagged within the first 320 steps (the lift phase), read from the
@@ -311,6 +324,8 @@ def run_one(args: dict) -> dict:
             right_ee_speed_max_cross_ms=float(m.get("right_ee_speed_max_cross_ms", float("nan"))),
             placed_strict_final=int(m.get("placed_strict_final", -1)),
             placed_strict_max=int(m.get("placed_strict_max", -1)),
+            placed_from_outside_final=int(m.get("placed_from_outside_final", -1)),
+            placed_from_outside_max=int(m.get("placed_from_outside_max", -1)),
             cup_init_tilt_deg=float(m.get("cup_init_tilt_deg", float("nan"))),
             left_ee_tilt_max_deg=float(m.get("left_ee_tilt_max_deg", float("nan"))),
             selected_cubes=[c["name"] for c in info.get("cube_plan", [])],
@@ -319,6 +334,7 @@ def run_one(args: dict) -> dict:
             weld_onset_site_target_dist_m=m.get("weld_onset_site_target_dist_m"),
             weld_onset_site_cube_dist_m=m.get("weld_onset_site_cube_dist_m"),
             wall_s=time.perf_counter() - t0,
+            **rt_fields,
         )
     except Exception as e:
         return dict(seed=seed, controller=variant, ok=False,
@@ -374,6 +390,7 @@ def aggregate(rows: list[dict], controller: str) -> dict:
         n_excluded_init_tilt=n_excluded,
         max_init_tilt_deg=MAX_INIT_TILT_DEG,
         placed_strict_final_mean=float(np.mean([r.get("placed_strict_final", -1) for r in g])),
+        placed_from_outside_final_mean=float(np.mean([r.get("placed_from_outside_final", -1) for r in g])),
         cup_init_tilt_deg_worst=float(np.nanmax([r.get("cup_init_tilt_deg", float("nan")) for r in g])),
         left_ee_tilt_max_deg_mean=float(np.nanmean([r.get("left_ee_tilt_max_deg", float("nan")) for r in g])),
         weld_missed_total=int(sum(r.get("weld_missed", 0) for r in g)),
@@ -409,6 +426,7 @@ def print_aggregate_table(rows: list[dict], controllers: list[str]) -> None:
         f"pad_contacts_min={a.get('pad_contacts_min_worst', 0)}" for a in aggs if a["n"] > 0))
     print(f"{'  fixes:':17s} " + " | ".join(
         f"{a['controller']} placed_strict_mean={a.get('placed_strict_final_mean', float('nan')):.2f} "
+        f"placed_from_outside_mean={a.get('placed_from_outside_final_mean', float('nan')):.2f} "
         f"init_tilt_worst={a.get('cup_init_tilt_deg_worst', float('nan')):.1f}deg "
         f"excluded(init_tilt>{a.get('max_init_tilt_deg')})="
         f"{a.get('n_excluded_init_tilt', 0)} gripper_tilt_mean={a.get('left_ee_tilt_max_deg_mean', float('nan')):.2f}deg "
@@ -461,6 +479,11 @@ def main():
                      help="F4: true-tilt cone facets K (default: demo CTRLFIX_CONE_FACETS).")
     ap.add_argument("--ctrlfix-tau-max", type=str, default=None,
                      help="F6: per-joint FL-MPC torque limit, comma list of 6 (default: demo CTRLFIX_TAU_MAX_VEC).")
+    ap.add_argument("--controller-impl", choices=("py", "rt", "rt_pipe"), default="py",
+                    help="FL-MPC implementation for flmpc jobs (make_cup_collect_safety_demo --controller-impl): "
+                         "py (default, unchanged) | rt | rt_pipe. Passed explicitly per job.")
+    ap.add_argument("--rt-pipe-inject", type=str, default=None,
+                    help="rt_pipe only: artificial solver-delay injection 'P:MS[,MS...]' (seeded per episode).")
     ap.add_argument("--weld-gate-m", type=float, default=None,
                      help="(4) cube-weld proximity gate [m] (default None = off; see make_cup_collect_safety_demo).")
     ap.add_argument("--max-init-tilt-deg", type=float, default=None,
@@ -505,7 +528,9 @@ def main():
                  ctrlfixes=args.ctrlfixes, ctrlfix_parts=args.ctrlfix_parts,
                  ctrlfix_delay_steps=args.ctrlfix_delay_steps, ctrlfix_cone_facets=args.ctrlfix_cone_facets,
                  ctrlfix_tau_max_vec=(None if args.ctrlfix_tau_max is None
-                                      else [float(x) for x in args.ctrlfix_tau_max.split(",")]))
+                                      else [float(x) for x in args.ctrlfix_tau_max.split(",")]),
+                 **({} if args.controller_impl == "py" else
+                    dict(controller_impl=args.controller_impl, rt_pipe_inject=args.rt_pipe_inject)))
             for c in controllers for s in seeds]
     n_jobs = len(jobs)
     print(f"[comprehensive_eval] {n_jobs} episodes ({len(seeds)} seeds x {len(controllers)} controllers), "
@@ -549,6 +574,8 @@ def main():
         bugfixes=args.bugfixes, max_init_tilt_deg=args.max_init_tilt_deg, weld_gate_m=args.weld_gate_m,
         ctrlfixes=args.ctrlfixes, ctrlfix_parts=args.ctrlfix_parts, ctrlfix_delay_steps=args.ctrlfix_delay_steps,
         v4c_knobs=v4c_kn,
+        **({} if args.controller_impl == "py" else
+           dict(controller_impl=args.controller_impl, rt_pipe_inject=args.rt_pipe_inject)),
         n_jobs=n_jobs, wall_s=wall,
         rows=rows,
         aggregate={c: aggregate(rows, c) for c in controllers},

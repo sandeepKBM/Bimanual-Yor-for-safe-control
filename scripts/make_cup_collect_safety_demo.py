@@ -568,6 +568,31 @@ MONITOR_CHOICES = ("classifier", "value")
 # being state-adaptive).
 CONTROLLER_CHOICES = ("v4c", "v7c", "flmpc", "flmpc_decentB")
 
+# --controller-impl {py,rt,rt_pipe} (2026-09-29; experiments/realtime/rt_flmpc.py, rt_pipe.py).
+# LIBRARY default "py" = mpc_fl.FLMPC exactly as before (byte-identical). --controller flmpc only:
+#   "rt"      = rt_flmpc.RTFLMPC: the SAME QP (rows/costs/limits/fallback semantics), built and
+#               solved by ONE compiled, allocation-free, iteration-capped Numba entry point
+#               (Goldfarb-Idnani dual active set) on a ROBOT-ONLY dynamics source (M, c,
+#               Jacobians, keypoints from a robot-only MjModel synced from the joint state).
+#   "rt_pipe" = rt + a pipelined/anytime solver thread (plan for step k+1 computed during step k
+#               from the FL-predicted state; deadline misses reuse the shifted previous plan with
+#               execution-time torque-box + barrier re-checks and a plan-age cap).
+CONTROLLER_IMPL_CHOICES = ("py", "rt", "rt_pipe")
+CONTROLLER_IMPL = "py"
+RT_PIPE_OPTS: dict = {}   # rt_pipe.PipelinedRTFLMPC kwargs (budget_ms, age_max, inject_p, inject_ms, ...)
+
+
+def _make_rt_flmpc(model, fl_kwargs, impl):
+    """--controller-impl rt / rt_pipe controller (lazy import: py never touches experiments/realtime)."""
+    _rt_dir = str(Path(__file__).resolve().parents[1] / "experiments" / "realtime")
+    if _rt_dir not in sys.path:
+        sys.path.insert(0, _rt_dir)
+    if impl == "rt_pipe":
+        import rt_pipe  # noqa: E402
+        return rt_pipe.PipelinedRTFLMPC(model, **dict(fl_kwargs, **RT_PIPE_OPTS))
+    import rt_flmpc  # noqa: E402
+    return rt_flmpc.RTFLMPC(model, **fl_kwargs)
+
 # --controller flmpc CUP-ARM YIELD REFINEMENT (see mpc_fl.py's cup-upright
 # tilt rows + new cup-arm displacement-leash rows): rather than gluing the
 # ego (cup) arm to its hold pose via a crude high W_POS_EGO, the flmpc branch
@@ -1825,7 +1850,7 @@ def cube_pin_active(t: float, bounds: dict, n_cubes: int, *,
 
 def count_placed_strict(model, data, cube_plan, cube_init_pos, center_xy, table_z,
                         radius: float = None, z_tol: float = 0.05, vel_tol: float = 0.05,
-                        min_move_m: float = None) -> int:
+                        min_move_m: float = None, require_start_outside: bool = False) -> int:
     """(2) STRICT placed metric: only the SELECTED cubes (cube_plan), each must be
     in the keep zone (same radius/height/settled tests as count_placed_cubes)
     AND have moved > min_move_m from its t=0 position -- the stock metric also
@@ -1837,6 +1862,11 @@ def count_placed_strict(model, data, cube_plan, cube_init_pos, center_xy, table_
     for c in cube_plan:
         b = c["body_id"]
         p = data.xpos[b]
+        # require_start_outside (2026-09-29, metric only): cube_3 STARTS inside the keep zone and is selected on every
+        # seed, so placed_strict counts its in-zone re-placement. This variant counts only cubes carried IN.
+        if require_start_outside and np.hypot(cube_init_pos[b][0] - center_xy[0],
+                                              cube_init_pos[b][1] - center_xy[1]) <= radius:
+            continue
         if np.hypot(p[0] - center_xy[0], p[1] - center_xy[1]) > radius:
             continue
         if abs(p[2] - (table_z + cct.CUBE_HALF)) > z_tol:
@@ -1860,7 +1890,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 spill_monitor=None, vision_cadence_steps: int = VISION_CADENCE_STEPS,
                 max_steps: int | None = None, cup_in_barrier: bool = True, table_floor: bool = True,
                 ee_speed_limit: bool = True, adaptive_yield: bool = False,
-                inertial_cup: bool = True):
+                inertial_cup: bool = True, controller_impl: str | None = None):
     """spill_monitor=None -> byte-identical to the original (geometric_only)
     loop: t_r is the plain wall-clock-relative right-arm time, no freeze.
     spill_monitor=<RealWMSpillMonitor> -> config="geometric_spill": the WM
@@ -1963,6 +1993,12 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     # --ctrlfixes parts (all False when ctrlfixes is off -> byte-identical)
     cf_gravity = _cf(info, "gravity")
     _is_fl = controller in ("flmpc", "flmpc_decentB") and qp_enabled
+    # --controller-impl (None -> module CONTROLLER_IMPL, library default "py" = unchanged)
+    _impl = CONTROLLER_IMPL if controller_impl is None else controller_impl
+    assert _impl in CONTROLLER_IMPL_CHOICES, f"unknown controller_impl {_impl!r}"
+    if _impl != "py" and controller == "flmpc_decentB":
+        raise ValueError("--controller-impl rt/rt_pipe is implemented for --controller flmpc only")
+    _rt_impl = _impl != "py" and controller == "flmpc" and qp_enabled
     cf_speedcap = _cf(info, "speedcap") and _is_fl and ee_speed_limit
     cf_aw = _cf(info, "antiwindup") and _is_fl and scenario == "crossing"
     cf_aw_clamp = cf_aw and CTRLFIX_AW_MODE == "clamp"
@@ -1978,6 +2014,10 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     _cone_anchored = False
     cf_tabler = _cf(info, "tableradius")
     cf_delay = int(CTRLFIX_DELAY_STEPS) if (_cf(info, "delaycomp") and _is_fl) else 0
+    if _rt_impl and _impl == "rt_pipe":
+        if cf_delay > 0:
+            raise ValueError("--controller-impl rt_pipe with ctrlfix delaycomp > 0 is not supported")
+        cf_delay = 1   # rt_pipe: the plan computed now is applied at the NEXT step -> refs one step ahead
     cf_taumax = (np.asarray(CTRLFIX_TAU_MAX_VEC, dtype=np.float64)
                  if (_cf(info, "taumax") and CTRLFIX_TAU_MAX_VEC is not None) else None)
     cf_cone = int(CTRLFIX_CONE_FACETS) if _cf(info, "cone") else 0
@@ -2117,6 +2157,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             fl_kwargs.update(cone_mode="true")
         if controller == "flmpc_decentB":
             fl = mpc_fl_decentralized.FLMPCDecentralized(model, **fl_kwargs)
+        elif _rt_impl:
+            fl = _make_rt_flmpc(model, fl_kwargs, _impl)
         else:
             fl = mpc_fl.FLMPC(model, **fl_kwargs)
 
@@ -2156,6 +2198,16 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     fingertip_kps.append((model.body("right_arm_gripper_base").id, np.zeros(3), 0.01))
     right_table_kps = list(right_kps_for_log) + fingertip_kps   # new list; right_kps_for_log untouched
     table_top_z = info["table_top_z"]
+    if _rt_impl:
+        # robot-only dynamics source + static keypoint/table wiring for rt_flmpc (scene ids are
+        # mapped by name; the lean model's parameters are checked bit-for-bit against `model`).
+        import rt_dynamics  # noqa: E402  (experiments/realtime, on sys.path via _make_rt_flmpc)
+        fl.configure_lean(rt_dynamics.LeanRobotDynamics(model, xml_path=cct.YOR_CUP_COLLECT_XML), model,
+                          left_qposadr, left_dofadr, right_qposadr, right_dofadr, left_ee_body,
+                          cup_body=cup_body, right_ee_body=right_ee_body, speed_body=info["right_ee_body"],
+                          ego_extra_kps=cup_kps_for_barrier, left_table_kps=left_table_kps,
+                          right_table_kps=right_table_kps, table_z=table_top_z,
+                          table_margin=TABLE_FLOOR_MARGIN_M, table_kp_radius=cf_tabler, table_gravfix=cf_gravity)
 
     n_steps_total = info["n_steps_total"]
     n_steps = n_steps_total if max_steps is None else int(min(n_steps_total, max_steps))
@@ -2196,6 +2248,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     log["grasp_mode_real"] = np.array(1.0 if real_grasp else 0.0)
     # CHANGE 2 metrics (logged regardless of --bugfixes)
     log["placed_strict"] = np.zeros(n_steps)
+    log["placed_from_outside"] = np.zeros(n_steps)   # metric only: selected cubes that STARTED outside the zone
     log["cup_init_tilt_deg"] = np.array(float(info.get("cup_init_tilt_deg", np.nan)))
     log["bugfixes"] = np.array(1.0 if bugfixes else 0.0)
     log["ctrlfixes"] = np.array(1.0 if bool(info.get("ctrlfixes", False)) else 0.0)
@@ -2664,7 +2717,24 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             elif real_grasp:
                 # cup-upright rows anchored on the TRUE cup axis (cup body pose), not a captured EE axis
                 fl._cup_axis_local = rg.cup_axis_in_ee(data, left_ee_body, cup_body)
-            tau_l_qp, tau_r_qp, feasible_fl = fl.step(
+            if _rt_impl:
+                # --controller-impl rt/rt_pipe: same options; M/c/Jacobians/keypoints/table rows
+                # from the robot-only model inside ONE compiled call (sensing: joint state + the
+                # held cup / welded cube pose).
+                tau_l_qp, tau_r_qp, feasible_fl = fl.step_lean(
+                    data, q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref,
+                    left_ee_body=left_ee_body, tilt_max_rad=CUP_TILT_MAX_RAD,
+                    leash_ee_body=left_ee_body, leash_max_m=CUP_LEASH_M,
+                    cup_cone_facets=(cf_cone if cf_cone > 0 else
+                                     (CUP_CONE_FACETS if (not real_grasp or REAL_CUP_CONE_FACETS is None)
+                                      else REAL_CUP_CONE_FACETS)),
+                    ego_hold=False, table_floor=table_floor,
+                    cup_pose=(data.xpos[cup_body].copy(), data.xmat[cup_body].reshape(3, 3).copy()),
+                    cube=((cube_plan[pin_idx]["body_id"], data.xpos[cube_plan[pin_idx]["body_id"]].copy(),
+                           data.xmat[cube_plan[pin_idx]["body_id"]].reshape(3, 3).copy()) if pin_now else None),
+                    ego_extra_kps=cup_kps_for_barrier, right_table_kps=_rtk_eff)
+            else:
+                tau_l_qp, tau_r_qp, feasible_fl = fl.step(
                 model, data, left_qposadr, left_dofadr, right_qposadr, right_dofadr,
                 q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref, pairs,
                 M_ego_extra=M_box, bias_ego_extra=bias_box,
@@ -2719,7 +2789,18 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                     table_top_z, margin=TABLE_FLOOR_MARGIN_M, **_tab_kw)
                 fl_table_rows = (a_te, b_te, a_ti, b_ti)
             fl._cup_axis_local = rg.cup_axis_in_ee(data, left_ee_body, cup_body)
-            tau_l_qp, tau_r_qp, feasible_fl = fl.step(
+            if _rt_impl:
+                tau_l_qp, tau_r_qp, feasible_fl = fl.step_lean(
+                    data, q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref,
+                    left_ee_body=left_ee_body, tilt_max_rad=CUP_TILT_MAX_RAD,
+                    leash_ee_body=left_ee_body, leash_max_m=CUP_LEASH_M,
+                    cup_cone_facets=(cf_cone if cf_cone > 0 else
+                                     (CUP_CONE_FACETS if REAL_CUP_CONE_FACETS is None else REAL_CUP_CONE_FACETS)),
+                    ego_hold=True, table_floor=table_floor,
+                    cup_pose=(data.xpos[cup_body].copy(), data.xmat[cup_body].reshape(3, 3).copy()),
+                    cube=None, ego_extra_kps=cup_kps_for_barrier, right_table_kps=_rtk_eff)
+            else:
+                tau_l_qp, tau_r_qp, feasible_fl = fl.step(
                 model, data, left_qposadr, left_dofadr, right_qposadr, right_dofadr,
                 q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref, pairs,
                 M_ego_extra=M_box, bias_ego_extra=bias_box,
@@ -2955,6 +3036,9 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         log["placed"][k] = placed
         log["placed_strict"][k] = (count_placed_strict(model, data, cube_plan, cube_init_pos, placed_center_xy,
                                                         table_top_z) if placed_center_xy is not None else 0)
+        log["placed_from_outside"][k] = (count_placed_strict(model, data, cube_plan, cube_init_pos, placed_center_xy,
+                                                              table_top_z, require_start_outside=True)
+                                         if placed_center_xy is not None else 0)
         log["qp_feasible_left"][k] = float(feasible_l)
         log["qp_feasible_right"][k] = float(feasible_r)
         log["left_qp_deflect_nm"][k] = left_deflect
@@ -3008,6 +3092,10 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
     log["fl_relaxed_steps"] = np.array(float(fl.n_relaxed if fl is not None else 0))
     log["fl_zero_fallback_steps"] = np.array(float(fl.n_zero_fallback if fl is not None else 0))
     log["fl_taumax_relaxed_steps"] = np.array(float(fl.n_taumax_relaxed if fl is not None else 0))
+    if _rt_impl:
+        # --controller-impl rt/rt_pipe counters (cap hits, iterations, pipeline misses/ages; never silent)
+        for _k, _v in fl.rt_log_fields().items():
+            log[_k] = np.asarray(_v, dtype=float)
     return log, frames
 
 
@@ -3267,6 +3355,8 @@ def summarize(log: dict) -> dict:
             ctrlfixes=bool(float(np.asarray(log.get("ctrlfixes", 0.0))) > 0.5),
             placed_strict_final=int(log["placed_strict"][-1]),
             placed_strict_max=int(np.max(log["placed_strict"])),
+            placed_from_outside_final=(int(log["placed_from_outside"][-1]) if "placed_from_outside" in log else -1),
+            placed_from_outside_max=(int(np.max(log["placed_from_outside"])) if "placed_from_outside" in log else -1),
             cup_init_tilt_deg=float(np.asarray(log["cup_init_tilt_deg"])),
             n_welds=int(np.sum(np.isfinite(wd))),
             weld_missed=int(np.sum(~np.isfinite(wd) & (np.asarray(log["weld_deferred_steps"]) > 0))),
@@ -3446,8 +3536,21 @@ def main():
     parser.add_argument("--ctrlfix-delay-steps", type=int, default=None,
                          help="F5: known actuation delay [control steps] FL-MPC compensates (default: "
                               "CTRLFIX_DELAY_STEPS=0 -> no-op).")
+    parser.add_argument("--controller-impl", choices=CONTROLLER_IMPL_CHOICES, default="py",
+                        help="--controller flmpc implementation: py (default, mpc_fl.FLMPC, unchanged) | rt "
+                             "(experiments/realtime/rt_flmpc.py: one compiled, iteration-capped Numba step on a "
+                             "robot-only dynamics source) | rt_pipe (rt + pipelined anytime solver thread). "
+                             "Non-default impls get an '_<impl>' output-file suffix.")
+    parser.add_argument("--rt-pipe-inject", type=str, default=None,
+                        help="rt_pipe only: artificial solver delay injection 'P:MS[,MS...]' (e.g. 0.05:10,20 = "
+                             "5%% of solves delayed by 10 or 20 ms) to exercise the deadline-miss path.")
     args = parser.parse_args()
     global BUGFIXES, WELD_ATTACH_GATE_M, CTRLFIXES, CTRLFIX_PARTS, CTRLFIX_DELAY_STEPS
+    global CONTROLLER_IMPL, RT_PIPE_OPTS
+    CONTROLLER_IMPL = args.controller_impl
+    if args.rt_pipe_inject:
+        _p, _ms = args.rt_pipe_inject.split(":")
+        RT_PIPE_OPTS = dict(inject_p=float(_p), inject_ms=tuple(float(v) for v in _ms.split(",")))
     WELD_ATTACH_GATE_M = args.weld_gate_m
     BUGFIXES = (args.bugfixes == "on")
     CTRLFIXES = (args.ctrlfixes == "on")
@@ -3604,6 +3707,7 @@ def main():
     scenario_suffix = "" if args.scenario == "crossing" else f"_{args.scenario}"
     monitor_suffix = "" if args.monitor == "classifier" else f"_{args.monitor}"
     monitor_suffix += "" if args.grasp_mode == "faked" else "_realgrasp"   # never overwrite faked artifacts
+    monitor_suffix += "" if args.controller_impl == "py" else f"_{args.controller_impl}"   # never overwrite py artifacts
     video_path = ART_DIR / f"cup_collect_safety_demo_{args.config}{ctrl_suffix}{scenario_suffix}{monitor_suffix}.mp4"
     meta_path = ART_DIR / f"cup_collect_safety_demo_meta_{args.config}{ctrl_suffix}{scenario_suffix}{monitor_suffix}.json"
 
