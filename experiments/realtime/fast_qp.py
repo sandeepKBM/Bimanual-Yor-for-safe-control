@@ -26,21 +26,24 @@ operation-for-operation from _box_qp_numba.constrained.
 """
 from __future__ import annotations
 
-import ctypes
-
 import numpy as np
-from numba import njit
+from llvmlite import binding as _llb
+from numba import njit, types
 from numba.extending import get_cython_function_address
 
 import _demo_env  # noqa: F401  (sys.path shim)
 import sim_common as sc
 from controller_core import constrained_box_qp as _cbq
 
-_ptr = ctypes.c_void_p
-_dgetrf = ctypes.CFUNCTYPE(None, _ptr, _ptr, _ptr, _ptr, _ptr, _ptr)(
-    get_cython_function_address("scipy.linalg.cython_lapack", "dgetrf"))
-_dgetrs = ctypes.CFUNCTYPE(None, _ptr, _ptr, _ptr, _ptr, _ptr, _ptr, _ptr, _ptr, _ptr)(
-    get_cython_function_address("scipy.linalg.cython_lapack", "dgetrs"))
+# The SAME scipy.linalg.cython_lapack dgetrf / dgetrs numba's np.linalg.solve binds, now called
+# through NAMED external symbols (registered with LLVM at import) instead of ctypes function
+# pointers baked into the code as "dynamic globals" -- identical machine routine (bit-identical
+# results), but the kernels are now cacheable (cache=True no longer warns "Cannot cache ...
+# dynamic globals"; 2026-09-29, rt_flmpc G4).
+_llb.add_symbol("rtfq_dgetrf", get_cython_function_address("scipy.linalg.cython_lapack", "dgetrf"))
+_llb.add_symbol("rtfq_dgetrs", get_cython_function_address("scipy.linalg.cython_lapack", "dgetrs"))
+_dgetrf = types.ExternalFunction("rtfq_dgetrf", types.void(*([types.voidptr] * 6)))
+_dgetrs = types.ExternalFunction("rtfq_dgetrs", types.void(*([types.voidptr] * 9)))
 
 
 @njit(cache=True)
