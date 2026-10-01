@@ -252,3 +252,73 @@ def uncertainty_directed(D, n_br, wms, dev, seed, n_cand=60000, pool_mult=4, p_g
                 pick_Dmax_mean=float(s[ii].mean()),
                 pick_l_mean=float(D["l"][D["start"][picks[:, 0]] + picks[:, 1]].mean()))
     return BR, meta, picks
+
+
+# ============================================================================ confirming falsifier (PREREG_ADDENDUM_F)
+class RandomScorer:
+    """uniform-random action scores. With rollout_branches(p_greedy=0) every 3-15-tick segment holds ONE fallback-set
+    element drawn uniformly at random (the rank-r entry of a random order): broad state-action sampling of the
+    85-element fallback set, not perturbations of one action."""
+
+    def __init__(self, wm, dev, seed):
+        import torch
+        self.models, self.dev = [wm], dev
+        self.U = ProjWMDyn(wm, None, dev, project=True).U
+        self.g = torch.Generator(device=dev).manual_seed(int(seed))
+
+    def action_scores(self, zs, chunk=None):
+        import torch
+        return torch.rand(len(zs[0]), len(self.U), device=self.dev, generator=self.g)
+
+
+def falsify_directed(D, n_br, wm, net, dev, seed, n_cand=60000, pool_mult=4, probe_frac=0.5, T_conf=50, branch=True):
+    """F (branch=True) / F0 (branch=False).
+
+    Predator: from the ACCEPTED states (V(z) > 0) of the shared candidate set, draw probe points uniformly from the
+      top pool_mult x n pool of smallest positive V (nearest the value's own boundary), and roll the CURRENT value's
+      greedy fallback (p_greedy=1: exactly cl_eval's wm_greedy, WM filtering the TRUE stream) on the TRUE pendulum.
+      Confirmed counterexample = the true margin goes < 0 within T_conf ticks (cl_eval's horizon) although V(z) > 0.
+    Prey data: every probe is real data and is kept (one budget unit each). F spends the remaining n_br - n_probe on
+      counterfactual branches from the confirmed counterexample states (round-robin over a shuffled order), each
+      segment holding a uniformly random fallback-set action (RandomScorer). If no probe failed, the roots are the
+      10% probes with the lowest true min margin ('closest calls'). F0 spends the whole budget on probes."""
+    import torch
+    scorer = ValueScorer(wm, net, dev)
+    rng = np.random.default_rng(seed)
+    cand = candidates(D, n_cand, seed)
+    z = latents_at(wm, D, cand, dev)
+    V, _ = scorer.state_values(z)
+    V = V.cpu().numpy()
+    n_acc = int((V > 0).sum())
+    n_probe = n_br if not branch else int(round(probe_frac * n_br))
+    if n_acc > 0:
+        n_probe = max(1, min(n_probe, n_acc))
+        acc = np.where(V > 0, -V, -np.inf)
+    else:                                  # value accepts nothing: probe the candidates closest to being accepted
+        n_probe = max(1, n_probe)
+        acc = V.astype(np.float64)
+    picks, _ = select_states(cand, [acc], [n_probe], pool_mult, rng)
+    BRp, metap = rollout_branches(D, picks, scorer, dev, seed + 7, p_greedy=1.0)
+    lmin = BRp["l"][:, PRE + 1:PRE + 1 + T_conf].min(1).values.cpu().numpy()
+    fail = lmin < 0
+    sel = {tuple(p): i for i, p in enumerate(cand.tolist())}
+    ii = np.array([sel[tuple(p)] for p in picks.tolist()])
+    meta = dict(kind="F" if branch else "F0", n_cand=int(len(cand)), cand_frac_accepted=float(n_acc / len(cand)),
+                no_accepted=bool(n_acc == 0),
+                n_probe=int(len(picks)), n_fail=int(fail.sum()), hit_rate=float(fail.mean()),
+                probe_V_mean=float(V[ii].mean()), probe_lmin_mean=float(lmin.mean()),
+                pick_l_mean=float(D["l"][D["start"][picks[:, 0]] + picks[:, 1]].mean()), probe=metap)
+    n_b = n_br - len(picks)
+    if not branch or n_b <= 0:
+        meta.update(n_branch=0)
+        return BRp, meta, picks
+    if fail.any():
+        roots, root_kind = picks[fail], "confirmed"
+    else:
+        roots = picks[np.argsort(lmin, kind="stable")[:max(1, int(np.ceil(0.1 * len(picks))))]]
+        root_kind = "closest_calls"
+    bpicks = roots[np.resize(rng.permutation(len(roots)), n_b)]
+    BRb, metab = rollout_branches(D, bpicks, RandomScorer(wm, dev, seed + 13), dev, seed + 11, p_greedy=0.0)
+    BR = {k: torch.cat([BRp[k], BRb[k]], 0) for k in BRp}
+    meta.update(root_kind=root_kind, n_roots=int(len(roots)), n_branch=int(n_b), branch=metab)
+    return BR, meta, np.concatenate([picks, bpicks], 0)

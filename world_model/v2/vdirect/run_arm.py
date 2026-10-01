@@ -10,6 +10,13 @@
   --arm D    --budget b --seed s   DAgger on-policy fallback rollouts: uniform branch points, pure greedy actions, ROUNDS rounds
   --arm B0   --seed s              no branches: nominal WM to S_TOTAL, then values N0 (full max), M (in-data max),
                                    P (uncertainty-pessimistic)
+  (PREREG_ADDENDUM_F; same rounds / probes / budget split as V)
+  --arm F    --budget b --seed s   confirming falsifier: half of each round's budget = greedy-fallback probes on the
+                                   TRUE pendulum from accepted near-boundary states (kept as data), half = random
+                                   fallback-set branches from the CONFIRMED counterexample states
+  --arm F0   --budget b --seed s   falsify only: the whole round budget on probes (literal predator-prey)
+  --arm Rr   --budget b --seed s   random branches (make_branches) under the SAME NOM warm start + 3-round schedule
+VD_SRC_ROOT (default VD_ROOT): where shared/ and the NOM pre-trains are read from (the F grid reuses the ilab grid's).
 Every final model: wm.pt, eval.json (train_kinwm.evaluate: counterfactual Spearman etc.), value (VAL_IT iters, fresh),
 gate.json (value_gate.gate), cl.json + cl_states.npz (closed loop + winner's curse), result.json, _DONE.
 """
@@ -24,6 +31,7 @@ from pathlib import Path
 import numpy as np
 
 ROOT = Path(os.environ.get("VD_ROOT", "/data/local/ss5772/bimanual_runs/vdirect"))
+SRC = Path(os.environ.get("VD_SRC_ROOT", str(ROOT)))
 CFG = dict(S_NOM=3000, S_ROUND=4000, ROUNDS=3, S_TOTAL=15000, VAL_IT=10000, PROBE_IT=4000, N_CAND=60000,
            POOL_MULT=4, P_GREEDY=0.6, H_U=25, M_ENS=3, EVAL_EPS=300, HEAD_E=5, HEAD_STEPS=3000, VAL_BATCH=2048)
 SMOKE = dict(S_NOM=30, S_ROUND=20, ROUNDS=3, S_TOTAL=90, VAL_IT=6, PROBE_IT=4, N_CAND=2000, EVAL_EPS=20, VAL_BATCH=64,
@@ -35,7 +43,7 @@ def log(*a):
 
 
 def shared():
-    return ROOT / "shared"
+    return SRC / "shared"
 
 
 def get_norm(dev):
@@ -135,7 +143,7 @@ def cand_seed(seed, r):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--arm", required=True, choices=["SETUP", "NOM", "R", "V", "Vn", "U", "D", "B0"])
+    ap.add_argument("--arm", required=True, choices=["SETUP", "NOM", "R", "V", "Vn", "U", "D", "B0", "F", "F0", "Rr"])
     ap.add_argument("--budget", type=int, default=0)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--member", type=int, default=0)
@@ -164,7 +172,7 @@ def main():
     norm = get_norm(dev)
     tr = train_data(dev)[0]
     sm = "smoke_" if a.smoke else ""
-    nomdir = lambda s, m: (ROOT / "runs" / f"{sm}nom_s{s}_m{m}")
+    nomdir = lambda s, m: (SRC / "runs" / f"{sm}nom_s{s}_m{m}")
     if a.arm == "NOM":
         out = nomdir(a.seed, a.member); out.mkdir(parents=True, exist_ok=True)
         T = Trainer(a.seed + 1000 * a.member, norm, total_steps=cfg["S_TOTAL"], dev=dev)
@@ -198,17 +206,28 @@ def main():
         T.add_branches(BR)
         T.train(cfg["S_TOTAL"], tag=f" R b{a.budget} s{a.seed}")
         wm = T.frozen_wm()
-    elif a.arm in ("V", "Vn", "D"):
+    elif a.arm in ("V", "Vn", "D", "F", "F0", "Rr"):
         T = warm(0)
         R = 1 if a.arm == "Vn" else cfg["ROUNDS"]
         nb = split_budget(a.budget, R)
         steps = [cfg["S_TOTAL"] - cfg["S_NOM"]] if R == 1 else [cfg["S_ROUND"]] * R
         for r in range(R):
             wm_r = T.frozen_wm()
-            net = load_probe0() if r == 0 else train_value(wm_r, dev, out / f"probe_r{r}", cfg["PROBE_IT"],
-                                                            seed=a.seed * 10 + r, batch=cfg["VAL_BATCH"])
+            if a.arm == "Rr":                      # random branches need no probe value
+                net = None
+            else:
+                net = load_probe0() if r == 0 else train_value(wm_r, dev, out / f"probe_r{r}", cfg["PROBE_IT"],
+                                                                seed=a.seed * 10 + r, batch=cfg["VAL_BATCH"])
             t0 = time.time()
-            if a.arm == "D":
+            if a.arm == "Rr":
+                BR, meta = BRS.random_branches(tr, nb[r], dev, seed=cand_seed(a.seed, r) + 1)
+                picks = np.zeros((0, 2), np.int64)
+                meta.update(kind="Rr")
+            elif a.arm in ("F", "F0"):
+                BR, meta, picks = BRS.falsify_directed(tr, nb[r], wm_r, net, dev, cand_seed(a.seed, r),
+                                                       n_cand=cfg["N_CAND"], pool_mult=cfg["POOL_MULT"],
+                                                       branch=(a.arm == "F"))
+            elif a.arm == "D":
                 rng = np.random.default_rng(cand_seed(a.seed, r))
                 cand = BRS.candidates(tr, cfg["N_CAND"], cand_seed(a.seed, r))
                 picks = cand[rng.choice(len(cand), nb[r], replace=False)]
