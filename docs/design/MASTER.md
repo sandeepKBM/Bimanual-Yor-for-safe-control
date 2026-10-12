@@ -2,7 +2,7 @@
 
 Single source of truth for **what we are doing and why**. Supersedes the
 earlier `method.md` / `state_spaces.md` on any conflict (they predate the
-decisions below). Last updated: 2026-09-07.
+decisions below). Last updated: 2026-09-29 (see §1b status block — it supersedes conflicting lines in §2–§8).
 
 ---
 
@@ -20,6 +20,46 @@ The sharp version, as a formal spec (STL): the task is
 Every predicate is analytic **except `¬spill`**, which has no geometric
 signal — that gap is exactly what the WM fills. STL is our **certification /
 evaluation** layer (robustness score), **not** a control synthesizer (see §7).
+
+**Extension (user-confirmed 2026-09-29):** a **BOED-style mechanism for shared
+autonomy to update itself and learn on the fly**. The robot (or the operator,
+on request) runs small, certified-safe probes chosen by how much they shrink
+uncertainty in the safety tube/value, and the WM/value belief updates online.
+- Scope: grasp/slip is out (classical control + wrist cameras).
+- The primary testbed moves toward observable payloads; unobservable contents
+  (opaque liquid) go to a separate, conservative system.
+
+## 1b. Status 2026-09-29 (supersedes conflicting lines in §2–§8)
+
+- **Controller:** FL-MPC (`experiments/ab_smooth_vs_bangbang/mpc_fl.py`) is the
+  solution; v4-C\* (§4) is the **baseline**. The fair baseline is
+  `--v4c-preset tuned` (acceleration-metric QP); the original torque-metric v4c
+  collided 66% at N=50.
+  - N=50 FL-MPC vs tuned v4c: collisions 0% / 0%, jerk 301 vs 616, cup tilt
+    14.1/14.2° vs 18.3/30.1°, cubes placed 3.00 vs 2.54.
+  - File: `bimanual_data/fakedsel/n50_faked_all_flmpc_v4ctuned.json`.
+- **Do not cite the §5/§8 numbers:** the 4% collision floor, WM spill AUC
+  0.999→0.746, and latent value 8/8→0/8. They came from **pre-fix** harness
+  bugs: sideways-cup init, the lift-loss spill oracle, and the broken v4c metric.
+  The old `latent_safety_value.pt` is policy evaluation (no max over actions),
+  not reachability.
+- **Spill:**
+  - Plan-aware physics matches or beats every learned predictor (3941
+    episodes); the cup contents are unobservable from the ZED.
+  - A latent HJ value on a nominal-data WM collapses: its closed-loop fallback
+    spills 79–84% of physics-savable states. Counterfactual evasive-action
+    branches fix it (1.2–1.6%, 3 seeds). Details: `bimanual_data/wm_audit/REPORT.md`.
+- **Value constraint:** FL-MPC with look-ahead value rows spills 8/50 vs 28–30/50
+  for one-step LatentCBF and 30/50 for switching (`bimanual_data/latentcbf/final/`).
+  It is not real-time yet: the value rows take 102 ms per step.
+- **BOED core (tube-shrink forecasting), pre-registered kill test:**
+  - It survives as a **predictor**.
+  - As a one-step decision rule it loses to a reactive switch.
+  - Next: execution-aware, multi-step value of information
+    (`bimanual_data/g3_killtest/REPORT.md`).
+- **Real time:** a numba FL-MPC rewrite plus a pipelined solver is in progress
+  (`experiments/realtime/rt_flmpc.py`). Clean timing: the controller alone runs
+  ~5 ms mean, with a ~17 ms p99 dominated by the QP.
 
 ---
 

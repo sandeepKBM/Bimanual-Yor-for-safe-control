@@ -1,0 +1,6 @@
+--arm N0 --budget 0 --seed 0 --obs-mode pc_est --setup piper_pc --data /common/users/ss5772/bimanual_data/tray_rep/data_piper_pc_head_aim_wrist
+--arm N0 --budget 0 --seed 1 --obs-mode pc_est --setup piper_pc --data /common/users/ss5772/bimanual_data/tray_rep/data_piper_pc_head_aim_wrist
+--arm N0 --budget 0 --seed 2 --obs-mode pc_est --setup piper_pc --data /common/users/ss5772/bimanual_data/tray_rep/data_piper_pc_head_aim_wrist
+--arm Rc --budget 3000 --seed 0 --obs-mode pc_est --setup piper_pc --data /common/users/ss5772/bimanual_data/tray_rep/data_piper_pc_head_aim_wrist
+--arm Rc --budget 3000 --seed 1 --obs-mode pc_est --setup piper_pc --data /common/users/ss5772/bimanual_data/tray_rep/data_piper_pc_head_aim_wrist
+--arm Rc --budget 3000 --seed 2 --obs-mode pc_est --setup piper_pc --data /common/users/ss5772/bimanual_data/tray_rep/data_piper_pc_head_aim_wrist

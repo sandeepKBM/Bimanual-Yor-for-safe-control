@@ -1,0 +1,263 @@
+{
+ "compile": {
+  "default": {
+   "compile_s": 0.24,
+   "nbody": 39,
+   "njnt": 20,
+   "nq": 32,
+   "nv": 30,
+   "nu": 16,
+   "neq": 4,
+   "ngeom": 74,
+   "ncon_at_zero_pose": 0
+  },
+  "lift": {
+   "compile_s": 0.17,
+   "nbody": 39,
+   "njnt": 22,
+   "nq": 34,
+   "nv": 32,
+   "nu": 17,
+   "neq": 5,
+   "ngeom": 74,
+   "ncon_at_zero_pose": 0
+  },
+  "gravcomp": {
+   "compile_s": 0.15,
+   "nbody": 39,
+   "njnt": 20,
+   "nq": 32,
+   "nv": 30,
+   "nu": 16,
+   "neq": 4,
+   "ngeom": 74,
+   "ncon_at_zero_pose": 0
+  },
+  "scene_file_standalone": {
+   "path": "/common/users/ss5772/bimanual/scenes/yor_nero_derived.mjcf",
+   "nbody": 37,
+   "nv": 18
+  }
+ },
+ "hold_pose": {
+  "info": {
+   "ik_err": {
+    "left": [
+     1.653940592862152e-06,
+     6.577192340194328e-06,
+     4.559982231611188e-06
+    ],
+    "right": [
+     6.6442504160982835e-06,
+     2.3730111024690175e-05,
+     6.31675525488241e-06
+    ]
+   },
+   "n_solutions": [
+    12,
+    5
+   ],
+   "min_limit_margin": 0.22053499034526036,
+   "min_pair_h": 0.1286705730774615,
+   "finger": 0.0175,
+   "tray_local": [
+    0.45,
+    -0.21,
+    0.85
+   ]
+  },
+  "hold_q": {
+   "left": [
+    0.6607887817317655,
+    -1.238812507391233,
+    1.5497515517916678,
+    1.2884462760690982,
+    0.394380645249604,
+    -0.5280329030930243,
+    1.156444104013173
+   ],
+   "right": [
+    -0.5488877133008694,
+    -0.895508545114471,
+    -2.143528776550534,
+    1.2872712981776566,
+    0.12586995015024474,
+    0.12269414727623505,
+    1.1016632944549285
+   ]
+  },
+  "ncon_with_tray_welded": 0,
+  "joint_limit_margin_per_joint_left": [
+   2.0444712182682343,
+   0.5011874926087669,
+   1.2002484482083322,
+   0.8515537239309019,
+   2.355619354750396,
+   0.20196709690697567,
+   0.41435219598682704
+  ],
+  "joint_limit_margin_per_joint_right": [
+   2.1563722866991304,
+   0.844491454885529,
+   0.606471223449466,
+   0.8527287018223435,
+   2.624130049849755,
+   0.8273058527237649,
+   0.46913300554507154
+  ]
+ },
+ "self_collision": {
+  "uniform_in_limits": {
+   "n": 800,
+   "frac_with_same_arm_contact": 0.0,
+   "frac_with_arm_arm_contact": 0.01625
+  },
+  "hold_pose_plus_N(0,0.4)": {
+   "n": 800,
+   "frac_with_same_arm_contact": 0.0,
+   "frac_with_arm_arm_contact": 0.0075
+  }
+ },
+ "proxy_conservative": {
+  "n_samples": 300,
+  "n_within_10cm": 25,
+  "max_proxy_minus_true_m": -0.01188564749124462,
+  "mean_proxy_minus_true_m": -0.050089367072425846,
+  "false_safe_count": 0,
+  "note": "proxy_gap - true_gap <= 0 means conservative (proxy reports less clearance)"
+ },
+ "tray_reach_grid": {
+  "x_m": [
+   0.3,
+   0.35,
+   0.4,
+   0.45,
+   0.5,
+   0.55,
+   0.6,
+   0.65
+  ],
+  "z_m": [
+   0.65,
+   0.7,
+   0.75,
+   0.8,
+   0.85,
+   0.9,
+   0.95,
+   1.0,
+   1.05
+  ],
+  "y_m": -0.21,
+  "reachable_rows_by_z": [
+   [
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0
+   ],
+   [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0
+   ],
+   [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0
+   ],
+   [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0
+   ],
+   [
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    1,
+    1,
+    1,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    1,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ]
+  ],
+  "note": "1 = both arms reach the short-rim pinch with zero contacts and proxy h>0; IK warm-started from the hold pose then posture=hold q / mid-range"
+ },
+ "lift": {
+  "no_arm_gravcomp": {
+   "slider1_m": -0.0008143275414184734,
+   "slider2_m": -0.0008531189159723671,
+   "lift_actuator_force_N": 45.25011707369361,
+   "ctrl": 0.3,
+   "total_mass_kg_above_lift": 14.69295732
+  },
+  "arm_gravcomp": {
+   "slider1_m": 0.1499965540297406,
+   "slider2_m": 0.14999654824744615,
+   "lift_actuator_force_N": 0.0010606690875505365,
+   "ctrl": 0.3,
+   "total_mass_kg_above_lift": 14.69295732
+  }
+ },
+ "wall_s": 24.217792510986328
+}

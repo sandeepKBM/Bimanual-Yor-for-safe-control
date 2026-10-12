@@ -1,0 +1,419 @@
+{
+ "source": {
+  "repo": "https://github.com/agilexrobotics/agx_arm_urdf",
+  "commit": "983788b58d7eae76511177f768d85877534917fe"
+ },
+ "model": {
+  "nbody": 13,
+  "nv": 9,
+  "ngeom": 25,
+  "jnt_range_max_dev_from_urdf": 0.0
+ },
+ "fk": {
+  "n_configs": 50,
+  "max_pos_err_m": 7.336986961719614e-13,
+  "max_rot_err_rad": 2.9802322387695312e-08,
+  "per_body_max": {
+   "base_link": {
+    "pos_m": 0.0,
+    "rot_rad": 0.0
+   },
+   "link1": {
+    "pos_m": 0.0,
+    "rot_rad": 2.1073424255447017e-08
+   },
+   "link2": {
+    "pos_m": 0.0,
+    "rot_rad": 2.1073424255447017e-08
+   },
+   "link3": {
+    "pos_m": 6.449017182705761e-14,
+    "rot_rad": 2.9802322387695312e-08
+   },
+   "link4": {
+    "pos_m": 6.449017182705761e-14,
+    "rot_rad": 2.9802322387695312e-08
+   },
+   "link5": {
+    "pos_m": 2.1230647565828364e-13,
+    "rot_rad": 0.0
+   },
+   "link6": {
+    "pos_m": 2.1230647565828364e-13,
+    "rot_rad": 0.0
+   },
+   "link7": {
+    "pos_m": 2.1940220350239766e-13,
+    "rot_rad": 0.0
+   },
+   "flange_link": {
+    "pos_m": 2.5631833752048445e-13,
+    "rot_rad": 0.0
+   },
+   "gripper_base": {
+    "pos_m": 2.595435184623816e-13,
+    "rot_rad": 0.0
+   },
+   "gripper_link1": {
+    "pos_m": 7.336986961719614e-13,
+    "rot_rad": 0.0
+   },
+   "gripper_link2": {
+    "pos_m": 7.308012763472926e-13,
+    "rot_rad": 0.0
+   }
+  }
+ },
+ "inertia": {
+  "worst": {
+   "mass": 0.0,
+   "com": 1.240654967641698e-14,
+   "inertia_rel": 1.6526284806817275e-07
+  },
+  "total_mass_urdf": 5.12892366,
+  "total_mass_mjcf": 5.128923660000002,
+  "per_body": {
+   "base_link": {
+    "mass_urdf": 1.06458435,
+    "mass_mjcf": 1.06458435,
+    "com_err_m": 0.0,
+    "inertia_rel_err": 3.2636698857247476e-08
+   },
+   "link1": {
+    "mass_urdf": 0.76710504,
+    "mass_mjcf": 0.76710504,
+    "com_err_m": 0.0,
+    "inertia_rel_err": 6.447636299214377e-10
+   },
+   "link2": {
+    "mass_urdf": 0.69381908,
+    "mass_mjcf": 0.69381908,
+    "com_err_m": 0.0,
+    "inertia_rel_err": 1.6526284806817275e-07
+   },
+   "link3": {
+    "mass_urdf": 0.67246544,
+    "mass_mjcf": 0.67246544,
+    "com_err_m": 0.0,
+    "inertia_rel_err": 8.602261713884424e-08
+   },
+   "link4": {
+    "mass_urdf": 0.48451414,
+    "mass_mjcf": 0.48451414,
+    "com_err_m": 0.0,
+    "inertia_rel_err": 9.801120463668126e-08
+   },
+   "link5": {
+    "mass_urdf": 0.58368405,
+    "mass_mjcf": 0.58368405,
+    "com_err_m": 0.0,
+    "inertia_rel_err": 7.4291994391600245e-09
+   },
+   "link6": {
+    "mass_urdf": 0.3140406,
+    "mass_mjcf": 0.3140406,
+    "com_err_m": 0.0,
+    "inertia_rel_err": 3.4409679302908586e-11
+   },
+   "link7": {
+    "mass_urdf": 0.001,
+    "mass_mjcf": 0.001,
+    "com_err_m": 0.0,
+    "inertia_rel_err": 5.293955920339377e-15
+   },
+   "flange_link": {
+    "mass_urdf": 0.04771096,
+    "mass_mjcf": 0.04771096,
+    "com_err_m": 0.0,
+    "inertia_rel_err": 2.62492754344245e-15
+   },
+   "gripper_base": {
+    "mass_urdf": 0.45,
+    "mass_mjcf": 0.45,
+    "com_err_m": 1.240654967641698e-14,
+    "inertia_rel_err": 2.556053918695751e-15
+   },
+   "gripper_link1": {
+    "mass_urdf": 0.025,
+    "mass_mjcf": 0.025,
+    "com_err_m": 1.1755861368276852e-15,
+    "inertia_rel_err": 1.635709089799352e-07
+   },
+   "gripper_link2": {
+    "mass_urdf": 0.025,
+    "mass_mjcf": 0.025,
+    "com_err_m": 1.1755861368276852e-15,
+    "inertia_rel_err": 1.635709089799352e-07
+   }
+  }
+ },
+ "gravity": {
+  "poses": {
+   "zero (arm vertical)": {
+    "tau": [
+     0.0,
+     0.008,
+     0.0,
+     0.013,
+     0.0,
+     -0.003,
+     -0.001
+    ],
+    "tau_with_3kg_payload": [
+     0.0,
+     0.003,
+     0.0,
+     0.008,
+     0.0,
+     -0.006,
+     -0.006
+    ]
+   },
+   "J2=+90deg, rest 0 (arm horizontal, fully extended: worst case)": {
+    "tau": [
+     0.0,
+     -11.946,
+     0.024,
+     -3.813,
+     0.012,
+     0.0,
+     -0.377
+    ],
+    "tau_with_3kg_payload": [
+     0.0,
+     -31.051,
+     0.021,
+     -13.794,
+     0.01,
+     0.0,
+     -2.412
+    ]
+   },
+   "J2=+90deg, J4=+90deg (forearm up)": {
+    "tau": [
+     0.0,
+     -8.147,
+     0.024,
+     -0.013,
+     -0.0,
+     0.003,
+     0.001
+    ],
+    "tau_with_3kg_payload": [
+     0.0,
+     -17.264,
+     0.021,
+     -0.008,
+     -0.0,
+     0.006,
+     0.006
+    ]
+   },
+   "J2=+45deg, J4=+90deg": {
+    "tau": [
+     0.0,
+     -8.46,
+     0.017,
+     -2.705,
+     0.008,
+     0.002,
+     -0.266
+    ],
+    "tau_with_3kg_payload": [
+     0.0,
+     -21.965,
+     0.015,
+     -9.759,
+     0.007,
+     0.004,
+     -1.701
+    ]
+   }
+  },
+  "sampled_peak_abs_tau_g": [
+   0.0,
+   11.916,
+   3.697,
+   3.785,
+   0.385,
+   0.37,
+   0.377
+  ],
+  "sampled_peak_with_3kg": [
+   0.0,
+   30.9,
+   13.326,
+   13.697,
+   2.401,
+   2.368,
+   2.411
+  ],
+  "n_random": 3000,
+  "limits": {
+   "urdf_effort": [
+    100.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0
+   ],
+   "mit_fw_le_1.10": [
+    24.0,
+    24.0,
+    16.0,
+    16.0,
+    8.0,
+    8.0,
+    8.0
+   ],
+   "mit_fw_ge_1.11": [
+    16.0,
+    16.0,
+    16.0,
+    16.0,
+    16.0,
+    16.0,
+    16.0
+   ]
+  },
+  "peak_over_limit": {
+   "urdf_effort": [
+    0.0,
+    0.119,
+    0.037,
+    0.038,
+    0.004,
+    0.004,
+    0.004
+   ],
+   "mit_fw_le_1.10": [
+    0.0,
+    0.496,
+    0.231,
+    0.237,
+    0.048,
+    0.046,
+    0.047
+   ],
+   "mit_fw_ge_1.11": [
+    0.0,
+    0.745,
+    0.231,
+    0.237,
+    0.024,
+    0.023,
+    0.024
+   ]
+  },
+  "peak3kg_over_limit": {
+   "urdf_effort": [
+    0.0,
+    0.309,
+    0.133,
+    0.137,
+    0.024,
+    0.024,
+    0.024
+   ],
+   "mit_fw_le_1.10": [
+    0.0,
+    1.287,
+    0.833,
+    0.856,
+    0.3,
+    0.296,
+    0.301
+   ],
+   "mit_fw_ge_1.11": [
+    0.0,
+    1.931,
+    0.833,
+    0.856,
+    0.15,
+    0.148,
+    0.151
+   ]
+  }
+ },
+ "limits": [
+  {
+   "joint": "joint1",
+   "urdf_lo_rad": -2.70526,
+   "urdf_hi_rad": 2.70526,
+   "urdf_lo_deg": -155.0,
+   "urdf_hi_deg": 155.0,
+   "sdk_doc_lo_rad": -2.705261,
+   "sdk_doc_hi_rad": 2.705261,
+   "urdf_effort": 100.0,
+   "urdf_velocity": 5.0
+  },
+  {
+   "joint": "joint2",
+   "urdf_lo_rad": -1.74,
+   "urdf_hi_rad": 1.74,
+   "urdf_lo_deg": -99.69,
+   "urdf_hi_deg": 99.69,
+   "sdk_doc_lo_rad": -1.74533,
+   "sdk_doc_hi_rad": 1.74533,
+   "urdf_effort": 100.0,
+   "urdf_velocity": 5.0
+  },
+  {
+   "joint": "joint3",
+   "urdf_lo_rad": -2.75,
+   "urdf_hi_rad": 2.75,
+   "urdf_lo_deg": -157.56,
+   "urdf_hi_deg": 157.56,
+   "sdk_doc_lo_rad": -2.757621,
+   "sdk_doc_hi_rad": 2.757621,
+   "urdf_effort": 100.0,
+   "urdf_velocity": 5.0
+  },
+  {
+   "joint": "joint4",
+   "urdf_lo_rad": -1.01,
+   "urdf_hi_rad": 2.14,
+   "urdf_lo_deg": -57.87,
+   "urdf_hi_deg": 122.61,
+   "sdk_doc_lo_rad": -1.012291,
+   "sdk_doc_hi_rad": 2.146755,
+   "urdf_effort": 100.0,
+   "urdf_velocity": 5.0
+  },
+  {
+   "joint": "joint5",
+   "urdf_lo_rad": -2.75,
+   "urdf_hi_rad": 2.75,
+   "urdf_lo_deg": -157.56,
+   "urdf_hi_deg": 157.56,
+   "sdk_doc_lo_rad": -2.757621,
+   "sdk_doc_hi_rad": 2.757621,
+   "urdf_effort": 100.0,
+   "urdf_velocity": 5.0
+  },
+  {
+   "joint": "joint6",
+   "urdf_lo_rad": -0.73,
+   "urdf_hi_rad": 0.95,
+   "urdf_lo_deg": -41.83,
+   "urdf_hi_deg": 54.43,
+   "sdk_doc_lo_rad": -0.733039,
+   "sdk_doc_hi_rad": 0.959932,
+   "urdf_effort": 100.0,
+   "urdf_velocity": 5.0
+  },
+  {
+   "joint": "joint7",
+   "urdf_lo_rad": -1.5707963,
+   "urdf_hi_rad": 1.5707963,
+   "urdf_lo_deg": -90.0,
+   "urdf_hi_deg": 90.0,
+   "sdk_doc_lo_rad": -1.570797,
+   "sdk_doc_hi_rad": 1.570797,
+   "urdf_effort": 100.0,
+   "urdf_velocity": 5.0
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm N0 --seed 0 --cond trk --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm N0 --seed 0 --cond trkB10f --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm N0 --seed 1 --cond trk --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm N0 --seed 1 --cond trkB10f --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm N0 --seed 2 --cond trk --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm N0 --seed 2 --cond trkB10f --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm Rc3k --seed 0 --cond trk --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm Rc3k --seed 0 --cond trkB10f --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm Rc3k --seed 1 --cond trk --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm Rc3k --seed 1 --cond trkB10f --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm Rc3k --seed 2 --cond trk --tag main
+world_model.v2.tray_rep.robust.tune test --setup piper_trk --arm Rc3k --seed 2 --cond trkB10f --tag main
