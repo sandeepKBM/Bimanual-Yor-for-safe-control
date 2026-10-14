@@ -44,6 +44,8 @@ def parse_cond(cond):
     u = SPT.UncertaintyCfg()
     if "noinfl" in flags:
         u = replace(u, k_sigma=0.0, d_buffer=0.10, unseen_cap=False)     # original radius (0.30 + 0.10) on tracker output: isolates perception error from the margin policy
+    if "soft" in flags:
+        u = replace(u, soft_floor=0.05)
     if "buf" in flags:
         u = replace(u, d_buffer=0.10)
     if "nocap" in flags:
@@ -54,16 +56,25 @@ def parse_cond(cond):
     if parts[0] == "param":
         sig, lat, drop = float(parts[1]), int(parts[2]), float(parts[3])
         return PC.PerceptionCfg(detector="param", sigma=sig, latency_ticks=lat, p_drop=drop), u
-    return PC.PerceptionCfg(detector=parts[0], static_map=smap), u
+    pc = PC.PerceptionCfg(detector=parts[0], static_map=smap)
+    sf = [f for f in flags if f.startswith("surf")]               # neural / fusion: '+surf' / '+surf5' = visible-surface centroid + 3 / 5 cm (no r=0.22 prior); default: the prior
+    if sf:
+        pc = replace(pc, neural_centroid="surf", neural_r_off=(float(sf[0][4:]) / 100.0 if sf[0][4:] else 0.03))
+    return pc, u
 
 
-def run_episode_pt(cond="depth", seed=0, task="carry", scene="h5", max_s=40.0, tail_s=1.0, video=None, log_every=0, with_people=True, verbose=False, walk=True, yield_m=None, stuck_s=10.0):
+def run_episode_pt(cond="depth", seed=0, task="carry", scene="h5", max_s=40.0, tail_s=1.0, video=None, log_every=0, with_people=True, verbose=False, walk=True, yield_m=None, stuck_s=10.0, human_mesh=None):
     pcfg, ucfg = parse_cond(cond)
     carry = task == "carry"
     SimCls = TeleopSimWalking if walk else TeleopSim
     if walk and yield_m is not None:
         SimCls = type("TeleopSimWalkingY", (TeleopSimWalking,), dict(yield_m=float(yield_m)))
-    sim = SimCls(scene, grasped=carry, seed=seed, with_people=with_people, counter=not carry, desk=not carry)
+    est_kw = dict(pose_source="est", occ_source="perceived") if (pcfg is not None and pcfg.detector in ("depth_perc", "neural", "fusion", "full")) else {}     # estimated-pose detectors
+    if human_mesh:                                           # visual Rocketbox humans (people_track.human_vis), default off
+        from .human_vis import human_sim_class
+        SimCls = human_sim_class(SimCls)
+        est_kw = dict(est_kw, human_variant=human_mesh)
+    sim = SimCls(scene, grasped=carry, seed=seed, with_people=with_people, counter=not carry, desk=not carry, **est_kw)
     sc = sim.scene
     wp = sc.waypoints
     op = OP.SloppyOperator(seed, task, sc.out_route, pick_pose=wp["cafe_counter_pick"], place_pose=wp["lab_desk_place"], params=None,
@@ -247,6 +258,7 @@ def main():
     ap.add_argument("--workers", type=int, default=40)
     ap.add_argument("--aggregate", action="store_true")
     ap.add_argument("--yield-m", type=float, default=None, help="walker yield distance [m] (default 0.15 = stock; 0 = oblivious walker)")
+    ap.add_argument("--human-mesh", default=None, choices=[None, "articulated"], help="visual Rocketbox humans on the scripted people (single run only; default: capsules)")
     ap.add_argument("--no-walk", action="store_true", help="use the stock TeleopSim (the p_walker clock never starts: the walker stands still)")
     a = ap.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
@@ -262,7 +274,7 @@ def main():
         aggregate(out)
         return
     vp = out / f"pt_{a.cond.replace(':', '_')}_s{a.seed}.mp4" if a.video else None
-    summ, rows = run_episode_pt(a.cond, a.seed, max_s=a.max_s, video=vp, log_every=25, verbose=True, walk=not a.no_walk, yield_m=a.yield_m)
+    summ, rows = run_episode_pt(a.cond, a.seed, max_s=a.max_s, video=vp, log_every=25, verbose=True, walk=not a.no_walk, yield_m=a.yield_m, human_mesh=a.human_mesh)
     fn = out / f"{a.cond.replace(':', '_').replace('+', '_').replace('@', '_')}_s{a.seed}.json"
     fn.write_text(json.dumps(summ, indent=1, default=str))
     keys = ["cond", "seed", "aborted_stuck", "task_done", "task_time_s", "person_contact", "person_contact_ticks", "min_person_distance_m", "intervention_fraction_gt2pct",

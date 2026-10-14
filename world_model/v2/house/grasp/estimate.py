@@ -78,10 +78,10 @@ def _Rzyx(psi, th, ph):
     return R
 
 
-def ransac_plane(P, rng, z0=0.0, band=0.025, tol=0.003, iters=120):
+def ransac_plane(P, rng, z0=0.0, band=0.025, tol=0.003, iters=120, z_weight=40.0, z_lo=None):
     """plane z = a x + b y + c through points near the prior plate height; returns (a,b,c,inlier_mask) or None.  Ties between the
     plate (z ~ 0) and the shelf (z ~ -6 mm) are broken toward the plane nearest the prior height (the hands were brought to ~2 cm)."""
-    sel = np.flatnonzero(np.abs(P[:, 2] - z0) < band)
+    sel = np.flatnonzero((np.abs(P[:, 2] - z0) < band) & ((P[:, 2] - z0 > z_lo) if z_lo is not None else True))   # z_lo: ignore everything lower than the plate by more than the hands' height tolerance (the 12 mm lower counter slab)
     if len(sel) < 30:
         return None
     Q = P[sel]
@@ -97,7 +97,7 @@ def ransac_plane(P, rng, z0=0.0, band=0.025, tol=0.003, iters=120):
             continue
         r = Q[:, 2] - (Q[:, :2] @ abc[:2] + abc[2])
         inl = np.abs(r) < tol
-        sc = inl.sum() - 40.0 * abs(abc[2] - z0) / 0.006        # small preference for the prior height
+        sc = inl.sum() - z_weight * abs(abc[2] - z0) / 0.006        # preference for the prior height (z_weight 40: small; the assist uses 400)
         if sc > best_sc:
             best_sc, best = sc, abc
     if best is None:
@@ -136,7 +136,7 @@ def _score(P, label, H, W_neg=W_NEG, W_band=W_BAND, use_band=True):
     return inl - W_neg * neg - W_band * band - W_OUT * out, inl, neg, out
 
 
-def fit_rectangle(P, label, init=None, rng=None, iters=9, n_hyp=260, sig0=SIG0, prior=None):
+def fit_rectangle(P, label, init=None, rng=None, iters=9, n_hyp=260, sig0=SIG0, prior=None, bounds=BOUNDS):
     """pyramid random search.  init: 6-vector start (default zeros).  prior: 6-vector centre of the weak Gaussian prior (default zeros)."""
     rng = np.random.default_rng(0) if rng is None else rng
     c = np.zeros(6) if init is None else np.asarray(init, float).copy()
@@ -152,7 +152,7 @@ def fit_rectangle(P, label, init=None, rng=None, iters=9, n_hyp=260, sig0=SIG0, 
         H = dict(dx=X[:, 0], dy=X[:, 1], dz=X[:, 2], psi=X[:, 3], th=X[:, 4], ph=X[:, 5])
         s, inl, neg, out = _score(P, label, H)
         s = s - 0.5 * LAMBDA * (((X - pr) / SIG_PRIOR) ** 2).sum(1)
-        s = np.where((np.abs(X) > BOUNDS).any(1), -1e9, s)
+        s = np.where((np.abs(X) > bounds).any(1), -1e9, s)
         j = int(np.argmax(s))
         if s[j] > best_s:
             best_s, best = float(s[j]), X[j].copy()
@@ -166,7 +166,7 @@ def fit_rectangle(P, label, init=None, rng=None, iters=9, n_hyp=260, sig0=SIG0, 
     return best, best_s, best_in, best_neg, best_out, spread
 
 
-def estimate_tray(frame, prior_p, prior_R, mode="depth", tray_geoms=None, seed=0, cfg=None):
+def estimate_tray(frame, prior_p, prior_R, mode="depth", tray_geoms=None, seed=0, cfg=None, z_weight=40.0, bounds_xy=None, z_lo=None, bounds_z=None):
     """frame: WristFrame.  prior_p/prior_R: PRIOR tray pose (world).  mode: 'priv' | 'depth'."""
     t0 = time.perf_counter()
     prior_p, prior_R = np.asarray(prior_p, float), np.asarray(prior_R, float)
@@ -197,7 +197,7 @@ def estimate_tray(frame, prior_p, prior_R, mode="depth", tray_geoms=None, seed=0
             abc = np.linalg.lstsq(A[ok], Q[ok, 2], rcond=None)[0]
         init[2] = abc[2]                   # height only: the tilt is fixed to the level prior (see BOUNDS)
     else:
-        abc = ransac_plane(P, rng)
+        abc = ransac_plane(P, rng, z_weight=z_weight, z_lo=z_lo)    # z_weight high: do not lock onto the 12 mm lower counter slab when it fills more of the view than the plate
         if abc is not None:
             init[2] = abc[2]
     if len(P) > MAX_PTS:                                   # cap the search cost: stride subsample (the counts are rescaled below)
@@ -206,8 +206,13 @@ def estimate_tray(frame, prior_p, prior_R, mode="depth", tray_geoms=None, seed=0
         P, label = P[sub], (None if label is None else label[sub])
     else:
         scale = 1.0
-    init = np.clip(init, -BOUNDS * 0.9, BOUNDS * 0.9)
-    best, sc, n_in, n_neg, n_out, spread = fit_rectangle(P, label, init=init, rng=rng, iters=9, n_hyp=220)
+    bnd = BOUNDS.copy()
+    if bounds_xy is not None:             # the assist's capture range (+ margin): a hypothesis footprint at the edge of the old 7 cm box has its 'ring' outside the cropped data,
+        bnd[:2] = bounds_xy               # so a plane lock on the (12 mm lower, larger) counter slab went unpenalised
+    if bounds_z is not None:              # ... and the rectangle may not slide down onto the counter either (the hands expect the plate height to a few mm)
+        bnd[2] = bounds_z
+    init = np.clip(init, -bnd * 0.9, bnd * 0.9)
+    best, sc, n_in, n_neg, n_out, spread = fit_rectangle(P, label, init=init, rng=rng, iters=9, n_hyp=220, bounds=bnd)
     n_in, n_neg, n_out = n_in * scale, n_neg * scale, n_out * scale
     R_h = _Rzyx(best[3], best[4], best[5])
     p = prior_p + prior_R @ best[:3]
@@ -217,7 +222,7 @@ def estimate_tray(frame, prior_p, prior_R, mode="depth", tray_geoms=None, seed=0
     loc = math.exp(-float(np.hypot(spread[0], spread[1])) / 0.012) * math.exp(-spread[3] / math.radians(4.0))
     neg_pen = 1.0 / (1.0 + max(0.0, n_neg - 12.0) / 30.0)
     expl = n_in / max(n_in + n_out, 1.0)                                   # fraction of the plate-level points the rectangle explains
-    at_bound = bool((np.abs(best) > 0.95 * BOUNDS).any())
+    at_bound = bool((np.abs(best) > 0.95 * bnd).any())
     conf = float(ev * loc * neg_pen * expl ** 2 * (0.3 if at_bound else 1.0))
     return PoseEst(True, p, R, conf, n_in, n_neg, len(P), spread, sc, (time.perf_counter() - t0) * 1e3, n_out, mode, best)
 

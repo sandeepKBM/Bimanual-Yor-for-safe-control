@@ -175,6 +175,14 @@ def load_occupancy(scene: SceneSpec) -> OccGrid:
     return OccGrid(float(z["res"]), float(z["x0"]), float(z["y0"]), occ, ndimage.distance_transform_edt(~occ) * float(z["res"]))
 
 
+def load_perceived_occupancy(scene: SceneSpec, occ_map=None) -> OccGrid:
+    """PERCEIVED static-obstacle grid (house/loc mapping pass with the head ZED depth, in the estimated-pose frame) instead of the true house
+    grid.  occ_map: None -> built once per scene with the default loc.mapper config and cached on disk; a path (npz saved by
+    loc.mapper.PerceivedMap.save); a PerceivedMap; or an OccGrid.  Returns an OccGrid (same interface as load_occupancy)."""
+    from ..loc import mapper as MP
+    return MP.resolve_occgrid(scene, occ_map)
+
+
 # ---------------------------------------------------------------------------------------------- cup with beads xml
 def _cup_xml(cup_pos, contents=None):
     """cup body + beads xml (bead_rep / contents.py geometry verbatim; base friction -> MU_TRUE; materials -> rgba)."""

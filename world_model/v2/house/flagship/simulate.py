@@ -48,8 +48,26 @@ def label_id(lbl):
     return LABELS.index(lbl) if lbl in LABELS else LABELS.index("other")
 
 
+def _tray_pos_obs(sim):
+    """BIMANUAL_PROPRIO_ONLY: tray position for the stand / spot placement from the HANDS' forward kinematics (arm encoders + the grasp offset:
+    the weld relpose of the held tray, or the friction assist's wrist-camera offset, or -- before any grasp -- the nominal hold relpose).
+    No read of the tray body."""
+    a = getattr(sim, "assist", None)
+    if a is not None and a.cfg.proprio:
+        r = a.tray_from_hands()
+        if r is not None:
+            return np.asarray(r[0], float)
+    ps = []
+    for s in ("left", "right"):
+        b = sim.m.body(f"{s}_arm_gripper_base").id
+        e = sim.eq[s]
+        rel = sim.m.eq_data[e, 3:6] if (sim.grasped and e >= 0 and int(sim.d.eq_active[e])) else sim.of.nominal[s][3:6]
+        ps.append(sim.d.xpos[b] + sim.d.xmat[b].reshape(3, 3) @ rel)
+    return 0.5 * (ps[0] + ps[1])
+
+
 def run_side(shield_on, seed=0, max_s=330.0, perception="off", out=OUT, tag=None, start="full", place_backend="zed", cafe_walker=False, verbose=True,
-             tail_s=1.0, quiet_every=500, arm_zono_rows=False):
+             tail_s=1.0, quiet_every=500, arm_zono_rows=False, people="truth", people_kw=None, lang=None):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     side = "shield" if shield_on else "raw"
@@ -82,10 +100,21 @@ def run_side(shield_on, seed=0, max_s=330.0, perception="off", out=OUT, tag=None
         services = PerceptionService(perception, cache_dir=out / "perception", backend=place_backend, seed=seed, log=lambda s: print(s, flush=True))
     else:
         services = MS.NullServices()
+    lang_services = None
+    if lang is not None:                     # --lang: language layer (grounding + spec authoring + mu prior at the SENSE phases); default off = bit-identical
+        if not (shield_on and perception != "off"):
+            raise SystemExit("--lang needs --side shield and --perception live|cached (it grounds names on the perception captures)")
+        from world_model.v2.house.lang import cli as LCLI
+        services = lang_services = LCLI.make_lang_services(services, lang, out, sim=sim, log=lambda s: print(s, flush=True))
     op = MS.CoffeeRunOperator(seed, sim.scene, services, start_phase=start_phase)
     shield = SH.Shield(None, occ=sim.occ, a_hw=sim.a_hw) if shield_on else SH.Passthrough()
+    if shield_on and people != "truth":      # head-camera KF tracker as the shield's people source (people_track); sim.people_state stays the metric truth
+        sim.people_source = people
+        shield = sim.make_shield(None, **dict(dict(seed=seed), **(people_kw or {})))
     if shield_on:
         shield.docks = [wp["cafe_counter_pick"][:2], wp["lab_desk_place"][:2]]
+    if lang_services is not None:
+        lang_services.on_result = lambda lr, kind: (shield.set_lang(lr), print(f"[lang] shield: mu set [{lr.mu.lo:.3f}, {lr.mu.hi:.3f}], IR spec status={lr.spec.status} ({kind})", flush=True))
     passthrough = SH.Passthrough()
     n_max = int(max_s / TICK) + 400
     nq, nu = m.nq, m.nu
@@ -106,9 +135,10 @@ def run_side(shield_on, seed=0, max_s=330.0, perception="off", out=OUT, tag=None
     done_t = None
     k = 0
     n_ticks = int(max_s / TICK)
+    proprio_only = os.environ.get("BIMANUAL_PROPRIO_ONLY", "0") == "1"       # tray position for placement from hand FK, not the tray body
     for k in range(n_ticks):
         obs = sim.observe()
-        obs["tray_pos"] = d.xpos[sim.tray].copy()
+        obs["tray_pos"] = _tray_pos_obs(sim) if proprio_only else d.xpos[sim.tray].copy()
         obs["bump_new"] = sim.bump_contacts - bump_prev
         bump_prev = sim.bump_contacts
         cmd = op.step(obs)
@@ -139,6 +169,8 @@ def run_side(shield_on, seed=0, max_s=330.0, perception="off", out=OUT, tag=None
         if op.phase in MS.AUTONOMOUS:
             safe, info = passthrough.filter(sim, cmd)
             info = dict(info, label="auto")
+            if shield_on and people != "truth":          # keep the tracker / observed-space map alive through the autonomous phases
+                shield.perc.step(sim)
         else:
             if shield_on:
                 shield.cfg.use_cup = bool(sim.grasped)
@@ -183,6 +215,8 @@ def run_side(shield_on, seed=0, max_s=330.0, perception="off", out=OUT, tag=None
         summ["flmpc_qp"] = sim.ctl.qp_stats()
     except Exception as e:
         summ["flmpc_qp"] = dict(error=str(e))
+    if lang_services is not None:
+        summ["lang"] = {k: dict(lr.hud(), json=f"lang_{k}_lang.json") for k, lr in lang_services.lang.items()}
     if shield_on and perception != "off" and hasattr(services, "results"):
         summ["perception"] = {kk: dict(t_sim=r["t_sim"], n_zonotopes=len(r["zonos"]), gt_recovered=r["gt_recovered"], capture_wall_s=r.get("capture_wall_s"),
                                        timing=r["timing"], approach=r.get("approach"),
@@ -260,10 +294,20 @@ def main():
     ap.add_argument("--no-walker", action="store_true", help="(default, kept for compatibility)")
     ap.add_argument("--arm-zono-rows", action="store_true", help="FL-MPC zonotope HOCBF rows on both arms + the held tray during PLACE / RELEASE (shield side with a perception result; "
                                                                   "zono_rows.arm_rows via ArmCtl.set_zono).  Default off = bit-identical")
+    ap.add_argument("--people", choices=["truth", "tracker"], default="truth", help="people source of the shield side (tracker = head-camera KF tracker; the truth stays the metric)")
+    ap.add_argument("--people-look", action="store_true", help="--people tracker: look-before-move glance")
+    ap.add_argument("--people-conformal", default=None, help="--people tracker: conformal margin json (people_track.calib)")
+    ap.add_argument("--lang", default=None, metavar="INSTRUCTION", help="language layer: a natural-language instruction; at the SENSE phases a VLM grounds the perceived zonotopes, authors the IR spec "
+                                                                          "and a mu prior (shield spec + mu set + per-object zonotope clearances).  Default off = bit-identical")
+    ap.add_argument("--lang-backend", choices=["auto", "live", "mock"], default="auto", help="auto = live VLM daemon if up, else mock (logged)")
+    ap.add_argument("--lang-image", choices=["main", "twin"], default="main", help="image shown to the VLM: main = flat-colour render of the main sim through the perception camera's exact pose; twin = the speckled stereo twin's left image")
+    ap.add_argument("--lang-cache", default=None, help="VLM response cache dir (default <out>/lang_cache): replays are offline and reproducible")
     ap.add_argument("--out", default=str(OUT))
     ap.add_argument("--tag", default=None)
     a = ap.parse_args()
-    run_side(a.side == "shield", a.seed, a.max_s, a.perception, a.out, a.tag, a.start, a.place_backend, cafe_walker=a.walker and not a.no_walker, arm_zono_rows=a.arm_zono_rows)
+    run_side(a.side == "shield", a.seed, a.max_s, a.perception, a.out, a.tag, a.start, a.place_backend, cafe_walker=a.walker and not a.no_walker, arm_zono_rows=a.arm_zono_rows,
+             people=a.people, people_kw=dict(look=a.people_look, conformal=a.people_conformal),
+             lang=(dict(instruction=a.lang, backend=a.lang_backend, cache=a.lang_cache, image=a.lang_image) if a.lang else None))
     sys.stdout.flush()
     os._exit(0)
 

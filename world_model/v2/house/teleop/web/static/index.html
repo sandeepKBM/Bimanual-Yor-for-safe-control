@@ -13,12 +13,20 @@
  .warn{color:#fb4} .bad{color:#f66} .ok{color:#6d6}
  h4{margin:10px 0 3px;color:#9bd} kbd{background:#333;border-radius:3px;padding:0 4px;border:1px solid #555}
  #sim{color:#f90;font-weight:bold}
+ #lang pre{margin:2px 0;white-space:pre-wrap;color:#cfe;background:#1a1a1a;padding:2px 4px}
+ #lang button{background:#333;color:#ddd;border:1px solid #666;cursor:pointer}
 </style></head><body>
 <div id="wrap">
  <div id="view"><canvas id="cv" width="640" height="360"></canvas><div id="banner">connecting...</div></div>
  <div id="hud">
   <div id="sim">SIMULATION ONLY - not connected to any robot</div>
   <table id="tel"></table>
+   <div id="assist" style="display:none"><h4>Assisted grasp (friction, wrist cameras)</h4>
+   <div><button id="assist_btn">Assist grasp (G)</button> <button id="place_btn">Place / release (H)</button> <span id="assist_st"></span></div></div>
+ <div id="lang" style="display:none"><h4>Language (VLM)</h4>
+   <textarea id="lang_in" rows="2" style="width:100%;box-sizing:border-box;background:#222;color:#ddd;border:1px solid #555" placeholder="e.g. bring the coffee to my desk without spilling and keep it 10 cm away from the monitor"></textarea>
+   <div><button id="lang_go">Ask VLM</button> <button id="lang_clr">Clear (defaults)</button> <span style="color:#888">typing here never moves the robot; Enter = ask, Esc = leave the box</span></div>
+   <div id="lang_out"></div></div>
   <h4>Keyboard (hold to move; each key is its own deadman)</h4>
   <table>
    <tr><td><kbd>W</kbd>/<kbd>S</kbd></td><td>forward / back</td><td><kbd>A</kbd>/<kbd>D</kbd></td><td>strafe left / right</td></tr>

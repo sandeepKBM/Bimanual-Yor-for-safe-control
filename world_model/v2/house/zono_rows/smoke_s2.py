@@ -86,7 +86,8 @@ def run_one(C, traj, keys, zonos, names, args, with_rows, seed=0, frames=None):
                   relax=None if args.relax == "none" else args.relax, relax_s0=args.relax_s0, relax_smax=args.relax_smax,
                   relax_bisect=args.relax_bisect, relax_max_solves=args.relax_max_solves, relax_frac=args.relax_frac,
                   tray_level=args.level, level_delta=args.level_delta, track_bodies=["tray", "ball"] if args.track else None,
-                  level_relax=getattr(args, "level_relax", False), brake=getattr(args, "brake", False), ref_clip=getattr(args, "ref_clip", None))
+                  level_relax=getattr(args, "level_relax", False), brake=getattr(args, "brake", False), ref_clip=getattr(args, "ref_clip", None),
+                  proprio=True if getattr(args, "proprio", False) else None, proprio_ball=getattr(args, "proprio_ball", "prior"))
     mon = EX.ClearMon(C, keys)
     DT = EX.DT
     tray, ball = m.body("tray").id, m.body("ball").id
@@ -116,6 +117,11 @@ def run_one(C, traj, keys, zonos, names, args, with_rows, seed=0, frames=None):
                                            a_slew=(args.bf_aslew, args.bf_aslew, 2 * args.bf_aslew), every=args.bf_every), origin_xy=(traj.x[0], traj.y[0]), yaw=float(traj.yaw[0]), data=d)
         ref = BF.PathRef(traj, DT)
         pose = np.array([traj.x[0], traj.y[0], float(traj.yaw[0])])
+    loc = None
+    if bf is not None and getattr(args, "pose_source", "truth") == "est":       # house/loc: the base CBF + path reference read the ESTIMATED pose
+        from world_model.v2.house.loc import estimator as ES, zono_est as ZE
+        loc = ES.PoseEstimator(ES.scaled(ES.LocCfg(), args.loc_scale), seed=args.loc_seed, true_pose0=pose)
+        ZE.attach(bf, lambda: pose)                                              # closure: always the latest TRUE pose
     bmin_every = getattr(args, "bottle_every", 0)
     for k in range(N):
         kk = min(max(k - n_set, 0), n_t - 1)
@@ -132,9 +138,19 @@ def run_one(C, traj, keys, zonos, names, args, with_rows, seed=0, frames=None):
         if bf is not None:                      # base twist through the zonotope clearance CBF; the mocap pose integrates the FILTERED twist
             tb0 = time.perf_counter()
             mujoco.mj_forward(m, dn)
-            u_nom, _ix = ref.nominal(pose[:2], started=k >= n_set)
-            u, _bi = bf.step(dn, u_nom, pose[:2], pose[2], DT)
-            pose = pose + u * DT
+            if loc is None:
+                u_nom, _ix = ref.nominal(pose[:2], started=k >= n_set)
+                u, _bi = bf.step(dn, u_nom, pose[:2], pose[2], DT)
+                pose = pose + u * DT
+            else:                                                                # u is a map-frame twist; the base executes it as a BODY twist
+                pe = loc.pose.copy()
+                u_nom, _ix = ref.nominal(pe[:2], started=k >= n_set)
+                u, _bi = bf.step(dn, u_nom, pe[:2], pe[2], DT)
+                ce, se, ct, st = math.cos(pe[2]), math.sin(pe[2]), math.cos(pose[2]), math.sin(pose[2])
+                ub = (ce * u[0] + se * u[1], -se * u[0] + ce * u[1])
+                u = np.array([ct * ub[0] - st * ub[1], st * ub[0] + ct * ub[1], u[2]])   # now the TRUE world twist
+                pose = pose + u * DT
+                loc.update(k * DT, pose, DT)
             d.mocap_pos[0] = (pose[0], pose[1], 0.0)
             d.mocap_quat[0] = B.yaw_quat(pose[2])
             dn.mocap_pos[0] = d.mocap_pos[0]; dn.mocap_quat[0] = d.mocap_quat[0]
@@ -185,7 +201,7 @@ def run_one(C, traj, keys, zonos, names, args, with_rows, seed=0, frames=None):
     s = ctl.summary()
     bfres = {}
     if bf is not None:
-        bfres = dict(base_filter=bf.summary(), base_progress_frac=ref.progress(), base_path_remaining_m=float(ref.seg[-1] - ref.seg[ref.idx]),
+        bfres = dict(**({"loc_pose_errors": loc.errors()} if loc is not None else {}), base_filter=bf.summary(), base_progress_frac=ref.progress(), base_path_remaining_m=float(ref.seg[-1] - ref.seg[ref.idx]),
                      base_final_xy=pose[:2].tolist(), base_goal_xy=[float(traj.x[-1]), float(traj.y[-1])],
                      base_final_dist_to_path_end_m=float(np.hypot(pose[0] - traj.x[-1], pose[1] - traj.y[-1])),
                      base_filter_ms_median=float(np.median(tb[n_set:])), base_filter_ms_p95=float(np.percentile(tb[n_set:], 95)),
@@ -214,7 +230,7 @@ def run(a):
     from world_model.v2.house.zono_rows import rows as R
     zs = R.ZonoSet(zonos, names)
     res = dict(setup=dict(n_zonotopes=len(zs), facets_total=int(sum(h.n_facets for h in zs.h)), facets_max=int(max(h.n_facets for h in zs.h)),
-                          margin=a.margin, alpha1=a.alpha, alpha2=a.alpha, d_act=a.d_act, max_rows=a.max_rows, relax=a.relax, relax_frac=a.relax_frac, base_filter=a.base_filter, bf=dict(gamma=a.bf_gamma, a_brk=a.bf_abrk, margin=a.bf_margin, d_act=a.bf_dact, max_rows=a.bf_max_rows, a_slew=a.bf_aslew, every=a.bf_every), level=a.level, level_delta=a.level_delta, track=a.track, level_relax=a.level_relax, brake=a.brake, ref_clip=a.ref_clip, flmpc_impl=os.environ.get("BIMANUAL_FLMPC_IMPL", "py"), physics_dt=EX.DT,
+                          margin=a.margin, alpha1=a.alpha, alpha2=a.alpha, d_act=a.d_act, max_rows=a.max_rows, relax=a.relax, relax_frac=a.relax_frac, base_filter=a.base_filter, bf=dict(gamma=a.bf_gamma, a_brk=a.bf_abrk, margin=a.bf_margin, d_act=a.bf_dact, max_rows=a.bf_max_rows, a_slew=a.bf_aslew, every=a.bf_every), level=a.level, level_delta=a.level_delta, track=a.track, proprio=a.proprio, proprio_ball=a.proprio_ball, level_relax=a.level_relax, brake=a.brake, ref_clip=a.ref_clip, flmpc_impl=os.environ.get("BIMANUAL_FLMPC_IMPL", "py"), physics_dt=EX.DT,
                           control="one FLMPC.step per mj_step (DT=5 ms), torque applied unscaled", traj_s=float(traj.meta["duration_s"]),
                           base_xy0=base0.tolist(), tray0_xy=d.xpos[m.body("tray").id][:2].tolist(), naive_tray_target_t=T_NAIVE.tolist()))
     # kinematic replay of the naive path (no controller): the 106 mm penetration reference
@@ -260,6 +276,9 @@ def main():
     ap.add_argument("--bf-max-rows", type=int, default=48)
     ap.add_argument("--bf-every", type=int, default=1, help="base filter solved every N-th control tick (twist held in between)")
     ap.add_argument("--bf-aslew", type=float, default=0.5, help="base linear slew limit [m/s^2] (yaw 2x)")
+    ap.add_argument("--pose-source", choices=["truth", "est"], default="truth", help="est: base CBF / path reference read the house/loc pose estimate (needs --base-filter)")
+    ap.add_argument("--loc-scale", type=float, default=1.0)
+    ap.add_argument("--loc-seed", type=int, default=0)
     ap.add_argument("--bottle-every", type=int, default=0, help="sample the robot-part-to-bottle true distance every N steps (0 = only every 10th, as before)")
     ap.add_argument("--relax-s0", type=float, default=0.05)
     ap.add_argument("--relax-smax", type=float, default=50.0)
@@ -271,6 +290,8 @@ def main():
     ap.add_argument("--ref-clip", type=float, default=None, help="anti-windup: clip the joint reference to +-this [rad] around the measured q")
     ap.add_argument("--brake", action="store_true", help="a=0 fallback -> velocity brake (a = -qd/0.04 scaled into the torque box)")
     ap.add_argument("--track", action="store_true", help="tracked tray + ball keypoints (measured pose/velocity) instead of the fixed weld offsets")
+    ap.add_argument("--proprio", action="store_true", help="PROPRIO-ONLY: tray rim from hand FK (no d.xpos tracked points); ball = fixed prior spheres (see --proprio-ball)")
+    ap.add_argument("--proprio-ball", choices=["prior", "drop"], default="prior")
     a = ap.parse_args()
     perceive(a) if a.mode == "perceive" else run(a)
 

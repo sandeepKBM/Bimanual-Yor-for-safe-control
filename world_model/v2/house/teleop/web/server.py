@@ -26,6 +26,7 @@ import sys
 import threading
 import time
 import traceback
+from urllib.parse import urlparse
 
 import cv2
 import numpy as np
@@ -58,6 +59,7 @@ class SimWorker(threading.Thread):
         self.render_ms = collections.deque(maxlen=30)
         self.render_n = collections.deque(maxlen=60)
         self.frame_wall = 0.0
+        self.lang = None                                      # house/lang WebLang (only with --lang; default off = nothing below runs)
 
     # ------------------------------------------------------------------ build / reset
     def build(self):
@@ -76,6 +78,9 @@ class SimWorker(threading.Thread):
         kw = dict(scene_name=a.scene, grasped=carry, counter=not carry, desk=not carry, seed=a.seed)
         if a.grasp_mode is not None:
             kw["grasp_mode"] = a.grasp_mode
+        if getattr(a, "spawn_at", None):                           # start the robot at a scene waypoint (e.g. cafe_counter_pick: hands at the tray, for the assisted grasp)
+            from .. import scene as SCN
+            kw["spawn"] = SCN.get_scene(a.scene).waypoints[a.spawn_at]
         t0 = time.time()
         self.sim = TeleopSim(**kw)
         sim = self.sim
@@ -83,6 +88,12 @@ class SimWorker(threading.Thread):
         self.shield = SH.Shield(occ=sim.occ, a_hw=sim.a_hw)
         self.shield.docks = [wp["cafe_counter_pick"][:2]] if carry else [wp["cafe_counter_pick"][:2], wp["lab_desk_place"][:2]]
         self.passthru = SH.Passthrough()
+        if getattr(a, "lang", "off") != "off":                    # language layer (flag-gated): instruction box -> grounding + spec + mu prior -> shield
+            if self.lang is None:
+                from world_model.v2.house.lang import web as LW
+                self.lang = LW.WebLang(a.lang, cache_dir=a.lang_cache, source=a.lang_source, snapshot=a.lang_snapshot, log=lambda m: print(m, flush=True))
+            elif self.lang.last is not None:                      # episode reset: the new shield keeps the language-authored spec / mu set
+                self.shield.set_lang(self.lang.last)
         W, H = a.width, a.height
         sim.m.vis.global_.offwidth, sim.m.vis.global_.offheight = max(W, 640), max(H, 480)
         self.mj = mujoco
@@ -191,6 +202,18 @@ class SimWorker(threading.Thread):
                 self.wall_hist.clear()
                 self.ready = True
 
+    def apply_lang(self):
+        """sim thread: install a finished language result on the shield between ticks (the VLM thread only queues it)."""
+        p = self.lang.take_pending()
+        if p is None:
+            return
+        try:
+            self.shield.set_lang(None if isinstance(p, str) else p)
+            if not isinstance(p, str):
+                print(f"[lang] shield updated: mu [{p.mu.lo:.3f}, {p.mu.hi:.3f}], spec {p.spec.status}, clearances {p.spec.clearances}", flush=True)
+        except Exception as e:      # noqa: BLE001
+            print(f"[lang] could not apply the result to the shield: {type(e).__name__}: {e}", flush=True)
+
     def loop(self):
         a = self.a
         from ..sim import TICK
@@ -206,6 +229,8 @@ class SimWorker(threading.Thread):
                 self.wall_hist.clear()
                 continue
             self.handle_server_events()
+            if self.lang is not None:
+                self.apply_lang()
             t0 = time.perf_counter()
             sim = self.sim
             obs = sim.observe()
@@ -266,7 +291,10 @@ class SimWorker(threading.Thread):
             grasped=bool(o["grasped"]), can_grasp=bool(obs["can_grasp"]), infeasible=bool(o["infeasible"]),
             bumps=int(o["bump_contacts"]), cmd_twist=[round(float(x), 3) for x in cmd.twist],
             safe_twist=[round(float(x), 3) for x in safe.twist], cam=CAMERAS[self.cam_i], inset=self.inset,
-            impl=getattr(sim.ctl.fl, "impl", "?"), task=self.a.task, scene=self.a.scene)
+            impl=getattr(sim.ctl.fl, "impl", "?"), task=self.a.task, scene=self.a.scene,
+            **({"assist": dict(state=str(sim.assist.state), attempt=int(sim.assist.attempt), t_state=round(float(sim.assist.t_state), 1),
+                               fail=str(sim.assist.fail_reason or ""), place=sim.assist.metrics_.get("place", {}).get("ok"))}
+               if getattr(sim, "assist", None) is not None else {}))
 
 
 # ------------------------------------------------------------------------------------------------------------------ web app
@@ -292,7 +320,8 @@ def make_app(args, hub, worker, token):
         if not authed(req):
             return web.Response(status=403, text="bad token")
         origin = req.headers.get("Origin")
-        if origin and origin not in (f"http://localhost:{args.port}", f"http://127.0.0.1:{args.port}"):
+        # any loopback origin: the laptop end of an ssh / VS Code tunnel may sit on a different local port than --port
+        if origin and urlparse(origin).hostname not in ("localhost", "127.0.0.1"):
             return web.Response(status=403, text="bad origin")
         ws = web.WebSocketResponse(max_msg_size=1 << 16, heartbeat=None)
         await ws.prepare(req)
@@ -306,11 +335,18 @@ def make_app(args, hub, worker, token):
         print(f"[ws] client connected from {req.remote}", flush=True)
         await ws.send_str(json.dumps(dict(type="hello", kbd_axes={k: list(v) for k, v in IN.KBD_AXES.items()}, kbd_events=IN.KBD_EVENTS,
                                           presets=list(hub.cfg["presets"]), preset_names=list(hub.cfg["preset_names"]),
-                                          watchdog_s=hub.cfg["watchdog_s"], cameras=list(CAMERAS), task=args.task, scene=args.scene)))
+                                          watchdog_s=hub.cfg["watchdog_s"], cameras=list(CAMERAS), task=args.task, scene=args.scene,
+                                          lang=(args.lang if getattr(args, "lang", "off") != "off" else None))))
 
         async def writer():
-            last_frame, last_tel = -1, 0.0
+            last_frame, last_tel, last_lang = -1, 0.0, -1
             while not ws.closed:
+                if worker.lang is not None and worker.lang.version != last_lang:       # HUD panel of the language layer (sent on change, incl. the running timer every 1 s)
+                    last_lang = worker.lang.version
+                    try:
+                        await ws.send_str(json.dumps(dict(type="lang", **worker.lang.state()), allow_nan=False, default=lambda x: None))
+                    except ValueError:
+                        pass
                 if worker.frame is not None and worker.frame_id != last_frame:
                     last_frame = worker.frame_id
                     await ws.send_bytes(b"\x01" + worker.frame)
@@ -337,6 +373,10 @@ def make_app(args, hub, worker, token):
                             await ws.send_str(json.dumps(dict(type="pong", id=msg.get("id"))))
                         elif msg.get("type") == "pad_gone":
                             hub.disconnect("pad")
+                        elif msg.get("type") == "lang" and worker.lang is not None and worker.ready:
+                            worker.lang.submit(msg.get("instruction", ""), sim=worker.sim)       # background thread; the sim keeps running
+                        elif msg.get("type") == "lang_clear" and worker.lang is not None:
+                            worker.lang.clear()
                     except Exception as e:                                # malformed message: ignore, never crash the loop
                         print("[ws] bad message:", repr(e), flush=True)
                 elif m.type == WSMsgType.ERROR:
@@ -375,7 +415,14 @@ def parse_args(argv=None):
                     help="process = renderer in a separate process from a shared-memory state snapshot (default); thread = old in-thread renderer")
     ap.add_argument("--fast", action="store_true", help="BIMANUAL_TELEOP_FAST=1: numba barriers + minimal dynamics refresh (bit-identical, ~3.5x faster tick)")
     ap.add_argument("--split", action="store_true", help="BIMANUAL_TELEOP_SPLIT=1: mj_step1/mj_step2 control split (installs the sim.py hook in memory)")
+    ap.add_argument("--lang", choices=["off", "auto", "live", "mock"], default="off",
+                    help="language layer (house/lang): instruction box in the page; a VLM (live daemon via the file-queue service, or the offline mock) grounds objects, authors the IR spec "
+                         "+ a mu prior and installs them on the shield.  auto = live if the daemon is up else mock.  Default off = nothing changes")
+    ap.add_argument("--lang-source", choices=["sim", "snapshot"], default="sim", help="image + object proposals: the sim camera + instance segments, or a saved flagship perception result")
+    ap.add_argument("--lang-snapshot", default=None, help="--lang-source snapshot: perception_desk.pkl path (default: the flagship desk capture)")
+    ap.add_argument("--lang-cache", default="/data/local/ss5772/molmospaces/lang/web_cache", help="VLM response cache (replays are offline)")
     ap.add_argument("--grasp-mode", dest="grasp_mode", default=None, help="passed to TeleopSim(grasp_mode=...) if that kwarg exists")
+    ap.add_argument("--spawn-at", dest="spawn_at", default=None, help="scene waypoint to spawn at (e.g. cafe_counter_pick); default = the scene start")
     return ap.parse_args(argv)
 
 

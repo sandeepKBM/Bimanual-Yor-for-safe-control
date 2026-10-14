@@ -34,7 +34,8 @@ TICK = 0.02
 
 @dataclass
 class PerceptionCfg:
-    detector: str = "depth"          # 'depth' | 'seg' | 'param' | 'truth'
+    detector: str = "depth"          # 'depth' | 'seg' | 'param' | 'truth' | 'depth_perc' | 'neural' | 'fusion' | 'full' (the last four: detect_v2, estimated pose / no true model;
+                                     # sim needs pose_source='est'; 'full' = preset: neural if sim.human_mesh else depth_perc + perceived grid)
     rate_hz: float = 30.0
     latency_ticks: int = 3
     # parametric detector
@@ -48,6 +49,32 @@ class PerceptionCfg:
     use_static_map: bool = True
     static_map: str = "raycast"      # 'raycast' (background subtraction vs the house model) | 'occ' (shield's sparse sim.occ EDT only) | 'both'
     r_max: float = 4.5
+    neural_sock: str = ""            # detector 'neural': unix socket of a READY detect_server (env DETECT_SOCK if empty)
+    neural_res: tuple = (640, 360)
+    neural_thr: float = 0.5
+    neural_centroid: str = "points"  # 'points' | 'surf' | 'ray' (detect_v2.NeuralDetector)
+    neural_r_off: float = 0.10       # centroid='surf': half-depth offset behind the visible surface [m]
+
+    @classmethod
+    def preset(cls, name="full", human_mesh=False, **kw):
+        """named perception presets (the defaults of PerceptionCfg are NOT changed).
+        'full': no privileged inputs: estimated pose, perceived map, no true model.  People detector = 'neural' when the scene's people are human meshes
+        (human_mesh=True), else 'depth_perc' with the perceived 2-D grid filter (capsule people are invisible to a COCO detector).  detector='full' inside a
+        PerceptionCfg resolves the same way from the sim at stack construction."""
+        if name != "full":
+            raise ValueError(name)
+        return cls(detector="neural" if human_mesh else "depth_perc", static_map="both", **kw)
+
+
+def track_state(t, k):
+    """(seconds since the track's last measurement update, track age in seconds) at tick k -- the visibility / age covariates of the conformal margin."""
+    return max(0, k - getattr(t, 'last_upd', k)) * TICK, max(0, k - getattr(t, 'born', k)) * TICK
+
+
+def track_range(t, cam):
+    """horizontal distance [m] from the camera origin to the track's position estimate (the 'close range / partial view' covariate)."""
+    o, _ = cam.pose()
+    return float(np.hypot(t.x[0] - o[0], t.x[1] - o[1]))
 
 
 class _NS:
@@ -68,11 +95,18 @@ class SimProxy:
     """delegates everything to the real TeleopSim except people_state / scene.people (tracker-derived).  `track_info` carries the
     per-track covariance for the uncertainty-aware shield."""
 
-    def __init__(self, sim, tracks):
+    def __init__(self, sim, tracks, cam=None):
         self._sim = sim
-        self.track_info = [dict(name=t.name, xy=t.x[:2].copy(), v=t.x[2:].copy(), P=t.P.copy(), status=t.status, id=t.id) for t in tracks]
+        k = getattr(sim, "k", 0)
+        self.track_info = [dict(name=t.name, xy=t.x[:2].copy(), v=t.x[2:].copy(), P=t.P.copy(), status=t.status, id=t.id,
+                                since_upd_s=track_state(t, k)[0], age_s=track_state(t, k)[1],
+                                range_m=(track_range(t, cam) if cam is not None else None)) for t in tracks]
         self.people_state = [(ti["xy"], ti["v"]) for ti in self.track_info]
         self.scene = SceneProxy(sim.scene, [_NS(name=ti["name"], id=ti["id"], dynamic=True) for ti in self.track_info])
+
+    def pose(self):
+        """the base pose the control path knows: the PoseEstimator output when the sim runs pose_source='est' (the tracks are in that frame), else the truth."""
+        return self._sim.ctrl_pose()
 
     def __getattr__(self, n):
         return getattr(self._sim, n)
@@ -130,8 +164,15 @@ class PerceptionStack:
         self.cfg = cfg or PerceptionCfg()
         c = self.cfg
         self.sim = sim
-        self.cam = CAM.HeadCamera(sim, CAM.head_spec(W=c.W, H=c.H, rate_hz=c.rate_hz, latency_ticks=c.latency_ticks))
+        if c.detector == "full":
+            from dataclasses import replace as _rep
+            c = self.cfg = _rep(c, detector="neural" if getattr(sim, "human_mesh", None) else "depth_perc", static_map="both")
+        cam_cls = CAM.HeadCamera
+        if getattr(sim, "human_mesh", None):                           # visual human meshes: the depth sensor must ray-cast them (not the hidden capsule)
+            from .human_vis import HeadCameraHuman as cam_cls
+        self.cam = cam_cls(sim, CAM.head_spec(W=c.W, H=c.H, rate_hz=c.rate_hz, latency_ticks=c.latency_ticks))
         self.vis = DET.Visibility(self.cam)
+        self.est = getattr(sim, "loc", None) is not None             # pose_source='est': everything perceived lives in the ESTIMATED frame
         if c.detector == "seg":
             self.det = DET.SegDetector()
         elif c.detector == "depth":
@@ -139,11 +180,15 @@ class PerceptionStack:
                                          r_max=c.r_max)
         elif c.detector == "param":
             self.det = DET.ParametricDetector(c.sigma, c.p_drop, c.seed)
+        elif c.detector in ("depth_perc", "neural", "fusion"):
+            from . import detect_v2 as D2
+            self.det = D2.detector_from_cfg(sim, self.cam, c)
         else:
             raise ValueError(c.detector)
         self.trk = MultiTracker(c.tracker)
         self.queue: deque = deque()
-        self.omap = ObservedMap(sim.occ) if sim.occ is not None else None
+        _occ = sim.occ_ctrl if (self.est and getattr(sim, "occ_ctrl", None) is not None) else sim.occ      # est: the unseen-space bookkeeping uses the PERCEIVED grid
+        self.omap = ObservedMap(_occ) if _occ is not None else None
         self.hfov = 2 * math.atan(math.tan(math.radians(self.cam.spec.fovy) / 2) * c.W / c.H)
         self.tracks = []
         self.vis_now = []
@@ -165,7 +210,7 @@ class PerceptionStack:
         self.vis_now = [self.vis.of(sim, xy) for xy, _ in truth]
         if self._due(k):
             t0 = time.perf_counter()
-            if self.cfg.detector in ("seg", "depth"):
+            if self.cfg.detector in ("seg", "depth", "depth_perc", "neural", "fusion"):
                 frame = self.cam.render(k, self.cfg.seed + 7)
                 dets = self.det.detect(frame, self.cam, sim)
             else:
@@ -173,6 +218,9 @@ class PerceptionStack:
                 dets = self.det.detect(None, self.cam, sim, vis=self.vis_now, truth=truth)
             self.render_ms.append((time.perf_counter() - t0) * 1000)
             origin, R = self.cam.pose()
+            if self.est:                                              # camera mounted at the ESTIMATED base pose (not the true one)
+                from .detect_v2 import est_correction, _rz_cam
+                origin, R = _rz_cam(origin, R, est_correction(sim))
             if self.omap is not None:
                 yaw_cam = math.atan2(R[1, 2] * -1.0, R[0, 2] * -1.0)          # camera looks along -z_cam
                 self.omap.stamp(origin, yaw_cam, self.hfov, self.cam.spec.z_max, sim.t)
@@ -191,7 +239,7 @@ class PerceptionStack:
         return self.tracks
 
     def proxy(self, sim):
-        return SimProxy(sim, self.tracks)
+        return SimProxy(sim, self.tracks, self.cam)
 
 
 class TruthPerception:

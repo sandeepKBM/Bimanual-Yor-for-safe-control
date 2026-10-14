@@ -14,6 +14,7 @@ tray; the base is dynamic (follows the kinematic target through a weld) so base 
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -59,12 +60,19 @@ class Cmd:
 
 class TeleopSim:
     def __init__(self, scene_name="h5", grasped=True, seed=0, with_people=True, counter=False, desk=False, tilt=True,
-                 spawn=None, a_hw=None, grasp_mode="weld", people_clock="legacy", people_policy=None):
-        """people_clock="legacy" (default, bit-identical): a walker's track clock only runs while the CURRENT track velocity is non-zero, so a
+                 spawn=None, a_hw=None, grasp_mode="weld", people_clock="legacy", people_policy=None, people_source="truth",
+                 pose_source="truth", loc_cfg=None, loc_seed=None, occ_source="true", occ_map=None):
+        """pose_source="truth" (default, bit-identical): control-path consumers (shield wall keep-out) read the mocap base pose.  "est": they read
+        `ctrl_pose()` = house/loc PoseEstimator (wheel odometry + ZED VIO, `loc_cfg` = LocCfg, `loc_seed` default = seed); truth stays for
+        metrics/eval/operator.  occ_source="true" (default): shield wall grid = the true house grid; "perceived": `occ_map` (loc.mapper
+        PerceivedMap / OccGrid / npz path; None -> built/cached by loc.mapper for this scene) = grid from a head-ZED mapping pass.
+        people_clock="legacy" (default, bit-identical): a walker's track clock only runs while the CURRENT track velocity is non-zero, so a
         track that starts with a stationary segment never moves (h5 p_walker).  "time": the clock runs with sim time (every tick) except while
         the person yields; `people_policy` = PersonPolicy (all dynamic people) or {name: PersonPolicy}."""
         assert grasp_mode in ("weld", "friction"), grasp_mode
         assert people_clock in ("legacy", "time"), people_clock
+        assert people_source in ("truth", "tracker"), people_source
+        self.people_source = people_source        # what the SHIELD sees (make_shield); self.people_state is always the ground truth (metrics)
         self.people_clock = people_clock
         self.people_policy = people_policy
         self._yield_since, self._gave_up, self._detour = {}, {}, {}
@@ -116,7 +124,14 @@ class TeleopSim:
         self.bead_out = np.zeros(self.rig.n_beads, bool)            # sticky
         self.bead_out_t = np.full(self.rig.n_beads, np.nan)
         self.cup_lost_t = None
-        self.occ = SC.load_occupancy(self.scene)
+        self.occ = SC.load_occupancy(self.scene)                       # TRUTH grid: metrics / eval only when occ_source != "true"
+        assert pose_source in ("truth", "est") and occ_source in ("true", "perceived"), (pose_source, occ_source)
+        self.pose_source, self.occ_source = pose_source, occ_source
+        self.occ_ctrl = self.occ if occ_source == "true" else SC.load_perceived_occupancy(self.scene, occ_map)   # what the control path (shield) reads
+        self.loc = None
+        if pose_source == "est":
+            from ..loc.estimator import PoseEstimator
+            self.loc = PoseEstimator(loc_cfg, seed=seed if loc_seed is None else loc_seed, true_pose0=(spawn[0], spawn[1], spawn[2]))
         self._fp_pts = GM.boundary_pts(step=0.02)
         # house (static world) geoms for physical bump counting
         own = B._robot_tray_bodies(m)
@@ -166,6 +181,12 @@ class TeleopSim:
             pts.append((xy, v))
         self.people_state = pts
         return pts
+
+    def make_shield(self, cfg=None, **kw):
+        """the shield for this sim's people source: "truth" -> the original Shield on people_state (bit-identical); "tracker" -> head-camera detections ->
+        KF tracks -> inflated keep-out (people_track.source.make_shield; kwargs: perception, look, look_cfg, conformal, ucfg, seed)."""
+        from ..people_track.source import make_shield
+        return make_shield(self, self.people_source, cfg, **kw)
 
     def policy_of(self, name):
         pol = self.people_policy
@@ -250,7 +271,22 @@ class TeleopSim:
         return int(self.bead_out.sum())
 
     def grasp_errors(self):
-        return self.of.handle_errors(self.d)
+        return self.of.handle_errors(self.d, **self._tray_obs_kw())
+
+    def _tray_obs_kw(self):
+        """BIMANUAL_PROPRIO_ONLY (friction rig): the operator-visible tray pose is the wrist-camera estimate / hand FK, not the tray body."""
+        a = self.assist
+        if a is not None and os.environ.get("BIMANUAL_ALIGN_CUE", "") == "cam":
+            # ALIGN cue without the tray body (house/grasp: external tracker + wrist-camera memory, HOLD = hand FK); None = no cue -> can_grasp False
+            return dict(tray=a.operator_tray_estimate())
+        if a is not None and a.cfg.proprio:
+            if a.state == "HOLD":                      # grasped: the tray is where the hands + the measured grasp offset put it
+                return dict(tray=a.tray_estimate_for_operator())
+            if os.environ.get("BIMANUAL_PROPRIO_OPERATOR", "0") == "1":
+                # STRICT: the operator cue also comes from the wrist cameras.  They are BLIND at the hold geometry (min range 0.10 m), so ALIGN never
+                # sees the tray -> can_grasp stays False.  Default OFF: before the grasp the operator model keeps its (human-eye) view of the tray.
+                return dict(tray=a.tray_estimate_for_operator())
+        return {}
 
     def can_grasp(self):
         e = self.grasp_errors()
@@ -282,7 +318,12 @@ class TeleopSim:
         self.ctl.tilt = False
 
     def pose(self):
+        """TRUE base pose (mocap).  Metrics / evaluation / the operator model.  Control-path consumers use ctrl_pose()."""
         return np.array([self.base.x, self.base.y, self.base.yaw])
+
+    def ctrl_pose(self):
+        """base pose as the CONTROL PATH sees it: the PoseEstimator output (pose_source="est", latest tick) or the truth (default)."""
+        return self.pose() if self.loc is None else self.loc.pose.copy()
 
     # ------------------------------------------------------------------ metrics from the geometry
     def geometry_metrics(self):
@@ -340,6 +381,8 @@ class TeleopSim:
             if s == N_SUB - 1:
                 self._count_bumps()
         self.k += 1
+        if self.loc is not None:
+            self.loc.update(self.t, self.pose(), TICK)          # sensors measure the true motion; the estimate is read at the NEXT tick
         v_tray = d.qvel[self.tray_adr:self.tray_adr + 3].copy()
         self.tray_acc = (v_tray - self.tray_vel_prev) / TICK
         self.tray_vel_prev = v_tray
@@ -351,7 +394,8 @@ class TeleopSim:
         return dict(t=self.t, pose=self.pose(), v=self.base.v.copy(), acc_body=acc.copy(), rel=rel, cup_tilt=cup_tilt,
                     tray_tilt=self.tray_tilt_deg(), tray_acc=self.tray_acc.copy(), beads_out=nb, wall=wall, pdist=pdist,
                     infeasible=not ctl.last_ok, lift_h=self.lift_actual(), lift_ref=self.lift_h, grasped=self.grasped,
-                    bump_contacts=self.bump_contacts, **({"grasp_state": self.assist.state} if self.assist is not None else {}))
+                    bump_contacts=self.bump_contacts, **({"grasp_state": self.assist.state} if self.assist is not None else {}),
+                    **({"pose_est": self.loc.pose.copy()} if self.loc is not None else {}))
 
     _jog_pending = False
 
@@ -367,9 +411,10 @@ class TeleopSim:
 
     def observe(self):
         """operator-visible state (the operator model delays it itself)."""
-        ep, er = self.of.grasp_error_vec(self.d)
+        ep, er = self.of.grasp_error_vec(self.d, **self._tray_obs_kw())
         return dict(t=self.t, pose=self.pose(), v=self.base.v.copy(), lift_h=self.lift_actual(), grasped=self.grasped,
-                    grasp_err_p=ep, grasp_err_r=er, can_grasp=self.can_grasp())
+                    grasp_err_p=ep, grasp_err_r=er, can_grasp=self.can_grasp(),
+                    **({"pose_est": self.loc.pose.copy(), "v_odo": self.loc.v_odo.copy()} if self.loc is not None else {}))
 
     def cup_world(self):
         return self.d.xpos[self.cup].copy()

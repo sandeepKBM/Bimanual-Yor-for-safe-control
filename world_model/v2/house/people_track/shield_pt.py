@@ -41,6 +41,9 @@ class UncertaintyCfg:
     t_stale: float = 3.0             # s
     frac_unseen: float = 0.4
     include_tentative: bool = False
+    soft_floor: float | None = None  # m: cap the inflation so the row's margin h >= soft_floor while the robot is outside the nominal disc (an uncertainty margin may slow the
+                                     # approach but never creates an instantaneous violation -> no uncertainty-induced emergency brake at the hardware limit / cup slip)
+    conformal: object = None         # ConformalMargin: replaces k_sigma * sqrt(n' Sigma n) by the calibrated (1 - alpha) horizon-error quantile of the track's (visibility, age) bin
 
 
 class PerceivedShield(Shield):
@@ -51,6 +54,7 @@ class PerceivedShield(Shield):
         self.last_infl = 0.0
         self.max_infl_seen = 0.0
         self.n_unseen_cap = 0
+        self.look = None                 # look.Looker (look-before-move glance); None = off (bit-identical)
 
     # ------------------------------------------------------------------ keep-out with per-track inflation
     def _person_rows(self, sim, relax=False):
@@ -67,7 +71,12 @@ class PerceivedShield(Shield):
             xy, vel, P = ti["xy"], ti["v"], ti["P"]
             dist, qn, nw = GM.rect_dist_point(xy, pose)
             Sig = Fh @ P @ Fh.T
-            infl = min(u.k_sigma * math.sqrt(max(float(nw @ Sig @ nw), 0.0)), u.max_infl)
+            if u.conformal is not None:
+                infl = u.conformal.radius(ti.get("since_upd_s", 0.0), ti.get("age_s", 0.0), ti.get("range_m"))
+            else:
+                infl = min(u.k_sigma * math.sqrt(max(float(nw @ Sig @ nw), 0.0)), u.max_infl)
+            if u.soft_floor is not None:
+                infl = min(infl, max(0.0, dist - (GM.PERSON_CLEAR_R + u.d_buffer) - u.soft_floor))
             if relax:                                              # shield cfg.relax_tier: no fixed buffer, half the covariance inflation
                 infl = 0.5 * infl
             hi = dist - (GM.PERSON_CLEAR_R + (0.0 if relax else u.d_buffer) + infl)
@@ -104,7 +113,7 @@ class PerceivedShield(Shield):
         sp = float(np.linalg.norm(vxy))
         if sp < 1e-3:
             return twist, False
-        pose = sim.pose()
+        pose = sim.ctrl_pose() if getattr(sim, "loc", None) is not None else sim.pose()       # est pose_source: the unseen-space map lives in the estimated frame
         Rm = GM.rot(pose[2])
         dir_w = Rm @ (vxy / sp)
         c = pose[:2] + Rm @ np.array([0.2, -0.25])               # footprint centre
@@ -119,6 +128,10 @@ class PerceivedShield(Shield):
     # ------------------------------------------------------------------ one call
     def filter(self, sim, cmd: Cmd):
         self.perc.step(sim)
+        cmd_op, glanced = cmd, False
+        if self.look is not None:
+            cmd = self.look.apply(sim, cmd, self.docks)
+            glanced = cmd is not cmd_op
         tw, capped = self._unseen_cap(sim, cmd.twist)
         if capped:
             self.n_unseen_cap += 1
@@ -126,11 +139,13 @@ class PerceivedShield(Shield):
         else:
             cmd2 = cmd
         safe, info = super().filter(self.perc.proxy(sim), cmd2)
-        if capped:                                               # intervention w.r.t. what the OPERATOR asked
-            dv = cmd.twist - safe.twist
+        if capped or glanced:                                    # intervention w.r.t. what the OPERATOR asked
+            dv = cmd_op.twist - safe.twist
             info["intervention"] = float(np.linalg.norm(dv))
             info["intervention_norm"] = float(np.linalg.norm(dv / BS.V_STICK))
-            if info["label"] in ("none", "other"):
+            if glanced and info["label"] in ("none", "other"):
+                info["label"] = "look_glance"
+            elif info["label"] in ("none", "other"):
                 info["label"] = "unseen_cap"
-        info.update(n_tracks=len(self.perc.tracks), person_infl=self.last_infl, unseen_capped=bool(capped))
+        info.update(n_tracks=len(self.perc.tracks), person_infl=self.last_infl, unseen_capped=bool(capped), glancing=bool(glanced))
         return safe, info

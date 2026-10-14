@@ -34,6 +34,34 @@ async def main(a):
                 if time.time() - t0 > 240: raise SystemExit("sim never ready")
             print("ready after", round(time.time() - t0, 1), "s", flush=True)
             await hold([], 1.0)
+            if a.assist:                                   # assisted friction grasp via the page's button path (a 120 ms KeyG tap), then place via KeyH
+                async def tap(code):
+                    await send([code]); await asyncio.sleep(0.12); await send([])
+                await send(["Enter"]); await send([]); await asyncio.sleep(0.2)
+                print("armed:", tel["enabled"], "assist panel telemetry:", tel.get("assist"), "can_grasp", tel.get("can_grasp"), flush=True)
+                await tap("KeyG")
+                t1 = time.time(); seen = []
+                while time.time() - t1 < a.assist_timeout:
+                    await send([]); await asyncio.sleep(0.1)
+                    st = (tel.get("assist") or {}).get("state")
+                    if not seen or seen[-1] != st: seen.append(st); print(f"  t={tel['t']} wall+{time.time()-t1:.0f}s assist state -> {st}", flush=True)
+                    if st in ("HOLD", "FAILED"): break
+                print("grasp result:", (tel.get("assist") or {}), "grasped", tel.get("grasped"), "beads_out", tel.get("beads_out"), flush=True)
+                if a.place and (tel.get("assist") or {}).get("state") == "HOLD":
+                    await hold(["KeyR"], 1.6)                  # lift up ~0.10 m
+                    await send([]); await asyncio.sleep(0.5)
+                    await tap("KeyH")
+                    t1 = time.time(); seen = []
+                    while time.time() - t1 < a.assist_timeout:
+                        await send([]); await asyncio.sleep(0.1)
+                        st = (tel.get("assist") or {}).get("state")
+                        if not seen or seen[-1] != st: seen.append(st); print(f"  t={tel['t']} wall+{time.time()-t1:.0f}s place state -> {st}", flush=True)
+                        if st == "IDLE" and (tel.get("assist") or {}).get("place") is not None: break
+                    print("place result:", (tel.get("assist") or {}), "beads_out", tel.get("beads_out"), flush=True)
+                r.cancel()
+                if frames:
+                    open(f"{a.out}/frame.jpg", "wb").write(frames[-1][1])
+                return
             p0 = tel["pose"][:]; log.append(("disarmed hold W", None))
             await hold(["KeyW"], 1.0)
             print("disarmed + W: pose moved", [round(x - y, 3) for x, y in zip(tel["pose"], p0)], "enabled", tel["enabled"], flush=True)
@@ -67,4 +95,6 @@ async def main(a):
     img = cv2.imdecode(np.frombuffer(frames[-1][1], np.uint8), 1); cv2.imwrite(f"{a.out}/frame.png", img); print("png", img.shape)
 
 ap = argparse.ArgumentParser(); ap.add_argument("--port", type=int, default=8765); ap.add_argument("--token", default="smoke123"); ap.add_argument("--out", required=True)
+ap.add_argument("--assist", action="store_true", help="assisted friction-grasp scenario (server: --grasp-mode friction --spawn-at cafe_counter_pick --task pick)")
+ap.add_argument("--place", action="store_true"); ap.add_argument("--assist-timeout", type=float, default=240.0)
 asyncio.run(main(ap.parse_args()))

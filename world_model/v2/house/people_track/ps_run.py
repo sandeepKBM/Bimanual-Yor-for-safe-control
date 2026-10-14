@@ -29,6 +29,7 @@ from world_model.v2.house.teleop import run as RUN
 from world_model.v2.house.teleop.sim import TeleopSim, TICK, PersonPolicy, PERSON_TORSO_R
 
 OUT = Path(os.environ.get("PEOPLE_SHIELD_OUT", "/data/local/ss5772/molmospaces/people_shield"))
+CONFORMAL_DEFAULT = Path("/data/local/ss5772/molmospaces/percept/people/calib_out/conformal.json")
 
 WALKERS = {
     "yield": PersonPolicy(),                                                          # stops 0.15 m from the robot, waits forever
@@ -73,18 +74,42 @@ def build_shield(kind, sim, cond, carry, seed, dock_wp, cfg_over=None):
         sh = SH.Shield(cfg, occ=sim.occ, a_hw=sim.a_hw)
         perc = None
     else:
-        from . import perception as PC, shield_pt as SPT
-        from .run_pt import parse_cond
-        pcfg, ucfg = parse_cond(cond)
-        perc = PC.PerceptionStack(sim, replace(pcfg, seed=seed))
-        sh = SPT.PerceivedShield(perc, cfg, occ=sim.occ, a_hw=sim.a_hw, ucfg=ucfg)
+        # cond = '<detector>[+noinfl|+buf|+nocap][+look][+conf]' ; +look = look-before-move glance, +conf = conformal margin (json: $PEOPLE_CONFORMAL)
+        from .source import make_shield
+        parts = cond.split("+")
+        look = "look" in parts[1:]
+        cf = [x for x in parts[1:] if x.startswith("conf")]           # +conf (alpha 0.05, $PEOPLE_CONFORMAL) | +conf10 / +conf20 (alpha 0.10 / 0.20: conformal_a10.json ...)
+        conf = None
+        if cf:
+            conf = os.environ.get("PEOPLE_CONFORMAL", str(CONFORMAL_DEFAULT)) if cf[0] == "conf" else str(CONFORMAL_DEFAULT.with_name(f"conformal_a{cf[0][4:]}.json"))
+            det = "_".join([parts[0]] + [x for x in parts[1:] if x != "look" and not x.startswith("conf")]).replace("@", "")   # e.g. neural | fusionboth | fusionboth_surf3
+            # detector-specific calibration (people_track.calib_v2): <dir>/conformal_<det>[_aNN].json wins when present
+            cdir = Path(os.environ.get("PEOPLE_CONFORMAL_DIR", str(CONFORMAL_DEFAULT.parent)))
+            spec = cdir / (f"conformal_{det}.json" if cf[0] == "conf" else f"conformal_{det}_a{cf[0][4:]}.json")
+            if spec.exists():
+                conf = str(spec)
+        base_cond = "+".join([parts[0]] + [x for x in parts[1:] if x != "look" and not x.startswith("conf")])
+        sh = make_shield(sim, "tracker", cfg, perception=base_cond, look=look, conformal=conf, seed=seed)
+        perc = sh.perc
     sh.docks = dock_wp
     return sh, perc
 
 
-def run(seed=0, walker="yield", shield="old", cond="truth", max_s=60.0, scene="h5", trace=None, stuck_s=25.0, tail_s=1.0, verbose=False, cfg_over=None):
+def needs_est(cond):
+    return cond.split("+")[0].split("@")[0] in ("depth_perc", "neural", "fusion", "full")
+
+
+def run(seed=0, walker="yield", shield="old", cond="truth", max_s=60.0, scene="h5", trace=None, stuck_s=25.0, tail_s=1.0, verbose=False, cfg_over=None, human_mesh=None):
+    """human_mesh: None (capsule people, the default) | 'articulated': visual Rocketbox humans (people_track.human_vis; capsule collision / TrueGeom unchanged).
+    Detector conds 'depth_perc' | 'neural' | 'fusion' | 'full' run the sim with the ESTIMATED pose (pose_source='est') and the perceived grid."""
     pol = WALKERS[walker]
-    sim = TeleopSim(scene, grasped=True, seed=seed, with_people=True, people_clock="time", people_policy=pol)
+    SimCls = TeleopSim
+    if human_mesh:
+        from .human_vis import human_sim_class
+        SimCls = human_sim_class(TeleopSim)
+    est_kw = dict(pose_source="est", occ_source="perceived") if needs_est(cond) else {}
+    hm_kw = dict(human_variant=human_mesh) if human_mesh else {}
+    sim = SimCls(scene, grasped=True, seed=seed, with_people=True, people_clock="time", people_policy=pol, **est_kw, **hm_kw)
     sc = sim.scene
     wp = sc.waypoints
     op = OP.SloppyOperator(seed, "carry", sc.out_route, pick_pose=wp["cafe_counter_pick"], place_pose=wp["lab_desk_place"], params=None,
@@ -113,7 +138,7 @@ def run(seed=0, walker="yield", shield="old", cond="truth", max_s=60.0, scene="h
         yl = getattr(sim, "person_yielding", {})
         tr.append(dict(t=o["t"], pose=o["pose"].copy(), v=sim.base.v.copy(), u_op=cmd.twist.copy(), u_safe=safe.twist.copy(), label=info["label"],
                        qp=info["qp"], pd=o["pdist"], true=td, who=who, moving=moving, phase=op.phase,
-                       yielding=any(yl.values()), ppl=[(xy.copy(), v.copy()) for xy, v in sim.people_state]))
+                       yielding=any(yl.values()), vis=(list(perc.vis_now) if perc is not None else None), ppl=[(xy.copy(), v.copy()) for xy, v in sim.people_state]))
         if op.done and done_t is None:
             done_t = o["t"]
         if done_t is not None and o["t"] - done_t >= tail_s:
@@ -141,6 +166,16 @@ def run(seed=0, walker="yield", shield="old", cond="truth", max_s=60.0, scene="h
         deadlock_s=float(dead.sum() * TICK), yielding_s=float(yl.sum() * TICK), stationary_s=float(stat.sum() * TICK),
         walker_final_xy=[float(x) for x in sim.people_state[0][0]],
     )
+    if perc is not None and T and T[0]["vis"]:
+        dyn = [i for i, p in enumerate(sim.scene.people) if p.name == "p_walker"] or [0]      # the crossing walker (not the static stander)
+        for nm, thr in (("all", 1e9), ("near", 4.0)):      # fraction of ticks a walker is inside the camera FOV / visible (FOV + line of sight)
+            f = [x["vis"][i] for x in T for i in dyn if x["vis"][i][2] <= thr]
+            summ[f"walker_fov_frac_{nm}"] = float(np.mean([a for a, _, _ in f])) if f else None
+            summ[f"walker_visible_frac_{nm}"] = float(np.mean([b for _, b, _ in f])) if f else None
+            summ[f"walker_ticks_{nm}"] = len(f)
+        summ["n_unseen_cap_ticks"] = int(getattr(sh, "n_unseen_cap", 0))
+        summ["max_person_infl_m"] = float(getattr(sh, "max_infl_seen", 0.0))
+        summ["glance_stats"] = sh.look.stats() if getattr(sh, "look", None) is not None else None
     if trace:
         np.savez_compressed(trace, t=[x["t"] for x in T], pose=[x["pose"] for x in T], v=[x["v"] for x in T], u_op=[x["u_op"] for x in T],
                             u_safe=[x["u_safe"] for x in T], pd=pdv, true=tdv, label=[x["label"] for x in T], moving=mv, yielding=yl,
@@ -159,12 +194,13 @@ def main():
     ap.add_argument("--trace", action="store_true")
     ap.add_argument("--cfg", default="", help="ShieldCfg overrides, e.g. squeeze_s=None,pred_taus=() (applied on top of PEOPLE_V2 for --shield new)")
     ap.add_argument("--tag", default="")
+    ap.add_argument("--human-mesh", default=None, choices=[None, "articulated"], help="visual Rocketbox humans on the scripted people (default: capsules)")
     a = ap.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     import ast
     cfg_over = {k.strip(): ast.literal_eval(v.strip()) for k, v in (kv.split("=", 1) for kv in a.cfg.split(";") if kv)} if a.cfg else None
-    tag = f"{a.walker}_{a.shield}{a.tag}_{a.cond.replace(':', '-')}_s{a.seed}"
-    summ, T = run(a.seed, a.walker, a.shield, a.cond, a.max_s, trace=(out / f"{tag}.npz") if a.trace else None, cfg_over=cfg_over)
+    tag = f"{a.walker}_{a.shield}{a.tag}_{a.cond.replace(':', '-')}{'_hm' if a.human_mesh else ''}_s{a.seed}"
+    summ, T = run(a.seed, a.walker, a.shield, a.cond, a.max_s, trace=(out / f"{tag}.npz") if a.trace else None, cfg_over=cfg_over, human_mesh=a.human_mesh)
     (out / f"{tag}.json").write_text(json.dumps(summ, indent=1, default=str))
     keys = ["task_done", "task_time_s", "spills_beads_out", "person_contact_ticks", "true_contact_ticks", "true_contact_moving",
             "true_contact_stationary", "min_fp_clear_m", "min_true_clear_m", "min_true_clear_who", "deadlock_s", "n_deadlock_yield", "n_squeeze_yield", "aborted_stuck", "walker_final_xy"]

@@ -65,9 +65,10 @@ class Recorder:
 
 
 def run_episode(shielded, seed=0, task="carry", scene="h5", max_s=30.0, stream="closed", video=None, cfg=None, op_params=None,
-                tail_s=1.0, log_every=0, with_people=True, a_hw=None, verbose=True):
+                tail_s=1.0, log_every=0, with_people=True, a_hw=None, verbose=True, people_source="truth", people_kw=None, loc_kw=None):
     carry = task == "carry"
-    sim = TeleopSim(scene, grasped=carry, seed=seed, with_people=with_people, counter=not carry, desk=not carry, a_hw=a_hw)
+    sim = TeleopSim(scene, grasped=carry, seed=seed, with_people=with_people, counter=not carry, desk=not carry, a_hw=a_hw, people_source=people_source,
+                     **(loc_kw or {}))        # loc_kw: pose_source/loc_cfg/loc_seed/occ_source/occ_map (house/loc); default = truth
     sc = sim.scene
     wp = sc.waypoints
     if stream == "open":
@@ -76,7 +77,9 @@ def run_episode(shielded, seed=0, task="carry", scene="h5", max_s=30.0, stream="
     else:
         op = OP.SloppyOperator(seed, task, sc.out_route, pick_pose=wp["cafe_counter_pick"], place_pose=wp["lab_desk_place"],
                                params=op_params, back_route=sc.back_route, back_mode=sc.back_mode)
-    shield = SH.Shield(cfg, occ=sim.occ, a_hw=sim.a_hw) if shielded else SH.Passthrough()
+    shield = SH.Shield(cfg, occ=sim.occ_ctrl, a_hw=sim.a_hw) if shielded else SH.Passthrough()
+    if shielded and people_source != "truth":            # head-camera tracker as the people source (people_track); sim.people_state stays the metric truth
+        shield = sim.make_shield(cfg, **(people_kw or {}))
     if shielded:
         shield.docks = [wp["cafe_counter_pick"][:2], wp["lab_desk_place"][:2]] if not carry else [wp["cafe_counter_pick"][:2]]
     rec = Recorder(sim, str(video)) if video else None
@@ -111,7 +114,12 @@ def run_episode(shielded, seed=0, task="carry", scene="h5", max_s=30.0, stream="
             break
     if rec:
         rec.close()
-    return summarize(sim, op, shield, rows, shielded, seed, task, done_t, ctl_ms, time.time() - t_wall), rows
+    summ = summarize(sim, op, shield, rows, shielded, seed, task, done_t, ctl_ms, time.time() - t_wall)
+    if sim.loc is not None or sim.occ_source != "true":        # house/loc runs: localization error + the (true-grid) clearance the control path could not see
+        summ.update(pose_source=sim.pose_source, occ_source=sim.occ_source, loc_margin_m=float(shield.cfg.loc_margin) if shielded else None)
+        if sim.loc is not None:
+            summ.update({"loc_" + k: v for k, v in sim.loc.errors().items()})
+    return summ, rows
 
 
 def summarize(sim, op, shield, rows, shielded, seed, task, done_t, ctl_ms, wall_s):
@@ -174,14 +182,33 @@ def main():
     ap.add_argument("--out", default=str(OUT))
     ap.add_argument("--log-every", type=int, default=25)
     ap.add_argument("--no-people", action="store_true")
+    ap.add_argument("--people", choices=["truth", "tracker"], default="truth", help="people source of the SHIELD (tracker = head-camera KF tracker; truth stays the metric)")
+    ap.add_argument("--people-look", action="store_true", help="tracker source: look-before-move glance")
+    ap.add_argument("--people-conformal", default=None, help="tracker source: conformal margin json (people_track.calib fit)")
+    ap.add_argument("--people-perception", default="depth", help="tracker source: detector condition (depth | seg | param:SIG:LAT:DROP)")
+    ap.add_argument("--pose", choices=["truth", "est"], default="truth", help="base pose read by the control path (shield wall keep-out): truth | est (house/loc odometry+VIO)")
+    ap.add_argument("--occ", choices=["true", "perceived"], default="true", help="static-obstacle grid read by the shield: true house grid | perceived (head-ZED mapping pass)")
+    ap.add_argument("--occ-map", default=None, help="perceived grid npz (loc.mapper); default: build/cache for the scene")
+    ap.add_argument("--loc-seed", type=int, default=None, help="estimator seed (default = --seed)")
+    ap.add_argument("--loc-scale", type=float, default=1.0, help="multiply the odometry/VIO error parameters (pessimism sweep)")
+    ap.add_argument("--loc-margin", type=float, default=0.0, help="shield wall buffer added for localization/map error [m]")
+    ap.add_argument("--loc-margin-k", type=float, default=0.0, help="shield wall buffer: x estimator 1-sigma proxy")
     a = ap.parse_args()
+    loc_kw = None
+    cfg = None
+    if a.pose != "truth" or a.occ != "true":
+        from ..loc.estimator import LocCfg, scaled
+        loc_kw = dict(pose_source=a.pose, occ_source=a.occ, occ_map=a.occ_map, loc_seed=a.loc_seed, loc_cfg=scaled(LocCfg(), a.loc_scale))
+    if a.loc_margin or a.loc_margin_k:
+        cfg = SH.ShieldCfg(loc_margin=a.loc_margin, loc_margin_k=a.loc_margin_k)
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
     modes = ["raw", "shield"] if a.mode == "both" else [a.mode]
     res = {}
     for mname in modes:
         vp = out / f"teleop_{a.task}_s{a.seed}_{mname}.mp4" if a.video else None
         summ, rows = run_episode(mname == "shield", a.seed, a.task, a.scene, a.max_s, a.stream, vp, log_every=a.log_every,
-                                 with_people=not a.no_people)
+                                 with_people=not a.no_people, people_source=a.people, loc_kw=loc_kw, cfg=cfg,
+                                 people_kw=dict(perception=a.people_perception, look=a.people_look, conformal=a.people_conformal, seed=a.seed))
         res[mname] = summ
         np.savez_compressed(out / f"teleop_{a.task}_s{a.seed}_{mname}_ts.npz",
                             t=[r["t"] for r in rows], pose=[r["pose"] for r in rows], u_op=[r["u_op"] for r in rows],

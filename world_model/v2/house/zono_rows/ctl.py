@@ -36,6 +36,7 @@ Optional, all default OFF (= the original behaviour bit-for-bit):
 """
 from __future__ import annotations
 
+import os
 import time
 import warnings
 
@@ -53,7 +54,8 @@ class ZonoCtl(P2.Ctl2):
     def __init__(self, C, zonos=None, margin=0.02, alpha1=R.ALPHA1, alpha2=R.ALPHA2, d_act=0.25, max_rows=8, use_tray=None,
                  tilt=True, tau_cap=None, names=None, kp_radius=True, tray_spacing=0.05, refine=2, refine_add=4, refine_tol=0.02,
                  relax=None, relax_s0=0.05, relax_smax=50.0, relax_bisect=3, relax_max_solves=12, relax_frac=0.9,
-                 tray_level=False, level_delta=0.015, track_bodies=None, level_relax=False, brake=False, brake_tau=0.04, ref_clip=None):
+                 tray_level=False, level_delta=0.015, track_bodies=None, level_relax=False, brake=False, brake_tau=0.04, ref_clip=None,
+                 proprio=None, proprio_ball="prior"):
         super().__init__(C, tilt=tilt, tau_cap=tau_cap)
         m = C.m
         self.kps = {s: R.arm_keypoints(m, s) for s in ("left", "right")}
@@ -61,13 +63,24 @@ class ZonoCtl(P2.Ctl2):
             use_tray = bool(C.info.get("has_tray"))
         self.use_tray = use_tray
         track_bodies = list(track_bodies) if track_bodies else []
+        # PROPRIO-ONLY (default = env BIMANUAL_PROPRIO_ONLY, off): no `d.xpos` of the tray / ball as 'tracked' points.  The tray rim is the hand-FK path
+        # (fixed offsets in each gripper frame from the weld relpose: gripper_base pose = encoders + known geometry, base twist via v_extra), exactly as
+        # arm_rows.ArmZonoRows does.  The ball has NO perception in this pipeline -> proprio_ball='prior' keeps the 3 fixed ball spheres on the tray
+        # centre line (a conservative prior, not a measurement), 'drop' removes ball points altogether.
+        self.proprio = (os.environ.get("BIMANUAL_PROPRIO_ONLY", "0") == "1") if proprio is None else bool(proprio)
+        self.proprio_ball = proprio_ball
+        if proprio_ball not in ("prior", "drop"):
+            raise ValueError("proprio_ball must be 'prior' or 'drop'")
+        if self.proprio:
+            track_bodies = [b for b in track_bodies if b not in ("tray", "ball")]
         self.tray_level = bool(tray_level)
         if self.tray_level and not use_tray:
             raise ValueError("tray_level needs the tray welded to both grippers (use_tray)")
-        tray_tracked = self.tray_level or "tray" in track_bodies
+        tray_tracked = (self.tray_level or "tray" in track_bodies) and not self.proprio
         ball_tracked = "ball" in track_bodies
+        ball_fixed = not ball_tracked and not (self.proprio and self.proprio_ball == "drop")
         if use_tray:       # the tray is welded to BOTH grippers: express its points in each gripper frame so each arm's row sees them
-            self.kps = {s: self.kps[s] + R.tray_keypoints(m, s, spacing=tray_spacing, include_rim=not tray_tracked, include_ball=not ball_tracked)
+            self.kps = {s: self.kps[s] + R.tray_keypoints(m, s, spacing=tray_spacing, include_rim=not tray_tracked, include_ball=ball_fixed)
                         for s in ("left", "right")}
         specs = (["tray"] if tray_tracked else []) + [b for b in track_bodies if b != "tray"]
         self.tracked = R.tracked_keypoints(m, specs, spacing=tray_spacing) if specs else None

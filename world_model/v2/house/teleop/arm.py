@@ -180,13 +180,18 @@ class ObjectFrame:
     def tilt_cmd(self):
         return float(np.linalg.norm(_log_R(self.dR)[:2]))
 
-    def handle_errors(self, d, rig_info=None):
+    def handle_errors(self, d, rig_info=None, tray="true"):
         """gripper-to-handle errors for the grasp trigger: handle_i = tray pose composed with the nominal weld relpose
         (eq_data rel / relquat captured at the nominal hold).  Returns (pos err L, pos err R, ang err L, ang err R)."""
         m = self.m
         res = []
-        tray = m.body("tray").id
-        Rt = d.xmat[tray].reshape(3, 3)
+        # tray: "true" = the tray body (privileged, default); (p, R) = an ESTIMATED world pose (BIMANUAL_PROPRIO_ONLY); None = no estimate -> inf errors
+        if isinstance(tray, str):
+            tray_p, Rt = d.xpos[m.body("tray").id], d.xmat[m.body("tray").id].reshape(3, 3)
+        elif tray is None:
+            return [(float("inf"), float("inf")), (float("inf"), float("inf"))]
+        else:
+            tray_p, Rt = np.asarray(tray[0], float), np.asarray(tray[1], float)
         for s, b in (("left", self.bL), ("right", self.bR)):
             rel = self.nominal[s][3:6]                 # tray origin in gripper frame at the nominal hold
             rq = self.nominal[s][6:10]                 # q_grip * rq == q_tray at nominal
@@ -194,15 +199,19 @@ class ObjectFrame:
             p_expected = d.xpos[b] + Rg @ rel
             Rn = np.zeros(9); mujoco.mju_quat2Mat(Rn, rq)
             R_expected = Rg @ Rn.reshape(3, 3)
-            res.append((float(np.linalg.norm(d.xpos[tray] - p_expected)), float(np.linalg.norm(_log_R(Rt @ R_expected.T)))))
+            res.append((float(np.linalg.norm(tray_p - p_expected)), float(np.linalg.norm(_log_R(Rt @ R_expected.T)))))
         return res
 
-    def grasp_error_vec(self, d):
+    def grasp_error_vec(self, d, tray="true"):
         """mean tray pose error w.r.t. where the two hands expect it (nominal weld relposes), expressed in the BASE frame:
         (dp[3], rotvec[3]).  Moving the hand frame G by +dp / +rotvec brings the grippers onto the handles (the operator's visual cue)."""
         m = self.m
-        tray = m.body("tray").id
-        Rt = d.xmat[tray].reshape(3, 3)
+        if isinstance(tray, str):
+            tray_p, Rt = d.xpos[m.body("tray").id], d.xmat[m.body("tray").id].reshape(3, 3)
+        elif tray is None:
+            return np.zeros(3), np.zeros(3)                   # no estimate: no error cue (can_grasp is False through handle_errors)
+        else:
+            tray_p, Rt = np.asarray(tray[0], float), np.asarray(tray[1], float)
         dps, rvs = [], []
         for s, b in (("left", self.bL), ("right", self.bR)):
             rel, rq = self.nominal[s][3:6], self.nominal[s][6:10]
@@ -210,7 +219,7 @@ class ObjectFrame:
             p_exp = d.xpos[b] + Rg @ rel
             Rn = np.zeros(9); mujoco.mju_quat2Mat(Rn, rq)
             R_exp = Rg @ Rn.reshape(3, 3)
-            dps.append(d.xpos[tray] - p_exp)
+            dps.append(tray_p - p_exp)
             rvs.append(_log_R(Rt @ R_exp.T))
         Rb = self.base_R_now(d).T
         return Rb @ np.mean(dps, 0), Rb @ np.mean(rvs, 0)

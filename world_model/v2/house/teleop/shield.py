@@ -67,6 +67,8 @@ class ShieldCfg:
     r_cup: float = 0.03
     dock_radius: float = 0.8           # within this distance of a dock pose (pick / place stand-off) the wall buffer shrinks to d_wall_dock
     d_wall_dock: float = 0.03
+    loc_margin: float = 0.0            # m, extra wall buffer for localization/map error (house/loc); 0 = off
+    loc_margin_k: float = 0.0           # x the PoseEstimator 1-sigma proxy (sim.loc.sigma_xy) added to the wall buffer; 0 = off
     # ---- people v2 (ALL default OFF -> bit-identical to the original shield) -----------------------------------------------------------
     pred_taus: tuple = ()              # velocity-obstacle style rows: keep-out against the person's CONSTANT-VELOCITY position at t+tau (moving people only)
     pred_min_speed: float = 0.05       # m/s, a person slower than this gets no predictive row (static people keep the original CBF row only)
@@ -102,9 +104,13 @@ def _poly_normals(n, offset=0.5):
 class IRMonitor:
     """ir.py atoms on the live MuJoCo state: inside(cup, shrink(tray_top, r_cup)) AND upright(tray, theta_max); clear(footprint, person)."""
 
-    def __init__(self, cfg: ShieldCfg):
-        ents = TS.env_entities("centre")
-        self.spec = TS.build_spec(TS.TRAY_SPEC_FULL, ents, H=0, r_shrink=cfg.r_cup, theta_max=cfg.theta_tray_ir, lo=0)
+    def __init__(self, cfg: ShieldCfg, lang=None):
+        if lang is None:                                    # default: the hand-written TRAY_SPEC_FULL (bit-identical to before the language layer)
+            ents = TS.env_entities("centre")
+            self.spec = TS.build_spec(TS.TRAY_SPEC_FULL, ents, H=0, r_shrink=cfg.r_cup, theta_max=cfg.theta_tray_ir, lo=0)
+        else:                                               # house/lang LangResult: VLM-authored spec over the carried entities + named perceived objects
+            self.spec = lang.monitor_spec(cfg)
+        self.lang = lang
         self.cfg = cfg
 
     def tray_margin(self, sim):
@@ -135,11 +141,13 @@ ShieldCfg.theta_tray_ir = 0.10     # IR upright bound = FL-MPC tilt cone
 
 
 class Shield:
-    def __init__(self, cfg: ShieldCfg | None = None, occ=None, a_hw=BS.A_HW):
+    def __init__(self, cfg: ShieldCfg | None = None, occ=None, a_hw=BS.A_HW, lang=None):
         self.cfg = cfg or ShieldCfg()
         self.occ = occ
         self.a_hw = np.asarray(a_hw)
+        self._mu0 = (self.cfg.mu_lo, self.cfg.mu_hi)          # hard-coded mu set (restored by set_lang(None))
         self.ir_mon = IRMonitor(self.cfg)
+        self.lang = None
         self.a_prev_w = np.zeros(2)
         self.jog_prev = np.zeros(6)
         self.lift_prev = 0.0
@@ -157,6 +165,22 @@ class Shield:
         self.n_pred = 0
         self.n_squeeze = 0
         self.docks = []                    # [(x, y)] stand-off poses: the manipulation phase needs to get within `standoff_clear` (0.07 m) of the counter
+        if lang is not None:
+            self.set_lang(lang)
+
+    def set_lang(self, lang):
+        """language layer (house/lang, flag-gated; default never called): mu set and the IR-monitor spec from a LangResult; None restores the hard-coded ones.
+        Mutates cfg in place (callers hold references to shield.cfg).  The new monitor is built first, so a failing spec leaves the old one active."""
+        if lang is None:
+            self.cfg.mu_lo, self.cfg.mu_hi = self._mu0
+            self.ir_mon = IRMonitor(self.cfg)
+            self.lang = None
+            return
+        mon = IRMonitor(self.cfg, lang)
+        ov = lang.mu_overrides()
+        self.cfg.mu_lo, self.cfg.mu_hi = ov["mu_lo"], ov["mu_hi"]
+        self.ir_mon = mon
+        self.lang = lang
 
     # ---------------------------------------------------------------------------------------------- base governor
     def _cup_rows(self, sim, c, v, r_c, w_mid):
@@ -193,13 +217,29 @@ class Shield:
         bj = rj - NJ @ (Rw @ a0) + NJ @ self.a_prev_w
         return (Aw, bw), (Aj, bj), (Rw, Au, a0)
 
+    @staticmethod
+    def _wall_pose(sim):
+        """pose the wall keep-out is evaluated at: sim.ctrl_pose() (estimate or truth).  The grid (self.occ) lives in the same map frame.
+        People rows / cup rows use RELATIVE geometry (people tracker / tray sensing are in the robot frame) -> they keep the true pose."""
+        f = getattr(sim, "ctrl_pose", None)
+        return sim.pose() if f is None else f()
+
+    def _loc_margin(self, sim):
+        """extra wall buffer [m] for localization / map error:  cfg.loc_margin + cfg.loc_margin_k * (estimator 1-sigma proxy)."""
+        cfg = self.cfg
+        if cfg.loc_margin == 0.0 and cfg.loc_margin_k == 0.0:
+            return 0.0
+        loc = getattr(sim, "loc", None)
+        return cfg.loc_margin + (cfg.loc_margin_k * loc.sigma_xy if (loc is not None and cfg.loc_margin_k) else 0.0)
+
     def _keep_rows(self, sim, v, relax=False):
         cfg = self.cfg
         rows, b, tags = [], [], []
-        pose = sim.pose()
+        pose = self._wall_pose(sim)                        # MAP-frame pose (= truth by default; the localization estimate with pose_source="est")
         d_wall = cfg.d_wall_dock if any(np.hypot(pose[0] - x, pose[1] - y) < cfg.dock_radius for x, y in self.docks) else cfg.d_wall
         if relax:
             d_wall = min(d_wall, cfg.d_wall_relax)
+        d_wall = d_wall + self._loc_margin(sim)            # localization-error margin (0 by default)
         R = GM.rot(pose[2])
         a_b = cfg.a_brk_frac * cfg.a_lim_flat
         if self.occ is not None:

@@ -155,6 +155,47 @@ class WristCam:
         v, u = np.divmod(np.flatnonzero(cup), s.W)
         return int(cup.sum()), float(u.mean()), float(v.mean()), float(dist[cup].mean())
 
+    # ---- RGB path (PROPRIO-ONLY): a colour image and a colour threshold -- no geom-id mask is read by the segmenter
+    def rgb_image(self, d, tick=0, seed=0, sigma=0.03):
+        """(H,W,3) float RGB in [0,1] of the wrist view: ray-cast the full pixel grid and shade each hit with the model's surface colour
+        (geom_rgba, alpha ignored) * Lambert(|n . view|) + sensor noise.  Own-gripper hits are mid grey (the robot's real colour is not the cup's).
+        Stand-in for a GL render (the video recorder uses the real EGL render); `seg_cup_rgb` accepts either."""
+        s, m = self.spec, self.m
+        origin, R = self.pose(d)
+        dirs = self.cam.dirs.reshape(-1, 3)
+        n = len(dirs)
+        dw = np.ascontiguousarray(dirs @ R.T)
+        geom = np.full(n, -1, np.int32)
+        dist = np.full(n, -1.0)
+        nrm = np.zeros(3 * n)
+        mujoco.mj_multiRay(m, d, origin, dw.reshape(-1), self.mask, True, self.body_excl, geom, dist, nrm, n, 1.0)
+        img = np.full((n, 3), 0.55)                                    # background / wall
+        hit = geom >= 0
+        col = m.geom_rgba[geom[hit], :3].astype(float)
+        col[self.is_robot_geom[geom[hit]]] = 0.45
+        shade = 0.35 + 0.65 * np.abs(np.einsum("ij,ij->i", nrm.reshape(-1, 3)[hit], dw[hit]))
+        img[hit] = col * shade[:, None]
+        rng = np.random.default_rng(np.random.SeedSequence([int(seed) & 0x7FFFFFFF, int(tick), zlib.crc32(s.name.encode()), 5]))
+        img = np.clip(img + rng.normal(0, sigma, img.shape), 0.0, 1.0)
+        return img.reshape(s.H, s.W, 3)
+
+    @staticmethod
+    def seg_cup_rgb(img, min_px=20):
+        """colour threshold for the saturated red cup on an RGB image (float [0,1] or uint8): r > 0.25, r > 1.8 g, r > 1.8 b.
+        Returns (n_px, centroid_u, centroid_v, nan) or None -- same tuple as seg_cup (the range is unobservable in an RGB image)."""
+        a = np.asarray(img, float)
+        if a.max() > 1.5:
+            a = a / 255.0
+        r, g, b = a[..., 0], a[..., 1], a[..., 2]
+        mask = (r > 0.25) & (r > 1.8 * g) & (r > 1.8 * b)
+        if mask.sum() < min_px:
+            return None
+        v, u = np.nonzero(mask)
+        return int(mask.sum()), float(u.mean()), float(v.mean()), float("nan")
+
+    def seg_cup_proprio(self, d, tick=0, seed=0):
+        return self.seg_cup_rgb(self.rgb_image(d, tick=tick, seed=seed))
+
     def depth_image(self, fr: WristFrame):
         """dense (H,W) z-depth image (nan = no return) rebuilt from a full-grid frame, for insets/debugging."""
         s = self.spec

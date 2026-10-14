@@ -35,6 +35,10 @@ class HandServo:
         self.corr = [(np.zeros(3), np.zeros(3)), (np.zeros(3), np.zeros(3))]   # integral correction (dp, drotvec) per hand
         self.ki = 1.2                     # [1/s] integral gain on (goal - ACTUAL hand pose): absorbs the FL-MPC's steady tracking offset
         self.corr_lim = (0.05, math.radians(14.0))
+        self.gate_integral = False        # fast mode: integrate only while the GOAL is (nearly) still -- the lag accumulated during a move would overshoot at its end
+        self._goal_prev = [None, None]
+        self.moving = [False, False]
+        self.v_max, self.w_max = V_MAX, W_MAX     # target slew limits [m/s], [rad/s] (the assist raises them in its fast mode)
         self.w_rot = 1.0                  # weight of the rotation error in the IK (1 = as the operator's jog)
         # true joint limits with a 5 mrad margin (the operator jog keeps 30 mrad; the hold pose itself sits at -1.188 vs a -1.17 jog limit)
         rng = lambda s_: np.array([self.m.jnt_range[self.m.joint(f"{s_}_arm_joint{i}").id] for i in range(1, 7)])
@@ -90,18 +94,23 @@ class HandServo:
             gp, gR = self.goal[k]
             dp = gp - tp
             n = np.linalg.norm(dp)
-            lim = V_MAX * slow * dt
+            lim = self.v_max * slow * dt
             tp = tp + (dp if n <= lim else dp * lim / n)
             w = rot_err(gR, tR)
             nw = np.linalg.norm(w)
-            limw = W_MAX * slow * dt
+            limw = self.w_max * slow * dt
             tR = (_rotvec_to_R(w if nw <= limw else w * limw / nw)) @ tR
             self.tgt[k] = (tp, tR)
+            if self.gate_integral:
+                pg = self._goal_prev[k]
+                self.moving[k] = pg is not None and (np.linalg.norm(gp - pg[0]) / dt > 0.02 or np.linalg.norm(rot_err(gR, pg[1])) / dt > 0.15)
+                self._goal_prev[k] = (gp.copy(), gR.copy())
             # integral action on the ACTUAL hand pose (encoders): the FL-MPC leaves a joint-space steady offset that the camera loop must remove
             p, R = self.hand_pose(k)
             cp, cr = self.corr[k]
-            cp = np.clip(cp + self.ki * dt * (tp - p), -self.corr_lim[0], self.corr_lim[0])
-            cr = cr + self.ki * dt * rot_err(tR, R)
+            ki = 0.0 if (self.gate_integral and self.moving[k]) else self.ki
+            cp = np.clip(cp + ki * dt * (tp - p), -self.corr_lim[0], self.corr_lim[0])
+            cr = cr + ki * dt * rot_err(tR, R)
             nr = np.linalg.norm(cr)
             if nr > self.corr_lim[1]:
                 cr = cr * self.corr_lim[1] / nr
@@ -127,13 +136,13 @@ class HandServo:
                 setattr(of, attr, q)
         of.ctl.set_ref(of.qL, of.qR)
 
-    def rebase_object_frame(self):
+    def rebase_object_frame(self, tray_world=None):
         """After a verified grasp: make the operator's tray-frame jog continue from the CURRENT hand poses (no jump).
         hand_i = G * T_i with T_i taken at the current hands; G = the tray centre in the robot frame."""
         of = self.of
         hands = of._hands(of.qL, of.qR)
         of.hand0 = [(p.copy(), R.copy()) for p, R in hands]
-        tray = self.sim.d.xpos[self.sim.tray]
+        tray = self.sim.d.xpos[self.sim.tray] if tray_world is None else np.asarray(tray_world, float)       # tray_world: proprio (hand FK + grasp offset)
         root = self.m.body("yor_root").id
         Rr = self.sim.d.xmat[root].reshape(3, 3)
         of.G0p = Rr.T @ (tray - self.sim.d.xpos[root]) - np.array([0.0, 0.0, self.sim.lift_actual()])

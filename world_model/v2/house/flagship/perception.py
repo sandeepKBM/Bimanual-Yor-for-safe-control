@@ -54,6 +54,84 @@ def zono_unpack(d):
     return Zonotope(d["c"], d["G"])
 
 
+# ------------------------------------------------------------------------------------------------ pose-estimate world frame (flag-gated; default path untouched)
+def pose_correction(pose_true, pose_est):
+    """planar rigid map true-base-frame -> ESTIMATED-base-frame: p_est = Rz(dyaw) (p - b_true) + b_est."""
+    bt = np.asarray(pose_true, float)[:2]
+    be = np.asarray(pose_est, float)[:2]
+    return bt, be, float(pose_est[2] - pose_true[2])
+
+
+def _rz(dy):
+    c, s = math.cos(dy), math.sin(dy)
+    return np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+
+
+def xform_points(P, bt, be, dy):
+    P = np.atleast_2d(np.asarray(P, float)).copy()
+    P[:, :2] = (P[:, :2] - bt) @ _rz(dy)[:2, :2].T + be
+    return P
+
+
+def xform_zono(Zd, bt, be, dy):
+    """packed zonotope dict (c, G) true frame -> estimated frame."""
+    Rz = _rz(dy)
+    c = np.asarray(Zd["c"], float).copy()
+    c[:2] = Rz[:2, :2] @ (c[:2] - bt) + be
+    return dict(c=c, G=Rz @ np.asarray(Zd["G"], float))
+
+
+def loc_sigmas(loc):
+    """(sigma_xy [m], sigma_yaw [rad]) the localizer reports: PoseEstimator.sigma_xy (model-based drift proxy since the last relocalization) and the yaw
+    analogue floor + vio_drift_yaw * sqrt(dist since reloc).  No truth involved."""
+    c = loc.cfg
+    return float(loc.sigma_xy), float(0.005 + c.vio_drift_yaw * math.sqrt(loc.dist_since_reloc))
+
+
+def loc_delta(range_m, sigma_xy, sigma_yaw, k=2.0):
+    """extra zonotope inflation [m] for the pose uncertainty: k (sigma_xy + range * tan sigma_yaw)  (yaw error -> lever-arm displacement at that range)."""
+    return float(k * (sigma_xy + range_m * math.tan(min(max(sigma_yaw, 0.0), 0.3))))
+
+
+class _EstRig:
+    """ZedRig whose left_pose is the camera pose mounted on the ESTIMATED base pose (known extrinsics): true camera pose composed with the planar (est - true) correction."""
+
+    def __init__(self, rig, bt, be, dy):
+        self._rig, self._c = rig, (bt, be, dy)
+
+    def __getattr__(self, n):
+        return getattr(self._rig, n)
+
+    def left_pose(self, d):
+        o, R = self._rig.left_pose(d)
+        bt, be, dy = self._c
+        return xform_points(o, bt, be, dy)[0], _rz(dy) @ R
+
+
+def apply_pose_estimate(r, pose_true, pose_est, sigmas=None, k=2.0):
+    """CACHED REPLAY of the pose-estimate fix: the camera-frame cloud is identical, so the zonotopes the pipeline would build with the estimated pose are
+    the true-pose ones rigidly moved by the (est - true) correction (voxel-grid alignment aside); inflate each by loc_delta(range, sigmas).  Returns a copy
+    of result `r` (zonos Z/Zx? / Zi in the estimated frame).  sigmas=None: no loc inflation (the 'naive' est-pose case)."""
+    import copy
+    bt, be, dy = pose_correction(pose_true, pose_est)
+    r2 = copy.copy(r)
+    zl = []
+    for z in r["zonos"]:
+        z2 = dict(z)
+        z2["Z"], z2["Zi"] = xform_zono(z["Z"], bt, be, dy), xform_zono(z["Zi"], bt, be, dy)
+        if sigmas is not None:
+            dl = loc_delta(z["range_m"], sigmas[0], sigmas[1], k)
+            G = np.concatenate([z2["Zi"]["G"], np.eye(3) * dl], 1)          # extra cube (a union of the two inflations is conservative and exact for the containment test)
+            z2["Zi"] = dict(c=z2["Zi"]["c"], G=G)
+            z2["delta_loc"] = dl
+        zl.append(z2)
+    r2["zonos"] = zl
+    r2["origin"] = xform_points(r["origin"], bt, be, dy)[0]
+    r2["R"] = _rz(dy) @ r["R"]
+    r2["pose_est"] = [float(v) for v in pose_est]
+    return r2
+
+
 def reinflate_far(res, calib=CALIB_RANGE):
     """clusters measured beyond the stereo calibration range: delta *= (range/calib)^2 (quadratic stereo error law), Zi recomputed."""
     from world_model.v2.house.zed_demo import perceive as PC
@@ -122,8 +200,11 @@ class Twin:
             out.append((n, Zonotope(Z.c + t + np.array([0, 0, up]), Z.G)))
         return out
 
-    def capture(self, pose, kind, tries=3):
-        """pose=(x,y,yaw) of the main sim's base.  Returns a result dict (plan inside for 'desk', approach inside for 'counter')."""
+    def capture(self, pose, kind, tries=3, pose_est=None, loc_sigma=None, loc_k=2.0):
+        """pose=(x,y,yaw) of the main sim's base.  Returns a result dict (plan inside for 'desk', approach inside for 'counter').
+        pose_est=(x,y,yaw) (flag; default None = the original behaviour, bit-identical): the cloud goes to the world frame with the camera mounted at the
+        ESTIMATED base pose, the ROI / planner use the estimated base, and every zonotope is inflated by loc_delta(range, loc_sigma=(sigma_xy, sigma_yaw)).
+        The returned zonotopes / plan are then in the ESTIMATED frame."""
         import mujoco
         from world_model.v2.house.office import compose as CP
         PC, PL = self.PC, self.PL
@@ -136,6 +217,12 @@ class Twin:
         CP.set_base_pose(self.C, float(pose[0]), float(pose[1]), float(pose[2]))
         base = np.array(pose[:2], float)
         yaw = float(pose[2])
+        rig_use = self.rig
+        corr = None
+        if pose_est is not None:
+            corr = pose_correction(pose, pose_est)
+            rig_use = _EstRig(self.rig, *corr)
+            base, yaw = np.array(pose_est[:2], float), float(pose_est[2])
         if kind == "counter":                      # the real hands are empty at the counter: hide the twin's virtual tray/ball
             for jn in ("tray_free", "ball_free"):
                 a = m.jnt_qposadr[m.joint(jn).id]
@@ -147,15 +234,20 @@ class Twin:
         for it in range(tries):
             t0 = time.time()
             o = self.rig.capture(d)
-            res = PC.run(m, d, self.rig, o, self.cls, self.keys, base, yaw, seed=self.seed + it, sgbm=self.sgbm, roi=roi, zmax=ZMAX)
+            res = PC.run(m, d, rig_use, o, self.cls, self.keys, base, yaw, seed=self.seed + it, sgbm=self.sgbm, roi=roi, zmax=ZMAX)
             n_far = reinflate_far(res)
+            if corr is not None and loc_sigma is not None:
+                for z in res["zonos"]:
+                    z["delta_loc"] = loc_delta(z["range_m"], loc_sigma[0], loc_sigma[1], loc_k)
+                    z["delta"] = float(z["delta"] + z["delta_loc"])
+                    z["Zi"] = PC.inflate_world(z["Zx"], z["delta"])
             sup = [z for z in res["zonos"] if z["kind"] == "support"]
             ok = bool(sup) if kind == "desk" else True
             best = (o, res, sup, n_far, time.time() - t0)
             if ok:
                 break
         o, res, sup, n_far, t_wall = best
-        origin, R = self.rig.left_pose(d)
+        origin, R = rig_use.left_pose(d)
         out = dict(kind=kind, pose=[float(v) for v in pose], tray0=tray0.tolist(), left=o["left"], disp=res["disp"].astype(np.float32),
                    K=dict(self.K), origin=origin, R=R, n_far_reinflated=n_far, timing=res["timing"], capture_wall_s=t_wall,
                    z_desk=res["z_desk"], ev_scene={k: v for k, v in res["ev_scene"].items() if k != "bins"})
@@ -164,28 +256,43 @@ class Twin:
             zl.append(dict(id=i, kind=z["kind"], gt_key=z["gt_key"], n_pts=z["n_pts"], delta=z["delta"], range_m=z["range_m"],
                            Z=zono_pack(z["Z"]), Zi=zono_pack(z["Zi"])))
         out["zonos"] = zl
+        if corr is not None:
+            out["pose_est"] = [float(v) for v in pose_est]
+            out["loc_sigma"] = None if loc_sigma is None else [float(v) for v in loc_sigma]
         if kind == "desk":                          # the robot's own payload zonotopes at the current base pose (used by the zono_rows place backend only)
-            out["payload"] = [(n, np.asarray(Z.c, float), np.asarray(Z.G, float)) for n, Z in self.payload_at(np.array(self.d.mocap_pos[0][:2]))]
+            out["payload"] = [(n, np.asarray(Z.c, float), np.asarray(Z.G, float)) for n, Z in self._payload_now(corr)]
         try:
             rec = PC.gt_recovery(res)
             out["gt_recovered"] = f"{sum(v['recovered'] for v in rec.values())}/{len(rec)}"
         except Exception:
             out["gt_recovered"] = None
         if kind == "desk":
-            out["plan"] = self._plan_desk(res, sup, tray0)
+            out["plan"] = self._plan_desk(res, sup, tray0, corr)
         else:
             out["approach"] = self._approach_counter(res, base)
         return out
 
     # ------------------------------------------------------------------------------------------------ desk plan
-    def _plan_desk(self, res, sup, tray0):
+    def _payload_now(self, corr=None):
+        """payload zonotopes at the current base pose; with corr (est frame): at the ESTIMATED base position, rotated by the heading error about it."""
+        from world_model.v2.tray_rep.sets.zono import Zonotope
+        base_now = np.array(self.d.mocap_pos[0][:2])
+        if corr is None:
+            return self.payload_at(base_now)
+        bt, be, dy = corr
+        pay = self.payload_at(be)
+        Rz = _rz(dy)
+        return [(n, Zonotope(np.concatenate([Rz[:2, :2] @ (Z.c[:2] - be) + be, [Z.c[2]]]), Rz @ Z.G)) for n, Z in pay]
+
+    def _plan_desk(self, res, sup, tray0, corr=None):
         PL = self.PL
         obst = [(f"Z{i}:{z['gt_key']}", z["Zi"]) for i, z in enumerate(res["zonos"])]
         if not sup:
             return dict(ok=False)
         # payload zonotopes are built at the desk stand-off pose; the actual base pose is a pure translation of payload and tray0
-        base_now = np.array(self.d.mocap_pos[0][:2])
-        pay = self.payload_at(base_now)
+        if corr is not None:
+            tray0 = xform_points(tray0, *corr)[0]                      # the tray as the robot's kinematics place it, in the estimated frame
+        pay = self._payload_now(corr)
         info = PL.plan_task(pay, obst, sup[0]["Z"], tray0[:2])
         ok = info["n_feasible"] > 0 and info.get("path_t") is not None
         plan = dict(ok=bool(ok), n_feasible=int(info["n_feasible"]), c_at_spot=info["c_at_spot"], t_map_s=info["t_map_s"])

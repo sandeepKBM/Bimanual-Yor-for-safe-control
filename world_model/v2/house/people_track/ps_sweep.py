@@ -18,13 +18,14 @@ OUT = Path(os.environ.get("PEOPLE_SHIELD_OUT", "/data/local/ss5772/molmospaces/p
 
 
 def _job(a):
-    seed, walker, shield, cond, out, max_s = a
-    tag = f"{walker}_{shield}_{cond.replace(':', '-')}_s{seed}"
+    seed, walker, shield, cond, out, max_s = a[:6]
+    hm = a[6] if len(a) > 6 else None
+    tag = f"{walker}_{shield}_{cond.replace(':', '-')}{'_hm' if hm else ''}_s{seed}"
     f = Path(out) / f"{tag}.json"
     if f.exists():
         return json.loads(f.read_text())
     from .ps_run import run
-    summ, _ = run(seed, walker, shield, cond, max_s)
+    summ, _ = run(seed, walker, shield, cond, max_s, human_mesh=hm)
     f.write_text(json.dumps(summ, indent=1, default=str))
     return summ
 
@@ -45,9 +46,10 @@ def main():
     ap.add_argument("--workers", type=int, default=40)
     ap.add_argument("--max-s", type=float, default=60.0)
     ap.add_argument("--out", default=str(OUT / "sweep"))
+    ap.add_argument("--human-mesh", default=None, choices=[None, "articulated"], help="visual Rocketbox humans on the scripted people (default: capsules)")
     a = ap.parse_args()
     out = Path(a.out); out.mkdir(parents=True, exist_ok=True)
-    jobs = [(s, w, sh, c, str(out), a.max_s) for s in parse_seeds(a.seeds) for w in a.walkers.split(",")
+    jobs = [(s, w, sh, c, str(out), a.max_s, a.human_mesh) for s in parse_seeds(a.seeds) for w in a.walkers.split(",")
             for sh in a.shields.split(",") for c in a.conds.split(",")]
     with mp.Pool(a.workers, maxtasksperchild=3) as pool:
         res = pool.map(_job, jobs, chunksize=1)

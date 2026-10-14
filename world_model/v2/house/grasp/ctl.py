@@ -14,6 +14,8 @@ Both are FEED-FORWARD from signals the robot owns (commanded base twist, tray ma
 """
 from __future__ import annotations
 
+import os
+
 import mujoco
 import numpy as np
 
@@ -28,6 +30,21 @@ class FFArmCtl(ArmCtl):
         self.payload = np.zeros(2)              # kg carried by (left, right) hand
         self.payload_pt = np.zeros(3)           # world point of the payload (tray centre), set by the sim
         self.ff_on = True
+        # JOINT-FRICTION FEED-FORWARD (default ON in the friction rig).  Every arm joint has a dry friction of 0.3 Nm (MJCF frictionloss) which
+        # the FL-MPC (tau = M a + c, c without friction) does not model; with the light wrist inertia (0.008-0.027 kg m^2) its tracking stiffness
+        # is only ~M*140 1/s^2 => a 0.3 Nm friction stalls the wrist 0.13 rad off its reference (measured: 85 % of a 0.15 rad step missing).
+        # tau_f = f_comp * frictionloss * sat((q_ref - q)/fric_e0): a smooth Coulomb-friction compensation in the direction of the commanded
+        # motion (a model constant the robot owns, identified once; no extra sensing).
+        self.fric_ff = os.environ.get("BIMANUAL_FRIC_FF", "1") == "1"
+        self.fric_e0 = float(os.environ.get("BIMANUAL_FRIC_E0", "0.01"))
+        self.fric_comp = float(os.environ.get("BIMANUAL_FRIC_COMP", "1.0"))
+        # JOINT-SPACE INTEGRATOR on the reference handed to the FL-MPC (default OFF: it hunts with the stick-slip friction and wound up against the arm-arm rows; measured, see smoke --help): removes the residual gravity /
+        # unmodelled-load offset of the shoulder joints (0.02-0.035 rad measured) that the friction compensation does not touch.
+        self.jint_ki = float(os.environ.get("BIMANUAL_JINT_KI", "0.0"))
+        self.jint_lim = 0.05
+        self.jint = [np.zeros(6), np.zeros(6)]
+        self.fric_L = self.m.dof_frictionloss[self.ld].copy()
+        self.fric_R = self.m.dof_frictionloss[self.rd].copy()
         self._bodies = {}
         for side in ("left", "right"):
             first = int(m.jnt_bodyid[m.joint(f"{side}_arm_joint1").id])
@@ -70,11 +87,21 @@ class FFArmCtl(ArmCtl):
             ffl, ffr = self.ff_torque(d)
         else:
             ffl = ffr = np.zeros(6)
+        qeR, qiR = self.qe_ref, self.qi_ref
+        if self.jint_ki > 0.0:
+            dt = self.fl.DT
+            for k, (q, ref) in enumerate(((d.qpos[self.lq], self.qe_ref[0]), (d.qpos[self.rq], self.qi_ref[0]))):
+                e = ref - q
+                self.jint[k] = np.clip(self.jint[k] + self.jint_ki * dt * np.where(np.abs(e) < 0.04, e, 0.0), -self.jint_lim, self.jint_lim)
+            qeR, qiR = self.qe_ref + self.jint[0], self.qi_ref + self.jint[1]
         te, ti, ok = self.fl.step(self.m, d, self.lq, self.ld, self.rq, self.rd,
-                                  self.qe_ref, self.z, self.qi_ref, self.z, pairs, bias_ego_extra=ffl, **kw)
+                                  qeR, self.z, qiR, self.z, pairs, bias_ego_extra=ffl, **kw)
         # the right arm has no bias_extra argument: add its load as a plain torque (tau = M a + c + ff; c's own error is the same ff)
         ti = ti + ffr
         te = te  # left ff is already inside te through c
+        if self.fric_ff:
+            te = te + self.fric_comp * self.fric_L * np.clip((self.qe_ref[0] - d.qpos[self.lq]) / self.fric_e0, -1.0, 1.0)
+            ti = ti + self.fric_comp * self.fric_R * np.clip((self.qi_ref[0] - d.qpos[self.rq]) / self.fric_e0, -1.0, 1.0)
         if not ok:
             self.n_infeasible += 1
         self.last_ok = ok
