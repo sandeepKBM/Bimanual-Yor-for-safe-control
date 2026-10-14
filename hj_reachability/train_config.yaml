@@ -1,0 +1,80 @@
+# DeepReach training config for the bimanual arm-arm avoidance value function.
+#
+# SCAFFOLD/SMOKE ONLY -- do not run a real training job yet. Mirrors
+# /common/users/ss5772/DeepReach/deepreach/configs/ur5e_grasp_boundary_bootstrap.yaml
+# (supervised_bootstrap objective, same as the UR5eGraspBoundary dynamics
+# class) for dynamics class "BimanualArmArmAvoidance", ported from
+# hj_reachability/dynamics.py's BimanualPairAvoidance (numpy reference) /
+# hj_reachability/deepreach_dynamics.py (torch port). Added to the DeepReach
+# fork's dynamics/dynamics.py + run_experiment.py's TRAJECTORY_BACKED_DYNAMICS
+# on git branch `bimanual-armarm` (working-tree change there, uncommitted, not
+# merged to main) -- import/forward/backward smoke-tested (see
+# hj_reachability/README.md), not yet used in a real training run. See that
+# README's "what's missing before real training" for remaining blockers
+# (data_root below is still the 2k-row SMOKE dataset, not a real 200k one).
+#
+# Consumed by: /common/users/ss5772/DeepReach/deepreach/run_experiment.py
+# (via utils/config.py's load_config). Launched by hj_reachability/train.sbatch.
+
+mode: train
+experiments_dir: ./runs
+experiment_name: bimanual_arm_arm_avoidance_bootstrap_v0
+
+use_wandb: false
+experiment_class: DeepReach
+dynamics_class: BimanualArmArmAvoidance   # registered on fork branch bimanual-armarm -- see note above
+seed: 0
+device: cuda:0
+
+# Output of hj_reachability/export_dataset.py against the canonical YOR scene
+# (scenes/scene_yor_canonical.xml, arms 0.185m apart) -- 200,000-row dataset,
+# FAITHFUL ~25-keypoint-per-arm collision proxy + workspace-oversampled mixed
+# sampling (2026-09-06; see hj_reachability/README.md). The old
+# datasets/bimanual_yor_v1 (OLD 3-point proxy, 19.8% false-safe rate, pure
+# uniform sampling) is STALE -- do not point training at it.
+data_root: /common/users/ss5772/bimanual/hj_reachability/datasets/bimanual_yor_v2
+bootstrap_split: train
+training_objective: supervised_bootstrap
+
+# numpoints = size of the HJ-collocation batch drawn per step. In
+# training_objective=supervised_bootstrap this batch is DISCARDED by the trainer
+# (experiments.py bootstrap_mode), but dataio still runs the MuJoCo FK boundary_fn
+# on `numpoints` states every step (dataset __len__==1 -> 1 step/epoch). Keeping
+# it at 1024 => ~2000*1024 ~= 2M CPU FK calls (~2-3h, CPU-bound, GPU idle). The
+# real supervised batch is `num_supervised` below, so keep numpoints small to stay
+# GPU-bound (infra rule). 64 validated via smoke.
+numpoints: 64
+pretrain: false
+pretrain_iters: 0
+# tMax is a nominal bootstrap horizon placeholder (no real tau/horizon
+# semantics yet since rows are i.i.d. sampled states, not timed rollouts).
+tMin: 0.0
+tMax: 1.0
+counter_start: 0
+counter_end: 2000
+
+num_supervised: 1024   # supervised points/batch (== numpoints); REQUIRED >0 for supervised_bootstrap (run_experiment.py gate)
+supervised_weight: 1.0
+supervised_balanced_sampling: true
+supervised_safe_weight: 1.0
+supervised_unsafe_weight: 1.0
+
+model: sine
+model_mode: mlp
+num_hl: 2
+num_nl: 128
+deepreach_model: vanilla
+
+epochs_til_ckpt: 1000
+steps_til_summary: 100
+lr: 1.0e-4
+num_epochs: 2000
+clip_grad: 1.0
+use_lbfgs: false
+adj_rel_grads: false
+
+# NOTE (future upgrade path): dynamics.py's BimanualPairAvoidance has an
+# ANALYTIC dsdt/hamiltonian/optimal_control (unlike UR5eGraspBoundary), so
+# once ported into DeepReach's dynamics.py this problem can also train with
+# training_objective: hj_pde (self-supervised BRT, no dataset required) --
+# see hj_reachability/README.md.

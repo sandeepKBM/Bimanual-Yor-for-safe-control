@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>YOR sim teleop (SIMULATION)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+ body{margin:0;background:#111;color:#ddd;font:13px/1.35 ui-monospace,Menlo,Consolas,monospace}
+ #wrap{display:flex;gap:10px;padding:8px;align-items:flex-start;flex-wrap:wrap}
+ #view{position:relative}
+ canvas{background:#000;display:block;max-width:100%;border:1px solid #333}
+ #banner{position:absolute;top:0;left:0;right:0;padding:4px 8px;font-weight:bold;font-size:15px;background:rgba(160,30,30,.85)}
+ #banner.on{background:rgba(25,120,50,.80)}
+ #hud{min-width:340px}
+ table{border-collapse:collapse} td{padding:1px 8px 1px 0;vertical-align:top} td.k{color:#8aa}
+ .warn{color:#fb4} .bad{color:#f66} .ok{color:#6d6}
+ h4{margin:10px 0 3px;color:#9bd} kbd{background:#333;border-radius:3px;padding:0 4px;border:1px solid #555}
+ #sim{color:#f90;font-weight:bold}
+ #lang pre{margin:2px 0;white-space:pre-wrap;color:#cfe;background:#1a1a1a;padding:2px 4px}
+ #lang button{background:#333;color:#ddd;border:1px solid #666;cursor:pointer}
+</style></head><body>
+<div id="wrap">
+ <div id="view"><canvas id="cv" width="640" height="360"></canvas><div id="banner">connecting...</div></div>
+ <div id="hud">
+  <div id="sim">SIMULATION ONLY - not connected to any robot</div>
+  <table id="tel"></table>
+   <div id="assist" style="display:none"><h4>Assisted grasp (friction, wrist cameras)</h4>
+   <div><button id="assist_btn">Assist grasp (G)</button> <button id="place_btn">Place / release (H)</button> <span id="assist_st"></span></div></div>
+ <div id="lang" style="display:none"><h4>Language (VLM)</h4>
+   <textarea id="lang_in" rows="2" style="width:100%;box-sizing:border-box;background:#222;color:#ddd;border:1px solid #555" placeholder="e.g. bring the coffee to my desk without spilling and keep it 10 cm away from the monitor"></textarea>
+   <div><button id="lang_go">Ask VLM</button> <button id="lang_clr">Clear (defaults)</button> <span style="color:#888">typing here never moves the robot; Enter = ask, Esc = leave the box</span></div>
+   <div id="lang_out"></div></div>
+  <h4>Keyboard (hold to move; each key is its own deadman)</h4>
+  <table>
+   <tr><td><kbd>W</kbd>/<kbd>S</kbd></td><td>forward / back</td><td><kbd>A</kbd>/<kbd>D</kbd></td><td>strafe left / right</td></tr>
+   <tr><td><kbd>Q</kbd>/<kbd>E</kbd></td><td>yaw CCW / CW</td><td><kbd>R</kbd>/<kbd>F</kbd></td><td>lift up / down</td></tr>
+   <tr><td>arrows</td><td>tray x / y</td><td><kbd>PgUp</kbd>/<kbd>PgDn</kbd></td><td>tray z</td></tr>
+   <tr><td><kbd>T</kbd>/<kbd>Y</kbd></td><td>tray yaw</td><td><kbd>G</kbd>/<kbd>H</kbd></td><td>grasp / release</td></tr>
+   <tr><td><kbd>1 2 3</kbd></td><td>speed preset</td><td><kbd>Z</kbd>/<kbd>X</kbd></td><td>speed x0.9 / x1.1</td></tr>
+   <tr><td><kbd>Enter</kbd></td><td>ARM / clear latch</td><td><kbd>Space</kbd></td><td>zero everything</td></tr>
+   <tr><td><kbd>Esc</kbd></td><td>LATCHED stop (Enter clears)</td><td><kbd>V</kbd></td><td>shield on/off</td></tr>
+   <tr><td><kbd>C</kbd></td><td>cycle camera</td><td><kbd>B</kbd></td><td>inset on/off</td></tr>
+   <tr><td><kbd>Backspace</kbd></td><td>reset episode</td></tr>
+  </table>
+  <h4>Xbox pad (standard mapping) - motion needs ARMED + LB held</h4>
+  <table>
+   <tr><td><b>LB held</b></td><td>deadman (release = zero)</td><td>Start / Back</td><td>arm / disarm</td></tr>
+   <tr><td>right stick</td><td>base vx / vy</td><td>left stick X</td><td>base yaw</td></tr>
+   <tr><td>D-pad up/down</td><td>lift</td><td>LB+RB</td><td>tray mode</td></tr>
+   <tr><td colspan="4">tray mode: left stick x/y, right stick Y = z, right stick X = yaw, LT/RT = roll -/+</td></tr>
+   <tr><td>A / B</td><td>grasp / release</td><td>Y</td><td>cycle speed</td></tr>
+   <tr><td>X</td><td>shield on/off</td><td>RS / LS click</td><td>camera / inset</td></tr>
+  </table>
+  <div style="margin-top:6px;color:#888">A pad shows up only after you press a button on it while this tab is focused.</div>
+ </div>
+</div>
+<script src="/app.js"></script>
+</body></html>

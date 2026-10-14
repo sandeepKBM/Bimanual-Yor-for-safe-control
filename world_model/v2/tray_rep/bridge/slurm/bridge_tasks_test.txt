@@ -1,0 +1,11 @@
+--filter F0 --setup piper --seed 0 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter @F1@N0 --setup piper --seed 0 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter @F1@Rc3k --setup piper --seed 0 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter @F2 --setup piper --seed 0 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter @F3@N0 --setup piper --seed 0 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter @F3@N0 --setup piper --seed 1 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter @F3@N0 --setup piper --seed 2 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter @F3@Rc3k --setup piper --seed 0 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter @F3@Rc3k --setup piper --seed 1 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter @F3@Rc3k --setup piper --seed 2 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge
+--filter F4:check_every=5 --setup piper --seed 0 --split test --tag main --out /common/users/ss5772/bimanual_data/tray_rep/bridge --n-eps 100

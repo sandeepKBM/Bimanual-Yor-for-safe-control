@@ -1,0 +1,75 @@
+<mujoco model="yor_canonical">
+  <!--
+  CANONICAL bimanual scene: the PROPER YOR robot (welded swerve base + vertical
+  lift + two full Piper arms, via scenes/yor_robot_derived.mjcf) + a table +
+  one graspable test box, placed in the arms' SHARED/overlapping reachable
+  region (see scenes/YOR_CANONICAL.md for the full interface lock / mapping
+  table). This supersedes the old simplified rig (bimanual_piper_pickup.xml /
+  scene_bimanual_pickup.xml, arms 0.5m apart on the floor) as the canonical
+  scene going forward. Re-pointing experiments/ and collection/ at this file
+  is a LATER step -- not done here.
+  -->
+  <include file="yor_robot_derived.mjcf" />
+
+  <statistic center="0.35 -0.21 0.55" extent="1.2" meansize="0.05" />
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.2 0.2 0.2" specular="0 0 0" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <global azimuth="120" elevation="-20" offwidth="1280" offheight="960" />
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+    <material name="table_material" rgba="0.55 0.4 0.28 1" />
+    <material name="box_material" rgba="0.85 0.15 0.15 1" />
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 2.0" directional="true" />
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+
+    <!-- Table: top surface at z=0.55 (chosen from the reachability sweep -- both
+         arms' EE sites reach within ~2cm of (0.42,-0.21,z) for z in [0.45,0.70]).
+         Center (x=0.42, y=-0.21) sits ~0.42m forward of the arm mounts and at
+         their y-midpoint (left mount y=-0.117, right mount y=-0.302), i.e. in
+         the arms' shared/overlap workspace, clear of the base/wheel footprint. -->
+    <body name="table" pos="0.42 -0.21 0">
+      <geom name="table_top" type="box" pos="0 0 0.535" size="0.30 0.30 0.015" material="table_material" />
+      <geom name="table_leg_fl" type="box" pos="0.26 0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <geom name="table_leg_fr" type="box" pos="0.26 -0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <geom name="table_leg_bl" type="box" pos="-0.26 0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <geom name="table_leg_br" type="box" pos="-0.26 -0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+    </body>
+
+    <!-- Graspable test box: 4cm cube, 50g, resting on the table top (0.55 + 0.02),
+         centered under the shared-reach target used for the reachability check. -->
+    <body name="test_box" pos="0.42 -0.21 0.57">
+      <freejoint name="test_box_free" />
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1.3e-05 1.3e-05 1.3e-05" />
+      <geom name="test_box_geom" type="box" size="0.02 0.02 0.02" material="box_material"
+        friction="1.0 0.01 0.0001" condim="4" priority="1" solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+
+    <!-- Fixed head camera for world-model observation (NOT targetbody-tracking):
+         mode defaults to "fixed" when unset, i.e. a rigid world-frame pose. -->
+    <camera name="head_cam" mode="fixed" pos="1.1 -0.21 1.05" xyaxes="0 1 0 -0.5924 0 0.8057" fovy="55" />
+  </worldbody>
+
+  <keyframe>
+    <!-- Full-scene "home" keyframe: arms at YOR's upstream ready pose, fingers
+         open (0.03/-0.03), test box resting on the table.
+         qpos layout: left_arm[joint1..6,7,8](8) + right_arm[joint1..6,7,8](8)
+                       + test_box_free[x,y,z,qw,qx,qy,qz](7) = 23 = nq. -->
+    <key name="home"
+      qpos="0.0 1.58065 -0.578175 0.0 -0.912 0.78 0.03 -0.03
+            0.0 1.58065 -0.578175 0.0 -0.912 -0.78 0.03 -0.03
+            0.42 -0.21 0.57 1 0 0 0"
+      ctrl="0.0 1.58065 -0.578175 0.0 -0.912 0.78
+            0.0 1.58065 -0.578175 0.0 -0.912 -0.78
+            0.03 -0.03 0.03 -0.03" />
+  </keyframe>
+</mujoco>

@@ -1,0 +1,102 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Generated / heavy — keep out of git, cdx-agent graph, and searches
+# ─────────────────────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+# regenerable graph artifacts (rebuild: cdx-agent --graph)
+.codex_graph/
+
+# experiment outputs & renders (reproducible; promote keepers to docs/figures/)
+artifacts/
+experiments/**/logs/
+box_spool/
+
+# ─── ML heavy dirs (pre-empt) ───
+outputs/
+checkpoints/
+ckpts/
+wandb/
+runs/
+logdir/
+world_model/logdir/
+data/
+datasets/
+videos/
+media/
+
+# ─── Model weights & large binaries (GitHub hard-rejects files >100MB) ───
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.pkl
+*.h5
+*.hdf5
+*.pb
+*.bin
+
+# ─── Datasets / arrays / archives ───
+*.npz
+*.npy
+*.csv
+*.tsv
+*.parquet
+*.zip
+*.tar
+*.tgz
+*.gz
+*.bz2
+*.xz
+*.whl
+
+# ─── Media ───
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.gif
+
+# ─── Logs / transcripts / OS cruft ───
+*.jsonl
+MUJOCO_LOG.TXT
+MUJOCO_LOG.txt
+.DS_Store
+Thumbs.db
+
+# ─── Secrets / local env (never publish) ───
+.env
+.env.*
+*.pem
+*.key
+credentials*
+*.token
+.secrets/
+
+# ─── Claude Code / agent skills & local config — do NOT publish ───
+.claude/
+.claude-*/
+skills/
+*.skill
+
+# ─── Python envs / build ───
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+.ipynb_checkpoints/
+
+# ─── from_viam5: staging bundle, do NOT commit (to be dissolved later) ───
+from_viam5/
+
+# ─── YOR/ is a proper git SUBMODULE (see .gitmodules), not ignored. ───
+
+# ─────────────────────────────────────────────────────────────────────────
+# DOCS / markdown: tracked on the local branch, STRIPPED from the pushed
+# (public) branch — do NOT ignore here, or they'd leave local version control.
+# ─────────────────────────────────────────────────────────────────────────

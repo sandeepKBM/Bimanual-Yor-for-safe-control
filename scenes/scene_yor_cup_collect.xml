@@ -1,0 +1,242 @@
+<mujoco model="yor_cup_collect">
+  <!--
+  Flagship "cube-collection into a held cup" scene on the PROPER YOR robot
+  (welded swerve base + vertical lift + two full Piper arms, via
+  scenes/yor_robot_derived.mjcf -- same include as scenes/scene_yor_cup.xml,
+  which is READ-ONLY and unmodified here). Derived from scenes/scene_yor_cup.xml
+  by ADDITION ONLY: the cup body + 8 balls below are copied VERBATIM (same
+  pos/geometry, same comments trimmed) from that file -- the validated spill
+  signal (scripts/cup_task_utils.py's count_spilled) must keep working
+  unchanged on this scene. The only new content is 6 small graspable cubes
+  scattered on the table in the RIGHT arm's reach envelope (see
+  scenes/YOR_CANONICAL.md's FK sweep: right arm y in [-1.01, 0.17]), sized to
+  fit through the cup's rim, plus the extended `home` keyframe.
+
+  Target task (built by a LATER controller/sequencer, NOT this file): LEFT
+  arm grasps + holds the cup lifted (slightly off the table, below ZED
+  height); RIGHT arm picks the scattered cubes and drops them into the held
+  cup. Two of the six cubes (cube_4, cube_5) are placed near/across the
+  midline toward the cup's (0.42,-0.21) column specifically so reaching them
+  (not just carrying to the cup) already pushes the right arm toward the
+  left arm's territory -- see scripts/cup_collect_task_utils.py's docstring
+  and this build's verification report for the reachability/crossing
+  evidence.
+
+  NO fixed/external "close-up" camera is defined in this file (same
+  convention as scene_yor_cup.xml) -- the ZED is attached at load time by
+  scripts/cup_collect_task_utils.py's load_yor_cup_collect_model, mirroring
+  scripts/cup_task_utils.py's load_yor_cup_model.
+  -->
+  <include file="yor_robot_derived.mjcf" />
+
+  <statistic center="0.42 -0.21 0.6" extent="1.0" meansize="0.03" />
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.2 0.2 0.2" specular="0 0 0" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <global azimuth="120" elevation="-20" offwidth="1280" offheight="960" />
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+    <material name="table_material" rgba="0.55 0.4 0.28 1" />
+    <material name="cup_mat" rgba="0.85 0.15 0.15 0.95" />
+    <material name="ball_mat" rgba="0.15 0.55 0.9 1" />
+    <!-- Distinct cube material family (yellow/orange), visually separate
+         from the red cup and blue balls; each cube body gets a slightly
+         different shade (same convention scene_yor_stack.xml uses per-block)
+         so individual cubes are easy to tell apart in renders/video. -->
+    <material name="cube_mat" rgba="0.95 0.75 0.10 1" />
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 2.0" directional="true" />
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+
+    <!-- Table: identical to scenes/scene_yor_cup.xml / scene_yor_canonical.xml
+         (top surface z=0.55). -->
+    <body name="table" pos="0.42 -0.21 0">
+      <geom name="table_top" type="box" pos="0 0 0.545" size="0.30 0.30 0.005" material="table_material" />
+      <geom name="table_leg_fl" type="box" pos="0.26 0.26 0.27" size="0.02 0.02 0.27" material="table_material" />
+      <geom name="table_leg_fr" type="box" pos="0.26 -0.26 0.27" size="0.02 0.02 0.27" material="table_material" />
+      <geom name="table_leg_bl" type="box" pos="-0.26 0.26 0.27" size="0.02 0.02 0.27" material="table_material" />
+      <geom name="table_leg_br" type="box" pos="-0.26 -0.26 0.27" size="0.02 0.02 0.27" material="table_material" />
+    </body>
+
+    <!-- ================= Cup ================= (VERBATIM copy of
+         scenes/scene_yor_cup.xml's cup body -- same pos/geometry, so the
+         validated spill signal keeps working unchanged. See that file for
+         the full derivation comment; trimmed here to avoid duplicating it.
+         World rim height at rest = 0.55 + 0.08 = 0.63 m. -->
+    <body name="cup" pos="0.42 -0.21 0.55">
+      <freejoint name="cup_free" />
+      <inertial pos="0 0 0.03" mass="0.03" diaginertia="2.5e-5 2.5e-5 1.5e-5" />
+
+      <geom name="cup_bottom" type="cylinder" size="0.030 0.0015" pos="0 0 0.0015"
+        material="cup_mat" friction="0.6 0.01 0.0001" condim="4"
+        contype="1" conaffinity="1" />
+
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.03000 0.00000 0.0400" quat="1.000000 0 0 0.000000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_0"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.02598 0.01500 0.0400" quat="0.965926 0 0 0.258819" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_1"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.01500 0.02598 0.0400" quat="0.866025 0 0 0.500000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_2"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.00000 0.03000 0.0400" quat="0.707107 0 0 0.707107" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_3"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.01500 0.02598 0.0400" quat="0.500000 0 0 0.866025" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_4"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.02598 0.01500 0.0400" quat="0.258819 0 0 0.965926" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_5"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.03000 0.00000 0.0400" quat="0.000000 0 0 1.000000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_6"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.02598 -0.01500 0.0400" quat="-0.258819 0 0 0.965926" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_7"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.01500 -0.02598 0.0400" quat="-0.500000 0 0 0.866025" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_8"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="-0.00000 -0.03000 0.0400" quat="-0.707107 0 0 0.707107" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_9"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.01500 -0.02598 0.0400" quat="-0.866025 0 0 0.500000" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_10"/>
+      <geom type="box" size="0.00150 0.00785 0.0400" pos="0.02598 -0.01500 0.0400" quat="-0.965926 0 0 0.258819" material="cup_mat" friction="0.6 0.01 0.0001" condim="4" contype="1" conaffinity="1" name="cup_wall_11"/>
+    </body>
+
+    <!-- ================= Balls (N=8, r=0.008 m, density=900) =================
+         VERBATIM copy of scenes/scene_yor_cup.xml's 8 balls (two 4-ball
+         layers). -->
+    <body name="ball_0" pos="0.432 -0.210 0.5585">
+      <freejoint name="ball_0_free" />
+      <geom name="ball_0" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_1" pos="0.420 -0.198 0.5585">
+      <freejoint name="ball_1_free" />
+      <geom name="ball_1" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_2" pos="0.408 -0.210 0.5585">
+      <freejoint name="ball_2_free" />
+      <geom name="ball_2" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_3" pos="0.420 -0.222 0.5585">
+      <freejoint name="ball_3_free" />
+      <geom name="ball_3" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_4" pos="0.42849 -0.20151 0.576">
+      <freejoint name="ball_4_free" />
+      <geom name="ball_4" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_5" pos="0.41151 -0.20151 0.576">
+      <freejoint name="ball_5_free" />
+      <geom name="ball_5" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_6" pos="0.41151 -0.21849 0.576">
+      <freejoint name="ball_6_free" />
+      <geom name="ball_6" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+    <body name="ball_7" pos="0.42849 -0.21849 0.576">
+      <freejoint name="ball_7_free" />
+      <geom name="ball_7" type="sphere" size="0.008" material="ball_mat" density="900"
+        friction="0.5 0.005 0.0003" condim="6" priority="1" solref="0.004 1" solimp="0.9 0.95 0.001" />
+    </body>
+
+    <!-- ================= Cubes (N=6, half-size 0.0105 m -> 2.1cm cubes) =================
+         New: scattered on the table in the RIGHT arm's reach envelope
+         (scenes/YOR_CANONICAL.md: right arm y in [-1.01, 0.17], both arms'
+         x in [-0.59/-0.60, 0.63]). Table top footprint (world) is
+         x in [0.12, 0.72], y in [-0.51, 0.09] (table body at (0.42,-0.21,0),
+         table_top half-size 0.30 x 0.30). Rest height z = 0.55 (table top) +
+         0.0105 (cube half-size) = 0.5605.
+
+         cube_0..cube_3 sit in the RIGHT-favored strip (y in [-0.46,-0.32],
+         away from the cup) -- ordinary right-arm-only picks.
+         cube_4, cube_5 sit NEAR/ACROSS THE MIDLINE toward the cup's
+         (0.42,-0.21) column (y=-0.08 and y=-0.14, i.e. north of the cup,
+         inside the left arm's naturally-favored territory) so reaching
+         them already pushes the right arm toward the left arm's space, on
+         top of the carry-to-cup crossing every cube's drop leg induces.
+         All 6 stay >=0.08m (radial, table-plane) from the cup's center so
+         none touches/nudges the cup or balls at rest.
+
+         Friction/condim/solref/solimp mirror scene_yor_stack.xml's blocks
+         (condim=4, priority=1, "grippable" contact tuning) so a parallel
+         gripper can pinch these once the controller/sequencer (a LATER
+         build) drives to them. contype/conaffinity are left at MuJoCo
+         defaults (1,1) -- ordinary collidable objects, unlike the arm-arm
+         collision-proxy geoms in yor_robot_derived.mjcf which ship with
+         contype=0 (see scripts/cup_task_utils.py's load_yor_cup_model
+         docstring). -->
+    <body name="cube_0" pos="0.20 -0.45 0.5605">
+      <freejoint name="cube_0_free" />
+      <inertial pos="0 0 0" mass="0.008" diaginertia="5.9e-7 5.9e-7 5.9e-7" />
+      <geom name="cube_0_geom" type="box" size="0.0105 0.0105 0.0105" material="cube_mat"
+        rgba="0.95 0.75 0.10 1" friction="1.0 0.01 0.0001" condim="4" priority="1"
+        solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="cube_1" pos="0.42 -0.46 0.5605">
+      <freejoint name="cube_1_free" />
+      <inertial pos="0 0 0" mass="0.008" diaginertia="5.9e-7 5.9e-7 5.9e-7" />
+      <geom name="cube_1_geom" type="box" size="0.0105 0.0105 0.0105" material="cube_mat"
+        rgba="0.95 0.60 0.05 1" friction="1.0 0.01 0.0001" condim="4" priority="1"
+        solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="cube_2" pos="0.62 -0.44 0.5605">
+      <freejoint name="cube_2_free" />
+      <inertial pos="0 0 0" mass="0.008" diaginertia="5.9e-7 5.9e-7 5.9e-7" />
+      <geom name="cube_2_geom" type="box" size="0.0105 0.0105 0.0105" material="cube_mat"
+        rgba="0.90 0.85 0.15 1" friction="1.0 0.01 0.0001" condim="4" priority="1"
+        solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="cube_3" pos="0.30 -0.32 0.5605">
+      <freejoint name="cube_3_free" />
+      <inertial pos="0 0 0" mass="0.008" diaginertia="5.9e-7 5.9e-7 5.9e-7" />
+      <geom name="cube_3_geom" type="box" size="0.0105 0.0105 0.0105" material="cube_mat"
+        rgba="0.98 0.68 0.20 1" friction="1.0 0.01 0.0001" condim="4" priority="1"
+        solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="cube_4" pos="0.42 -0.08 0.5605">
+      <freejoint name="cube_4_free" />
+      <inertial pos="0 0 0" mass="0.008" diaginertia="5.9e-7 5.9e-7 5.9e-7" />
+      <geom name="cube_4_geom" type="box" size="0.0105 0.0105 0.0105" material="cube_mat"
+        rgba="0.92 0.55 0.12 1" friction="1.0 0.01 0.0001" condim="4" priority="1"
+        solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="cube_5" pos="0.58 -0.14 0.5605">
+      <freejoint name="cube_5_free" />
+      <inertial pos="0 0 0" mass="0.008" diaginertia="5.9e-7 5.9e-7 5.9e-7" />
+      <geom name="cube_5_geom" type="box" size="0.0105 0.0105 0.0105" material="cube_mat"
+        rgba="0.97 0.78 0.08 1" friction="1.0 0.01 0.0001" condim="4" priority="1"
+        solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+  </worldbody>
+
+  <keyframe>
+    <!-- Full-scene "home" keyframe: both arms at the YOR canonical ready pose,
+         fingers open, cup + balls at their declared resting pose (same as
+         scene_yor_cup.xml), plus the 6 cubes resting at their scattered
+         table positions.
+         qpos layout: left_arm[joint1..6,7,8](8) + right_arm[joint1..6,7,8](8)
+                       + cup_free[x,y,z,qw,qx,qy,qz](7)
+                       + 8 * ball_free[x,y,z,qw,qx,qy,qz](7)
+                       + 6 * cube_free[x,y,z,qw,qx,qy,qz](7)
+                       = 16+7+56+42 = 121 = nq. -->
+    <key name="home"
+      qpos="0.0 1.58065 -0.578175 0.0 -0.912 0.78 0.03 -0.03
+            0.0 1.58065 -0.578175 0.0 -0.912 -0.78 0.03 -0.03
+            0.42 -0.21 0.55 1 0 0 0
+            0.432 -0.210 0.5585 1 0 0 0
+            0.420 -0.198 0.5585 1 0 0 0
+            0.408 -0.210 0.5585 1 0 0 0
+            0.420 -0.222 0.5585 1 0 0 0
+            0.42849 -0.20151 0.576 1 0 0 0
+            0.41151 -0.20151 0.576 1 0 0 0
+            0.41151 -0.21849 0.576 1 0 0 0
+            0.42849 -0.21849 0.576 1 0 0 0
+            0.20 -0.45 0.5605 1 0 0 0
+            0.42 -0.46 0.5605 1 0 0 0
+            0.62 -0.44 0.5605 1 0 0 0
+            0.30 -0.32 0.5605 1 0 0 0
+            0.42 -0.08 0.5605 1 0 0 0
+            0.58 -0.14 0.5605 1 0 0 0"
+      ctrl="0.0 1.58065 -0.578175 0.0 -0.912 0.78
+            0.0 1.58065 -0.578175 0.0 -0.912 -0.78
+            0.03 -0.03 0.03 -0.03" />
+  </keyframe>
+</mujoco>

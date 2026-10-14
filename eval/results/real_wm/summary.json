@@ -1,0 +1,42 @@
+[
+  {
+    "config": "none",
+    "n_episodes": 8,
+    "success_rate_pct": 0.0,
+    "spilled_rate_pct": 100.0,
+    "collision_rate_pct": 0.0,
+    "min_h_mean": 0.13476573333048625,
+    "semantic_veto_frac_mean": 0.0,
+    "mean_solve_time_ms_mean": 0.0
+  },
+  {
+    "config": "geometric_only",
+    "n_episodes": 8,
+    "success_rate_pct": 0.0,
+    "spilled_rate_pct": 100.0,
+    "collision_rate_pct": 0.0,
+    "min_h_mean": 0.13476573333048625,
+    "semantic_veto_frac_mean": 0.0,
+    "mean_solve_time_ms_mean": 32.002213608357124
+  },
+  {
+    "config": "semantic_only",
+    "n_episodes": 8,
+    "success_rate_pct": 100.0,
+    "spilled_rate_pct": 0.0,
+    "collision_rate_pct": 0.0,
+    "min_h_mean": 0.08592889319921793,
+    "semantic_veto_frac_mean": 1.0,
+    "mean_solve_time_ms_mean": 0.0
+  },
+  {
+    "config": "both",
+    "n_episodes": 8,
+    "success_rate_pct": 100.0,
+    "spilled_rate_pct": 0.0,
+    "collision_rate_pct": 0.0,
+    "min_h_mean": 0.08593100671932233,
+    "semantic_veto_frac_mean": 1.0,
+    "mean_solve_time_ms_mean": 32.47718737402465
+  }
+]

@@ -1,0 +1,3 @@
+[submodule "YOR"]
+	path = YOR
+	url = https://github.com/YOR-robot/YOR.git

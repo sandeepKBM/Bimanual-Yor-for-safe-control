@@ -1,0 +1,3 @@
+world_model.v2.tray_rep.robust.test3 run --setup piper_trk --arm Rc3k --seed 0 --tag main
+world_model.v2.tray_rep.robust.test3 run --setup piper_trk --arm Rc3k --seed 1 --tag main
+world_model.v2.tray_rep.robust.test3 run --setup piper_trk --arm Rc3k --seed 2 --tag main

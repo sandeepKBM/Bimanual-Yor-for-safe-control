@@ -1,0 +1,153 @@
+<mujoco model="yor_stack">
+  <!--
+  Bimanual STACKING task on the PROPER YOR robot (welded swerve base + vertical
+  lift + two full Piper arms, via scenes/yor_robot_derived.mjcf -- same
+  include as scenes/scene_yor_canonical.xml / scenes/scene_yor_cup.xml, that
+  file is READ-ONLY and unmodified here).
+
+  Design (see scenes/STACK_TASK.md for the full writeup): the task is
+  REACH-PARTITIONED so neither arm can build the tower alone.
+    - Center table (identical footprint/pose to scene_yor_canonical.xml's
+      table -- verified clear of the base/wheel footprint there) holds the
+      TOWER ZONE at its exact center (0.42,-0.21) plus 2 "shared" blocks near
+      its corners, all inside the arms' overlap envelope
+      (x in [-0.59,0.63], y in [-0.58,0.17], scenes/YOR_CANONICAL.md).
+    - Left platform (y in [0.23,0.47]) is ABOVE the right arm's max reach
+      (y=0.17) but within the left arm's envelope (y up to 0.60) -- LEFT-ONLY
+      blocks live here.
+    - Right platform (y in [-0.87,-0.63]) is BELOW the left arm's min reach
+      (y=-0.58) but within the right arm's envelope (y down to -1.01) --
+      RIGHT-ONLY blocks live here.
+  8 free-floating 4cm blocks total: 3 left-only, 3 right-only, 2 shared.
+  -->
+  <include file="yor_robot_derived.mjcf" />
+
+  <statistic center="0.35 -0.21 0.55" extent="1.6" meansize="0.05" />
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.2 0.2 0.2" specular="0 0 0" />
+    <rgba haze="0.15 0.25 0.35 1" />
+    <global azimuth="120" elevation="-20" offwidth="1280" offheight="960" />
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072" />
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300" />
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2" />
+    <material name="table_material" rgba="0.55 0.4 0.28 1" />
+    <material name="left_platform_material" rgba="0.30 0.35 0.55 1" />
+    <material name="right_platform_material" rgba="0.55 0.32 0.30 1" />
+    <material name="tower_zone_material" rgba="0.95 0.85 0.15 0.55" />
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 2.0" directional="true" />
+    <geom name="floor" size="0 0 0.05" type="plane" material="groundplane" />
+
+    <!-- Center table: byte-for-byte the same pose/size as scene_yor_canonical.xml's
+         "table" body (verified there: zero contacts vs the base/wheel geoms).
+         Top surface z=0.55, footprint x in [0.12,0.72], y in [-0.51,0.09] --
+         inside BOTH arms' reach envelope (the shared/overlap region). -->
+    <body name="table" pos="0.42 -0.21 0">
+      <geom name="table_top" type="box" pos="0 0 0.535" size="0.30 0.30 0.015" material="table_material" />
+      <geom name="table_leg_fl" type="box" pos="0.26 0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <geom name="table_leg_fr" type="box" pos="0.26 -0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <geom name="table_leg_bl" type="box" pos="-0.26 0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <geom name="table_leg_br" type="box" pos="-0.26 -0.26 0.26" size="0.02 0.02 0.26" material="table_material" />
+      <!-- Tower zone marker: flat, non-colliding (contype/conaffinity 0) disc
+           at the table center, purely visual -- marks where the tower must
+           be built (both arms can reach here, see scenes/YOR_CANONICAL.md's
+           shared-point FK finding for (0.42,-0.21,z)). -->
+      <geom name="tower_zone_marker" type="cylinder" pos="0 0 0.551" size="0.07 0.001"
+        material="tower_zone_material" contype="0" conaffinity="0" />
+    </body>
+
+    <!-- Left platform: solid plinth from floor to table height, at the SAME
+         x=0.42 (verified-clear forward offset) but y in [0.23,0.47] -- past
+         the right arm's max reach y=0.17, so blocks here are LEFT-ONLY. -->
+    <body name="left_platform" pos="0.42 0.35 0">
+      <geom name="left_platform_geom" type="box" pos="0 0 0.275" size="0.15 0.12 0.275" material="left_platform_material" />
+    </body>
+
+    <!-- Right platform: same idea, y in [-0.87,-0.63] -- past the left arm's
+         min reach y=-0.58, so blocks here are RIGHT-ONLY. -->
+    <body name="right_platform" pos="0.42 -0.75 0">
+      <geom name="right_platform_geom" type="box" pos="0 0 0.275" size="0.15 0.12 0.275" material="right_platform_material" />
+    </body>
+
+    <!-- 8 graspable 4cm blocks (same size/mass/friction convention as
+         scene_yor_canonical.xml's test_box). Declaration order here MUST
+         match the <keyframe> qpos layout below (freejoints appended in
+         document order after the robot's 16 arm/finger DOFs). -->
+    <body name="block_l1" pos="0.34 0.29 0.57">
+      <freejoint name="block_l1_free" />
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1.3e-05 1.3e-05 1.3e-05" />
+      <geom name="block_l1_geom" type="box" size="0.02 0.02 0.02" rgba="0.85 0.15 0.15 1"
+        friction="1.0 0.01 0.0001" condim="4" priority="1" solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="block_l2" pos="0.42 0.36 0.57">
+      <freejoint name="block_l2_free" />
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1.3e-05 1.3e-05 1.3e-05" />
+      <geom name="block_l2_geom" type="box" size="0.02 0.02 0.02" rgba="0.85 0.55 0.10 1"
+        friction="1.0 0.01 0.0001" condim="4" priority="1" solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="block_l3" pos="0.50 0.42 0.57">
+      <freejoint name="block_l3_free" />
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1.3e-05 1.3e-05 1.3e-05" />
+      <geom name="block_l3_geom" type="box" size="0.02 0.02 0.02" rgba="0.85 0.80 0.10 1"
+        friction="1.0 0.01 0.0001" condim="4" priority="1" solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="block_r1" pos="0.34 -0.69 0.57">
+      <freejoint name="block_r1_free" />
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1.3e-05 1.3e-05 1.3e-05" />
+      <geom name="block_r1_geom" type="box" size="0.02 0.02 0.02" rgba="0.10 0.30 0.85 1"
+        friction="1.0 0.01 0.0001" condim="4" priority="1" solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="block_r2" pos="0.42 -0.76 0.57">
+      <freejoint name="block_r2_free" />
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1.3e-05 1.3e-05 1.3e-05" />
+      <geom name="block_r2_geom" type="box" size="0.02 0.02 0.02" rgba="0.10 0.65 0.85 1"
+        friction="1.0 0.01 0.0001" condim="4" priority="1" solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="block_r3" pos="0.50 -0.82 0.57">
+      <freejoint name="block_r3_free" />
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1.3e-05 1.3e-05 1.3e-05" />
+      <geom name="block_r3_geom" type="box" size="0.02 0.02 0.02" rgba="0.55 0.10 0.85 1"
+        friction="1.0 0.01 0.0001" condim="4" priority="1" solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="block_s1" pos="0.20 -0.45 0.57">
+      <freejoint name="block_s1_free" />
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1.3e-05 1.3e-05 1.3e-05" />
+      <geom name="block_s1_geom" type="box" size="0.02 0.02 0.02" rgba="0.10 0.75 0.20 1"
+        friction="1.0 0.01 0.0001" condim="4" priority="1" solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+    <body name="block_s2" pos="0.64 -0.02 0.57">
+      <freejoint name="block_s2_free" />
+      <inertial pos="0 0 0" mass="0.05" diaginertia="1.3e-05 1.3e-05 1.3e-05" />
+      <geom name="block_s2_geom" type="box" size="0.02 0.02 0.02" rgba="0.90 0.90 0.90 1"
+        friction="1.0 0.01 0.0001" condim="4" priority="1" solref="0.005 1" solimp="0.95 0.99 0.001" />
+    </body>
+  </worldbody>
+
+  <keyframe>
+    <!-- Full-scene "home" keyframe: arms at YOR's upstream ready pose, fingers
+         open (0.03/-0.03), all 8 blocks resting at their scattered start poses.
+         qpos layout: left_arm[joint1..6,7,8](8) + right_arm[joint1..6,7,8](8)
+                       + 8 blocks x [x,y,z,qw,qx,qy,qz](7) = 16+56 = 72 = nq. -->
+    <key name="home"
+      qpos="0.0 1.58065 -0.578175 0.0 -0.912 0.78 0.03 -0.03
+            0.0 1.58065 -0.578175 0.0 -0.912 -0.78 0.03 -0.03
+            0.34 0.29 0.57 1 0 0 0
+            0.42 0.36 0.57 1 0 0 0
+            0.50 0.42 0.57 1 0 0 0
+            0.34 -0.69 0.57 1 0 0 0
+            0.42 -0.76 0.57 1 0 0 0
+            0.50 -0.82 0.57 1 0 0 0
+            0.20 -0.45 0.57 1 0 0 0
+            0.64 -0.02 0.57 1 0 0 0"
+      ctrl="0.0 1.58065 -0.578175 0.0 -0.912 0.78
+            0.0 1.58065 -0.578175 0.0 -0.912 -0.78
+            0.03 -0.03 0.03 -0.03" />
+  </keyframe>
+</mujoco>
