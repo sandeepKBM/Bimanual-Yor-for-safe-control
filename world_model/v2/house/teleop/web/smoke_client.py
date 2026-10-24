@@ -62,6 +62,44 @@ async def main(a):
                 if frames:
                     open(f"{a.out}/frame.jpg", "wb").write(frames[-1][1])
                 return
+            if a.tuck:                                     # tuck / camera / footprint scenario (live footprint server): arm, drive, N (tuck), C (cycle cameras), M (carry)
+                async def tap(code, dur=0.12):
+                    await send([code]); await asyncio.sleep(dur); await send([])
+                print("hello-time telemetry fields:", {k: tel.get(k) for k in ("cam", "tuck", "people", "fp_mode", "fp_w", "fp_l", "fp_ms", "tray_off", "render_ms")}, flush=True)
+                await send(["Enter"]); await send([]); await asyncio.sleep(0.2)
+                p0 = tel["pose"][:]
+                await hold(["KeyW"], 2.0)
+                print("drive 2 s: pose delta", [round(x - y, 3) for x, y in zip(tel["pose"], p0)], "fp_w", tel["fp_w"], flush=True)
+                await tap("KeyN")
+                seen = []; t1 = time.time()
+                while time.time() - t1 < a.tuck_timeout:
+                    await send([]); await asyncio.sleep(0.1)
+                    if not seen or seen[-1] != tel["tuck"]: seen.append(tel["tuck"]); print(f"  tuck state -> {tel['tuck']}  tray_off {tel['tray_off']} fp_w {tel['fp_w']} fp_l {tel['fp_l']} beads_out {tel['beads_out']}", flush=True)
+                    if tel["tuck"] == "tucked": break
+                await hold([], 1.0)
+                print("tucked: fp_w", tel["fp_w"], "beads_out", tel["beads_out"], "cup", tel["cup_state"], "tilt", tel["cup_tilt"], flush=True)
+                cams = []
+                for i in range(5):
+                    tf = len(frames)
+                    cams.append(tel["cam"])
+                    await asyncio.sleep(1.0)
+                    if len(frames) > tf:
+                        open(f"{a.out}/frame_{tel['cam']}.jpg", "wb").write(frames[-1][1])
+                    await tap("KeyC")
+                    await asyncio.sleep(0.3)
+                print("cameras cycled:", cams, flush=True)
+                await tap("KeyM")
+                t1 = time.time(); seen = []
+                while time.time() - t1 < a.tuck_timeout:
+                    await send([]); await asyncio.sleep(0.1)
+                    if not seen or seen[-1] != tel["tuck"]: seen.append(tel["tuck"]); print(f"  carry state -> {tel['tuck']}", flush=True)
+                    if tel["tuck"] == "carry": break
+                await hold([], 0.5)
+                r.cancel()
+                ft = [f[0] for f in frames]
+                print("frames", len(frames), "fps", round((len(ft) - 1) / (ft[-1] - ft[0]), 1) if len(ft) > 2 else None)
+                print("final tel:", {k: tel.get(k) for k in ("rtf", "tick_ms", "render_fps", "render_ms", "beads_out", "cup_state", "fp_mode", "fp_w", "fp_ms", "tuck", "cam", "people", "impl")})
+                return
             p0 = tel["pose"][:]; log.append(("disarmed hold W", None))
             await hold(["KeyW"], 1.0)
             print("disarmed + W: pose moved", [round(x - y, 3) for x, y in zip(tel["pose"], p0)], "enabled", tel["enabled"], flush=True)
@@ -96,5 +134,6 @@ async def main(a):
 
 ap = argparse.ArgumentParser(); ap.add_argument("--port", type=int, default=8765); ap.add_argument("--token", default="smoke123"); ap.add_argument("--out", required=True)
 ap.add_argument("--assist", action="store_true", help="assisted friction-grasp scenario (server: --grasp-mode friction --spawn-at cafe_counter_pick --task pick)")
+ap.add_argument("--tuck", action="store_true", help="tuck / camera-cycle / live-footprint scenario"); ap.add_argument("--tuck-timeout", type=float, default=60.0)
 ap.add_argument("--place", action="store_true"); ap.add_argument("--assist-timeout", type=float, default=240.0)
 asyncio.run(main(ap.parse_args()))

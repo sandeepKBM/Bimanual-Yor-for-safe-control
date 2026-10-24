@@ -9,6 +9,8 @@ All mapping lives in one place: `inputs.py` (`CONFIG`, `KBD_AXES`, `KBD_EVENTS`,
 cd /common/users/ss5772/bimanual ; export PYTHONPATH=$PWD OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1
 MUJOCO_GL=egl CUDA_VISIBLE_DEVICES=1 /common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python -m world_model.v2.house.teleop.web.server \
     --scene h5 --task carry --shield            # flags: --port 8765 --scene h5|office --task carry|coffee --shield/--no-shield --fps 15 --flmpc-impl rt|py --grasp-mode ... --token ...
+    #   --view ego|chase (default ego)   --people on|off|static (default on)   --footprint fixed|live (default fixed)   --d-wall-door M (opt-in, default off)
+    # doorway driving (h5, door|4|7): add  --footprint live --d-wall-door 0.05  and press N (tuck) before the door; see "Doorways" below
 # laptop
 ssh -L 8765:localhost:8765 westeros.cs.rutgers.edu
 # browser: open the URL the server prints, http://localhost:8765/?token=<token>
@@ -46,8 +48,10 @@ Full-scale: base `base.V_STICK` = (0.9, 0.45, 1.2); tray jog 0.08 m/s / 0.15 rad
 | G / H | grasp / release | 1 / 2 / 3 | speed preset slow/medium/fast |
 | Z / X | speed x0.9 / x1.1 (capped at full stick) | Enter | arm / clear Esc latch |
 | Space | zero everything | Esc | latched stop |
-| V | shield on/off | C | cycle camera (chase, top, wrist_l, wrist_r) |
+| V | shield on/off | C | cycle camera (ego, chase, top, wrist_l, wrist_r) |
 | B | wrist inset on/off | Backspace | reset episode |
+| **N** | TUCK: tray to the narrow doorway carry pose (offset +0.11, +0.11, 0 m, yaw +0.33 rad from the normal carry; ~4 s) | **M** | back to the normal carry pose |
+N / M move the tray through the normal tray-jog path (so the shield's jog governor applies), only while armed; any tray-jog key, Space, Esc, disarm or a disconnect cancels the motion. HUD: `footprint ... tray tucked|carry|to_tuck|to_carry|custom`; the page has Tuck / Normal carry buttons (same keys).
 Ctrl/Alt/Meta combos are ignored (browser shortcuts keep working).
 
 ## Xbox pad (browser Gamepad API, "standard" mapping; plugged into the LAPTOP, nothing installed on the server)
@@ -64,6 +68,7 @@ Press any pad button once while the tab is focused (browsers hide pads until the
 | Y | cycle speed preset (YOR used LB for presets; LB is now the deadman) |
 | Start / Back | arm / disarm |
 | RS click / LS click | cycle camera / wrist inset |
+| D-pad left / right | TUCK tray / normal carry (the motion runs only while LB is held; releasing LB pauses it) |
 Deadzone 0.05, rescaled; low-pass alpha 0.7 per 20 ms tick (YOR uses 0.9 at its own loop rate; the sim base also slews at `A_HW`).
 Conflict resolved: on the "standard" layout `buttons[8]` is both "View" and "Back". It is DISARM (safety first); camera cycle moved to RS click.
 If `gamepad.mapping != "standard"` the HUD shows a warning and the triggers (roll) are disabled. Caveat: the sticks/buttons are still read by index in that case, so check the layout before driving.
@@ -76,8 +81,17 @@ client -> server (JSON):
 {"type":"pad_gone"}            {"type":"ping","id":K}
 ```
 server -> client: binary `0x01 + JPEG` frames; JSON `{"type":"hello",...}` once (key maps, presets, cameras); `{"type":"tel",...}` at 20 Hz; `{"type":"pong","id":K}`; `{"type":"bye"}`.
-Telemetry (HUD): `ready enabled latched src preset_name scale watchdog stopped pad{connected,mode,deadman,warn} ack{kbd,pad} shield interv_frac interv_now rtf render_fps tick_ms beads_out n_beads cup_state cup_tilt wall_clr person_clr speed wz pose lift_h grasped can_grasp infeasible bumps cmd_twist safe_twist cam inset impl`.
+Telemetry (HUD): `ready enabled latched src preset_name scale watchdog stopped tuck pad{connected,mode,deadman,warn} ack{kbd,pad} shield interv_frac interv_now rtf render_fps render_ms tick_ms beads_out n_beads cup_state cup_tilt wall_clr person_clr speed wz pose lift_h grasped can_grasp infeasible bumps cmd_twist safe_twist cam inset impl people fp_mode fp_w fp_l fp_ms tray_off`.
+New: `tuck` carry|tucked|to_tuck|to_carry|custom|unknown; `people` on|off|static; `fp_mode` fixed|live and `fp_w`/`fp_l` the shield footprint width/length [m] used this tick (`wall_clr` in the HUD is still measured with the FIXED box); `fp_ms` mean cost of the live footprint [ms/tick]; `tray_off` = commanded tray offset [dx, dy, dz, yaw]; `render_ms` mean render+JPEG time of the stream process.
 Latency: "net RTT" = ping/pong; "input->ack" = echoed `seq` seen in telemetry (up to 50 ms telemetry period). Real-time factor = sim seconds per wall second over the last ~4 s.
+
+## Doorways (live footprint, tuck, doorway buffer)
+The shield's wall and person rows use a footprint rectangle in the robot frame.  `--footprint fixed` (default) is `geom.FP`, the phase-1 hold-pose box of every robot geom + tray: x [-0.165, 0.577], y [-0.644, 0.130] = 0.774 m wide, and it ignores where the arms / tray are.  `--footprint live` (`ShieldCfg.footprint="live"`) recomputes the base-frame xy box of the CURRENT geoms each shield tick: 51 collision geoms (arms, grippers, base, tray, cup) as convex-hull point sets (mesh hull vertices; circumscribed samples for capsules), one gather+einsum over ~4500 points, + `live_pad` 0.02 m (box() 0.45 ms; whole shield filter 1.4 ms fixed -> 1.9 ms live per tick, measured idle; budget 20 ms; one-time hull build 28 ms).  Only the footprint rectangle changes; every other row (cup, jerk, hardware, IR veto, people CBF) is the same code.
+Tuck (N): the tray offset (+0.11, +0.11, 0) m / +0.33 rad (inside the ObjectFrame jog box 0.12 m and yaw cap 0.35 rad; no limit is changed) pulls the right elbow in: live box 0.72 m -> ~0.64 m wide (+0.02 pad per side).  It also extends the box ~0.18 m FORWARD (0.75 m ahead of the base origin), which matters for people rows and turning.  Close-in offsets (dx < 0) do NOT narrow it (IK leaves the box).
+h5 door|4|7 clear opening is 0.85-0.864 m (frame to frame; design 1.024).  With the default buffer d_wall = 0.10 m the shield needs footprint + 0.20 m = 0.88 m (tucked + pad) -> still blocked.  `--d-wall-door M` (`ShieldCfg.d_wall_door`, `doorways`, `door_radius` 0.5 m) lowers the wall buffer to M only while the footprint is within 0.5 m of a doorway centre; the pad already covers 2 cm, so M = 0.05 leaves >= 5 cm physical clearance per side when centred.  Headless results (scripted pad operator, h5 start -> door|4|7 -> room|7; grid door span 3.44..4.29 = 0.85 m; tucked live box 0.643 m + 2x0.02 pad = 0.683 m): default d_wall 0.10 -> stalls at the door (needs 0.883 m); `--d-wall-door 0.08` -> still stalls (7 mm theoretical slack); `--d-wall-door 0.05` + tuck + live -> PASSES (min hull-vertex clearance to the house EDT 0.10 m, no contacts, 0 beads out, cup tilt <= 1.9 deg); live WITHOUT tuck (0.77 m) or the fixed footprint (0.774 m) stall even at 0.05.  A person standing still at the walker's start (3.6, 3.8), 1.1 m beyond the door, blocks the advance at the door line (person keep-out 0.30 + 0.10 m against the 0.76 m-long tucked footprint).  Headless check: `python -m world_model.v2.house.teleop.door_test --footprint live --tuck --people off --d-wall-door 0.05 --out DIR` (scripted pad operator through the same InputHub + shield).
+
+## People
+`--people on` (default): the scripted people walk; the web sim runs `TeleopSim(people_clock="time")`.  Cause of the old "h5 walker never moves": with the legacy clock (`people_clock="legacy"`, still the TeleopSim default for the offline studies) a track's clock only advances while the CURRENT segment velocity is non-zero, and p_walker's first segment (t 0..2 s) is stationary, so it stayed at (3.6, 3.8) -- in the living room, 1.1 m south of door|4|7 -- forever.  With the time clock it waits 2 s, walks to (0.9, 3.8) by t = 10 s and stops (it yields while the footprint is within 0.15 m of it).  `--people static`: everybody stands at the track start (the old frozen behaviour, explicit: walker at (3.6, 3.8)); `--people off`: no people, no person keep-out.  The shield keeps a person disc of PERSON_CLEAR_R 0.30 + d_person 0.10 = 0.40 m around each person, measured to the footprint rectangle.
 
 ## ROS `joy` / `teleop_twist_joy` source (future)
 Same interface: subclass `InputSource` (`feed(msg, now)` parses a `sensor_msgs/Joy`-like dict `{"axes":[..],"buttons":[..]}` into `Intent` channels + events; `intent()` is inherited), and hand it to `InputHub([...sources])`. For a standard Xbox `joy` node the axes order differs from the browser (ROS `joy`: 0 LX, 1 LY, 2 LT, 3 RX, 4 RY, 5 RT, 6/7 dpad; sticks left/up = +) so give it its own `PAD_*` dict, e.g. `PAD_BASE_ROS = {"vx": (4, +1), "vy": (3, +1), "wz": (0, +1)}`, and `enable_button` -> `PAD_DEADMAN_BUTTON`. Sign: ROS joy already uses +left/+up, so the browser inversion is dropped. The hub keeps the arm/disarm, speed, watchdog and arbitration unchanged. NOTE: only `keyboard_handler` is installed under `/opt/ros/humble`; do not assume `joy` / `teleop_twist_joy` exist there.
@@ -93,6 +107,9 @@ Same interface: subclass `InputSource` (`feed(msg, now)` parses a `sensor_msgs/J
 | deadzone | n/a | 0.05 (joy `deadzone`); YOR joystick.py 0.05 | n/a | 0.05 rescaled |
 Speed keys: teleop_twist_keyboard uses `q/z` = x1.1/x0.9 for all speeds; ours is `X`/`Z` (x1.1/x0.9) because `Q/E` are yaw. W3C Gamepad spec: "standard" mapping guarantees the index layout above; triggers are `buttons[6]/[7]` with an analog `.value`; `axes` are +right/+down.
 Sources consulted via the owner's research: teleop_twist_keyboard master, teleop_twist_joy `xbox.config.yaml`, ros2 `joy.cpp`, moveit_servo `servo_parameters.yaml`, twist_mux humble topics yaml, W3C Gamepad spec (not re-fetched by this agent).
+
+## Ego camera
+The default view is `ego`: the torso ZED head camera (PROPOSED mount, confirm on hardware): base-frame position (0.05, -0.20955, 1.15 + lift) m, pitched 36.3 deg down, 70 deg vertical FOV, rendered as a free camera from the base pose + lift (the teleop rig has no head-camera body).  `C` cycles ego, chase, top, wrist_l, wrist_r; with the ego view the inset shows the chase view.  `--view chase` starts the old default.  Stream: `--fps 15`, 640x360, JPEG q70, rendered in the render process (HUD shows the server-side render ms).
 
 ## Known limits
 * Real-time factor is about 0.17 in the h5 scene at the time of writing: the controller is not the bottleneck (rt FL-MPC ~1 ms/step); `arm.ArmCtl.tau` (`all_pair_barriers` ~16 ms/call, `mj_forward` 8 ms) and `mj_step` (8 ms) per physics step dominate. The operator therefore sees ~6x slow motion; the watchdog runs in wall time.

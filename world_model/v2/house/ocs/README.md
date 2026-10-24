@@ -50,6 +50,22 @@ forward, which handles latency. Occluded objects stay in the state with `visible
 `rollout(ws, horizon, dt, robot_plan)` returns a `WorldState` trajectory. IR atoms already accept a leading time axis, so STL `G`/`F`
 windows evaluate on it directly.
 
+## SE(3)-anchored tracker (ocs/anchored.py)
+
+A general producer for any rigid object, made of swappable parts:
+- `ObjectModel`: the shape as a zonotope in the object's own frame, fitted once (`from_points`) or taken from a model; the parent; the
+  dynamics key; params; the contact prior.
+- `MeasurementSource`: `BlobPlaneSource` (wrist blob → support plane; the same numbers as `CupWristProducer` while visible). A
+  FoundationPose or stereo-cluster source implements the same `reset` / `measure`.
+- `Propagator`: `StaticProp`, or `SupportSlideProp` (Coulomb slide on the support, driven by odometry and FK only).
+  - The hypotheses are μ ∈ {lo, hi} × disturbance directions, plus the μ_mid nominal.
+  - Velocities persist across measurements.
+- `AnchoredProducer`: steps the hypotheses each tick and conditions them on each measurement (re-anchors the positions; a hypothesis
+  more than `k_fals·r` from the measurement restarts from the nominal velocity). It emits pose = nominal hypothesis and set = hull ⊕ r.
+
+`perception_pipeline(..., cup_tracker="anchored")` uses it for the cup (`anchored.cup_on_tray`). The default `"wrist"` is unchanged.
+The E2–E4 driver takes `--cup-tracker`.
+
 ## Consumers (to build: ocs/consumers.py)
 
 - `to_ir_entities(ws)`: `{name: ir.Entity}`, whose frame/unc callables read the `WorldState`. **VLM-authored specs then evaluate directly on the OCS**, with no hand-built entity table.

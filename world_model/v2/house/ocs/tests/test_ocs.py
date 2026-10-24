@@ -279,3 +279,19 @@ def test_cup_kind_plumbed_through_producers():
     assert abs(pr.plane_z - U.cup_dims("sim")[1] / 2) < 1e-12
     assert abs(P.CupWristProducer(None).plane_z - U.cup_dims("flagship")[1] / 2) < 1e-12
     assert P.TruthProducer(cup="sim").cup == "sim" and P.TruthProducer().cup == "flagship"
+
+
+def test_truth_producer_writes_attachment_fact_and_person_fields():
+    tr = _fake_truth()
+    ws = P.Pipeline([P.TruthProducer(chain=False)]).step(SimpleNamespace(t=tr.t, k=0, truth=tr))
+    assert ws.attached("cup", default=True) is True and not any(r.rel == "held_by" for r in ws.relations)   # truth view exposes no grasp state -> unknown
+    tr.sim = SimpleNamespace(grasped=False, assist=SimpleNamespace(state="CLOSE"))
+    ws = P.Pipeline([P.TruthProducer(chain=False)]).step(SimpleNamespace(t=tr.t, k=0, truth=tr))
+    hb = [r for r in ws.relations if r.rel == "held_by"]
+    assert ws.attached("cup") and ws.attached("tray") and {r.status for r in hb} == {"closing"} and all(r.source.value == "exec" for r in hb)
+    assert "rel:cup-held_by-robot" not in ws.privileged()
+    tr.sim = SimpleNamespace(grasped=False)
+    ws = P.Pipeline([P.TruthProducer(chain=False)]).step(SimpleNamespace(t=tr.t, k=0, truth=tr))
+    assert not ws.attached("cup", default=True)
+    p = [o for o in ws.objects.values() if o.kind.value == "person"][0]
+    assert p.pos_err is None and p.vel_err is None and p.stale is None and p.affordances == ()

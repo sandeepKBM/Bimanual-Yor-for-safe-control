@@ -77,6 +77,87 @@ class Calib:
         return cls.from_json(json.loads(Path(path).read_text()))
 
 
+# ====================================================================================== attachment fact (10-22, world-facts interface)
+_ASSIST_CLOSING = ("PRE", "APPROACH", "CLOSE", "VERIFY")                   # grasp.assist.ACTIVE
+_ASSIST_RELEASING = ("PLACE_LOWER", "PLACE_OPEN", "PLACE_RETREAT", "PLACE_SETTLE", "FAILED", "ABORT")   # grasp.assist.PLACE_STATES + the failure states
+
+
+def attachment_status(sim):
+    """None (tray + cup NOT on the robot) | "closing" | "held" | "releasing".  Same truth table as teleop.geom.cup_attached (weld grasp OR the friction
+    assist in ANY non-IDLE state = attached; unknown `grasped` = attached), i.e. `attachment_status(sim) is not None == cup_attached(sim)`."""
+    if bool(getattr(sim, "grasped", True)):
+        return "held"
+    a = getattr(sim, "assist", None)
+    st = None if a is None else getattr(a, "state", "IDLE")
+    if st is None or st == "IDLE":
+        return None
+    if st in _ASSIST_CLOSING:
+        return "closing"
+    if st == "HOLD":
+        return "held"
+    return "releasing"                                                      # place sequence / FAILED / ABORT (still attached: conservative)
+
+
+def write_attachment(ws: WorldState, sim, oids=("tray", "cup")) -> None:
+    """write Relation(oid, "held_by", "robot", status=...) (Source.EXEC: the executor knows what it grasped) for each oid in `oids`, or record in
+    ws.meta["attachment_known"] that they are free.  A `sim` that exposes neither `grasped` nor `assist` writes nothing (attachment unknown)."""
+    if not (hasattr(sim, "grasped") or hasattr(sim, "assist")):
+        return
+    st = attachment_status(sim)
+    ws.relations = [r for r in ws.relations if not (r.rel == "held_by" and r.a in oids)]
+    known = set(ws.meta.get("attachment_known", ()))
+    for oid in oids:
+        if st is None:
+            known.add(oid)
+        else:
+            known.discard(oid)
+            ws.relations.append(Relation(oid, "held_by", "robot", 1.0, Source.EXEC, st))
+    ws.meta["attachment_known"] = known
+
+
+def tracks_to_people(ws: WorldState, tracks, t: float = 0.0) -> None:
+    """REPLACE the PERSON objects of `ws` by tracker estimates (list of dicts xy, v, e_p, e_v, stale; the gatekeeper's `_track_list`):
+    position = track mean, vel = v_hat, pos_err / vel_err / stale per person, Source.TRACKER.  Marks ws.meta["people_estimated"] (the gatekeeper then uses
+    the per-person error fields and a zero global e_v, exactly like the legacy `tracks=` path)."""
+    ws.objects = {k: o for k, o in ws.objects.items() if o.kind != Kind.PERSON}
+    for i, tr in enumerate(tracks):
+        oid = f"trk{i}"
+        xy, v = np.asarray(tr["xy"], float), np.asarray(tr["v"], float)
+        ws.objects[oid] = ObjectState(oid, Kind.PERSON, ZonoShape(U.person_shape()), Pose(EYE3.copy(), np.array([xy[0], xy[1], 0.0])),
+                                      vel=np.array([v[0], v[1], 0.0, 0.0, 0.0, 0.0]), dynamics="const_vel", source=Source.TRACKER, t_meas=t,
+                                      pos_err=float(tr["e_p"]), vel_err=float(tr["e_v"]), stale=float(tr["stale"]))
+    ws.meta["people_estimated"] = True
+
+
+class SimFactsProducer(Producer):
+    """minimal duck-typed TRUTH producer for the decision components that need only a few facts and no full TruthView (gatekeeper, planner stand-ins):
+    reads sim.base (x, y, yaw), sim.d.xpos[sim.cup], sim.people_state (+ scene.people names), sim.grasped / sim.assist.  Everything Source.TRUTH
+    (flagged by privileged()) except the attachment relation (Source.EXEC).  World frame, raw numbers, no arithmetic (bit-exact to the legacy reads)."""
+    name = "sim_facts"
+
+    def reset(self, view=None):
+        pass
+
+    def update(self, ws: WorldState, sim, t: float):
+        b = sim.base
+        x, y, yaw = float(b.x), float(b.y), float(b.yaw)
+        ws.t = t
+        ws.robot = RobotState(base=Pose(U.rz(yaw), np.array([b.x, b.y, 0.0])), base_unc=Unc(), base_source=Source.TRUTH, q_source=Source.TRUTH, yaw=b.yaw)
+        cp = np.array(sim.d.xpos[sim.cup], float)
+        ws.objects = {"cup": ObjectState("cup", Kind.CONTENT, ZonoShape(U.cup_shape("flagship")), Pose(EYE3.copy(), cp), name="cup", dynamics="static",
+                                         source=Source.TRUTH, t_meas=t, name_source=Source.PRIOR)}
+        names = [getattr(p, "name", None) for p in getattr(getattr(sim, "scene", None), "people", [])]
+        for i, (xy, v) in enumerate(sim.people_state or []):
+            xy, v = np.asarray(xy, float), np.asarray(v, float)
+            nm = names[i] if i < len(names) and names[i] and names[i] not in ws.objects else f"person{i}"
+            ws.objects[nm] = ObjectState(nm, Kind.PERSON, ZonoShape(U.person_shape()), Pose(EYE3.copy(), np.array([xy[0], xy[1], 0.0])),
+                                         vel=np.array([v[0], v[1], 0.0, 0.0, 0.0, 0.0]), name=nm, dynamics="const_vel", source=Source.TRUTH, t_meas=t,
+                                         name_source=Source.TRUTH)
+        ws.relations = []
+        write_attachment(ws, sim, oids=("cup",))
+        ws.meta["producers"] = ws.meta.get("producers", []) + ["sim_facts"]
+
+
 # ====================================================================================== truth
 class TruthProducer(Producer):
     name = "truth"
@@ -124,6 +205,7 @@ class TruthProducer(Producer):
             ws.objects[key] = ObjectState(key, Kind.OBSTACLE, ZonoShape(Zonotope(np.zeros(3), Z.G)), Pose(EYE3.copy(), np.asarray(Z.c, float).copy()),
                                           name=key, dynamics="static", source=Source.TRUTH, t_meas=t, name_source=Source.TRUTH)
         ws.relations = [Relation("cup", "on", "tray", 1.0, Source.TRUTH)]
+        write_attachment(ws, getattr(tr, "sim", tr))       # the attachment FACT (held_by robot), from sim.grasped / sim.assist when the truth view exposes them
         if self.with_free and tr.occ is not None:
             if self._free is None:
                 occ = tr.occ
@@ -496,13 +578,37 @@ class Pipeline:
 
 
 def perception_pipeline(calib: Calib | None = None, people: bool = True, cup: bool = True, obstacles: bool = False, names: bool = True,
-                        base: bool = True, cup_kind: str = "flagship") -> Pipeline:
+                        base: bool = True, cup_kind: str = "flagship", cup_tracker: str = "wrist", fp_npz=None, fp_live=None) -> Pipeline:
+    """cup_tracker: "wrist" = CupWristProducer (blob, frozen while occluded; the default), "anchored" = ocs.anchored general SE(3)-anchored
+    tracker (same blob measurements, Coulomb-slide hypotheses carried through occlusion, set-membership conditioning), "anchored_fp" = the
+    same tracker with the FoundationPose source (fp_npz = ocs/fp_pass.py output) first and the blob as the fallback, "anchored_fp_live" = the same
+    tracker with a LIVE async FoundationPose source (fp_live = a started ocs.fp_live.LiveFPSource: capture-time stamped, staleness-inflated radius) first."""
     ps = []
     if base:
         ps.append(BaseProducer(calib))
     ps.append(TrayFKProducer(calib))
     if cup:
-        ps.append(CupWristProducer(calib, cup=cup_kind))
+        if cup_tracker in ("anchored", "anchored_fp"):
+            from . import anchored as AN
+            if cup_tracker == "anchored_fp" and fp_npz is None:
+                raise ValueError("cup_tracker 'anchored_fp' needs fp_npz (ocs/fp_pass.py output)")
+            ps.append(AN.cup_on_tray(calib, cup_kind, fp_npz=fp_npz if cup_tracker == "anchored_fp" else None))
+        elif cup_tracker == "anchored_fp_live":
+            from . import anchored as AN
+            if fp_live is None:
+                raise ValueError("cup_tracker 'anchored_fp_live' needs fp_live (an ocs.fp_live.LiveFPSource)")
+            prod = AN.cup_on_tray(calib, cup_kind)
+            prod.sources.insert(0, fp_live)                  # FoundationPose first, the blob covers the ticks it misses
+            if fp_live.blob_holdoff_s:                       # ... but only when FP has been silent for blob_holdoff_s (a latency-delayed FP lands off the blob's tick grid)
+                from .fp_live import HoldoffSource
+                prod.sources[1] = HoldoffSource(prod.sources[1], fp_live, fp_live.blob_holdoff_s)
+            prod.hold_s += fp_live.hold_extra_s              # a fresh-but-late pose (capture time = t - latency) still counts as visible
+            fp_live.bind(prod)
+            ps.append(prod)
+        elif cup_tracker == "wrist":
+            ps.append(CupWristProducer(calib, cup=cup_kind))
+        else:
+            raise ValueError(f"cup_tracker {cup_tracker!r}: 'wrist' | 'anchored' | 'anchored_fp' | 'anchored_fp_live'")
     if people:
         ps.append(PeopleProducer(calib))
     if obstacles:

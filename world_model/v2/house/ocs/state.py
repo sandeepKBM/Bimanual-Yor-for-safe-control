@@ -33,6 +33,8 @@ class Source(str, Enum):
     VLM = "vlm"              # semantic label / prior from the language model
     PRIOR = "prior"          # a fixed engineering prior (documented constant)
     MAP = "map"              # a perceived map (SLAM / mapping pass)
+    EXEC = "exec"            # ADDITIVE (10-22): facts the EXECUTOR knows (what it grasped / released: weld, grasp-assist state).  Not flagged by privileged():
+                             # a real executor knows its own grasp state; a sim TruthProducer writes it from sim.grasped / sim.assist.
 
 
 class Kind(str, Enum):
@@ -76,6 +78,12 @@ class ObjectState:
     age: float = 0.0                           # time since first observed [s]
     extra: dict = field(default_factory=dict)
     name_source: Source | None = None          # ADDITIVE (ocs round 1): provenance of `name` (None = no name); TRUTH => flagged by privileged()
+    # ---- ADDITIVE (10-22, world-facts interface).  Person fields feed the gatekeeper Belief (people_e_p / people_e_v / people_stale): None = not an
+    #      estimate (truth source) -> only the global gk.e_p / gk.e_v apply.  `vel` (above) = the velocity estimate v_hat (world frame, [vx, vy, 0, 0, 0, 0]).
+    pos_err: float | None = None               # m, per-person ADDITIONAL position error (tracker e_p)
+    vel_err: float | None = None               # m/s, per-person ADDITIONAL velocity-estimate error (tracker e_v)
+    stale: float | None = None                 # s, time since the track's last update
+    affordances: tuple = ()                    # e.g. ("graspable", "support", "payload"); minimal for now, the planner migration extends it
 
 
 @dataclass
@@ -110,6 +118,7 @@ class Relation:
     b: str
     conf: float = 1.0
     source: Source = Source.TRUTH
+    status: str = ""                           # ADDITIVE (10-22): for rel == "held_by": "closing" | "held" | "releasing" (b == "robot")
 
 
 @dataclass
@@ -130,6 +139,15 @@ class WorldState:
             if o.name == name or o.oid == name:
                 return o
         return None
+
+    def attached(self, oid: str, default: bool = False) -> bool:
+        """True iff `oid` is on the robot: a Relation(oid, "held_by", "robot", status) in ANY status (closing / held / releasing = the conservative rule
+        of teleop.geom.cup_attached).  A producer that KNOWS the object is free lists it in meta["attachment_known"] (-> False); if no producer said
+        anything about `oid` the answer is `default` (pass True for the conservative 'unknown = attached')."""
+        for r in self.relations:
+            if r.a == oid and r.rel == "held_by" and r.b == "robot":
+                return True
+        return False if oid in self.meta.get("attachment_known", ()) else bool(default)
 
     def world_pose(self, oid: str) -> Pose:
         """compose parent chain -> world pose (parent "robot" = the base frame)."""
