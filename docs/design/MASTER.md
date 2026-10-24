@@ -8,6 +8,12 @@ decisions below). Last updated: 2026-09-29 (see §1b status block — it superse
 
 ## 1. Thesis (locked)
 
+> **SUPERSEDED 2026-10-15 (user decision).** The learned world-model / latent-HJ thesis below is DROPPED. Current direction:
+> classical planning + formal checkers + VLM proposals, evaluated as a POMDP with set-valued beliefs, autonomous AND shared-autonomy modes.
+> Novelty = the CHECKERS (belief-wide admission, backup to a task-ready set, exact grasp-load corner check, probe value) + the THEOREMS
+> (soundness, monotonicity, finite completion bound, recovery existence). Plan: docs/paper/YOR_Thesis_Full_Idea_and_Demonstration_Plan_2026-10-15.docx.
+> Kept below for history.
+
 Demonstrate **in sim** that a learned **world model (WM) enables learned HJ
 reachability safety** for bimanual manipulation — the WM supplies a failure
 predicate that geometric reachability *cannot* express, while a cooperative

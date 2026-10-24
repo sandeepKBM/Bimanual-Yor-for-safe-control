@@ -477,3 +477,82 @@ NEW shield, 27 episodes per cell (9 seeds × 3 walker types).
 - **Flags** (BIMANUAL_GRASP_FAST/LOOK/FUSE/PLACE, FRIC_FF; default ON, friction mode only; ALIGN_CUE=cam off by default).
 - **NOT done:** flagship `--grasp-mode friction` (RELEASE must wait for place, 5-8 s), the web assist-button smoke, video.
 - **FoundationPose hook:** `grasp/fuse.py` (ExternalTrayPose).
+
+## 23. SE(3)-anchored cup tracker; seed-4 mechanism corrected [V: v3_wrist / v3_anchored E4 files read, 24 OCS tests pass] (2026-10-14)
+- **Correction to §21:** the cup did NOT drift while hidden on seed 4.
+  - What happened: a hard stop (base 0.7 → 0 m/s in ~0.2 s; 4-5 m/s² at the tray, over the slip threshold μg ≈ 2.5) slid the cup from y = 0 to −7.06 cm.
+  - The slide carried it out of the right wrist view. The last blob fix (t = 4.58 s, −3.96 cm) was taken MID-SLIDE, and the cup was never seen again.
+  - The old producer froze that fix in a 0.4 cm box.
+  - Odometry sees the stop (estimate 4.7-5.1 m/s² vs truth 4.0-4.9).
+- **Shield on:** the recordings ran with the shield ON ("Shield(truth people)"). A person was 0.65 m away at the stop, so it was likely the shield's person/brake fallback, which ignores the ~1.4 m/s² spill budget. Not confirmed: the recordings do not log the shield mode.
+- **New module `ocs/anchored.py`:** general tracker = object-frame zonotope + measurement sources + Coulomb-slide hypotheses (μ ∈ {0.18, 0.35} × 8 disturbance directions + nominal).
+  - Velocities persist across fixes; the hypotheses are driven by odometry + FK only.
+  - The blob source reproduces CupWristProducer exactly while visible (test).
+- **Hidden-cup results:**
+  - Seed 4: error 3.14 → 0.34 cm, coverage 0 → 100%, but the box is ±13 cm (wider than the tray). Conditioning `k_fals` 1-2 does not tighten it at the blob's ±1.7 cm noise.
+  - Seed 2: error 0.40 → 0.13 cm, box ±3.6 cm.
+- **E4 `inside`, test seeds 3-5:**
+  - Instantaneous false-safe: wrist **1263/1269** → anchored **0/1269** (all now "false").
+  - Predictive (1 s) false-safe: 251/253 → **8/253**.
+  - Certify-when-true: 93.7% → 93.4%.
+  - The 8 predictive misses are all in the 1 s BEFORE the stop (seed 4 t = 3.7-4.4, seed 2 t = 4.3-4.5). The rollout assumes the operator holds the twist (±0.6 m/s²) and cannot anticipate the shield/operator stop. Fix belongs in the rollout (it should include the shield's own brake profile), not in perception.
+- **Head camera:** the recorded head frames contain 0 cup points (seeds 2 and 4, all 300 frames). Only the wrist cameras ever see the cup.
+- Runs: `/data/local/ss5772/molmospaces/ocs/v3_wrist`, `v3_anchored` (`exp_e234 all --cup-tracker {wrist,anchored}`).
+- FoundationPose source (`ocs/fp_source.py`, `--cup-tracker anchored_fp`) wired; its measurement pass is being built.
+
+## 24. FoundationPose (model-free) cup source on the torso ZED [V: fp/head npz re-scored; v3_anchored_fp E2/E4 read; 31 OCS tests pass] (2026-10-14)
+- **Wrist cameras are unusable for FoundationPose.**
+  - Right wrist: 3-9 cm from the cup wall, inside the 0.10 m depth floor → 0/80 frames. A what-if 2 cm floor gives 25%, 8.5 mm, tilt 9.5° (p95 29°).
+  - Left wrist: the cup is behind it in 100% of ticks.
+  - The recorded LEFT blobs (≥3000 px on 85% of seeds 2/4 frames) are red-threshold false positives on walls; the off-tray gate rejected all of them (0 fixes used left, 6 seeds).
+- **Torso ZED (proposed mount, pitch 36.3°)** sees the cup dead-centre at ~0.5 m. The recorded "head" frames had 0 cup points because that feed self-filters the payload.
+- **FoundationPose on the head ZED** (640×360, stereo-law depth, non-privileged tray-plane mask, onboarding from 20 idealised ring views):
+  - 100% of frames on all 6 seeds, 1-2 registers per episode, track 46-62 ms.
+  - Error vs the FK tray frame ~1 mm (p95 < 2 mm); tilt ~2°.
+  - It keeps the cup through the seed-4 stop (re-registers once).
+- **The FK tray frame is the dominant error now.** The encoder-FK tray (nominal grasp relpose) is 28 mm (max 41 mm) off the true tray before the seed-4 stop, ~0 after. My first estimate of 0.4 ± 1.0 cm was dominated by the quiet tail; the subagent was right.
+- **E4 `inside`, test seeds 3-5:**
+
+  | tracker | instantaneous false-safe | predictive false-safe | certify-when-true |
+  |---|---|---|---|
+  | wrist (old) | 1263/1269 | 251/253 | 93.7% |
+  | anchored blob | 0 | 8/253 | 93.4% |
+  | anchored FoundationPose | 0 | **0/253** | **55.7%** |
+
+  - Cup-in-tray error p50 0.19 cm (vs 0.60 for the blob).
+  - The cost comes from `cup_fp_pos` = 2.85 cm (calibrated): the FK tray offset, not FoundationPose.
+  - Next: measure the tray from the same image (cup relative to the visually observed tray, so the common-mode error cancels).
+- **Pre-existing calibration bug:** `exp_e234.fit_calib` fits the blob affine/bias on ALL rows with a blob reading, including STALE held readings (seed 2: 1228 frozen rows). This inflates `cup_pos` to 1.73 cm; on fresh rows only it is 0.56 cm. It affects v2_cupfix and v3_wrist/anchored blob numbers. NOT fixed yet (it changes baseline numbers; needs the user's go).
+- **Source selection:** AnchoredProducer now uses sources in priority order (FoundationPose first, blob fallback). The first version picked the min radius, which chose the blob on mis-calibrated radii. That run is kept as `v3_anchored_fp_minr_flawed`.
+- **Runs:** `/data/local/ss5772/molmospaces/ocs/fp/head/fp_s{0..5}.npz`, `ocs/v3_anchored_fp`.
+
+## 25. Four follow-ups and the combined run [V: all E4 counts re-scored from e234_raw.pkl; 60 OCS tests pass] (2026-10-15)
+- **Seed-4 stop = the shield's own `brake_fallback`.** CONFIRMED by an exact re-simulation (base_v error 0.0).
+  - At t=4.36 all 3 QP tiers were infeasible (person keep-out).
+  - The brake = the hardware slew A_HW=[4,4,8] (teleop/shield.py:457, teleop/base.py:17). That is above mu_hi·g=3.43, so it always slides the cup. The cup-limited decel is 1.41 m/s².
+  - The operator was still pushing 0.89 m/s.
+- **Calibration stale-row fix** (now the default; `--calib-legacy` reproduces v3 exactly).
+  - cup_pos: 1.73 → 0.59 cm. The old cup_pos_occ = 0.40 cm was an artifact (fitted and scored on the same frozen rows); honestly it is 4.6 cm.
+  - The new radius under-covers the brake slide: on seed 4 at t=4.62–4.64 a fresh blob is 3.1 cm off. The calibration seeds contain no brake event (exchangeability broken by the episode).
+- **Visual tray** (`ocs/fp_tray.py`; head-ZED depth-plane RANSAC + footprint fit; `fp/head_vtray`).
+  - Tray position p95: FK 25–34 mm vs vision ~3.5 mm. The FK is right at p50 and wrong during transients.
+  - cup_fp_pos: 2.85 → 0.34 cm.
+  - Caveat: held-out errors were glanced at during development; redo the tuning blind before quoting.
+- **`--pred-contingency hold+brake`:** the perceived pred status is 'true' only if true under {hold twist, shield brake now}. It removes every pre-brake pred false-safe, but costs certification at cruise speed: a 4 m/s² stop always slides the cup past the margin.
+- **Live FoundationPose** (`ocs/fp_live.py`, `run_fp_live.py`; lock-step, seed 3).
+  - Latency 0.26–0.49 s (render dominates). Coverage 12–30% of due frames vs 100% in replay; same error (~2/3.3 mm).
+  - AnchoredProducer ignores measurement age, so the source inflates its radius (19–32 mm).
+  - The sim runs 10–13× slower than real time without FP.
+  - EGL gotcha: set MUJOCO_EGL_DEVICE_ID (CUDA_VISIBLE_DEVICES does not pick the EGL GPU).
+
+| held-out seeds 3-5, 'inside' | false-safe inst | false-safe pred | certify inst | certify pred |
+|---|---|---|---|---|
+| wrist, v3 | 1263/1269 | 251/253 | 93.7% | 93.2% |
+| anchored blob, v3 | 0/1269 | 8/253 | 93.4% | 93.0% |
+| anchored FP (FK tray), v3 | 0/1269 | 0/253 | 55.7% | 56.9% |
+| wrist, all fixes (v5) | 6/1269 | 3/253 | 99.6% | 74.4% |
+| anchored blob, all fixes (v5) | 2/1269 | 0/253 | 99.6% | 74.4% |
+| **anchored FP + visual tray, all fixes (v5)** | **0/1269** | **0/253** | **99.4%** | **70.5%** |
+
+- Runs: `ocs/v4_{legacy,calib}_*`, `v4_brake_*`, `v4_vtray_*`, `v5_all_{wrist,anchored,anchored_fp}`, `fp_live/`.
+- Next: gate the brake contingency on the shield's live infeasibility margin (recover pred certification). Optionally a cup-limited brake fallback (a controller change; needs the go).
