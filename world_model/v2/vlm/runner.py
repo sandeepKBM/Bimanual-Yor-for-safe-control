@@ -10,27 +10,37 @@ Resumes: ids already present in <out>.partial are skipped.
 import argparse, json, os, sys, time, traceback
 from pathlib import Path
 
-MODELS = {"qwen3.5-9b": "Qwen/Qwen3.5-9B", "qwen3-vl-8b": "Qwen/Qwen3-VL-8B-Instruct",
+MODELS = {"qwen3.5-9b": "Qwen/Qwen3.5-9B", "qwen3.5-9b-lora": "Qwen/Qwen3.5-9B", "qwen3-vl-8b": "Qwen/Qwen3-VL-8B-Instruct",
           "cosmos-reason1-7b": "nvidia/Cosmos-Reason1-7B", "molmo2-er": "allenai/Molmo2-ER",
           "robobrain2.5-4b": "BAAI/RoboBrain2.5-4B", "robobrain2.0-7b": "BAAI/RoboBrain2.0-7B",
-          "cosmos-reason2-8b": "nvidia/Cosmos-Reason2-8B"}
-EXTRA_TOKENS = {"cosmos-reason1-7b": 700, "cosmos-reason2-8b": 700}   # models that emit a <think> block before the answer
+          "cosmos-reason2-8b": "nvidia/Cosmos-Reason2-8B", "cosmos3-edge": "nvidia/Cosmos3-Edge", "cosmos3-nano": "nvidia/Cosmos3-Nano"}
+EXTRA_TOKENS = {"cosmos-reason1-7b": 700, "cosmos-reason2-8b": 700,   # models that emit a <think> block before the answer
+                "cosmos3-edge": 4096, "cosmos3-nano": 4096}
+OPENAI = {"cosmos3-edge", "cosmos3-nano"}                            # served by a local vLLM (vlm/slurm/cosmos3_serve.sh), not HF
 NO_SYSTEM = {"molmo2-er"}                                           # chat template has no system role: system text is prepended to the user text
 REMOTE_CODE = {"molmo2-er"}                                         # repo ships modeling code (read before use; job is offline)
 
 
 def load(model_key):
+    mid = MODELS.get(model_key, model_key)
+    if model_key in OPENAI:
+        from world_model.v2.vlm.openai_backend import OpenAIChat
+        return None, OpenAIChat(mid), mid
     import torch
     from transformers import AutoModelForImageTextToText, AutoProcessor
-    mid = MODELS.get(model_key, model_key)
-    rc = model_key in REMOTE_CODE
+    rc =model_key in REMOTE_CODE
     proc = AutoProcessor.from_pretrained(mid, trust_remote_code=rc)
     model = AutoModelForImageTextToText.from_pretrained(mid, dtype=torch.bfloat16, device_map="cuda", trust_remote_code=rc)
+    if model_key == "qwen3.5-9b-lora":     # base Qwen3.5-9B + PEFT adapter (ftdata/train_lora.py output) from $QWEN_LORA_PATH; not merged
+        from peft import PeftModel
+        model = PeftModel.from_pretrained(model, os.environ["QWEN_LORA_PATH"])
     model.eval()
     return proc, model, mid
 
 
 def run_one(proc, model, r, key="qwen3.5-9b"):
+    if key in OPENAI:
+        return model.run_one(r, int(r.get("max_new_tokens", 512)) + EXTRA_TOKENS.get(key, 0))
     import torch
     from PIL import Image
     imgs = [Image.open(p).convert("RGB") for p in r.get("images", [])]
