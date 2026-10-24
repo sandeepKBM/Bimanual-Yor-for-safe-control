@@ -542,7 +542,8 @@ class FLMPC:
              pairs_all, M_ego_extra=None, bias_ego_extra=None,
              left_ee_body=None, tilt_max_rad=None, table_rows=None,
              leash_ee_body=None, leash_max_m=None, cup_cone_facets=None,
-             ego_hold=True, int_ee_body=None, v_ee_max=None):
+             ego_hold=True, int_ee_body=None, v_ee_max=None,
+             M_int_extra=None, bias_int_extra=None):
         """One control step. q_*_ref / qd_*_ref: (NP+1, NV) reference
         trajectories (index 0 = now). table_rows: optional
         (a_tab_e, b_tab_e, a_tab_i, b_tab_i) per-arm TABLE-FLOOR HOCBF rows in
@@ -580,6 +581,12 @@ class FLMPC:
             M_e = M_e + M_ego_extra
         if bias_ego_extra is not None:
             c_e = c_e + bias_ego_extra
+        # Same payload hook for the RIGHT (int) arm, e.g. each hand's share of a box held by both (default None -> unchanged).
+        # Added here, so every later use of M_i/c_i (torque box, table rows, fallback, tau = M_i a + c_i) sees the payload.
+        if M_int_extra is not None:
+            M_i = M_i + M_int_extra
+        if bias_int_extra is not None:
+            c_i = c_i + bias_int_extra
         self.last_M_e, self.last_c_e, self.last_M_i, self.last_c_i = M_e, c_e, M_i, c_i
 
         # F5 DELAY COMPENSATION (default off: delay_steps=0 -> skipped entirely).

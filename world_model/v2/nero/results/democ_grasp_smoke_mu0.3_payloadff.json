@@ -1,0 +1,156 @@
+{
+ "params": {
+  "box_half": [
+   0.1,
+   0.15,
+   0.03
+  ],
+  "box_mass": 0.6,
+  "box_com_offset": [
+   0.0,
+   0.0,
+   0.0
+  ],
+  "box_mu": 0.3,
+  "box_mu_torsion": 0.02,
+  "box_mu_roll": 0.001,
+  "pedestal_half": [
+   0.09,
+   0.07,
+   0.03
+  ],
+  "table_half": [
+   0.3,
+   0.45,
+   0.01
+  ],
+  "table_centre_xy": [
+   0.5,
+   -0.21
+  ],
+  "box_centre": [
+   0.45,
+   -0.21,
+   0.85
+  ],
+  "table_mu": 0.8,
+  "gravcomp": false,
+  "tau_preset": null
+ },
+ "payload_feedforward": true,
+ "mode": "real_friction_contact",
+ "dt": 0.005,
+ "timeline": {
+  "settle": 0.5,
+  "close": 0.7,
+  "settle2": 0.3,
+  "lift": 1.5,
+  "hold": 2.0,
+  "lift_m": 0.05
+ },
+ "controller": {
+  "name": "mpc_fl.FLMPC NV=7 (unmodified)",
+  "fl_kw": {
+   "NC": 4,
+   "L": 8,
+   "W_POS_EGO": 3000.0,
+   "W_VEL_EGO": 15.0
+  },
+  "tau_preset": "urdf_effort",
+  "tau_limits": [
+   100.0,
+   100.0,
+   100.0,
+   100.0,
+   100.0,
+   100.0,
+   100.0
+  ],
+  "gripper_kp": 200.0,
+  "gripper_force_limit_N": 10.0,
+  "finger_ctrl_closed": 0.0
+ },
+ "pregrasp": {
+  "ik_residual": [
+   5.461922437465009e-09,
+   3.6051150151492133e-09
+  ],
+  "min_proxy_h": 0.12488379853442,
+  "jaw_sign": [
+   1.0,
+   -1.0
+  ],
+  "joint_margin_rad": 0.08240538217748816,
+  "lift_ik_worst_residual": [
+   8.026420347078485e-11,
+   7.777536837573533e-11
+  ]
+ },
+ "pad_box_contacts": {
+  "left": {
+   "mean_after_close": 3.475,
+   "min_after_close": 3,
+   "max": 8
+  },
+  "right": {
+   "mean_after_close": 3.4486842105263156,
+   "min_after_close": 2,
+   "max": 8
+  }
+ },
+ "grip_normal_force_N": {
+  "left": {
+   "mean_hold": 6.233241659382616,
+   "max": 7.138791681709389,
+   "mean_after_close": 5.97455245440589
+  },
+  "right": {
+   "mean_hold": 6.3890323978266155,
+   "max": 7.139899797468241,
+   "mean_after_close": 6.008099759787952
+  }
+ },
+ "slip_since_lift_start": {
+  "left": {
+   "max_m": 0.010962696970242958,
+   "max_deg": 4.9584042366940775,
+   "final_m": 0.010962696970242958,
+   "final_deg": 4.9584042366940775,
+   "creep_last_1s_mm": 0.8632899298840514
+  },
+  "right": {
+   "max_m": 0.01135499026167508,
+   "max_deg": 5.131650883023012,
+   "final_m": 0.01135499026167508,
+   "final_deg": 5.131650883023012,
+   "creep_last_1s_mm": 1.927501772432708
+  }
+ },
+ "pad_normal_force_per_finger_hold_N": {
+  "left": {
+   "f1": 1.713360836711434,
+   "f2": 4.5198808226711815
+  },
+  "right": {
+   "f1": 4.759790027872997,
+   "f2": 1.629242369953619
+  }
+ },
+ "max_tilt_deg": 5.579003739694879,
+ "box_lift_achieved_m": 0.06385267727437027,
+ "box_final_xyz": [
+  0.4514791431059564,
+  -0.2107710198219369,
+  0.9138526772743703
+ ],
+ "box_dropped": false,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "n_steps": 1000,
+ "ctrl_ms": {
+  "mean": 7.706735745521646,
+  "p95": 11.532946489751339,
+  "max": 13.85855209082365
+ },
+ "held": true
+}
