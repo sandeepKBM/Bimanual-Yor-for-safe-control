@@ -3,7 +3,7 @@
 Bimanual YOR (sim only): classical planning + formal safety checkers + VLM proposals, evaluated as a POMDP
 (set-valued beliefs), autonomous AND shared-autonomy modes. The learned world-model / latent-HJ thesis was DROPPED
 2026-10-15. Novelty = the checkers + theorems; VLM, planners, FL-MPC, perception are borrowed components.
-Design: `docs/design/MASTER.md` (§1 superseded note) + docs/paper/YOR_Thesis_Full_Idea_and_Demonstration_Plan_2026-10-15.docx.
+Current claims + scope: `docs/paper/claims_2026-10-26.md` (manipulation core, 2026-10-26). Plan: docs/paper/YOR_Thesis_Full_Idea_and_Demonstration_Plan_2026-10-15.docx §0. `docs/design/MASTER.md` is history only.
 This file = how to *operate* here. Last updated 2026-10-16.
 
 ## Environment / running
@@ -78,9 +78,11 @@ This file = how to *operate* here. Last updated 2026-10-16.
 - Tooling ideas for cdx-agent go to the jenga session first (it owns cdx-agent edits); slurm-gpu-allocation edits are telecom's.
 
 ## Parallel sweeps
-- `--no-video` runs are CPU-only. Use ~78% of cores (72→56 workers). **Pin threads**:
+- `--no-video` runs are CPU-only. There is no default worker count: size the pool from the cores that are idle
+  NOW on the target host (cores minus `uptime` load, shared with other projects and users), and send big sweeps to
+  idle ilab cores (`cdx-agent --cpu-job`) when a workstation is loaded. **Pin threads**:
   `OMP_NUM_THREADS=OPENBLAS_NUM_THREADS=MKL_NUM_THREADS=NUMBA_NUM_THREADS=1` to avoid
-  oversubscription. `multiprocessing.Pool(56, maxtasksperchild=3)`.
+  oversubscription; `multiprocessing.Pool(<idle cores>, maxtasksperchild=3)`. (User, 2026-10-26.)
 
 ## Gotchas
 - `pkill -f "<pat>"` **self-kills** the issuing shell (exit 144) when `<pat>` matches

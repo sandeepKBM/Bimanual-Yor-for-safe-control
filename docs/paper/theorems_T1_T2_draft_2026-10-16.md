@@ -1,5 +1,7 @@
 # T1 (soundness) and T2 (monotonicity) — draft, 2026-10-16
 
+> **2026-10-26: partly superseded.** Current claims, scope (manipulation core; people safety is a borrowed component) and what is obsolete here: `docs/paper/claims_2026-10-26.md`.
+
 Scope: the base-carry gatekeeper as implemented in `world_model/v2/house/gatekeeper/` (Checkers 1+2), shared autonomy. Arm motion,
 grasp loads (Checker 3) and probes (Checker 4) come later; the statements are written so they extend.
 Status: proof sketches. Each one names the code row it relies on. Items marked **GAP** are places where code and proof disagree today.

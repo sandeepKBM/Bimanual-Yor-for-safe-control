@@ -1,5 +1,7 @@
 # Experiment plan: claims → evidence (2026-10-16, owner draft)
 
+> **2026-10-26: partly superseded.** Current claims, scope (manipulation core; people safety is a borrowed component) and what is obsolete here: `docs/paper/claims_2026-10-26.md`.
+
 The frame is fixed: novelty = the checkers (C1 admission, C2 backup→task-ready, C3 grasp-load corners, C4 probe value) plus the theorems
 (T1 soundness, T2 monotonicity, T3 completion bound, T4 recovery existence). Everything else is borrowed.
 Sim only: house h5 (MolmoSpaces/ProcTHOR), YOR base + 2 PiPER arms (NERO later), FL-MPC arms, 50 Hz base filter.

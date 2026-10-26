@@ -1,5 +1,7 @@
 # T3 (finite completion with counted recoveries) and T4 (existence of a progress-preserving recovery) — draft, 2026-10-16
 
+> **2026-10-26: partly superseded.** Current claims, scope (manipulation core; people safety is a borrowed component) and what is obsolete here: `docs/paper/claims_2026-10-26.md`.
+
 Builds on `theorems_T1_T2_draft_2026-10-16.md`: same notation (x, b = (P, M, {H_i}), R_i,k, Adm = C1 ∧ C2, T(b), S1–S3, ⊑), A1–A7 and the
 KEEP rule. New: A8, H0–H4, commit rule R_Φ. Scope: base carry (`house/gatekeeper`); T3 is skill-generic (carries to arm recoveries),
 T4(b)–(e) are base-specific. Status table in §6. Code has no LOOK skill, no Φ logging, no progress-monotone commit rule (GAP-3…5). Nothing
