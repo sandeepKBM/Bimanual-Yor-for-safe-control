@@ -30,9 +30,10 @@ TICK = 0.02
 class StereoSensors:
     """the `sensors` object of ocs.views.LiveView (head_frame / wrist) backed by the stereo sensor, plus stereo_frame() for the payload producer."""
 
-    def __init__(self, sim, cfg: StereoCfg, mode="async", stride=4, spec=None, wrist_sensors=None, seed=0, twin_path=None, latency_floor_ticks=1, history=32, latency_ms=150.0):
+    def __init__(self, sim, cfg: StereoCfg, mode="async", stride=4, spec=None, wrist_sensors=None, seed=0, twin_path=None, latency_floor_ticks=1, history=32, latency_ms=150.0, static_bg=True):
         assert mode in ("async", "sync", "inproc")
         self.sim, self.cfg, self.mode, self.stride = sim, cfg, mode, stride
+        self.static_bg = static_bg     # False: no people-free twin render and NO static-depth fallback cast against the true model (zs = inf): the caller subtracts a PERCEIVED map instead
         self.wrist_sensors = wrist_sensors
         self.rows, self.cols, self.gx, self.gy = AD.grid_rays(cfg, stride)
         self.base_at = {}
@@ -51,7 +52,7 @@ class StereoSensors:
         self.stale_ms = []
         self.every = max(1, int(round(1.0 / (cfg.rate_hz * TICK))))
         self.cfg_k = dict(cfg.asdict())
-        c = StereoCfg.from_dict({**cfg.asdict(), "keep_rgb": True, "self_mask": True, "gt": False, "static_depth": True})
+        c = StereoCfg.from_dict({**cfg.asdict(), "keep_rgb": True, "self_mask": True, "gt": False, "static_depth": bool(static_bg)})
         self.c = c
         m = TW.build_twin_model(sim, c)
         if mode == "inproc":
@@ -119,7 +120,8 @@ class StereoSensors:
         z = fr
         if "_hf" not in z:
             bt = self.base_at.get(int(fr["tick"]), sim.pose())
-            z["_hf"] = AD.frame_to_head_frame(fr, self.c, stride=self.stride, sim=sim, base_true=bt)
+            zs_inf = None if self.static_bg else np.full((len(self.rows), len(self.cols)), np.inf)
+            z["_hf"] = AD.frame_to_head_frame(fr, self.c, stride=self.stride, sim=sim, base_true=bt, zs_grid=zs_inf)
             if fr.get("est_pose") is not None:
                 z["_hf"] = AD.to_est_frame(z["_hf"], bt, fr["est_pose"])      # placed with the odometry estimate AT CAPTURE
         hf = z["_hf"]
@@ -159,12 +161,14 @@ class _CaptureQueue(deque):
 class StereoOCS:
     """pipeline + view bundle: step(sim) -> WorldState."""
 
-    def __init__(self, sim, cfg: StereoCfg, mode="async", calib=None, loc=None, spec_kw=None, people=True, payload=True, seed=0, pcfg=None):
+    def __init__(self, sim, cfg: StereoCfg, mode="async", calib=None, loc=None, spec_kw=None, people=True, payload=True, seed=0, pcfg=None, det_occ=None):
+        """det_occ (opt-in, default None = unchanged): an OccGrid (e.g. the stereo-BUILT perceived map) for the people detector's static-background rejection.  Given: the
+        render-based background subtraction (people-free twin = the TRUE house model) is switched OFF and the detector rejects returns near occupied cells of det_occ instead."""
         from world_model.v2.house.ocs.views import LiveView
         from world_model.v2.house.ocs.producers import Pipeline, BaseProducer, TrayFKProducer
         from world_model.v2.house.loc.estimator import PoseEstimator
         self.sim = sim
-        self.sensors = StereoSensors(sim, cfg, mode=mode, seed=seed)
+        self.sensors = StereoSensors(sim, cfg, mode=mode, seed=seed, static_bg=det_occ is None)
         sp = sim.pose()
         self.loc = loc or PoseEstimator(None, seed=seed, true_pose0=(sp[0], sp[1], sp[2]))
         self.sensors.loc = self.loc
@@ -177,6 +181,8 @@ class StereoOCS:
         if people:
             from world_model.v2.house.people_track.tracker import TrackerCfg
             pp = AD.make_people_producer(AD.stereo_spec(self.sensors.c, self.sensors.stride, **(spec_kw or {})), calib=calib, tracker_cfg=TrackerCfg(hist=96))
+            if det_occ is not None:
+                pp.det.bg, pp.det.occ, pp.det.use_static_map = False, det_occ, True
             self._pp = pp
             ps.append(pp)
         self.pipe = Pipeline(ps)
