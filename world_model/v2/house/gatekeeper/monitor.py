@@ -28,6 +28,7 @@ KEEP-RULE MONITOR (GKConfig.keep_rule="monitor"; theorem T1): no candidate passe
   (b) pose:  |ctrl_pose_now - pose_pred_j(t_now)|_xy > e_xy_j + e_xy_now + falsify_tol   or heading likewise with e_th (the commit-time pose box propagated along tau_j; the
       current box is added because the measured pose carries its own error).
 Returns (ok, reason) with reason in {"person_unmatched_near", "pose_xy", "pose_th"}.
+GKConfig.runtime_rows == "cup": part (a) is OFF (people are the planner's job); only the pose part (b) remains.
 """
 from __future__ import annotations
 
@@ -80,7 +81,7 @@ class PersonSetFilter:
             if st is not None and t - st["t"] > 1e-9:
                 dt = t - st["t"]
                 pred = (st["c"], st["r"] + gk.v_p_max * dt)
-                if gk.person_model == "accel":
+                if gk.person_model in ("accel", "pred"):
                     pred = disc_enclose(*pred, st["c"] + st["v"] * dt, st["r"] + st["ev"] * dt + 0.5 * gk.a_p * dt * dt)
                 m = None if pred is None else disc_enclose(pred[0], pred[1], c, r)
                 if m is None:
@@ -109,7 +110,7 @@ def predicted_discs(cb, m, dt):
     pe, lat = _pe(cb, m), _lat(cb, m)
     te = dt + lat
     out = [(c, pe + cb.v_p_max * te)]
-    if cb.person_model == "accel":
+    if cb.person_model in ("accel", "pred"):
         out.append((c + _vhat(cb, m) * (dt + cb.latency_s), pe + _ev(cb, m) * te + 0.5 * cb.a_p * te * te))
     return out
 
@@ -136,7 +137,9 @@ def falsification_monitor(cb, traj_j, t_j, rem, bel_now, obs_now, pose_now, t_no
         return False, "pose_xy"
     if dth > cb.e_th + bel_now.e_th + gk.falsify_tol:
         return False, "pose_th"
-    # (a) people
+    # (a) people.  runtime_rows == "cup": the people part is OFF (people are the planner's job; only the pose part of the monitor stays)
+    if getattr(gk, "runtime_rows", "all") == "cup":
+        return True, "ok"
     i_rest = rem.i_rest
     n_mov = rem.N + 1 if i_rest is None else i_rest
     if n_mov <= 0 or not len(obs_now[0]):

@@ -9,6 +9,10 @@ Every k_ticks ticks (default 5 = 0.1 s):
   3. it is not (model falsified: person faster than v_p_max, unseen person, pose error beyond the box, start inside a violated buffer, ...) -> n_falsified,
      REGIME 2: the internal teleop Shield (cfg.fallback = gk.regime2_fallback, default "escape") produces the command until a candidate passes again.
 Between steps the committed twist profile is tracked: u(t + TICK).  Lift / jog go through the Shield's filter_lift / filter_jog.
+OPT-IN gk.runtime_rows == "cup" (user decision 10-24..26: the planner plans safely, the runtime layer keeps only cup + actuator rows): step 3 does NOT enter regime 2.  The
+model-falsified event (pose part of the monitor, or the kept trajectory failing the cup/hw recertification) commits the cup-safe brake (traj.backup_from from the current
+twist), mode "cup_brake", and is counted in n_falsified / falsify_reasons.  The internal Shield object still exists as a HELPER (footprint, jog / lift governors) but its
+base QP (Shield.filter_base) is never called.  Default "all" == the behaviour above, bit-identical.
 """
 from __future__ import annotations
 
@@ -25,7 +29,7 @@ from ..teleop.sim import Cmd, TICK
 from .belief import GKConfig, build_belief
 from .checks import check1, check2
 from .monitor import PersonSetFilter, falsification_monitor, observation_discs
-from .traj import plan_candidate, Traj
+from .traj import plan_candidate, backup_from, Traj
 
 
 class Gatekeeper:
@@ -35,6 +39,7 @@ class Gatekeeper:
         assert self.gk.people_source in ("truth", "tracker"), self.gk.people_source
         assert self.gk.keep_rule in ("recertify", "monitor"), self.gk.keep_rule
         assert self.gk.belief_filter in ("none", "intersect"), self.gk.belief_filter
+        assert self.gk.runtime_rows in ("all", "cup"), self.gk.runtime_rows
         self.tracker = self.gk.people_source == "tracker"
         self.perc = perc                      # tracker source: the PerceptionStack (stepped once per sim tick in filter())
         self._proxy = None                    # tracker source: SimProxy of the current tick (tracker-derived people_state / track_info)
@@ -230,6 +235,8 @@ class Gatekeeper:
             if ok:
                 self.traj, self.mode = rem, "keep"
                 self.n_keep_backup += 1
+            elif self.gk.runtime_rows == "cup":
+                self._cup_brake(v0, bel, t, why)
             else:
                 self.traj, self.mode = None, "regime2"
                 self.n_falsified += 1
@@ -248,6 +255,8 @@ class Gatekeeper:
         if ok:
             self.traj, self.mode = rem, "keep"
             self.n_keep_backup += 1
+        elif self.gk.runtime_rows == "cup":
+            self._cup_brake(v0, bel, t, "no_commit_recertify")
         else:
             self.traj, self.mode = None, "regime2"
             self.n_falsified += 1
@@ -256,6 +265,15 @@ class Gatekeeper:
         self.step_ms.append((time.perf_counter() - t0) * 1e3)
 
     # ------------------------------------------------------------------------------------------ helpers
+    def _cup_brake(self, v0, bel, t, why):
+        """runtime_rows="cup": the model is falsified -> NO regime 2 / Shield hand-off.  Commit the cup-safe brake (traj.backup_from) from the current twist and count the event;
+        the committed brake is the new reference of the pose monitor."""
+        tr = backup_from(np.asarray(v0, float), bel, self.gk, t0=t)
+        self.traj, self.mode = tr, "cup_brake"
+        self._cb = (bel, tr, t)
+        self.n_falsified += 1
+        self.falsify_reasons[why] = self.falsify_reasons.get(why, 0) + 1
+
     def _certify(self, v0, u, T_S, bel, t):
         """plan nominal(u held T_S)+backup and run Checkers 1 and 2; sets self._last_tr / self.last_why; -> bool."""
         tr = self._last_tr = plan_candidate(v0, u, T_S, bel, self.gk, t0=t)
@@ -298,7 +316,7 @@ class Gatekeeper:
         "fd" (or a source without velocity): finite difference of the observed positions over the previous gk step, e_v inflated by a_p*dt (acceleration
         within the window; first step: v_hat = 0 and e_v = v_p_max, i.e. nothing known -> the speed disc governs)."""
         gk = self.gk
-        if gk.person_model != "accel":
+        if gk.person_model not in ("accel", "pred"):
             return None, None
         ps = sim.people_state or []
         pos = [np.asarray(xy, float).copy() for xy, _ in ps]

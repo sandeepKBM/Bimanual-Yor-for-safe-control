@@ -18,6 +18,7 @@ from pathlib import Path
 
 import numpy as np
 
+from ..gatekeeper.belief import GKConfig
 from ..teleop import geom as GM
 from ..teleop.sim import Cmd, TICK, TeleopSim
 from . import executor as EX
@@ -31,6 +32,7 @@ from .streams import Streams
 from .types import Cert, Conf, Route, plan_to_json
 
 OUT = Path("/data/local/ss5772/molmospaces/tamp/run_tamp")
+_GK0 = GKConfig()                   # defaults shown / used by the --pred-ev, --pred-ap CLI flags
 
 
 def _reject_counts(stream_log):
@@ -681,6 +683,10 @@ def main():
     ap.add_argument("--hop-max", type=int, default=20, help="max hops per chain")
     ap.add_argument("--hop-compass", action=argparse.BooleanOptionalAction, default=False, help="last resort: also try the 8 compass directions")
     ap.add_argument("--hop-clear-stop", action=argparse.BooleanOptionalAction, default=True, help="stop a chain when the next hop would be a 'clear' hop but the footprint is already out of every tracked tube for 4 s")
+    ap.add_argument("--runtime-rows", choices=["all", "cup"], default="all", help="runtime gatekeeper rows: all = cup + hw + walls + people (default) | cup = ONLY cup + hw rows, people part of the falsification monitor off, never hands off to the Shield (a pose falsification commits the cup-safe brake and refuses the route; the planner owns walls and people)")
+    ap.add_argument("--plan-cert", choices=["off", "pred"], default="off", help="plan-time route certifier (needs --cert segments): off = unchanged | pred = tamp/plan_cert.py: cup + hw + walls + ALL people over the WHOLE route, constant-velocity prediction disc only (+ separating-motion exit rule)")
+    ap.add_argument("--pred-ev", type=float, default=_GK0.e_v, help="person velocity-estimate error e_v [m/s] of the prediction disc r0 + e_v t + a_p t^2/2 (default: GKConfig.e_v)")
+    ap.add_argument("--pred-ap", type=float, default=_GK0.a_p, help="person acceleration bound a_p [m/s^2] of the prediction disc (default: GKConfig.a_p)")
     ap.add_argument("--name", default=None)
     ap.add_argument("--out", default=str(OUT))
     a = ap.parse_args()
@@ -694,6 +700,15 @@ def main():
     W.RUNTIME_GK["plan_monitor"] = a.plan_monitor
     W.RUNTIME_GK["plan_eps_p"], W.RUNTIME_GK["plan_eps_v"], W.RUNTIME_GK["plan_r_rel"], W.RUNTIME_GK["plan_confirm"] = a.plan_eps_p, a.plan_eps_v, a.plan_r_rel, a.plan_confirm
     W.RUNTIME_GK["plan_decision"], W.RUNTIME_GK["plan_conf_margin"] = a.plan_decision, a.plan_conf_margin
+    if a.runtime_rows != "all":                            # opt-in planner-owns-safety knobs: only non-default values are written (RUNTIME_GK of a default run is untouched)
+        W.RUNTIME_GK["runtime_rows"] = a.runtime_rows
+    if a.plan_cert != "off":
+        assert a.cert == "segments", "--plan-cert pred needs --cert segments"
+        W.RUNTIME_GK["plan_cert"] = a.plan_cert
+    if a.pred_ev != _GK0.e_v:
+        W.RUNTIME_GK["e_v"] = a.pred_ev
+    if a.pred_ap != _GK0.a_p:
+        W.RUNTIME_GK["a_p"] = a.pred_ap
     plan_latency = "measured" if a.plan_latency == "measured" else float(a.plan_latency)
     name = a.name or f"{a.filter}_{'people' if a.people else 'nopeople'}_s{a.seed}"
     print(f"[run_tamp] {name}", flush=True)
@@ -708,6 +723,7 @@ def main():
                                             dirs=tuple(x.strip() for x in a.hop_dirs.split(",") if x.strip()), max_hops=a.hop_max, compass=a.hop_compass, clear_stop=a.hop_clear_stop))
     s["walker"] = walker
     s["cup_row"] = a.cup_row
+    s["runtime_rows"], s["plan_cert"], s["pred_ev"], s["pred_ap"] = a.runtime_rows, a.plan_cert, a.pred_ev, a.pred_ap
     s["c2_ready"] = a.c2_ready
     if a.c2_ready_scope != "both" or a.c2_ready_tube_h > 0.0:
         s["c2_ready_scope"], s["c2_ready_tube_h"], s["c2_ready_tube_clear"] = a.c2_ready_scope, a.c2_ready_tube_h, a.c2_ready_tube_clear

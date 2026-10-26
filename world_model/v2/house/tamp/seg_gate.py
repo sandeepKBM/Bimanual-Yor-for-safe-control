@@ -349,6 +349,8 @@ class SegmentGatekeeper(Gatekeeper):
         if ok:
             self.traj, self.mode = rem, "keep"
             self.n_keep_backup += 1
+        elif self.gk.runtime_rows == "cup":                                 # no regime 2: commit the cup-safe brake from the current twist
+            self._cup_brake(np.asarray(sim.base.v, float).copy(), bel, t, why)
         else:
             self.traj, self.mode = None, "regime2"
             self.n_falsified += 1
@@ -376,9 +378,12 @@ class SegmentGatekeeper(Gatekeeper):
             if self.pm is not None and self.pm.active:
                 self._plan_check(sim, bel, t, sr)
         else:
-            self.traj, self.mode = None, "regime2"
-            self.n_falsified += 1
-            self.falsify_reasons[why] = self.falsify_reasons.get(why, 0) + 1
+            if self.gk.runtime_rows == "cup":                               # no regime 2: commit the cup-safe brake, refuse the route (the ladder replans)
+                self._cup_brake(np.asarray(sim.base.v, float).copy(), bel, t, why)
+            else:
+                self.traj, self.mode = None, "regime2"
+                self.n_falsified += 1
+                self.falsify_reasons[why] = self.falsify_reasons.get(why, 0) + 1
             sr["status"], sr["t_next"], sr["reason"] = "refused", math.inf, f"falsified: {why}"
             sr["n_refused"] += 1
         self.step_ms.append((time.perf_counter() - t0) * 1e3)

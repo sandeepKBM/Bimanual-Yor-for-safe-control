@@ -13,6 +13,14 @@ CHECKER 1 (all must hold; each is the WORST CASE over the belief set, inflation 
            OPT-IN person_model="accel": additionally (t_e = t_k + latency, v_hat = velocity estimate)
               dist(c_i + v_hat t_e, Rect(p_k)) - (r0 + e_v t_e + a_p t_e^2/2) - d_person - 0.5 h (vfar_k + |v_hat| + e_v + a_p (t_e + h)) >= 0
               the person lies in BOTH discs, so the robot is safe if it is clear of EITHER: per-sample margin = max(margin_speed, margin_accel)
+           OPT-IN person_model="pred" (PLAN-TIME model, user decision 10-26): the person row is the prediction disc ONLY (no speed disc, no max):
+              m_k = D_k - (r0 + e_v t_e + a_p t_e^2/2) - d_person - 0.5 h (vfar_k + |v_hat| + e_v + a_p (t_e + h)),   D_k = dist(c_i + v_hat t_c, Rect(p_k)),
+              t_c = t_k + latency_s,  t_e = t_k + latency_s + stale_i   (stale_i = delay between the observation and the trajectory start: chained segments / a
+              delayed start grow the error).  Stationary person: v_hat = 0.
+              PLAN-TIME SEPARATING-MOTION RULE (user decision 10-26), person_model="pred" only: if at t = 0 the footprint is already inside the keep-out of person i
+              (m_0 < 0) the plan is admissible for i iff D_k (footprint to PREDICTED centre) is non-decreasing over every sample up to and including the first sample
+              k1 with m_k1 >= 0 (over all samples if it never clears); from k1 on the normal row holds.  Margin key "person_exit" = min_k (D_{k+1} - D_k) over that
+              stretch (>= 0 passes; 0 = not approaching).
   cup    : |a_cup(t)| <= a_cup_max = cup_margin * min(kappa mu_lo, tan theta_spill) g     (a_cup incl. alpha x r + w x (w x r); segment start AND end)
            OPT-IN gk.cup_chord: each segment's values get + (h^2/8)(2|alpha||a_b| + 2 alpha^2 |r|) (a_cup is quadratic in t on a segment -> sound between samples)
   hw     : |a_i| <= A_HW_i and |v_i| <= V_STICK_i
@@ -23,7 +31,14 @@ CHECKER 2 (backup ends in T(b) = {v = 0, cup margin >= 0, static clearance >= d_
   passive: t_touch - t_rest >= 0  with  t_touch = (dist(c_i, Rect(p_rest)) - r0)/v_p - latency   (robot is at rest before ANY person disc can reach it);
            accel model: t_touch = max(t_speed, t_accel), t_accel = positive root of a_p t^2/2 + (e_v + |v_hat|) t = dist - r0 (see t_touch_accel)
            a trajectory that is at rest from t = 0 (i_rest = 0) is passive-safe by definition.
+           pred model: NO passive row (what a person does while the robot rests is the next plan's problem); instead key "rest_person" [m] = the prediction-disc row
+           at the rest sample i_rest (no sweep term), with the same exit rule: a plan that started inside the keep-out and rests still inside it passes iff D_k
+           was non-decreasing over the whole moving part including the step into the rest sample.
   cup    : v_N = 0 => a_cup = 0 (and the sampled |a_cup| <= a_cup_max was verified in Checker 1)
+
+RUNTIME ROWS (GKConfig.runtime_rows, default "all" == everything above, bit-identical).  "cup": Checker 1 evaluates ONLY the hw rows (hw_slew, speed_cap) and the cup row;
+Checker 2 keeps only no_rest / rest_speed (v = 0 at the end => a_cup = 0).  Wall rows, person rows, wall_at_rest and passive/rest person are skipped (the margins dict
+simply lacks those keys): the PLANNER owns walls and people (tamp/plan_cert.py), the runtime layer only guards the cup and the actuator limits.
 
 Return: (ok, min_margin, reason, margins); margins are in their own SI unit (geometry m, passive s, cup/hw m/s^2); reason = failing (or tightest) item.
 Monotone: enlarging e_xy, e_th, e_p, v_p_max, latency, d_wall, d_person or lowering mu_lo can only turn ok=True into ok=False for a FIXED trajectory.
@@ -109,6 +124,8 @@ def check1(traj: Traj, bel, gk, tol_geo=None, tol_cup=1e-6):
         cc = acup_chord(V, h, bel.r_cup)
         ac = np.concatenate([ac[:N] + cc, ac[N:2 * N] + cc, ac[2 * N:]])
     mg["cup"] = float(bel.a_cup_max - ac.max())
+    if getattr(gk, "runtime_rows", "all") == "cup":                     # OPT-IN: cup + hw rows only (walls / people are the planner's job)
+        return _verdict(mg, {"cup": tol_cup, "hw_slew": tol_cup, "speed_cap": tol_cup}, tol_geo)
     # static obstacles (pose-box worst case)
     B, nq = _fp_pts(bel.fp, gk.fp_step)
     qmax = float(nq.max())
@@ -127,9 +144,18 @@ def check1(traj: Traj, bel, gk, tol_geo=None, tol_cup=1e-6):
         tk = np.arange(n_mov) * h
         vfar, _ = _slack(traj, _rect_far(bel.fp))
         best = np.inf
+        best_exit = np.inf
         accel = bel.person_model == "accel"
+        pred = bel.person_model == "pred"
         for ip, c in enumerate(bel.people):
             c = np.asarray(c, float)
+            if pred:                                                      # plan-time model: prediction disc only + separating-motion rule
+                m_p, d_p = _pred_series(bel, gk, ip, c, Pp, tk, vfar[:n_mov], h)
+                pm, ex = _pred_person_margin(m_p, d_p)
+                best = min(best, pm)
+                if ex is not None:
+                    best_exit = min(best_exit, ex)
+                continue
             r0 = GM.PERSON_CLEAR_R + _pe(bel, ip)
             lat = _lat(bel, ip)
             d = _rect_dist(c, Pp, bel.fp)
@@ -148,7 +174,39 @@ def check1(traj: Traj, bel, gk, tol_geo=None, tol_cup=1e-6):
                 m = np.maximum(m, d_a - rad - bel.d_person - sp_a)
             best = min(best, float(m.min()))
         mg["person"] = best
+        if best_exit < np.inf:
+            mg["person_exit"] = best_exit
     return _verdict(mg, {"cup": tol_cup, "hw_slew": tol_cup, "speed_cap": tol_cup}, tol_geo)
+
+
+def _pred_series(bel, gk, ip, c, Pp, tk, vfar, h, sweep=None):
+    """person_model="pred": per-sample (margin, D) of person i against the PREDICTION disc only.  Pp = world poses (relative-people frame), tk = sample times, vfar = far-point
+    speed per sample (_slack).  sweep: optional 0/1 mask that switches the inter-sample term off (the rest sample).  D_k = dist(predicted centre, Rect(p_k))."""
+    vh = _vhat(bel, ip)
+    r0 = GM.PERSON_CLEAR_R + _pe(bel, ip)
+    lat = _lat(bel, ip)
+    te = tk + lat
+    tc = tk + bel.latency_s
+    ev = _ev(bel, ip)
+    d_a = _rect_dist((c[0] + vh[0] * tc, c[1] + vh[1] * tc), Pp, bel.fp)
+    rad = r0 + ev * te + 0.5 * bel.a_p * te * te
+    rate = math.hypot(vh[0], vh[1]) + ev + bel.a_p * (te + h)
+    sp = 0.5 * h * (vfar + rate) if gk.sweep_slack else 0.0
+    if sweep is not None:
+        sp = sp * sweep
+    return d_a - rad - bel.d_person - sp, d_a
+
+
+def _pred_person_margin(m, d):
+    """separating-motion rule on one person's series (module docstring).  -> (person margin, exit margin or None).  m[0] >= 0: the plain row (min m, None).
+    m[0] < 0: exit = min step of D up to and including the first clear sample k1 (all samples if none); person = min m[k1:] (1e3 if it never clears)."""
+    if m[0] >= 0:
+        return float(m.min()), None
+    nz = np.nonzero(m >= 0)[0]
+    k1 = int(nz[0]) if len(nz) else len(m)
+    up = min(k1, len(m) - 1)
+    ex = float(np.diff(d[:up + 1]).min()) if up >= 1 else 0.0
+    return (float(m[k1:].min()) if k1 < len(m) else 1e3), ex
 
 
 def _pe(bel, i):
@@ -202,13 +260,17 @@ def check2(traj: Traj, bel, gk, tol_geo=None, tol_cup=1e-6):
     if i_rest is None:
         return False, -1.0, "no_rest", {"no_rest": -1.0}
     mg["rest_speed"] = float(1e-6 - np.abs(traj.V[-1]).max())
+    if getattr(gk, "runtime_rows", "all") == "cup":                     # OPT-IN: v = 0 at the end only (=> a_cup = 0)
+        return _verdict(mg, {}, tol_geo)
     Pr = traj.poses()
     P_end = Pr[i_rest:i_rest + 1]
     if bel.grid is not None:
         B, nq = _fp_pts(bel.fp, gk.fp_step)
         Pw = world_poses(P_end, bel.pose_wall)
         mg["wall_at_rest"] = float((_wall_dists(bel.grid, Pw, B, nq, bel.e_xy, bel.e_th) - 0.5 * gk.fp_step - _d_wall_k(bel, Pw)).min())
-    if len(bel.people) and i_rest > 0:
+    if len(bel.people) and i_rest > 0 and bel.person_model == "pred":
+        mg["rest_person"] = float(min(_pred_rest_person(traj, bel, gk, Pr, i_rest), 1e3))
+    elif len(bel.people) and i_rest > 0:
         Pp = world_poses(P_end, bel.pose_people)
         t_rest = i_rest * traj.h
         best = np.inf
@@ -227,6 +289,31 @@ def check2(traj: Traj, bel, gk, tol_geo=None, tol_cup=1e-6):
             best = min(best, m)
         mg["passive_person"] = float(min(best, 1e3))
     return _verdict(mg, {}, tol_geo)
+
+
+def _pred_rest_person(traj, bel, gk, Pr, i_rest):
+    """person_model="pred", Checker 2: min over people of the prediction-disc margin at the REST sample (no sweep term), with the separating-motion rule through the
+    rest sample for a person whose keep-out the footprint started inside (module docstring)."""
+    h = traj.h
+    Pp = world_poses(Pr[:i_rest + 1], bel.pose_people)
+    tk = np.arange(i_rest + 1) * h
+    vfar, _ = _slack(traj, _rect_far(bel.fp))
+    sw = np.ones(i_rest + 1)
+    sw[-1] = 0.0
+    best = np.inf
+    for ip, c in enumerate(bel.people):
+        m, d = _pred_series(bel, gk, ip, np.asarray(c, float), Pp, tk, vfar[:i_rest + 1], h, sw)
+        r = float(m[-1])
+        if m[0] < 0:
+            nz = np.nonzero(m >= 0)[0]
+            k1 = int(nz[0]) if len(nz) else None
+            ex = float(np.diff(d[:(i_rest if k1 is None else k1) + 1]).min())
+            if k1 is None:
+                r = ex                                                   # never cleared: separation only
+            elif k1 == i_rest:
+                r = min(r, ex)                                           # cleared exactly at the rest sample: the step into it must still separate
+        best = min(best, r)
+    return best
 
 
 def _verdict(mg, tols, tol_geo):

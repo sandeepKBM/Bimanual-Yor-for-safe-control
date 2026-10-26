@@ -13,6 +13,7 @@ Every call is logged in Streams.log (stream, inputs, outcome, reason, margin, ms
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 import time
 from collections import Counter
@@ -22,6 +23,7 @@ import numpy as np
 from ..checkers import grasp3 as G3
 from ..gatekeeper.checks import check1, check2
 from ..gatekeeper.traj import Traj, plan_candidate
+from . import plan_cert as PC
 from . import segments as SEG
 from .people_pred import predict_people
 from .types import Cert, Grasp, Placement, Route
@@ -57,8 +59,12 @@ class Streams:
     def __init__(self, world: World, ds: float = 0.2, v_cruise: float = 0.3, end_skip: float = 0.3, near_m: float = 2.0,
                  lateral_offsets: tuple = LATERAL_OFFSETS, cert_mode: str = "rest", speeds: tuple = SEG.SPEEDS,
                  people_pred: str = "frozen", t_offset: float = 0.0, seg_cache: dict | None = None, people_ev_scale: float = 1.0,
-                 start_v=None):
-        """ds: route sample spacing [m]; v_cruise: candidate speed along the route [m/s] (ASSUMPTION, nominal phase2 route speed 0.3); end_skip: the last
+                 start_v=None, plan_cert: str | None = None):
+        """plan_cert: "off" (default, unchanged) | "pred": route certification (cert_mode "segments") by the plan-time certifier tamp/plan_cert.py -- cup + hw + walls + ALL people over
+        the WHOLE route (no near_m cut-off, no people-free tail), people predicted by constant velocity from the plan-time observation (person_model "pred": prediction disc only +
+        separating-motion exit rule), each segment at its planned start time (t_offset + segment start).  None -> world.gk.plan_cert.  The planner ALWAYS checks walls and
+        people: if the runtime gatekeeper config has runtime_rows="cup", the planner still certifies with runtime_rows="all".
+        ds: route sample spacing [m]; v_cruise: candidate speed along the route [m/s] (ASSUMPTION, nominal phase2 route speed 0.3); end_skip: the last
         end_skip m before the goal conf are not required to admit a FORWARD candidate (the dock surface is ahead; the final approach is the docking creep).
         cert_mode: "rest" (default, legacy: each sample certified FROM REST at v_cruise) | "segments" (timed gatekeeper-format segments at a planner-chosen speed from
         `speeds`, fastest first; segment durations T_S in gk.t_switch, longest that passes; tamp/segments.py -- the executor re-certifies the same segments from the actual state).
@@ -75,6 +81,11 @@ class Streams:
         self._seg_cache = {} if seg_cache is None else seg_cache
         self.start_v = None if start_v is None else tuple(float(x) for x in start_v)
         self.w = world
+        self.plan_cert = getattr(world.gk, "plan_cert", "off") if plan_cert is None else plan_cert
+        assert self.plan_cert in ("off", "pred"), self.plan_cert
+        assert self.plan_cert == "off" or cert_mode == "segments", "plan_cert='pred' needs cert_mode='segments'"
+        # the planner's checkers: the world's config, but never in the runtime "cup" mode (planning must see walls and people).  Identity (bit-identical) when runtime_rows == "all".
+        self._gk = world.gk if getattr(world.gk, "runtime_rows", "all") == "all" else dataclasses.replace(world.gk, runtime_rows="all")
         self.ds, self.v, self.end_skip = float(ds), float(v_cruise), float(end_skip)
         self.near_m = float(near_m)                       # route samples within this arclength of the route START are certified against the current people belief
         self.lateral_offsets = tuple(float(o) for o in lateral_offsets)     # () = no shifted variants
@@ -97,8 +108,8 @@ class Streams:
         q = surf.dock
         bel = self.w.belief_at(q.xyth(), holding=False)
         rest = Traj(np.zeros((1, 3)), self.w.gk.h, 0.0, 0.0, 0.0)
-        o1, m1, r1, g1 = check1(rest, bel, self.w.gk)
-        o2, m2, r2, g2 = check2(rest, bel, self.w.gk)
+        o1, m1, r1, g1 = check1(rest, bel, self._gk)
+        o2, m2, r2, g2 = check2(rest, bel, self._gk)
         ok = o1 and o2
         mb, kb = _binding(g1, g2)
         self._rec("s-dock", (s,), ok, f"binding {kb}" if ok else (r1 if not o1 else r2), mb, t0, q if ok else None)
@@ -258,7 +269,7 @@ class Streams:
         if self.cert_mode == "segments":
             c, why, _segs, _v = self._certify_segments(pts, reverse, holding, item)
             return c, why
-        gk = self.w.gk
+        gk = self._gk
         P = np.asarray(pts, float)
         seg = np.diff(P, axis=0)
         L = np.hypot(seg[:, 0], seg[:, 1])
@@ -325,7 +336,8 @@ class Streams:
         ends end_skip m before the goal (the executor's final approach / docking creep takes over from rest, as in the rest mode)."""
         timed = self.people_pred == "time" and bool(immediate)
         key = (tuple(map(tuple, pts)), bool(reverse), bool(holding), item) + (("time", self.t_offset) if timed else ()) + \
-              (("start_v", self.start_v) if (timed and self.start_v is not None) else ())
+              (("start_v", self.start_v) if (timed and self.start_v is not None) else ()) + \
+              ((("plan_cert", "pred", self.t_offset),) if self.plan_cert == "pred" else ())
         if key in self._seg_cache:
             return self._seg_cache[key]
         out = self._certify_segments_uncached(pts, reverse, holding, item, timed)
@@ -333,7 +345,7 @@ class Streams:
         return out
 
     def _certify_segments_uncached(self, pts, reverse, holding, item, timed=False):
-        gk = self.w.gk
+        gk = self._gk
         path = SEG.Path(pts)
         total = path.total
         if total < 1e-6:
@@ -344,6 +356,8 @@ class Streams:
             return Cert("C1C2_segments", 0.0, (("n_segments", 0), ("note", "route shorter than the final-approach hand-over"), ("length_m", round(total, 3)))), "", (), None
 
         def bel_fn(pose, s_start, t_start=0.0):
+            if self.plan_cert == "pred":                    # plan-time certifier (plan_cert.py): ALL people, whole route, prediction disc only (no near_m cut-off, no people-free tail)
+                return PC.plan_belief(self.w, pose, holding, item, None, self.t_offset + t_start)
             if timed and n_ppl:
                 return predict_people(runtime_belief_at(self.w, pose, holding, item, people=True), self.t_offset + t_start, self.people_ev_scale)
             near = bool(n_ppl) and self.near_m > 0 and s_start <= self.near_m + 1e-9
@@ -371,6 +385,8 @@ class Streams:
                       ("near_margin", None if nm is None else round(float(nm), 4)), ("speeds_failed", len(whys)))
             if timed:
                 detail += (("people_pred", "time"), ("t_offset", self.t_offset))
+            if self.plan_cert == "pred":
+                detail += (("plan_cert", "pred"), ("t_offset", self.t_offset), ("pred_e_v", self.w.gk.e_v), ("pred_a_p", self.w.gk.a_p))
             return Cert("C1C2_segments", float(min(ms)), detail), "", tuple(segs), float(v)
         return None, "no admissible segment profile at any speed " + str(self.speeds) + ": " + " | ".join(w[:160] for w in whys), None, None
 

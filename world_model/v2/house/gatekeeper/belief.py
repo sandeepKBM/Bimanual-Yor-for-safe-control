@@ -39,9 +39,9 @@ class GKConfig:
     tol: float = 1e-9
     regime2_fallback: str = "escape"                   # ShieldCfg.fallback used by the internal Shield in regime 2 ("brake" = the emergency brake, "escape")
     # ---- OPT-IN improvement A: velocity-aware person reachable set (default "speed" == the original speed-only disc, bit-identical) ----
-    person_model: str = "speed"                        # "speed" | "accel"
-    e_v: float = 0.2                                   # ASSUMPTION m/s, error of the person velocity estimate v_hat (only used by "accel")
-    a_p: float = 2.0                                   # ASSUMPTION m/s^2, max person acceleration (only used by "accel")
+    person_model: str = "speed"                        # "speed" | "accel" | "pred" ("pred" = plan-time model: prediction disc only + separating-motion exit rule, checks.py)
+    e_v: float = 0.2                                   # ASSUMPTION m/s, error of the person velocity estimate v_hat (only used by "accel" / "pred")
+    a_p: float = 2.0                                   # ASSUMPTION m/s^2, max person acceleration (only used by "accel" / "pred")
     vel_source: str = "state"                          # "state" = velocity of sim.people_state (truth source); "fd" = finite difference of the observed positions over the last gk steps
     # ---- OPT-IN improvement B: certified candidate set (default "hold" == only u_op is tried, bit-identical) ----
     candidates: str = "hold"                           # "hold" | "set"
@@ -85,6 +85,10 @@ class GKConfig:
     plan_confirm: int = 2                              # consecutive violating gatekeeper steps before the flag
     plan_decision: str = "timing"                      # after a flag: "timing" = keep driving the old route while t_ready + t_stop + margin < t_conf, else brake | "brake" = always brake (coast on the committed trajectory)
     plan_conf_margin: float = 0.5                      # s, t_margin of the timing test
+    # ---- OPT-IN "planner owns safety" mode (user decision 10-24..26; defaults == current behaviour, bit-identical) ----
+    runtime_rows: str = "all"                          # "all" | "cup": cup = the RUNTIME checkers evaluate only the cup + hw rows (no wall / person rows), people part of the falsification monitor is off,
+                                                       #   and regime 2 (internal Shield) is never entered: a pose falsification commits the cup-safe brake and reports the route refused (checks.py docstring)
+    plan_cert: str = "off"                             # "off" | "pred": tamp.streams.Streams default for the plan-time certifier (tamp/plan_cert.py: cup + hw + walls + people with person_model="pred" over the WHOLE route)
 
 
 @dataclass
@@ -110,7 +114,7 @@ class Belief:
     people_e_v: tuple = ()                              # per-person ADDITIONAL velocity-estimate error; () = none -> only the global e_v
     people_stale: tuple = ()                            # per-person ADDITIONAL observation age [s] (time since the track's last update); () = none -> only latency_s
     people_vel: tuple = ()                              # world velocity estimate v_hat of each person (() = unknown -> zeros); only used when person_model == "accel"
-    person_model: str = "speed"                         # "speed": disc(c, r0 + v_p t);  "accel": also disc(c + v_hat t, r0 + e_v t + a_p t^2/2), margin = max of the two
+    person_model: str = "speed"                         # "speed": disc(c, r0 + v_p t);  "accel": also disc(c + v_hat t, r0 + e_v t + a_p t^2/2), margin = max of the two;  "pred": ONLY the second disc (+ exit rule)
     e_v: float = 0.2                                    # m/s  velocity-estimate error half-width
     a_p: float = 2.0                                    # m/s^2 person acceleration bound
     pose_wall: np.ndarray = field(default_factory=lambda: np.zeros(3))      # map-frame pose the static-obstacle check is anchored at (estimate)
@@ -175,7 +179,7 @@ def belief_from_ws(ws, robot: RobotInfo, shield_cfg, gk: GKConfig, fp=None, dock
     est = bool(ws.meta.get("people_estimated", False))
     pids = person_ids(ws)
     P = [ws.objects[i] for i in pids]
-    if not est and people_vel is None and gk.person_model == "accel" and gk.vel_source == "state":
+    if not est and people_vel is None and gk.person_model in ("accel", "pred") and gk.vel_source == "state":
         people_vel = tuple(np.zeros(2) if o.vel is None else np.asarray(o.vel, float)[:2].copy() for o in P)
     R = GM.rot(ws.robot.yaw if ws.robot.yaw is not None else math.atan2(ws.robot.base.R[1][0], ws.robot.base.R[0][0]))
     cup_xy = np.asarray(ws.world_pose(cup).p, float)[:2]
@@ -219,7 +223,7 @@ def _build_belief_legacy(sim, shield_cfg, gk: GKConfig, fp=None, docks=(), peopl
     loc = getattr(sim, "loc", None)
     sig = float(loc.sigma_xy) if loc is not None else 0.0
     e_xy = gk.k_pose * sig + shield_cfg.loc_margin + (shield_cfg.loc_margin_k * sig if loc is not None else 0.0)
-    if tracks is None and people_vel is None and gk.person_model == "accel" and gk.vel_source == "state":
+    if tracks is None and people_vel is None and gk.person_model in ("accel", "pred") and gk.vel_source == "state":
         people_vel = tuple(np.asarray(v, float).copy() for _, v in (sim.people_state or []))
     pose_t = sim.pose()
     pose_c = sim.ctrl_pose() if hasattr(sim, "ctrl_pose") else pose_t
