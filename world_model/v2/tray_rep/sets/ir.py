@@ -28,6 +28,15 @@ STATE and TIME. `state` is whatever the providers accept. If the providers retur
 trajectory), every atom returns a length-K array and G / F reduce over that axis; with no leading axis K = 1. `margin(state)` is the
 robustness at time 0.
 
+EXTENSIONS (2026-10-26, for tamp/spec_cert.py; with every default the existing behaviour is bit-identical)
+    Unc.ball       float or (K,) array: radius of a EUCLIDEAN ball added to the position uncertainty (robust sets = A (+) ball). Clear subtracts it exactly
+                   (sd(Z (+) B_r) = sd(Z) - r in both signs); Inside / Support add it to the support values. 0 = unchanged.
+    Ball(r)        a Sphere that Clear treats exactly (centre point + radius r instead of the outer ball zonotope of Sphere).
+    Clear(exact=True, far=)   exact signed distance of the origin to the Minkowski difference (facet slack when inside; foot-point test, else bounded least squares,
+                   when outside) instead of the direction-grid sd_origin (a lower bound whose error grows with the SIZE of the sets: ~3 cm on a 0.7 m box).
+                   A value above `far` [m] is returned as a cheap lower bound (>= far): far-away obstacles cost O(1).
+    ClearEgress    Clear that tolerates a violated start when the motion SEPARATES (class docstring): G[0,T] Clear with an exit clause.
+
 COMPILE TARGETS
     margin(spec, state, robust)           -> float
     status(spec, state)                   -> 'true' (robust margin >= 0) | 'false' (nominal margin < 0) | 'unknown' (otherwise)
@@ -101,6 +110,14 @@ class Sphere(Shape):
     def zonotope(self):
         from world_model.v2.tray_rep.sets.zono import ball_outer
         return ball_outer(self.centre, self.r)
+
+
+class Ball(Sphere):
+    """a Euclidean ball that Clear handles EXACTLY: its zonotope() is the centre POINT and the radius r is subtracted from the signed distance
+    (Sphere.zonotope() is an outer polygon/zonotope, ~2-5 % too large in some directions).  Everywhere else (support, max_norm) it is a Sphere."""
+
+    def zonotope(self):
+        return Zonotope(self.centre)
 
 
 class BoxShape(Shape):
@@ -187,6 +204,7 @@ class Pose:
 class Unc:
     pos: Zonotope | None = None      # offset set of the position, in the parent frame (3-D)
     rot: float = 0.0                 # bound on the pose-angle error [rad]
+    ball: object = 0.0               # radius [m] of an extra Euclidean ball on the position (float, or (K,) per time index); exact in Clear (module docstring)
 
 
 @dataclass
@@ -241,6 +259,20 @@ def _rel(A: Entity, B: Entity, state):
     return R, p, pos, uA.rot + uB.rot
 
 
+def _ball_rel(A: Entity, B: Entity, state):
+    """sum of the Unc.ball radii that enter the relative set of A in B's frame (A's, plus B's unless A is expressed in B's frame, as _rel)."""
+    b = A.uncertainty(state).ball
+    if A.parent != B.name:
+        b = b + B.uncertainty(state).ball
+    return b
+
+
+def _ball_col(b):
+    """ball radius -> broadcastable against the support values (..., m): scalar stays, a (K,) array gets a trailing axis."""
+    b = np.asarray(b, np.float64)
+    return b[..., None] if b.ndim else b
+
+
 def _expand_dirs(N, R):
     """facet normals N (m,3) in B's frame; A's local direction = R^T n.  R (..., 3, 3) -> (..., m, 3)."""
     return np.einsum("...ji,mj->...mi", R, N)
@@ -259,6 +291,75 @@ def _h_A(A: Entity, N, R, p, upos, rot, robust):
         if rot:
             base = base + rot * (sh.max_norm() + np.linalg.norm(p, axis=-1))[..., None]
     return base
+
+
+# ====================================================================================== exact signed distance of the origin to a 3-D zonotope
+_PAIRS = {}
+
+
+def _pairs(m):
+    if m not in _PAIRS:
+        _PAIRS[m] = np.triu_indices(m, 1)
+    return _PAIRS[m]
+
+
+def _dist_bvls(c, G):
+    """distance of the origin to c + G [-1, 1]^m: min |c + G lam| over the box, active-set (BVLS) -- exact."""
+    from scipy.optimize import lsq_linear
+    res = lsq_linear(G, -c, bounds=(-1.0, 1.0), method="bvls", tol=1e-13, lsq_solver="exact")
+    return float(np.linalg.norm(G @ res.x + c))
+
+
+def sd_exact(c, G, tol=1e-9, far=np.inf):
+    """EXACT signed distance of the origin to the 3-D zonotope Z = c + G [-1,1]^m (> 0 outside: the distance; < 0 inside: minus the distance to the boundary).
+    Full-dimensional Z: the facets of Z are among the planes n_ij = g_i x g_j / |.|, so with h(n) = n.c + sum_l |n.g_l| (support function) the origin is inside iff
+    min over +-n_ij of h >= 0 and then sd = -min h (the depth to the nearest facet).  Outside, v = -min h is the largest facet violation (a lower bound); if the foot point
+    q = -v n of the origin on that facet plane lies in Z (all h(n_j) - n_j.q >= -tol) the distance IS v, otherwise (the nearest feature is an edge or vertex) the exact
+    distance comes from the bounded least squares.  Flat / thin Z (rank < 3): bounded least squares (sd >= 0).  far: a largest facet violation >= far is returned as is
+    (a lower bound, no least squares)."""
+    c = np.asarray(c, np.float64)
+    G = np.asarray(G, np.float64)
+    G = G[:, np.abs(G).max(0) > 1e-14]
+    m = G.shape[1]
+    if m == 0:
+        return float(np.linalg.norm(c))
+    if m < 3:
+        return _dist_bvls(c, G)
+    S = G @ G.T
+    if np.linalg.det(S) <= 1e-12 * (np.trace(S) / 3.0) ** 3:           # rank < 3 (flat / thin)
+        return _dist_bvls(c, G)
+    i, j = _pairs(m)
+    a, b = G[:, i], G[:, j]
+    Nn = np.stack([a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]], 1)
+    nn = np.sqrt((Nn * Nn).sum(1))
+    keep = nn > 1e-10 * max(np.trace(S), 1e-12)
+    Nn = Nn[keep] / nn[keep][:, None]
+    N = np.concatenate([Nn, -Nn])
+    h = N @ c + np.abs(N @ G).sum(1)
+    k = int(np.argmin(h))
+    if h[k] >= 0.0:
+        return float(-h[k])
+    v = float(-h[k])
+    if v >= far:
+        return v                                                        # lower bound >= far (largest facet violation)
+    q = -v * N[k]
+    if np.all(N @ q <= h + tol):
+        return v
+    return _dist_bvls(c, G)
+
+
+def sd_exact_batch(Z: Zonotope, far: float = 3.0):
+    """sd_exact for a (possibly batched) zonotope -> (K,) array.  Samples whose distance from the origin to the AXIS-ALIGNED interval hull of Z (a lower bound of the
+    distance) is already >= far are returned as that lower bound; the others get sd_exact(far=far) (also a lower bound where it is >= far)."""
+    c = np.atleast_2d(Z.c)
+    G = Z.G if Z.batch else Z.G[None]
+    G = np.broadcast_to(G, c.shape[:1] + G.shape[-2:])
+    gap = np.maximum(np.abs(c) - np.abs(G).sum(2), 0.0)
+    lb = np.sqrt((gap * gap).sum(1))
+    out = lb.copy()
+    for k in np.nonzero(lb < far)[0]:
+        out[k] = sd_exact(c[k], G[k], far=far)
+    return out
 
 
 # ====================================================================================== spec nodes
@@ -292,6 +393,8 @@ class Inside(Node):
         P = self._poly()
         R, p, upos, rot = _rel(self.A, self.B, state)
         h = _h_A(self.A, P.N, R, p, upos, rot, robust)
+        if robust:
+            h = h + _ball_col(_ball_rel(self.A, self.B, state))
         s = P.b - self.margin - h
         return _t(P.margin_from_slacks(s))
 
@@ -305,6 +408,8 @@ class Inside(Node):
         p = np.atleast_2d(p)
         Jp = Jp[None] if Jp.ndim == 2 else Jp
         h_rest = _h_A(self.A, P.N, R, np.zeros_like(p), upos, rot, robust)       # support without the translation
+        if robust:
+            h_rest = h_rest + _ball_col(_ball_rel(self.A, self.B, state))
         h_rest = h_rest.reshape(len(p), -1)
         nJ = np.einsum("mi,kiu->kmu", P.N, Jp)                                 # (K, m, nu)
         n_p = p @ P.N.T                                                        # (K, m)
@@ -355,10 +460,14 @@ class Upright(Node):
 
 @dataclass
 class Clear(Node):
+    """distance(A, B) >= d.  Default: sd of the origin to the zonotope A (+) -B by the direction-grid sd_origin (unchanged).  exact=True: the exact signed distance
+    (sd_exact below; values above `far` are a lower bound).  Ball shapes and Unc.ball are exact in both modes (radius subtracted from the signed distance)."""
     A: Entity
     B: Entity
     d: float = 0.0
     tag: str = ""
+    exact: bool = False
+    far: float = 3.0
 
     def _sets(self, state, robust):
         """A and B as zonotopes in the common (world or shared parent) frame."""
@@ -373,18 +482,40 @@ class Clear(Node):
                 ZB = ZB.minkowski(uB.pos)
         return ZA, ZB
 
-    def eval(self, state, robust=False):
-        ZA, ZB = self._sets(state, robust)
-        Z = ZA.minkowski(ZB.neg())
+    def _rho(self, state, robust):
+        """total radius of the Ball shapes (+ Unc.ball when robust): float, or (K,) array; 0.0 when there is none."""
+        r = 0.0
+        for e in (self.A, self.B):
+            if isinstance(e.shape, Ball):
+                r = r + e.shape.r
+            if robust:
+                r = r + np.asarray(e.uncertainty(state).ball, np.float64)
+        return r
+
+    def _sd(self, Z, far=None):
+        if self.exact:
+            return sd_exact_batch(Z, self.far if far is None else far)
         if Z.batch:
-            return np.array([sd_origin(Zonotope(Z.c[k], Z.G[k])) for k in range(Z.c.shape[0])]) - self.d
-        return _t(sd_origin(Z) - self.d)
+            return np.array([sd_origin(Zonotope(Z.c[k], Z.G[k])) for k in range(Z.c.shape[0])])
+        return _t(sd_origin(Z))
+
+    def _margin(self, state, robust, d, far=None):
+        ZA, ZB = self._sets(state, robust)
+        out = self._sd(ZA.minkowski(ZB.neg()), far) - d
+        rho = self._rho(state, robust)
+        if np.any(rho):
+            out = out - rho
+        return out
+
+    def eval(self, state, robust=False):
+        return self._margin(state, robust, self.d)
 
     def rows(self, state, jac, robust=True):
         """fixed-direction linearisation: for the unit direction n pointing from B to A at u0,
         n . (c_A(u) - c_B) >= d + h_{Z - c}(n)  is a valid separation for every u (an inner approximation of Clear)."""
         ZA, ZB = self._sets(state, robust)
         Z = ZA.minkowski(ZB.neg())
+        rho = np.broadcast_to(np.asarray(self._rho(state, robust), np.float64), np.atleast_2d(Z.c).shape[:1])
         c = np.atleast_2d(Z.c)
         G = Z.G if Z.batch else Z.G[None]
         Jp = np.asarray(jac[self.A.name]["p"], np.float64)
@@ -396,9 +527,54 @@ class Clear(Node):
             hz = float(np.abs(G[k].T @ n).sum())
             nJ = n @ Jp[k]
             Arows.append(-nJ)
-            brow.append(float(n @ c[k] - nJ @ u0 - self.d - hz))
+            brow.append(float(n @ c[k] - nJ @ u0 - self.d - hz - rho[k]))
             tags.append((self.tag or "clear", k, 0))
         return [(np.array(Arows), np.array(brow), tags)]
+
+
+BIG = 1e3          # "no constraint" margin (checks.py uses the same 1e3)
+
+
+@dataclass
+class ClearEgress(Clear):
+    """G[0,T] Clear(A, B, d) with an EXIT CLAUSE for a start inside the keep-out (user decision 2026-10-26; gatekeeper/checks.py "person_exit").
+    Let m_k be the (robust) Clear margin and D_k the NOMINAL distance (no uncertainty, Ball radii excluded: only its steps are used) at sample k, k = 0..K-1.
+      m_0 >= 0 :  x_k = m_k                                                       (plain Clear)
+      m_0 <  0 :  k1 = first k with m_k >= 0 (K if none), up = min(k1, K-1);
+                  x_k = D_{k+1} - D_k  for k < up   (A must move AWAY from B at every step until the keep-out is left, the step into k1 included)
+                  x_k = m_k            for k >= k1  (from there on the plain row holds)
+                  x_{K-1} = BIG        when the keep-out is never left (only the separation is required; K = 1: x_0 = 0).
+    Margin = min_k x_k: >= 0 <=> admissible; the units mix m (metres) and metres per sample step (as checks.py's person / person_exit keys). eval() returns x,
+    so G[0,T](ClearEgress) is its min.  parts() splits it: {"clear": min m over the plain part, "exit": min step or None}.  Not convex: no rows."""
+
+    def parts(self, state, robust=True):
+        m = _t(self._margin(state, robust, self.d))
+        K = len(m)
+        if m[0] >= 0:
+            return dict(m=m, x=m.copy(), clear=float(m.min()), exit=None)
+        D = _t(self._margin(state, False, 0.0, far=np.inf))                 # steps of D need the EXACT distance (a `far` lower bound is not smooth)
+        nz = np.nonzero(m >= 0)[0]
+        k1 = int(nz[0]) if len(nz) else K
+        up = min(k1, K - 1)
+        x = np.empty(K)
+        if up < 1:
+            x[:] = BIG
+            x[0] = 0.0
+            ex = 0.0
+        else:
+            st = np.diff(D[:up + 1])
+            x[:up] = st
+            ex = float(st.min())
+        x[k1:] = m[k1:]
+        if k1 >= K:
+            x[K - 1] = BIG if up >= 1 else 0.0
+        return dict(m=m, x=x, clear=float(m[k1:].min()) if k1 < K else BIG, exit=ex)
+
+    def eval(self, state, robust=False):
+        return self.parts(state, robust)["x"]
+
+    def rows(self, state, jac, robust=True):
+        raise NotConvex("ClearEgress: the exit clause is a disjunction over the start sample")
 
 
 @dataclass
@@ -424,13 +600,15 @@ class Support(Node):
 
     def _unc_support(self, unc, N2, k, K):
         """support of A's position-uncertainty set along the 2-D normals N2 (m, 2), at time index k."""
+        ball = np.asarray(unc.ball, np.float64)
+        ball = float(ball[k]) if ball.ndim else float(ball)
         if unc.pos is None:
-            return np.zeros(len(N2))
+            return np.zeros(len(N2)) + ball
         z = unc.pos
         if z.batch:
             z = Zonotope(z.c[k], z.G[k])
         N3 = np.concatenate([N2, np.zeros((len(N2), 1))], 1)
-        return z._support_many(N3)
+        return z._support_many(N3) + ball
 
     def eval(self, state, robust=False):
         Zf, com = self._prep(state)
@@ -573,7 +751,9 @@ def from_dict(d, ents: dict, params: dict) -> Node:
     are replaced by params[name]. Forms:
         {"and": [s, ...]} {"or": [...]} {"not": s} {"G": {"lo": 0, "hi": "H", "of": s}} {"F": {...}}
         {"inside": {"a": E, "b": E, "margin": m}} {"upright": {"a": E, "theta_max": x}} {"clear": {"a": E, "b": E, "d": x}}
-        {"support": {"a": E, "b": E}}        E := "name" | {"shrink": {"of": E, "by": r}}"""
+        {"support": {"a": E, "b": E}}
+        {"clear": {"a": E, "b": E, "d": x, "exact": bool, "far": m}} {"clear_egress": {...same...}}     (exact defaults to false for clear, true for clear_egress)
+        E := "name" | {"shrink": {"of": E, "by": r}}"""
 
     def val(x):
         return params[x] if isinstance(x, str) else x
@@ -599,8 +779,10 @@ def from_dict(d, ents: dict, params: dict) -> Node:
         return Inside(ent(v["a"]), ent(v["b"]), float(val(v.get("margin", 0.0))), tag=v.get("tag", ""))
     if k == "upright":
         return Upright(ent(v["a"]), float(val(v["theta_max"])), tag=v.get("tag", ""))
-    if k == "clear":
-        return Clear(ent(v["a"]), ent(v["b"]), float(val(v.get("d", 0.0))), tag=v.get("tag", ""))
+    if k in ("clear", "clear_egress"):
+        cls = Clear if k == "clear" else ClearEgress
+        return cls(ent(v["a"]), ent(v["b"]), float(val(v.get("d", 0.0))), tag=v.get("tag", ""), exact=bool(v.get("exact", k == "clear_egress")),
+                   far=float(val(v.get("far", 3.0))))
     if k == "support":
         return Support(ent(v["a"]), ent(v["b"]), tag=v.get("tag", ""))
     raise ValueError(f"unknown spec form {k!r}")
