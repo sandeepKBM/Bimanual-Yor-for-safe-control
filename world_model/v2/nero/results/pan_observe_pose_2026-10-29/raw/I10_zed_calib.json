@@ -1,0 +1,98 @@
+{
+ "placement": "far_centre",
+ "hidden_mass": 0.10961935544548732,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": 0.010656809228612105,
+  "dy": 0.010838504885330051,
+  "yaw_deg": 6.024593542665288,
+  "mu_scale": 0.883145831615274
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.03293826501102631,
+ "statics": {
+  "mass_total_kg": 0.4145,
+  "com_u_from_centre_m": 0.0073,
+  "com_w_m": 0.0008,
+  "probe_A_pitch_about_pivot_Nm": 0.4058,
+  "probe_B_roll_Nm": 0.0031,
+  "lift_force_N": 4.066,
+  "lift_handle_moment_Nm": 0.6859,
+  "lift_roll_Nm": 0.0031,
+  "lever_grasp_to_pivot_m": 0.2685
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.18613649070624116
+  },
+  "right": {
+   "margin": 0.04033028055544528
+  }
+ },
+ "pan_dy_after_push_m": -0.06013855027558224,
+ "lift_achieved_m": 0.04985530125128601,
+ "final_tilt_deg": 3.62,
+ "max_tilt_deg_lift_hold": 5.2,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.04085,
+  "right": 6.09495
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.0475,
+  "right": 9.9525
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 5.611136089983455,
+   "deg": 1.9127038956276048
+  },
+  "right": {
+   "mm": 0.35424309537183035,
+   "deg": 0.17952438152254116
+  }
+ },
+ "lid_offset_mm": 0.8909482702431418,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.955336708119113,
+ "observe": {
+  "est": {
+   "dx": 0.009583713369190172,
+   "dy": 0.00897238605355738,
+   "yaw_deg": 7.440121655842732,
+   "rms_wall_mm": 1.2052619354590892,
+   "n_wall": 1342,
+   "n_handle": 1739,
+   "n_points": 16398,
+   "fit_ok": true,
+   "noise": "zed_calib"
+  },
+  "true": {
+   "dx": 0.010656816156930338,
+   "dy": 0.010838512967554862,
+   "yaw_deg": 6.024591672290273
+  },
+  "n_images": 1,
+  "noise": "zed_calib",
+  "residual_mm": 2.152667938210974,
+  "residual_yaw_deg": 1.4155299835524584
+ },
+ "held": true,
+ "tag": "I10_zed_calib",
+ "noise": "zed_calib",
+ "theta": {
+  "dx": 0.010656809228612105,
+  "dy": 0.010838504885330051,
+  "yaw_deg": 6.024593542665288,
+  "mu_scale": 0.883145831615274,
+  "placement": "far_centre",
+  "hidden_mass": 0.10961935544548732
+ },
+ "category": "held"
+}

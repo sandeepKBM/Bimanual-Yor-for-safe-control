@@ -1,0 +1,88 @@
+{
+ "placement": "far_centre",
+ "hidden_mass": 0.4,
+ "mode": "real_friction_contact",
+ "push_m": 0.053489335688193515,
+ "perturb": {
+  "dx": 0.015,
+  "dy": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 0.6
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.8047846749285816,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.00979643420784887,
+ "statics": {
+  "mass_total_kg": 0.7048,
+  "com_u_from_centre_m": -0.0161,
+  "com_w_m": -0.0023,
+  "probe_A_pitch_about_pivot_Nm": 0.5282,
+  "probe_B_roll_Nm": -0.0157,
+  "lift_force_N": 6.915,
+  "lift_handle_moment_Nm": 1.4612,
+  "lift_roll_Nm": -0.0157,
+  "lever_grasp_to_pivot_m": 0.2877
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.14983695592771892
+  },
+  "right": {
+   "margin": 0.032565589023633226
+  }
+ },
+ "pan_dy_after_push_m": -0.043100095334667465,
+ "lift_achieved_m": 0.014870067247203744,
+ "final_tilt_deg": 9.17,
+ "max_tilt_deg_lift_hold": 9.29,
+ "hold_last1s_support_N": 3.9887500000000005,
+ "hold_last1s_fz_N": {
+  "left": 2.9250999999999996,
+  "right": 0.0
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.8655,
+  "right": 0.0
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 29.96765078791171,
+   "deg": 8.820514411855198
+  },
+  "right": {
+   "mm": 61.927343844234635,
+   "deg": 6.708549959473713
+  }
+ },
+ "lid_offset_mm": 0.4380068700113638,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.498016328277581,
+ "observe": {
+  "est": {
+   "dx": 0.014720329020857459,
+   "dy": 0.015036749782348757,
+   "yaw_deg": 11.934296309049063,
+   "rms_wall_mm": 1.1812519291056045,
+   "n_wall": 1236,
+   "n_handle": 1629,
+   "n_points": 17262,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": 0.01500000483635156,
+   "dy": 0.015000033306065171,
+   "yaw_deg": 7.9999982343139795
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 0.2820756306435805,
+  "residual_yaw_deg": 3.934298074735084
+ },
+ "held": false,
+ "tag": "push_clamp_lift_two_f0.805_p0.053__V29"
+}

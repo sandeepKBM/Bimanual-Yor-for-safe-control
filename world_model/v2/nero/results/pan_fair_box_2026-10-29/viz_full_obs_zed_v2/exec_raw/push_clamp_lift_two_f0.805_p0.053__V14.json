@@ -1,0 +1,88 @@
+{
+ "placement": "none",
+ "hidden_mass": null,
+ "mode": "real_friction_contact",
+ "push_m": 0.053489335688193515,
+ "perturb": {
+  "dx": -0.015,
+  "dy": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 1.2
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.8047846749285816,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.008853684620057367,
+ "statics": {
+  "mass_total_kg": 0.3048,
+  "com_u_from_centre_m": 0.0277,
+  "com_w_m": 0.0039,
+  "probe_A_pitch_about_pivot_Nm": 0.3595,
+  "probe_B_roll_Nm": 0.0116,
+  "lift_force_N": 2.991,
+  "lift_handle_moment_Nm": 0.5009,
+  "lift_roll_Nm": 0.0116,
+  "lever_grasp_to_pivot_m": 0.2877
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.13011364307363985
+  },
+  "right": {
+   "margin": 0.0695846824152339
+  }
+ },
+ "pan_dy_after_push_m": -0.04329998635167914,
+ "lift_achieved_m": 0.016175219857262557,
+ "final_tilt_deg": 10.04,
+ "max_tilt_deg_lift_hold": 10.51,
+ "hold_last1s_support_N": 0.9644500000000003,
+ "hold_last1s_fz_N": {
+  "left": 2.01835,
+  "right": 0.0
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.989999999999998,
+  "right": 0.0
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 34.64927619466831,
+   "deg": 9.987886937736475
+  },
+  "right": {
+   "mm": 60.207117508145515,
+   "deg": 5.781615793434303
+  }
+ },
+ "lid_offset_mm": 1.169767105837172,
+ "hidden_still_in_pan": null,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.192235197436776,
+ "observe": {
+  "est": {
+   "dx": -0.01805634518620869,
+   "dy": 0.016603252393420198,
+   "yaw_deg": 8.090649631419137,
+   "rms_wall_mm": 0.955812931827497,
+   "n_wall": 805,
+   "n_handle": 1746,
+   "n_points": 17836,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": -0.015000000371619412,
+   "dy": 0.014999999897386995,
+   "yaw_deg": 7.999999334342934
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 3.4513275984327336,
+  "residual_yaw_deg": 0.09065029707620287
+ },
+ "held": false,
+ "tag": "push_clamp_lift_two_f0.805_p0.053__V14"
+}

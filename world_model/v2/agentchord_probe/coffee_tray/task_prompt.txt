@@ -1,0 +1,6 @@
+Task:
+Use both arms to set up a coffee tray.
+First, grasp the capsule with the left arm, lift it by 0.08 m, and place it inside the tray at an offset of [0.0, 0.06, 0.10] relative to the tray's position, then release it.
+Then grasp the tray with both arms simultaneously, the left arm at the tray's left handle and the right arm at the tray's right handle.
+Lift the tray by 0.05 m, move it forward by 0.10 m along x, and put it back down on the table, keeping the tray level so the capsule stays inside.
+Finally release the tray and return both arms to their initial poses.

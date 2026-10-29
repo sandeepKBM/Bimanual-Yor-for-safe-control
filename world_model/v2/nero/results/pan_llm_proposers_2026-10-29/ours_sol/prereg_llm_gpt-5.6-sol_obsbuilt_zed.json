@@ -1,0 +1,144 @@
+{
+ "observe_mode": "built",
+ "obs_noise": "zed",
+ "belief": "prereg",
+ "belief_box": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.4
+  ],
+  "payload": "empty",
+  "assumptions": [],
+  "observed": null
+ },
+ "belief_after_proposer": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.4
+  ],
+  "payload": "empty",
+  "assumptions": [],
+  "observed": null
+ },
+ "proposer": "llm",
+ "proposer_backend": "cached(codex)",
+ "proposer_model": {
+  "spec": "codex:gpt-5.6-sol:high",
+  "backend": "codex",
+  "model": "gpt-5.6-sol",
+  "reasoning": "high",
+  "caveats": "codex exec adds its own agent system prompt; temperature not settable; ChatGPT-plan rate limits; the gateway preface is prepended to every prompt: You are being used as a plain chat-completion backend for a robot task planner. Do not run commands, read files or edit anything. Reply with exactly the assistant message that answers the conversation below, nothing else."
+ },
+ "proposer_constraints": [
+  [
+   "forbid",
+   "pinch",
+   [
+    [
+     "part",
+     "lid"
+    ]
+   ]
+  ],
+  [
+   "forbid",
+   "probe_mass",
+   []
+  ],
+  [
+   "require",
+   "pinch",
+   "pose_refined"
+  ],
+  [
+   "require",
+   "lift",
+   "held_L_handle"
+  ],
+  [
+   "require",
+   "lift",
+   "held_R_rim"
+  ],
+  [
+   "require",
+   "lift",
+   "lid_secured"
+  ]
+ ],
+ "proposer_log": [],
+ "proposer_raw": "{\"facts\":{\"lid_attached\":false,\"contents\":\"Unknown; the pan may contain food of unknown mass.\"},\"constraints\":[{\"forbid\":{\"skill\":\"pinch\",\"part\":\"lid\"},\"why\":\"The lid merely rests on the pan, so gripping it cannot safely support the pan or secure the contents.\"},{\"forbid\":{\"skill\":\"probe_mass\"},\"why\":\"Tipping the pan about its rim could shift or spill unknown contents and dislodge the unattached lid.\"},{\"require\":{\"skill\":\"pinch\",\"atom\":\"pose_refined\"},\"why\":\"Refining the pose reduces the chance of a claw contacting the pan or lid incorrectly.\"},{\"require\":{\"skill\":\"lift\",\"atom\":\"held_L_handle\"},\"why\":\"The handle-side arm must support and control the pan during lifting.\"},{\"require\":{\"skill\":\"lift\",\"atom\":\"held_R_rim\"},\"why\":\"The far-side rim clamp supports the vessel while retaining the lid and contents.\"},{\"require\":{\"skill\":\"lift\",\"atom\":\"lid_secured\"},\"why\":\"The unattached lid must be secured before the pan leaves the stove.\"}]}",
+ "n_evidence": 481,
+ "stageB": false,
+ "plan": "observe_pose() -> pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+ "stage": "A",
+ "verdict": {
+  "rule": "admit_stageA",
+  "evidence": "-",
+  "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+  "support": {
+   "held": 0,
+   "total": 0
+  }
+ },
+ "assumptions": [
+  "observe_pose: BUILT (depth fit, noise 'zed'); claws re-aimed at the estimate; pose box not shrunk"
+ ],
+ "aim_belief": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.4
+  ],
+  "payload": "empty",
+  "assumptions": [
+   "observe_pose: BUILT (depth fit, noise 'zed'); claws re-aimed at the estimate; pose box not shrunk"
+  ],
+  "observed": "zed"
+ },
+ "stats": {
+  "nodes": 35,
+  "pruned_by_proposer": 52,
+  "candidates": 1,
+  "pruned_by_counterexample": 0,
+  "certificate_calls": 1,
+  "sim_rounds": 0,
+  "sim_runs": 0,
+  "rejected_by_rule": {}
+ },
+ "trace": [
+  {
+   "round": 0,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  }
+ ],
+ "counterexamples": [],
+ "wall_s": 0.0,
+ "total_wall_s": 0.3
+}

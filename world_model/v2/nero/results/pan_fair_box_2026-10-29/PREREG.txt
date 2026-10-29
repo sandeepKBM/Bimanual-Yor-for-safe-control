@@ -1,0 +1,12 @@
+Fair-box comparison, written 2026-10-29 BEFORE these runs.  SIMULATION ONLY.
+Why: the 10-28 numbers compared VIZ-COAST's plans on the FULL prereg box (+-1.5 cm, +-8 deg; 42/100) with OUR plan on the
++-5 mm / 2 deg box (32/32 vertices + 30/30 interior), i.e. different world sets.  E2 (pan_observe_pose_2026-10-29) then showed our
+plan holds only 47/62 on the full box even with a perfect pose estimate.
+Plans: VIZ-COAST = the 5 distinct push+clamp plans of the 10-28 scripted-VRM run (frac 0.58-0.81, push 5.2-8.8 cm); the one-arm
+plans have no executor (left one-arm 0/5 at nominal).  Ours = pinch 0.65 / push 0.07.
+Worlds (identical for every plan): full = PREREG 32 vertices + 30 interior (observe_eval seed 1); obsbox = +-5 mm/2 deg 32
+vertices + the 10-28 interior 30 (vc_interior seed 1).
+Conditions: (a) full, nominal aim (open loop); (b) full, built observe_pose at zed noise; (c) obsbox, nominal aim.
+Ours (b) = E2 zed row (46/62, already measured, different noise seeds); ours (c) = 10-28 Stage B + interior (62/62).
+Expect: (a) ours and VIZ-COAST both low (pre-grasp misses at large offsets); (b) VIZ-COAST plans 40-75 %, ours 46/62;
+(c) VIZ-COAST 50-90 %, ours 62/62.  The claim we can make is the per-plan gap at equal worlds, nothing more.

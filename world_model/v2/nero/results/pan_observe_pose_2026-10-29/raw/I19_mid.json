@@ -1,0 +1,98 @@
+{
+ "placement": "far_left",
+ "hidden_mass": 0.07851875404590136,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": 0.00396405352500501,
+  "dy": 0.009308230563188972,
+  "yaw_deg": -2.531284416958192,
+  "mu_scale": 0.9262015738010734
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.032545368593304314,
+ "statics": {
+  "mass_total_kg": 0.3834,
+  "com_u_from_centre_m": 0.0145,
+  "com_w_m": 0.0086,
+  "probe_A_pitch_about_pivot_Nm": 0.4022,
+  "probe_B_roll_Nm": 0.0323,
+  "lift_force_N": 3.761,
+  "lift_handle_moment_Nm": 0.6107,
+  "lift_roll_Nm": 0.0323,
+  "lever_grasp_to_pivot_m": 0.2693
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.04119472699417408
+  },
+  "right": {
+   "margin": 0.059015131168055235
+  }
+ },
+ "pan_dy_after_push_m": -0.060608248483837446,
+ "lift_achieved_m": 0.050466942548113014,
+ "final_tilt_deg": 4.74,
+ "max_tilt_deg_lift_hold": 6.14,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 1.5662999999999998,
+  "right": 6.0840499999999995
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.0185,
+  "right": 9.983500000000001
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 6.046255545867798,
+   "deg": 2.070255626169878
+  },
+  "right": {
+   "mm": 1.5276421941431317,
+   "deg": 1.0242604575406362
+  }
+ },
+ "lid_offset_mm": 1.458196136803769,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.564635560425938,
+ "observe": {
+  "est": {
+   "dx": 0.0037580721175027865,
+   "dy": 0.009910708215028985,
+   "yaw_deg": -2.029823457696437,
+   "rms_wall_mm": 0.7561090059973982,
+   "n_wall": 1147,
+   "n_handle": 1752,
+   "n_points": 16032,
+   "fit_ok": true,
+   "noise": "mid"
+  },
+  "true": {
+   "dx": 0.003964055226398085,
+   "dy": 0.00930823117799219,
+   "yaw_deg": -2.531284615928209
+  },
+  "n_images": 1,
+  "noise": "mid",
+  "residual_mm": 0.6367162800704937,
+  "residual_yaw_deg": 0.5014611582317721
+ },
+ "held": true,
+ "tag": "I19_mid",
+ "noise": "mid",
+ "theta": {
+  "dx": 0.00396405352500501,
+  "dy": 0.009308230563188972,
+  "yaw_deg": -2.531284416958192,
+  "mu_scale": 0.9262015738010734,
+  "placement": "far_left",
+  "hidden_mass": 0.07851875404590136
+ },
+ "category": "held"
+}

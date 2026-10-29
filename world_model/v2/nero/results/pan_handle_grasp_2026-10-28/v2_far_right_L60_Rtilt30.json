@@ -1,0 +1,96 @@
+{
+ "placement": "far_right",
+ "hidden_mass": 0.2,
+ "payload_model": "nominal",
+ "nominal_mass_kg": 0.304845189535163,
+ "mode": "real_friction_contact",
+ "claws": 2,
+ "grasp_frac": 0.6,
+ "second_frac": 0.3,
+ "second_grip": "tilt",
+ "grip": "force",
+ "grip_force_N": 10.0,
+ "assumed": {
+  "finger_mu": 1.0,
+  "handle_mu": 0.6,
+  "finger_force_limit_N": 10.0,
+  "condim": 3,
+  "cone": "elliptic",
+  "finger_open": 0.03,
+  "dt": 0.005
+ },
+ "statics": {
+  "mass_total_kg": 0.5048,
+  "com_u_from_centre_m": 0.001,
+  "com_w_m": -0.0178,
+  "probe_A_pitch_about_pivot_Nm": 0.4633,
+  "probe_B_roll_Nm": -0.0883,
+  "lift_force_N": 4.953,
+  "lift_handle_moment_Nm": 0.8392,
+  "lift_roll_Nm": -0.0883,
+  "lever_grasp_to_pivot_m": 0.263
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.10414191399050013,
+   "ik_err": [
+    2.399503322652816e-06,
+    9.86507985877878e-06,
+    1.7683477593394276e-05
+   ]
+  },
+  "right": {
+   "margin": 0.24576734592700614,
+   "ik_err": [
+    2.9575913262544597e-06,
+    5.797392005997862e-06,
+    8.109984021874773e-06
+   ]
+  }
+ },
+ "lift_achieved_m": 0.021415168495316883,
+ "dropped": false,
+ "final_tilt_deg": 13.321626554389269,
+ "max_tilt_deg_after_lift": 13.3274779725457,
+ "slip_final_mm": 49.447389699339986,
+ "slip_final_deg": 18.562545279695723,
+ "slip_max_deg": 19.1947091674916,
+ "creep_last_1s_deg": -0.5843953114686578,
+ "slip_by_claw": {
+  "left": {
+   "mm": 49.447389699339986,
+   "deg": 18.562545279695723
+  },
+  "right": {
+   "mm": 25.237636882466074,
+   "deg": 16.541708106201778
+  }
+ },
+ "grip_normal_N_hold": {
+  "left_f1": 0.0,
+  "left_f2": 0.0,
+  "right_f1": 4.193578423106415,
+  "right_f2": 5.743667726978864
+ },
+ "lid_offset_mm": 1.345572674819819,
+ "hidden_still_in_pan": true,
+ "hold_last1s_claw_Fz_N": 2.694095686731369,
+ "hold_last1s_claw_pitch_moment_Nm": 0.0,
+ "hold_last1s_by_claw": {
+  "left": {
+   "Fz_N": 0.0,
+   "pitch_moment_about_left_grasp_Nm": 0.0
+  },
+  "right": {
+   "Fz_N": 2.694095686731369,
+   "pitch_moment_about_left_grasp_Nm": 0.2050626597778647
+  }
+ },
+ "hold_last1s_support_Fz_N": 2.258148848762156,
+ "far_rim_still_supported": true,
+ "n_infeasible": 8,
+ "n_fallback": 8,
+ "tau_saturated_steps": 0,
+ "ctrl_ms_mean": 43.876925925139204,
+ "held": false
+}

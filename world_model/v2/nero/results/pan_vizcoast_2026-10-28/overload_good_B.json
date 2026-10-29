@@ -1,0 +1,1358 @@
+{
+ "belief": "overload",
+ "belief_box": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.8
+  ],
+  "payload": "empty",
+  "assumptions": []
+ },
+ "belief_after_proposer": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.8
+  ],
+  "payload": "empty",
+  "assumptions": []
+ },
+ "proposer": "good",
+ "proposer_backend": "mock",
+ "proposer_constraints": [
+  [
+   "forbid",
+   "pinch",
+   [
+    [
+     "part",
+     "lid"
+    ]
+   ]
+  ],
+  [
+   "require",
+   "lift",
+   "lid_secured"
+  ]
+ ],
+ "proposer_log": [
+  "contents_mass_kg [0.0, 0.4]: narrowing part ignored (the proposer may only widen the box)"
+ ],
+ "proposer_raw": "{\"facts\": {\"lid_attached\": false, \"contents\": \"unknown food\", \"contents_mass_kg\": [0.0, 0.4]}, \"constraints\": [{\"forbid\": {\"skill\": \"pinch\", \"part\": \"lid\"}, \"why\": \"the lid is loose; lifting it does not lift the pan\"}, {\"require\": {\"skill\": \"lift\", \"atom\": \"lid_secured\"}, \"why\": \"a loose lid can slide off during the lift\"}]}",
+ "n_evidence": 305,
+ "stageB": true,
+ "plan": null,
+ "stage": "no_plan",
+ "verdict": null,
+ "assumptions": [],
+ "aim_belief": null,
+ "stats": {
+  "nodes": 2887,
+  "pruned_by_proposer": 2637,
+  "candidates": 399,
+  "pruned_by_counterexample": 370,
+  "certificate_calls": 29,
+  "sim_rounds": 10,
+  "sim_runs": 39,
+  "rejected_by_rule": {
+   "R3_recorded": 19
+  }
+ },
+ "trace": [
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "37 recorded failure(s) inside the box (38/75 held); e.g. sag_or_no_lift in ur_overload.json",
+   "counterexample": {
+    "dx": 0.0,
+    "dy": 0.0,
+    "yaw_deg": 0.0,
+    "mu_scale": 1.0,
+    "hidden_mass": 0.6,
+    "placement": "overload",
+    "cat": "sag_or_no_lift",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_handle_grasp_2026-10-28/ur_overload.json"
+   },
+   "support": {
+    "held": 38,
+    "total": 75
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.6) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "23 recorded failure(s) inside the box (0/23 held); e.g. no_clean_pregrasp in stageB_evidence_overload.jsonl:r0012_v05",
+   "counterexample": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": 2.0,
+    "mu_scale": 0.6,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_overload.jsonl:r0012_v05"
+   },
+   "support": {
+    "held": 0,
+    "total": 23
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.65) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "4 recorded failure(s) inside the box (1/5 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0014_v02",
+   "counterexample": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0014_v02"
+   },
+   "support": {
+    "held": 1,
+    "total": 5
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.65) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "4 recorded failure(s) inside the box (2/6 held); e.g. sag_or_no_lift in stageB_evidence_overload.jsonl:r0017_v03",
+   "counterexample": {
+    "dx": 0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "sag_or_no_lift",
+    "src": "stageB_evidence_overload.jsonl:r0017_v03"
+   },
+   "support": {
+    "held": 2,
+    "total": 6
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "19 recorded failure(s) inside the box (41/60 held); e.g. slip_or_tilt in A25.json",
+   "counterexample": {
+    "dx": -0.0039178676672495735,
+    "dy": 0.0015783453156386178,
+    "yaw_deg": 1.5027872258106925,
+    "mu_scale": 1.108974724965036,
+    "hidden_mass": 0.38363105707897693,
+    "placement": "far_right",
+    "cat": "slip_or_tilt",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_handle_grasp_2026-10-28/robust_L70/A25.json"
+   },
+   "support": {
+    "held": 41,
+    "total": 60
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "4 recorded failure(s) inside the box (2/6 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0021_v12",
+   "counterexample": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0021_v12"
+   },
+   "support": {
+    "held": 2,
+    "total": 6
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "4 recorded failure(s) inside the box (3/7 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0023_v00",
+   "counterexample": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": 2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0023_v00"
+   },
+   "support": {
+    "held": 3,
+    "total": 7
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "4 recorded failure(s) inside the box (5/9 held); e.g. sag_or_no_lift in stageB_evidence_overload.jsonl:r0028_v13",
+   "counterexample": {
+    "dx": 0.005,
+    "dy": -0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "sag_or_no_lift",
+    "src": "stageB_evidence_overload.jsonl:r0028_v13"
+   },
+   "support": {
+    "held": 5,
+    "total": 9
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.65) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (0/2 held); e.g. no_clean_pregrasp in stageB_evidence_overload.jsonl:r0000_v12",
+   "counterexample": {
+    "dx": -0.015,
+    "dy": 0.015,
+    "yaw_deg": -8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_overload.jsonl:r0000_v12"
+   },
+   "support": {
+    "held": 0,
+    "total": 2
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 3,
+    "failed": 2,
+    "cats": [
+     "right_claw_lost_or_missed"
+    ]
+   }
+  },
+  {
+   "round": 1,
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (1/3 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0033_v05",
+   "counterexample": {
+    "dx": -0.015,
+    "dy": 0.015,
+    "yaw_deg": 8.0,
+    "mu_scale": 0.6,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0033_v05"
+   },
+   "support": {
+    "held": 1,
+    "total": 3
+   }
+  },
+  {
+   "round": 1,
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 1,
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 2,
+    "failed": 2,
+    "cats": [
+     "right_claw_lost_or_missed"
+    ]
+   }
+  },
+  {
+   "round": 2,
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (0/2 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0036_v06",
+   "counterexample": {
+    "dx": -0.015,
+    "dy": 0.015,
+    "yaw_deg": 8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0036_v06"
+   },
+   "support": {
+    "held": 0,
+    "total": 2
+   }
+  },
+  {
+   "round": 2,
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 2,
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 2,
+    "failed": 2,
+    "cats": [
+     "right_claw_lost_or_missed"
+    ]
+   }
+  },
+  {
+   "round": 3,
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (0/2 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0038_v06",
+   "counterexample": {
+    "dx": -0.015,
+    "dy": 0.015,
+    "yaw_deg": 8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0038_v06"
+   },
+   "support": {
+    "held": 0,
+    "total": 2
+   }
+  },
+  {
+   "round": 3,
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 3,
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 3,
+    "failed": 2,
+    "cats": [
+     "right_claw_lost_or_missed",
+     "still_on_support"
+    ]
+   }
+  },
+  {
+   "round": 4,
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (1/3 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0040_v04",
+   "counterexample": {
+    "dx": -0.015,
+    "dy": -0.015,
+    "yaw_deg": 8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0040_v04"
+   },
+   "support": {
+    "held": 1,
+    "total": 3
+   }
+  },
+  {
+   "round": 4,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 4,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 4,
+    "failed": 2,
+    "cats": [
+     "right_claw_lost_or_missed",
+     "still_on_support"
+    ]
+   }
+  },
+  {
+   "round": 5,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (2/4 held); e.g. still_on_support in stageB_evidence_overload.jsonl:r0043_v02",
+   "counterexample": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "still_on_support",
+    "src": "stageB_evidence_overload.jsonl:r0043_v02"
+   },
+   "support": {
+    "held": 2,
+    "total": 4
+   }
+  },
+  {
+   "round": 5,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 5,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 9,
+    "failed": 2,
+    "cats": [
+     "still_on_support"
+    ]
+   }
+  },
+  {
+   "round": 6,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (7/9 held); e.g. still_on_support in stageB_evidence_overload.jsonl:r0047_v03",
+   "counterexample": {
+    "dx": 0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "still_on_support",
+    "src": "stageB_evidence_overload.jsonl:r0047_v03"
+   },
+   "support": {
+    "held": 7,
+    "total": 9
+   }
+  },
+  {
+   "round": 6,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 6,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 4,
+    "failed": 2,
+    "cats": [
+     "right_claw_lost_or_missed"
+    ]
+   }
+  },
+  {
+   "round": 7,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (2/4 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0056_v03",
+   "counterexample": {
+    "dx": 0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0056_v03"
+   },
+   "support": {
+    "held": 2,
+    "total": 4
+   }
+  },
+  {
+   "round": 7,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 7,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 4,
+    "failed": 2,
+    "cats": [
+     "right_claw_lost_or_missed",
+     "still_on_support"
+    ]
+   }
+  },
+  {
+   "round": 8,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (2/4 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0060_v12",
+   "counterexample": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0060_v12"
+   },
+   "support": {
+    "held": 2,
+    "total": 4
+   }
+  },
+  {
+   "round": 8,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 8,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 3,
+    "failed": 2,
+    "cats": [
+     "right_claw_lost_or_missed"
+    ]
+   }
+  },
+  {
+   "round": 9,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (1/3 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0064_v00",
+   "counterexample": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": 2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0064_v00"
+   },
+   "support": {
+    "held": 1,
+    "total": 3
+   }
+  },
+  {
+   "round": 9,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 9,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 5,
+    "failed": 2,
+    "cats": [
+     "right_claw_lost_or_missed"
+    ]
+   }
+  },
+  {
+   "round": 10,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (3/5 held); e.g. right_claw_lost_or_missed in stageB_evidence_overload.jsonl:r0067_v00",
+   "counterexample": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": 2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0067_v00"
+   },
+   "support": {
+    "held": 3,
+    "total": 5
+   }
+  }
+ ],
+ "counterexamples": [
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.6,
+     0.07,
+     10.0,
+     "empty"
+    ]
+   ],
+   "theta": {
+    "dx": 0.0,
+    "dy": 0.0,
+    "yaw_deg": 0.0,
+    "mu_scale": 1.0,
+    "hidden_mass": 0.6,
+    "placement": "overload",
+    "cat": "sag_or_no_lift",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_handle_grasp_2026-10-28/ur_overload.json"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "pregrasp",
+    [
+     [
+      "L",
+      "handle"
+     ],
+     [
+      "R",
+      "rim"
+     ]
+    ],
+    0.6
+   ],
+   "theta": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": 2.0,
+    "mu_scale": 0.6,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_overload.jsonl:r0012_v05"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.6) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.65,
+     0.07,
+     10.0,
+     "empty"
+    ]
+   ],
+   "theta": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0014_v02"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.65) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.65,
+     0.08,
+     10.0,
+     "empty"
+    ]
+   ],
+   "theta": {
+    "dx": 0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "sag_or_no_lift",
+    "src": "stageB_evidence_overload.jsonl:r0017_v03"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.65) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.7,
+     0.07,
+     10.0,
+     "empty"
+    ]
+   ],
+   "theta": {
+    "dx": -0.0039178676672495735,
+    "dy": 0.0015783453156386178,
+    "yaw_deg": 1.5027872258106925,
+    "mu_scale": 1.108974724965036,
+    "hidden_mass": 0.38363105707897693,
+    "placement": "far_right",
+    "cat": "slip_or_tilt",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_handle_grasp_2026-10-28/robust_L70/A25.json"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.7,
+     0.08,
+     10.0,
+     "empty"
+    ]
+   ],
+   "theta": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0021_v12"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.75,
+     0.07,
+     10.0,
+     "empty"
+    ]
+   ],
+   "theta": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": 2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0023_v00"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.75,
+     0.08,
+     10.0,
+     "empty"
+    ]
+   ],
+   "theta": {
+    "dx": 0.005,
+    "dy": -0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "sag_or_no_lift",
+    "src": "stageB_evidence_overload.jsonl:r0028_v13"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "pregrasp",
+    [
+     [
+      "L",
+      "handle"
+     ],
+     [
+      "R",
+      "rim"
+     ]
+    ],
+    0.65
+   ],
+   "theta": {
+    "dx": -0.015,
+    "dy": 0.015,
+    "yaw_deg": -8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_overload.jsonl:r0000_v12"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.65) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.7,
+     0.07,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": -0.015,
+    "dy": 0.015,
+    "yaw_deg": 8.0,
+    "mu_scale": 0.6,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0033_v05"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.7,
+     0.08,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": -0.015,
+    "dy": 0.015,
+    "yaw_deg": 8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0036_v06"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.7) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.75,
+     0.07,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": -0.015,
+    "dy": 0.015,
+    "yaw_deg": 8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0038_v06"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.75,
+     0.08,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": -0.015,
+    "dy": -0.015,
+    "yaw_deg": 8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0040_v04"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.75) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.65,
+     0.07,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "still_on_support",
+    "src": "stageB_evidence_overload.jsonl:r0043_v02"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.65,
+     0.08,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": 0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "still_on_support",
+    "src": "stageB_evidence_overload.jsonl:r0047_v03"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.7,
+     0.07,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": 0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0056_v03"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.7,
+     0.08,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": -2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.0,
+    "placement": "none",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0060_v12"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.75,
+     0.07,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": 2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0064_v00"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.07) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.75,
+     0.08,
+     10.0,
+     "known"
+    ]
+   ],
+   "theta": {
+    "dx": -0.005,
+    "dy": 0.005,
+    "yaw_deg": 2.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.8,
+    "placement": "far_centre",
+    "cat": "right_claw_lost_or_missed",
+    "src": "stageB_evidence_overload.jsonl:r0067_v00"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.08) -> probe_mass() -> clamp_rim(R, rim) -> lift()"
+  }
+ ],
+ "wall_s": 360.79,
+ "total_wall_s": 360.9,
+ "blocking_constraints": []
+}

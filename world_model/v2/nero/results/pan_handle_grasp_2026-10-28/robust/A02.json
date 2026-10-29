@@ -1,0 +1,12 @@
+{
+ "placement": "far_left",
+ "hidden_mass": 0.3429617106350278,
+ "perturb": {
+  "dx": -0.013992432740836069,
+  "dy": 0.006889663392898322,
+  "yaw_deg": -5.189510070359056,
+  "mu_scale": 1.1179073534099317
+ },
+ "error": "atchpad/ur_robust.py\", line 16, in one\n    r = U.run(**kw); r.pop(\"log\", None)\n        ^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/world_model/v2/nero/pan/under_rim.py\", line 94, in run\n    preL = find_pregrasp(m, d, \"left\", handle_site_nominal, LEFT_APPROACH, LEFT_JAW)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/world_model/v2/nero/pan/handle_grasp.py\", line 108, in find_pregrasp\n    raise RuntimeError(f\"no contact-free pre-grasp for the {side} claw\")\nRuntimeError: no contact-free pre-grasp for the left claw\n",
+ "tag": "A02"
+}

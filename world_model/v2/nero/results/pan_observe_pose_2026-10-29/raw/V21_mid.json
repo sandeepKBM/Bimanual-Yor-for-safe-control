@@ -1,0 +1,98 @@
+{
+ "placement": "far_centre",
+ "hidden_mass": 0.4,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": 0.015,
+  "dy": -0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 0.6
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.05710795046263634,
+ "statics": {
+  "mass_total_kg": 0.7048,
+  "com_u_from_centre_m": -0.0161,
+  "com_w_m": -0.0023,
+  "probe_A_pitch_about_pivot_Nm": 0.5282,
+  "probe_B_roll_Nm": -0.0157,
+  "lift_force_N": 6.915,
+  "lift_handle_moment_Nm": 1.3234,
+  "lift_roll_Nm": -0.0157,
+  "lever_grasp_to_pivot_m": 0.2678
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.1740396220841631
+  },
+  "right": {
+   "margin": 0.0340612531423266
+  }
+ },
+ "pan_dy_after_push_m": -0.05920009481292904,
+ "lift_achieved_m": 0.041498121503820706,
+ "final_tilt_deg": 2.84,
+ "max_tilt_deg_lift_hold": 4.15,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.6718499999999996,
+  "right": 7.082499999999999
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.966000000000001,
+  "right": 9.975
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 5.542030644918848,
+   "deg": 1.8918342080642334
+  },
+  "right": {
+   "mm": 1.493544709279876,
+   "deg": 1.802979999527203
+  }
+ },
+ "lid_offset_mm": 1.3587132714728833,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 9.403977517643545,
+ "observe": {
+  "est": {
+   "dx": 0.015072288362881547,
+   "dy": -0.015217349823935633,
+   "yaw_deg": 7.565805661747164,
+   "rms_wall_mm": 0.5453599372918096,
+   "n_wall": 1304,
+   "n_handle": 1900,
+   "n_points": 15785,
+   "fit_ok": true,
+   "noise": "mid"
+  },
+  "true": {
+   "dx": 0.01500001746574616,
+   "dy": -0.014999976256661067,
+   "yaw_deg": 7.9999382284584
+  },
+  "n_images": 1,
+  "noise": "mid",
+  "residual_mm": 0.229072805724346,
+  "residual_yaw_deg": -0.4341325667112361
+ },
+ "held": true,
+ "tag": "V21_mid",
+ "noise": "mid",
+ "theta": {
+  "dx": 0.015,
+  "dy": -0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 0.6,
+  "hidden_mass": 0.4,
+  "placement": "far_centre"
+ },
+ "category": "held"
+}

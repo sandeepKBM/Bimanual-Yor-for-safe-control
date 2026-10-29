@@ -1,0 +1,88 @@
+{
+ "placement": "far_centre",
+ "hidden_mass": 0.4,
+ "mode": "real_friction_contact",
+ "push_m": 0.05492455717070616,
+ "perturb": {
+  "dx": -0.015,
+  "dy": -0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 1.2
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.6546448536997266,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.04163657808125382,
+ "statics": {
+  "mass_total_kg": 0.7048,
+  "com_u_from_centre_m": -0.0161,
+  "com_w_m": -0.0023,
+  "probe_A_pitch_about_pivot_Nm": 0.5282,
+  "probe_B_roll_Nm": -0.0157,
+  "lift_force_N": 6.915,
+  "lift_handle_moment_Nm": 1.3275,
+  "lift_roll_Nm": -0.0157,
+  "lever_grasp_to_pivot_m": 0.2684
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.10901833221568523
+  },
+  "right": {
+   "margin": 0.06726639647564385
+  }
+ },
+ "pan_dy_after_push_m": -0.03310007109743246,
+ "lift_achieved_m": 0.042097961961138464,
+ "final_tilt_deg": 3.01,
+ "max_tilt_deg_lift_hold": 4.43,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.7942,
+  "right": 7.0768
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.950500000000002,
+  "right": 10.009
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 5.271524870134073,
+   "deg": 1.8422013874248295
+  },
+  "right": {
+   "mm": 2.4769388669063863,
+   "deg": 1.9933296230555975
+  }
+ },
+ "lid_offset_mm": 1.4593260405308914,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 9.678172764827384,
+ "observe": {
+  "est": {
+   "dx": -0.01601442765563088,
+   "dy": -0.014830861807045681,
+   "yaw_deg": 8.6089952191997,
+   "rms_wall_mm": 0.7166712775944888,
+   "n_wall": 1469,
+   "n_handle": 943,
+   "n_points": 17798,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": -0.014999995444171844,
+   "dy": -0.014999977669458063,
+   "yaw_deg": 8.000009117181095
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 1.0284322469492855,
+  "residual_yaw_deg": 0.6089861020186049
+ },
+ "held": true,
+ "tag": "push_clamp_lift_two_f0.655_p0.055__V07"
+}

@@ -1,0 +1,98 @@
+{
+ "placement": "far_right",
+ "hidden_mass": 0.07652957042288011,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": 0.005498607180097714,
+  "dy": 0.00861290824664403,
+  "yaw_deg": -4.934139855677836,
+  "mu_scale": 1.081418496680718
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.03363833131391408,
+ "statics": {
+  "mass_total_kg": 0.3814,
+  "com_u_from_centre_m": 0.0135,
+  "com_w_m": -0.0102,
+  "probe_A_pitch_about_pivot_Nm": 0.3966,
+  "probe_B_roll_Nm": -0.0383,
+  "lift_force_N": 3.741,
+  "lift_handle_moment_Nm": 0.6092,
+  "lift_roll_Nm": -0.0383,
+  "lever_grasp_to_pivot_m": 0.2688
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.00907881608624522
+  },
+  "right": {
+   "margin": 0.06070472549788731
+  }
+ },
+ "pan_dy_after_push_m": -0.04121292414871086,
+ "lift_achieved_m": 0.0023702412752545365,
+ "final_tilt_deg": 5.74,
+ "max_tilt_deg_lift_hold": 5.74,
+ "hold_last1s_support_N": 1.0610499999999998,
+ "hold_last1s_fz_N": {
+  "left": 2.7143000000000006,
+  "right": 0.0
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.9665,
+  "right": 0.0
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 28.26461379054701,
+   "deg": 8.847868334851675
+  },
+  "right": {
+   "mm": 74.66801214687843,
+   "deg": 5.836821220760813
+  }
+ },
+ "lid_offset_mm": 1.3264404443756816,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 10.24779803424734,
+ "observe": {
+  "est": {
+   "dx": 0.005504629290821961,
+   "dy": 0.008603332548228926,
+   "yaw_deg": -4.92396374088825,
+   "rms_wall_mm": 0.22171928934618793,
+   "n_wall": 1153,
+   "n_handle": 1770,
+   "n_points": 15930,
+   "fit_ok": true,
+   "noise": "clean"
+  },
+  "true": {
+   "dx": 0.005498608557566805,
+   "dy": 0.008612908262983991,
+   "yaw_deg": -4.934140168421218
+  },
+  "n_images": 1,
+  "noise": "clean",
+  "residual_mm": 0.011311213109128459,
+  "residual_yaw_deg": 0.010176427532967658
+ },
+ "held": false,
+ "tag": "I09_clean",
+ "noise": "clean",
+ "theta": {
+  "dx": 0.005498607180097714,
+  "dy": 0.00861290824664403,
+  "yaw_deg": -4.934139855677836,
+  "mu_scale": 1.081418496680718,
+  "placement": "far_right",
+  "hidden_mass": 0.07652957042288011
+ },
+ "category": "right_claw_lost_or_missed"
+}

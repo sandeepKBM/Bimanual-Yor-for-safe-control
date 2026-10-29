@@ -1,10 +1,10 @@
 # AGENTS.md — operational rules for this repo
 
-Bimanual YOR (sim only): classical planning + formal safety checkers + VLM proposals, evaluated as a POMDP
+Bimanual YOR (simulation in this repo; a hardware experiment is planned as claim 4, no hardware code here): classical planning + formal safety checkers + VLM proposals, evaluated as a POMDP
 (set-valued beliefs), autonomous AND shared-autonomy modes. The learned world-model / latent-HJ thesis was DROPPED
 2026-10-15. Novelty = the checkers + theorems; VLM, planners, FL-MPC, perception are borrowed components.
-Current claims + scope: `docs/paper/claims_2026-10-26.md` (manipulation core, 2026-10-26). Plan: docs/paper/YOR_Thesis_Full_Idea_and_Demonstration_Plan_2026-10-15.docx §0. `docs/design/MASTER.md` is history only.
-This file = how to *operate* here. Last updated 2026-10-16.
+Current claims + scope: `docs/paper/claims_2026-10-27.md` (five claims; main demo = serve from a pan). Formulation: `docs/paper/proposal_2026-10-27.md`. Superseded: `claims_2026-10-26.md`, the 2026-10-15 plan docx, `docs/design/MASTER.md` (history only).
+This file = how to *operate* here. Last updated 2026-10-29 (bounds and assumptions rule).
 
 ## Environment / running
 - Python env: `/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python`.
@@ -102,6 +102,29 @@ This file = how to *operate* here. Last updated 2026-10-16.
 ## Honesty
 - Report proven vs aspirational plainly; if tests fail or a step was skipped, say so
   with the numbers. Re-verify before claiming "done".
+
+## Bounds and assumptions (standing rule, user 2026-10-29)
+Why: on 10-28 an unbuilt `observe_pose` was modelled as "the pan is within ±5 mm / 2° of nominal". That shrank the set of worlds,
+not only the aim error. The plan "passed" 32/32 + 30/30, but with the real skill on the real prior box it held 47/62.
+1. **Label every bound** a checker, planner or certificate uses: `MEASURED` (file, n, statistic, noise model), `MODEL` (derived
+   from the MJCF/physics; give the formula or function) or `ASSUMED` (a number we chose). Tag it in code (`# ASSUMED`,
+   `# MEASURED <path>`, `# MODEL`) and carry it in each result's `assumptions`.
+2. **Raise every new ASSUMED bound to the user** when it is introduced, before any claim rests on it.
+3. **Unbuilt skills** may only enter as ASSUMED. Any result that depends on one is conditional: write the condition in the same
+   sentence or table row ("held 30/30, *assuming* observe_pose residual ≤ 5 mm / 2°").
+4. **Say what the bound is on.** Keep sensing/estimation error separate from the world parameters. A sensing step shrinks the
+   *aim error*; the world stays in the prior box. Never shrink the world set to model a measurement.
+5. **When a skill gets built,** replace the assumption with its measured residual and re-certify on the ORIGINAL prior box with
+   the skill in the loop. Report old and new side by side; mark the old one superseded.
+6. **Measured ≠ bound.** Report p50/p95/max over n plus the noise model and what it leaves out (synthetic noise, virtual camera).
+   Say "max over n = 200", never "≤".
+7. **Name the guarantee type** of any admission: `proof` (for all θ in the box, under a stated model), `sampled` (corners and/or
+   random draws, with n; Stage B corners are sampled) or `refuted` (a counterexample). Rejections can be sound when admissions
+   are only sampled; say which.
+8. **Comparisons use the same world set.** Same θ list (and seeds where possible) and the same perception for every method, with
+   the box stated in each table row. Different boxes means it is not a comparison: rerun before reporting.
+9. **Proposer models** are part of the setup: every result records model, reasoning level and caveats (e.g. Codex: its own system
+   prompt, temperature not settable). Keep the model swappable (`pan/llm.py` spec string).
 
 ## Hardware & live-service safety (this session AND every subagent)
 Do NOT open a connection to, or actuate, any real robot/arm/gripper/motor or live cloud/remote machine WITHOUT the user's explicit approval in the CURRENT session — not even "just to verify."

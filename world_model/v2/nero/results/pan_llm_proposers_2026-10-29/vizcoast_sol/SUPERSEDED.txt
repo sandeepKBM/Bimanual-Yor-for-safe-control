@@ -1,0 +1,1 @@
+API case bug (args lower-cased while the PDDL shows L/R): sol's correct first program matched nothing -> no plan -> relax -> one-arm plans. Fixed 10-29 (satplan.ConstraintAPI.actions returns PDDL spelling). Superseded by vizcoast_sol_v2.

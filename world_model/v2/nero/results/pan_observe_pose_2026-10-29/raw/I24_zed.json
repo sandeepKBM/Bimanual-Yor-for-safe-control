@@ -1,0 +1,98 @@
+{
+ "placement": "far_left",
+ "hidden_mass": 0.303707400215832,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": 0.002300991487588562,
+  "dy": 0.01415069926859264,
+  "yaw_deg": 4.394626158779712,
+  "mu_scale": 1.074680368903683
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.028451411817982553,
+ "statics": {
+  "mass_total_kg": 0.6086,
+  "com_u_from_centre_m": -0.0077,
+  "com_w_m": 0.0219,
+  "probe_A_pitch_about_pivot_Nm": 0.5065,
+  "probe_B_roll_Nm": 0.131,
+  "lift_force_N": 5.97,
+  "lift_handle_moment_Nm": 1.0992,
+  "lift_roll_Nm": 0.131,
+  "lever_grasp_to_pivot_m": 0.269
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.1382355031132846
+  },
+  "right": {
+   "margin": 0.051373167919486575
+  }
+ },
+ "pan_dy_after_push_m": -0.05425071452684077,
+ "lift_achieved_m": 0.045197548658893805,
+ "final_tilt_deg": 5.05,
+ "max_tilt_deg_lift_hold": 6.21,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.40545,
+  "right": 6.7368
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.984000000000002,
+  "right": 10.004
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 5.065193870759928,
+   "deg": 1.771151941404034
+  },
+  "right": {
+   "mm": 2.2705332992261034,
+   "deg": 1.5414739384122327
+  }
+ },
+ "lid_offset_mm": 1.1619591358877126,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.010506032411529,
+ "observe": {
+  "est": {
+   "dx": 0.0031791373481856455,
+   "dy": 0.013811503218375765,
+   "yaw_deg": 4.716971681864278,
+   "rms_wall_mm": 0.8077995855277867,
+   "n_wall": 1050,
+   "n_handle": 1818,
+   "n_points": 16334,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": 0.0023009984365959316,
+   "dy": 0.014150698310191688,
+   "yaw_deg": 4.394630801005127
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 0.9413720084854765,
+  "residual_yaw_deg": 0.3223408808591506
+ },
+ "held": true,
+ "tag": "I24_zed",
+ "noise": "zed",
+ "theta": {
+  "dx": 0.002300991487588562,
+  "dy": 0.01415069926859264,
+  "yaw_deg": 4.394626158779712,
+  "mu_scale": 1.074680368903683,
+  "placement": "far_left",
+  "hidden_mass": 0.303707400215832
+ },
+ "category": "held"
+}

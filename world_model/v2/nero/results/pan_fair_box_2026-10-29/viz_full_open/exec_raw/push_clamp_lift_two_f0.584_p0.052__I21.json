@@ -1,0 +1,67 @@
+{
+ "placement": "far_right",
+ "hidden_mass": 0.26599369854478433,
+ "mode": "real_friction_contact",
+ "push_m": 0.05184052532980499,
+ "perturb": {
+  "dx": 0.005936807120492441,
+  "dy": -0.011139803630484916,
+  "yaw_deg": -1.9801839771504923,
+  "mu_scale": 0.8525528367704778
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.5842596668574498,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.024340525329804963,
+ "statics": {
+  "mass_total_kg": 0.5708,
+  "com_u_from_centre_m": -0.0044,
+  "com_w_m": -0.0208,
+  "probe_A_pitch_about_pivot_Nm": 0.4932,
+  "probe_B_roll_Nm": -0.1167,
+  "lift_force_N": 5.6,
+  "lift_handle_moment_Nm": 0.9675,
+  "lift_roll_Nm": -0.1167,
+  "lever_grasp_to_pivot_m": 0.2609
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.10759761238578908
+  },
+  "right": {
+   "margin": 0.060230648102391954
+  }
+ },
+ "pan_dy_after_push_m": -0.040460209661857316,
+ "lift_achieved_m": 0.04459709823383373,
+ "final_tilt_deg": 2.73,
+ "max_tilt_deg_lift_hold": 2.73,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.32425,
+  "right": 6.663500000000001
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.985,
+  "right": 10.060999999999998
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 6.798004265024974,
+   "deg": 5.772639764465328
+  },
+  "right": {
+   "mm": 2.3739029733958747,
+   "deg": 3.186103090054388
+  }
+ },
+ "lid_offset_mm": 1.0690316943740583,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 9.313495340425405,
+ "observe": null,
+ "held": true,
+ "tag": "push_clamp_lift_two_f0.584_p0.052__I21"
+}

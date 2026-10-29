@@ -1,0 +1,5 @@
+POST-HOC follow-up (NOT pre-registered), written 2026-10-28 after seeing robust/ Set A = 30/60: 21 of 30 failures were
+"no clean pre-grasp" -- the left claw's believed pinch pose at 60% of the handle leaves only ~5 mm between its palm and the handle end,
+so a true pan shifted +y (towards the claw) by > ~5 mm overlaps the open claw (dy > +0.5 cm: 0/22 held). Follow-up: identical Set A
+samples (seed 0) with the left pinch at 70% (palm ~1.3 cm further from the handle end). Report as a design change, not as the
+pre-registered result.

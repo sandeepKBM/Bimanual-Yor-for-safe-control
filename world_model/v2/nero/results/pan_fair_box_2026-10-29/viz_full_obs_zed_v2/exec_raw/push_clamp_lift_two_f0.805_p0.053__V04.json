@@ -1,0 +1,88 @@
+{
+ "placement": "none",
+ "hidden_mass": null,
+ "mode": "real_friction_contact",
+ "push_m": 0.053489335688193515,
+ "perturb": {
+  "dx": -0.015,
+  "dy": -0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 0.6
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.8047846749285816,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.03904673062636027,
+ "statics": {
+  "mass_total_kg": 0.3048,
+  "com_u_from_centre_m": 0.0277,
+  "com_w_m": 0.0039,
+  "probe_A_pitch_about_pivot_Nm": 0.3595,
+  "probe_B_roll_Nm": 0.0116,
+  "lift_force_N": 2.991,
+  "lift_handle_moment_Nm": 0.5009,
+  "lift_roll_Nm": 0.0116,
+  "lever_grasp_to_pivot_m": 0.2877
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.07007361386309113
+  },
+  "right": {
+   "margin": 0.0641498112288853
+  }
+ },
+ "pan_dy_after_push_m": -0.0475999881219073,
+ "lift_achieved_m": 0.0529904969525643,
+ "final_tilt_deg": 4.12,
+ "max_tilt_deg_lift_hold": 5.69,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 1.3939499999999998,
+  "right": 5.8293
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.9865,
+  "right": 9.978
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 6.5212941739142405,
+   "deg": 1.9432979020131083
+  },
+  "right": {
+   "mm": 0.9570601607181376,
+   "deg": 0.808463719461304
+  }
+ },
+ "lid_offset_mm": 1.1049504156459913,
+ "hidden_still_in_pan": null,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 9.160612238586967,
+ "observe": {
+  "est": {
+   "dx": -0.014745275219254561,
+   "dy": -0.014096446568325927,
+   "yaw_deg": 11.311706755715809,
+   "rms_wall_mm": 0.7890575459831124,
+   "n_wall": 1365,
+   "n_handle": 1830,
+   "n_points": 17442,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": -0.015000000083174323,
+   "dy": -0.015000000053599874,
+   "yaw_deg": 7.999999968910226
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 0.9387724202646979,
+  "residual_yaw_deg": 3.3117067868055834
+ },
+ "held": true,
+ "tag": "push_clamp_lift_two_f0.805_p0.053__V04"
+}

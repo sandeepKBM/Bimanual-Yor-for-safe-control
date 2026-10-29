@@ -1,0 +1,88 @@
+{
+ "placement": "none",
+ "hidden_mass": null,
+ "mode": "real_friction_contact",
+ "push_m": 0.053489335688193515,
+ "perturb": {
+  "dx": 0.015,
+  "dy": -0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 1.2
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.8047846749285816,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.04007142516806389,
+ "statics": {
+  "mass_total_kg": 0.3048,
+  "com_u_from_centre_m": 0.0277,
+  "com_w_m": 0.0039,
+  "probe_A_pitch_about_pivot_Nm": 0.3595,
+  "probe_B_roll_Nm": 0.0116,
+  "lift_force_N": 2.991,
+  "lift_handle_moment_Nm": 0.5009,
+  "lift_roll_Nm": 0.0116,
+  "lever_grasp_to_pivot_m": 0.2877
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.19135626188372015
+  },
+  "right": {
+   "margin": 0.03625482564186332
+  }
+ },
+ "pan_dy_after_push_m": -0.04429998637751331,
+ "lift_achieved_m": 0.05266944385286765,
+ "final_tilt_deg": 4.11,
+ "max_tilt_deg_lift_hold": 5.63,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 1.2597,
+  "right": 5.838049999999998
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.045,
+  "right": 9.998999999999999
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 6.49045144188859,
+   "deg": 1.976000726150131
+  },
+  "right": {
+   "mm": 1.1832779136166616,
+   "deg": 0.81107321974258
+  }
+ },
+ "lid_offset_mm": 1.048587591283027,
+ "hidden_still_in_pan": null,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 7.909535841108897,
+ "observe": {
+  "est": {
+   "dx": 0.014443022209347123,
+   "dy": -0.014623295693275029,
+   "yaw_deg": 8.157409787826102,
+   "rms_wall_mm": 1.1463173475930988,
+   "n_wall": 1331,
+   "n_handle": 1819,
+   "n_points": 16055,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": 0.014999999816631408,
+   "dy": -0.015000000077189414,
+   "yaw_deg": 7.999999616268759
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 0.6724063115977156,
+  "residual_yaw_deg": 0.15741017155734305
+ },
+ "held": true,
+ "tag": "push_clamp_lift_two_f0.805_p0.053__V22"
+}

@@ -1,0 +1,88 @@
+{
+ "placement": "far_centre",
+ "hidden_mass": 0.4,
+ "mode": "real_friction_contact",
+ "push_m": 0.08752318481629676,
+ "perturb": {
+  "dx": 0.015,
+  "dy": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 1.2
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.7547286498801027,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.04316720011891212,
+ "statics": {
+  "mass_total_kg": 0.7048,
+  "com_u_from_centre_m": -0.0161,
+  "com_w_m": -0.0023,
+  "probe_A_pitch_about_pivot_Nm": 0.5282,
+  "probe_B_roll_Nm": -0.0157,
+  "lift_force_N": 6.915,
+  "lift_handle_moment_Nm": 1.4166,
+  "lift_roll_Nm": -0.0157,
+  "lever_grasp_to_pivot_m": 0.2813
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.1481878975069495
+  },
+  "right": {
+   "margin": 0.03379129517553022
+  }
+ },
+ "pan_dy_after_push_m": -0.06510010672026328,
+ "lift_achieved_m": 0.0417380825228848,
+ "final_tilt_deg": 2.73,
+ "max_tilt_deg_lift_hold": 4.26,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.6679500000000003,
+  "right": 7.0786999999999995
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.974,
+  "right": 9.997
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 5.80295543767716,
+   "deg": 1.8794398075448047
+  },
+  "right": {
+   "mm": 2.3076770341337065,
+   "deg": 1.9562000771798245
+  }
+ },
+ "lid_offset_mm": 1.473223609514068,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.496394463180646,
+ "observe": {
+  "est": {
+   "dx": 0.013799290161850886,
+   "dy": 0.016083142464384165,
+   "yaw_deg": 7.619765209192482,
+   "rms_wall_mm": 1.1867761807187738,
+   "n_wall": 1227,
+   "n_handle": 1648,
+   "n_points": 17436,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": 0.015000001117386471,
+   "dy": 0.0150000581905211,
+   "yaw_deg": 8.000003753687706
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 1.6170276259336633,
+  "residual_yaw_deg": -0.38023854449522343
+ },
+ "held": true,
+ "tag": "push_clamp_lift_two_f0.755_p0.088__V31"
+}
