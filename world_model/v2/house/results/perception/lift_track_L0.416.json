@@ -1,0 +1,764 @@
+[
+ {
+  "lift": 0.416,
+  "mount": "lift",
+  "pitch": 36.327505091983994,
+  "map": {
+   "n": 30,
+   "head_visible": 1.0,
+   "any_visible": 1.0,
+   "head_los_blocked_robot": 0.0,
+   "head_los_blocked_house": 0.0,
+   "head_hits_median": 88.0
+  },
+  "headN": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.3283939420135351,
+    "rms": 1.513710464187812,
+    "p95": 2.581179306209255
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.3283939420135351,
+    "rms": 1.513710464187812,
+    "p95": 2.581179306209255
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.1458204995632943,
+    "rms": 0.16722030005548344,
+    "p95": 0.28821169796974083
+   },
+   "ball_hits_med": [
+    87.0
+   ],
+   "inliers_med": 86.0,
+   "rays_med": [
+    6608.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.4370887893296422,
+    "rms": 2.4402510676192,
+    "p95": 2.5780245661735535
+   },
+   "cams": [
+    "head"
+   ],
+   "los_blocked_frac": [
+    0.0
+   ],
+   "los_house_blocked_frac": [
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 38.722540393826506
+  },
+  "headN+wrist": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN+wrist",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.3502531668751414,
+    "rms": 1.5269552862273366,
+    "p95": 2.60256562042096
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.3502531668751414,
+    "rms": 1.5269552862273366,
+    "p95": 2.60256562042096
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.14660531295698442,
+    "rms": 0.16700595451713196,
+    "p95": 0.28883500978526694
+   },
+   "ball_hits_med": [
+    87.0,
+    0.0,
+    3.0
+   ],
+   "inliers_med": 91.0,
+   "rays_med": [
+    6608.0,
+    14400.0,
+    14400.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.9674531004968143,
+    "rms": 2.9899234097794354,
+    "p95": 3.554196283221245
+   },
+   "cams": [
+    "head",
+    "wrist_l",
+    "wrist_r"
+   ],
+   "los_blocked_frac": [
+    0.0,
+    1.0,
+    0.1619047619047619
+   ],
+   "los_house_blocked_frac": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 38.872458271327474
+  }
+ },
+ {
+  "lift": 0.416,
+  "mount": "lift",
+  "pitch": 30.0,
+  "map": {
+   "n": 30,
+   "head_visible": 1.0,
+   "any_visible": 1.0,
+   "head_los_blocked_robot": 0.0,
+   "head_los_blocked_house": 0.0,
+   "head_hits_median": 86.0
+  },
+  "headN": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.3324029622972573,
+    "rms": 1.5277933882851344,
+    "p95": 2.753441370100359
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.3324029622972573,
+    "rms": 1.5277933882851344,
+    "p95": 2.753441370100359
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.14456659392848611,
+    "rms": 0.16467584043492353,
+    "p95": 0.26706031351919723
+   },
+   "ball_hits_med": [
+    86.0
+   ],
+   "inliers_med": 86.0,
+   "rays_med": [
+    6783.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.428212327261766,
+    "rms": 2.4316676823980954,
+    "p95": 2.5648558512330055
+   },
+   "cams": [
+    "head"
+   ],
+   "los_blocked_frac": [
+    0.0
+   ],
+   "los_house_blocked_frac": [
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 39.798292553141
+  },
+  "headN+wrist": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN+wrist",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.3529486998515656,
+    "rms": 1.5468622955601956,
+    "p95": 2.7960506242216696
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.3529486998515656,
+    "rms": 1.5468622955601956,
+    "p95": 2.7960506242216696
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.1451269265298218,
+    "rms": 0.16508737099636564,
+    "p95": 0.26853495572558916
+   },
+   "ball_hits_med": [
+    86.0,
+    0.0,
+    3.0
+   ],
+   "inliers_med": 93.0,
+   "rays_med": [
+    6783.0,
+    14400.0,
+    14400.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.929222211241722,
+    "rms": 2.938809238427624,
+    "p95": 3.4330641850829124
+   },
+   "cams": [
+    "head",
+    "wrist_l",
+    "wrist_r"
+   ],
+   "los_blocked_frac": [
+    0.0,
+    1.0,
+    0.1619047619047619
+   ],
+   "los_house_blocked_frac": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 39.82793308262314
+  }
+ },
+ {
+  "lift": 0.416,
+  "mount": "lift",
+  "pitch": 45.0,
+  "map": {
+   "n": 30,
+   "head_visible": 1.0,
+   "any_visible": 1.0,
+   "head_los_blocked_robot": 0.0,
+   "head_los_blocked_house": 0.0,
+   "head_hits_median": 91.0
+  },
+  "headN": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.2492946317139906,
+    "rms": 1.418295531715862,
+    "p95": 2.4901897367898864
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.2492946317139906,
+    "rms": 1.418295531715862,
+    "p95": 2.4901897367898864
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.12244972692212636,
+    "rms": 0.13594970792501945,
+    "p95": 0.22808628678865475
+   },
+   "ball_hits_med": [
+    89.0
+   ],
+   "inliers_med": 89.0,
+   "rays_med": [
+    6783.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.4077493431312695,
+    "rms": 2.4100987150549957,
+    "p95": 2.544037625193596
+   },
+   "cams": [
+    "head"
+   ],
+   "los_blocked_frac": [
+    0.0
+   ],
+   "los_house_blocked_frac": [
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 39.2810532823205
+  },
+  "headN+wrist": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN+wrist",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.2654917418633216,
+    "rms": 1.4373311848902468,
+    "p95": 2.5439294849975407
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.2654917418633216,
+    "rms": 1.4373311848902468,
+    "p95": 2.5439294849975407
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.12565777608146214,
+    "rms": 0.1408462544647728,
+    "p95": 0.24660538097007742
+   },
+   "ball_hits_med": [
+    89.0,
+    0.0,
+    3.0
+   ],
+   "inliers_med": 96.0,
+   "rays_med": [
+    6783.0,
+    14400.0,
+    14400.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.9385673946567943,
+    "rms": 2.9573473045319125,
+    "p95": 3.4333178773522377
+   },
+   "cams": [
+    "head",
+    "wrist_l",
+    "wrist_r"
+   ],
+   "los_blocked_frac": [
+    0.0,
+    1.0,
+    0.1619047619047619
+   ],
+   "los_house_blocked_frac": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 39.41132553099167
+  }
+ },
+ {
+  "lift": 0.416,
+  "mount": "mast",
+  "pitch": 36.327505091983994,
+  "map": {
+   "n": 30,
+   "head_visible": 1.0,
+   "any_visible": 1.0,
+   "head_los_blocked_robot": 0.0,
+   "head_los_blocked_house": 0.0,
+   "head_hits_median": 88.0
+  },
+  "headN": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.3283939420135351,
+    "rms": 1.513710464187812,
+    "p95": 2.581179306209255
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.3283939420135351,
+    "rms": 1.513710464187812,
+    "p95": 2.581179306209255
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.1458204995632943,
+    "rms": 0.16722030005548344,
+    "p95": 0.28821169796974083
+   },
+   "ball_hits_med": [
+    87.0
+   ],
+   "inliers_med": 86.0,
+   "rays_med": [
+    6608.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.423499347198577,
+    "rms": 2.4274062844577595,
+    "p95": 2.6039069518446922
+   },
+   "cams": [
+    "head"
+   ],
+   "los_blocked_frac": [
+    0.0
+   ],
+   "los_house_blocked_frac": [
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 37.664393557324296
+  },
+  "headN+wrist": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN+wrist",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.3502531668751414,
+    "rms": 1.5269552862273366,
+    "p95": 2.60256562042096
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.3502531668751414,
+    "rms": 1.5269552862273366,
+    "p95": 2.60256562042096
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.14660531295698442,
+    "rms": 0.16700595451713196,
+    "p95": 0.28883500978526694
+   },
+   "ball_hits_med": [
+    87.0,
+    0.0,
+    3.0
+   ],
+   "inliers_med": 91.0,
+   "rays_med": [
+    6608.0,
+    14400.0,
+    14400.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.941063188371204,
+    "rms": 2.9534747732588404,
+    "p95": 3.4374892711639404
+   },
+   "cams": [
+    "head",
+    "wrist_l",
+    "wrist_r"
+   ],
+   "los_blocked_frac": [
+    0.0,
+    1.0,
+    0.1619047619047619
+   ],
+   "los_house_blocked_frac": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 38.777290506377106
+  }
+ },
+ {
+  "lift": 0.416,
+  "mount": "mast",
+  "pitch": 30.0,
+  "map": {
+   "n": 30,
+   "head_visible": 1.0,
+   "any_visible": 1.0,
+   "head_los_blocked_robot": 0.0,
+   "head_los_blocked_house": 0.0,
+   "head_hits_median": 86.0
+  },
+  "headN": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.3324029622972573,
+    "rms": 1.5277933882851344,
+    "p95": 2.753441370100359
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.3324029622972573,
+    "rms": 1.5277933882851344,
+    "p95": 2.753441370100359
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.14456659392848611,
+    "rms": 0.16467584043492353,
+    "p95": 0.26706031351919723
+   },
+   "ball_hits_med": [
+    86.0
+   ],
+   "inliers_med": 86.0,
+   "rays_med": [
+    6783.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.4060575114119622,
+    "rms": 2.4088460453480764,
+    "p95": 2.5601688772439957
+   },
+   "cams": [
+    "head"
+   ],
+   "los_blocked_frac": [
+    0.0
+   ],
+   "los_house_blocked_frac": [
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 39.63697020496641
+  },
+  "headN+wrist": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN+wrist",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.3529486998515656,
+    "rms": 1.5468622955601956,
+    "p95": 2.7960506242216696
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.3529486998515656,
+    "rms": 1.5468622955601956,
+    "p95": 2.7960506242216696
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.1451269265298218,
+    "rms": 0.16508737099636564,
+    "p95": 0.26853495572558916
+   },
+   "ball_hits_med": [
+    86.0,
+    0.0,
+    3.0
+   ],
+   "inliers_med": 93.0,
+   "rays_med": [
+    6783.0,
+    14400.0,
+    14400.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.9236730542920886,
+    "rms": 2.9346592655505783,
+    "p95": 3.424810990691185
+   },
+   "cams": [
+    "head",
+    "wrist_l",
+    "wrist_r"
+   ],
+   "los_blocked_frac": [
+    0.0,
+    1.0,
+    0.1619047619047619
+   ],
+   "los_house_blocked_frac": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 39.84230677818968
+  }
+ },
+ {
+  "lift": 0.416,
+  "mount": "mast",
+  "pitch": 45.0,
+  "map": {
+   "n": 30,
+   "head_visible": 1.0,
+   "any_visible": 1.0,
+   "head_los_blocked_robot": 0.0,
+   "head_los_blocked_house": 0.0,
+   "head_hits_median": 91.0
+  },
+  "headN": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.2492946317139906,
+    "rms": 1.418295531715862,
+    "p95": 2.4901897367898864
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.2492946317139906,
+    "rms": 1.418295531715862,
+    "p95": 2.4901897367898864
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.12244972692212636,
+    "rms": 0.13594970792501945,
+    "p95": 0.22808628678865475
+   },
+   "ball_hits_med": [
+    89.0
+   ],
+   "inliers_med": 89.0,
+   "rays_med": [
+    6783.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.3765702953650836,
+    "rms": 2.380459074280269,
+    "p95": 2.515542693436146
+   },
+   "cams": [
+    "head"
+   ],
+   "los_blocked_frac": [
+    0.0
+   ],
+   "los_house_blocked_frac": [
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 39.44588473864964
+  },
+  "headN+wrist": {
+   "focus": false,
+   "focused_frac": 0.0,
+   "rig": "headN+wrist",
+   "err_mm": {
+    "n": 175,
+    "mean": 1.2654917418633216,
+    "rms": 1.4373311848902468,
+    "p95": 2.5439294849975407
+   },
+   "lost_frac": 0.0,
+   "err_alive_mm": {
+    "n": 175,
+    "mean": 1.2654917418633216,
+    "rms": 1.4373311848902468,
+    "p95": 2.5439294849975407
+   },
+   "n_caps": 105,
+   "valid_frac": 1.0,
+   "fit_err_mm": {
+    "n": 105,
+    "mean": 0.12565777608146214,
+    "rms": 0.1408462544647728,
+    "p95": 0.24660538097007742
+   },
+   "ball_hits_med": [
+    89.0,
+    0.0,
+    3.0
+   ],
+   "inliers_med": 96.0,
+   "rays_med": [
+    6783.0,
+    14400.0,
+    14400.0
+   ],
+   "fit_ms": {
+    "n": 105,
+    "mean": 2.8782034736304056,
+    "rms": 2.8878684314055514,
+    "p95": 3.3824538812041283
+   },
+   "cams": [
+    "head",
+    "wrist_l",
+    "wrist_r"
+   ],
+   "los_blocked_frac": [
+    0.0,
+    1.0,
+    0.1619047619047619
+   ],
+   "los_house_blocked_frac": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "los_house_blockers": {},
+   "head_arm_blocked_frac": 0.0,
+   "head_house_blocked_frac": 0.0,
+   "head_cam_ms": 39.025760646022505
+  }
+ }
+]

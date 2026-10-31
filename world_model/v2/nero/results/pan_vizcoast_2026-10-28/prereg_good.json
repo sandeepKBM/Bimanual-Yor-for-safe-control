@@ -1,0 +1,161 @@
+{
+ "belief": "prereg",
+ "belief_box": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.4
+  ],
+  "payload": "empty",
+  "assumptions": []
+ },
+ "belief_after_proposer": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.4
+  ],
+  "payload": "empty",
+  "assumptions": []
+ },
+ "proposer": "good",
+ "proposer_backend": "mock",
+ "proposer_constraints": [
+  [
+   "forbid",
+   "pinch",
+   [
+    [
+     "part",
+     "lid"
+    ]
+   ]
+  ],
+  [
+   "require",
+   "lift",
+   "lid_secured"
+  ]
+ ],
+ "proposer_log": [],
+ "proposer_raw": "{\"facts\": {\"lid_attached\": false, \"contents\": \"unknown food\", \"contents_mass_kg\": [0.0, 0.4]}, \"constraints\": [{\"forbid\": {\"skill\": \"pinch\", \"part\": \"lid\"}, \"why\": \"the lid is loose; lifting it does not lift the pan\"}, {\"require\": {\"skill\": \"lift\", \"atom\": \"lid_secured\"}, \"why\": \"a loose lid can slide off during the lift\"}]}",
+ "n_evidence": 233,
+ "stageB": false,
+ "plan": "pinch(L, handle, frac=0.65) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+ "stage": "A",
+ "verdict": {
+  "rule": "admit_stageA",
+  "evidence": "-",
+  "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+  "support": {
+   "held": 0,
+   "total": 0
+  }
+ },
+ "assumptions": [],
+ "aim_belief": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.4
+  ],
+  "payload": "empty",
+  "assumptions": []
+ },
+ "stats": {
+  "nodes": 148,
+  "pruned_by_proposer": 114,
+  "candidates": 3,
+  "pruned_by_counterexample": 1,
+  "certificate_calls": 2,
+  "sim_rounds": 0,
+  "sim_runs": 0,
+  "rejected_by_rule": {
+   "R3_recorded": 1
+  }
+ },
+ "trace": [
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "30 recorded failure(s) inside the box (38/68 held); e.g. no_clean_pregrasp in A05.json",
+   "counterexample": {
+    "dx": 0.004513778288034488,
+    "dy": 0.005653401917128202,
+    "yaw_deg": -1.7772572163343394,
+    "mu_scale": 0.6810579030134467,
+    "hidden_mass": 0.27421679379227787,
+    "placement": "far_left",
+    "cat": "no_clean_pregrasp",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_handle_grasp_2026-10-28/robust/A05.json"
+   },
+   "support": {
+    "held": 38,
+    "total": 68
+   }
+  },
+  {
+   "round": 0,
+   "plan": "pinch(L, handle, frac=0.65) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  }
+ ],
+ "counterexamples": [
+  {
+   "scope": [
+    "pregrasp",
+    [
+     [
+      "L",
+      "handle"
+     ],
+     [
+      "R",
+      "rim"
+     ]
+    ],
+    0.6
+   ],
+   "theta": {
+    "dx": 0.004513778288034488,
+    "dy": 0.005653401917128202,
+    "yaw_deg": -1.7772572163343394,
+    "mu_scale": 0.6810579030134467,
+    "hidden_mass": 0.27421679379227787,
+    "placement": "far_left",
+    "cat": "no_clean_pregrasp",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_handle_grasp_2026-10-28/robust/A05.json"
+   },
+   "rule": "R3_recorded",
+   "plan": "pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  }
+ ],
+ "wall_s": 0.01,
+ "total_wall_s": 0.1
+}

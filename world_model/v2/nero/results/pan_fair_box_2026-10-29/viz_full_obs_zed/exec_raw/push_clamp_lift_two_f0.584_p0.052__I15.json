@@ -1,0 +1,19 @@
+{
+ "placement": "far_left",
+ "hidden_mass": 0.33019512535742235,
+ "perturb": {
+  "dx": 0.008055509966887631,
+  "dy": -0.008649757721774684,
+  "yaw_deg": 5.300397354631379,
+  "mu_scale": 0.6376307535424609
+ },
+ "push": 0.05184052532980499,
+ "grasp_frac": 0.5842596668574498,
+ "observe": {
+  "noise": "zed",
+  "retries": 3,
+  "seed": 3047
+ },
+ "error": "r_rim.py\", line 92, in run\n    rdr = mujoco.Renderer(m, O.CAM[\"height\"], O.CAM[\"width\"])\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/common/home/ss5772/.local/lib/python3.12/site-packages/mujoco/rendering/classic/renderer.py\", line 92, in __init__\n    self._mjr_context = mujoco.MjrContext(model, font_scale.value)\n                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nmujoco.FatalError: an OpenGL platform library has not been loaded into this process, this most likely means that a valid OpenGL context has not been created before mjr_makeContext was called\n",
+ "tag": "push_clamp_lift_two_f0.584_p0.052__I15"
+}

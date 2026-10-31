@@ -1,0 +1,98 @@
+{
+ "placement": "far_centre",
+ "hidden_mass": 0.16933057958903028,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": 0.013513910889778057,
+  "dy": -0.010675211618410988,
+  "yaw_deg": 7.178391154195902,
+  "mu_scale": 0.7870988712062912
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.05299044720036811,
+ "statics": {
+  "mass_total_kg": 0.4742,
+  "com_u_from_centre_m": 0.0001,
+  "com_w_m": 0.0,
+  "probe_A_pitch_about_pivot_Nm": 0.4309,
+  "probe_B_roll_Nm": 0.0001,
+  "lift_force_N": 4.652,
+  "lift_handle_moment_Nm": 0.8163,
+  "lift_roll_Nm": 0.0001,
+  "lever_grasp_to_pivot_m": 0.2681
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.16861999163174832
+  },
+  "right": {
+   "margin": 0.04020993235024767
+  }
+ },
+ "pan_dy_after_push_m": -0.0608248654578471,
+ "lift_achieved_m": 0.04779733401739128,
+ "final_tilt_deg": 3.24,
+ "max_tilt_deg_lift_hold": 4.94,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 1.8217500000000002,
+  "right": 6.430400000000001
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.004000000000001,
+  "right": 10.260499999999999
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 5.536941721008912,
+   "deg": 1.880395673609896
+  },
+  "right": {
+   "mm": 0.5926401239316855,
+   "deg": 0.553090205568178
+  }
+ },
+ "lid_offset_mm": 2.5749314301792716,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.991289508669635,
+ "observe": {
+  "est": {
+   "dx": 0.012734153513299262,
+   "dy": -0.01075041607321331,
+   "yaw_deg": 4.939509054130334,
+   "rms_wall_mm": 1.3966202056353558,
+   "n_wall": 1548,
+   "n_handle": 1717,
+   "n_points": 18741,
+   "fit_ok": true,
+   "noise": "zed_calib"
+  },
+  "true": {
+   "dx": 0.013513886281265878,
+   "dy": -0.010675198718604777,
+   "yaw_deg": 7.178388946316578
+  },
+  "n_images": 1,
+  "noise": "zed_calib",
+  "residual_mm": 0.783352308910356,
+  "residual_yaw_deg": -2.238879892186244
+ },
+ "held": true,
+ "tag": "I00_zed_calib",
+ "noise": "zed_calib",
+ "theta": {
+  "dx": 0.013513910889778057,
+  "dy": -0.010675211618410988,
+  "yaw_deg": 7.178391154195902,
+  "mu_scale": 0.7870988712062912,
+  "placement": "far_centre",
+  "hidden_mass": 0.16933057958903028
+ },
+ "category": "held"
+}

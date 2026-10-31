@@ -27,10 +27,23 @@ def wrap(a):
     return (a + math.pi) % (2 * math.pi) - math.pi
 
 
-def build_states(rec: Recording, calib: P.Calib | None):
+def effective_cup_tracker(rec: Recording, cup_tracker: str):
+    """'anchored_fp' needs the recording's FoundationPose pass (ocs/fp_pass.py, $OCS_FP_DIR/fp_s<seed>.npz); recordings without one (e.g. the
+    flagship desk) fall back to the blob-only 'anchored' tracker.  -> (tracker, fp_npz or None)."""
+    if cup_tracker != "anchored_fp":
+        return cup_tracker, None
+    from .fp_source import fp_path
+    p = fp_path(rec.meta["seed"])
+    if rec.meta["scene"] == "flagship" or not p.exists():
+        return "anchored", None
+    return "anchored_fp", str(p)
+
+
+def build_states(rec: Recording, calib: P.Calib | None, cup_tracker: str = "wrist"):
     flag = rec.meta["scene"] == "flagship"
     ck = U.cup_kind_for_scene(rec.meta["scene"])          # the cup shape follows the recording's scene (h5: the sim cup; flagship: the paper-cup model)
-    pipe = P.perception_pipeline(calib, people=not flag, cup=True, obstacles=flag, names=True, cup_kind=ck)
+    tracker, fp_npz = effective_cup_tracker(rec, cup_tracker)
+    pipe = P.perception_pipeline(calib, people=not flag, cup=True, obstacles=flag, names=True, cup_kind=ck, cup_tracker=tracker, fp_npz=fp_npz)
     tpipe = P.Pipeline([P.TruthProducer(chain=True, with_free=False, cup=ck)])
     pipe.reset()
     tpipe.reset()
@@ -97,9 +110,20 @@ def e2_records(rec: Recording, wsp, wst):
             cp = _in_set(ws, "cup", tr.cup_p)
             u = C.world_unc(ws, "cup")
             raw = o.extra.get("raw", {})
+            fp_fresh = o.extra.get("fp_p") is not None and abs(float(o.extra.get("fp_t", -1.0)) - float(ws.t)) < 1e-9     # a FoundationPose measurement THIS tick
+            # per-side blob freshness: `raw`/`uv` are cumulative per side (a side keeps its last reading forever), so a side is FRESH only if it was in the latest
+            # blob measurement (extra['sides']) AND that measurement is within the 0.15 s hold (same window as blob_vis); otherwise its raw is a stale/frozen reading
+            blob_sides = [str(s_) for s_ in o.extra.get("sides", [])]
+            blob_age = (float(ws.t) - float(o.extra["blob_t"])) if "blob_t" in o.extra else ((float(ws.t) - float(o.t_meas)) if "sides" in o.extra else float("inf"))
             out["cup"].append(dict(k=k, e_world=float(np.linalg.norm(Pw.p - tr.cup_p)), e_tray=e_tray, e_tilt=tilt, e_tilt_rel=tilt_rel, cov_pos=bool(cp),
                                    cov_rot=bool(tilt <= u.rot), visible=bool(o.visible), truth_tray=p_true_tray.tolist(), cov_pos_rel=bool(_in_set(rws, "cup", rel(tr.cup_p))),
-                                   raw={s: v.tolist() for s, v in raw.items()}, uv={s: list(v) for s, v in o.extra.get('uv', {}).items()}))
+                                   raw={s: v.tolist() for s, v in raw.items()}, uv={s: list(v) for s, v in o.extra.get('uv', {}).items()},
+                                   fp=np.asarray(o.extra["fp_p"], float).tolist() if fp_fresh else None,
+                                   fp_tilt=_tilt_err(o.extra["fp_R"], np.asarray(tr.tray_R).T @ np.asarray(tr.cup_R)) if fp_fresh else None,
+                                   used=o.extra.get("used"),
+                                   blob_sides=blob_sides, blob_fresh={s_: bool(s_ in blob_sides and blob_age <= 0.15 + 1e-9) for s_ in raw},
+                                   # the blob's OWN visibility (fresh within the 0.15 s hold) for its calibration; = visible for blob-only trackers
+                                   blob_vis=(float(ws.t) - float(o.extra["blob_t"]) <= 0.15 + 1e-9) if "blob_t" in o.extra else bool(o.visible)))
         # ---- people (per ground-truth person; nearest track within the gate)
         vis = rec.view(k).visibility()
         trks = [o for o in ws.objects.values() if o.kind == Kind.PERSON and o.source == Source.TRACKER]
@@ -272,7 +296,45 @@ def _status_of(spec, state):
     return st, float(nom), float(rob)
 
 
-def e4_records(rec: Recording, wsp, wst, stride=1, pred_stride=5, H=10, dt=0.1):
+PRED_CONTINGENCIES = ("hold", "hold+brake")
+
+
+def combine_status(sts):
+    """conservative combination over contingencies: 'true' only if true under EVERY one, 'false' only if false under EVERY one, else 'unknown'."""
+    sts = list(sts)
+    if all(s == "true" for s in sts):
+        return "true"
+    if all(s == "false" for s in sts):
+        return "false"
+    return "unknown"
+
+
+def _pred_perc(tr_, mapping, H):
+    """perceived predictive status of ONE rollout: ((status, nominal margin, robust margin), {atom: status}); same maths as the truth side."""
+    if "cup" not in tr_[0].objects:
+        return ("unknown", float("nan"), float("nan")), None
+    ents = C.to_ir_entities(tr_, frame=FRAME)
+    spec, atoms, missing = build_e4_spec(ents, tr_[0], mapping, H=H)
+    st = ("unknown", float("nan"), float("nan")) if missing else _status_of(spec, tr_)
+    return st, {nm: _status_of(IR.G(a, 0, H), tr_)[0] for nm, a in atoms.items()}
+
+
+def _combine_pred(per):
+    """per: {contingency name: (status tuple, astat dict | None)} -> combined (status tuple, astat dict | None) by the conservative rule per atom
+    (margins: the minimum over contingencies)."""
+    sts = [v[0] for v in per.values()]
+    st = combine_status(s[0] for s in sts)
+    nom, rob = (min(s[1] for s in sts), min(s[2] for s in sts)) if not any(math.isnan(s[1]) for s in sts) else (float("nan"), float("nan"))
+    ast = [v[1] for v in per.values()]
+    if any(a is None for a in ast):
+        return (st, nom, rob), None
+    return (st, nom, rob), {nm: combine_status(a[nm] for a in ast) for nm in ast[0]}
+
+
+def e4_records(rec: Recording, wsp, wst, stride=1, pred_stride=5, H=10, dt=0.1, pred_contingency="hold"):
+    """pred_contingency: 'hold' (default, the operator holds the current twist) | 'hold+brake' (also the shield brake from now: D.brake_plan; perceived
+    pred status / per-atom status = conservative combination, row['perc_cont'] keeps the per-contingency statuses).  Truth side unchanged."""
+    assert pred_contingency in PRED_CONTINGENCIES, pred_contingency
     mapping = SPEC_MAP[rec.meta["scene"]]
     rows = []
     for k in range(0, rec.n, stride):
@@ -305,24 +367,36 @@ def e4_records(rec: Recording, wsp, wst, stride=1, pred_stride=5, H=10, dt=0.1):
             spec, atoms, missing = build_e4_spec(ents, tr_[0], mapping, H=H)
             row[src] = ("unknown", float("nan"), float("nan")) if missing else _status_of(spec, tr_)
             row[src + "_astat"] = {nm: _status_of(IR.G(a, 0, H), tr_)[0] for nm, a in atoms.items()}
+        if pred_contingency == "hold+brake":
+            v0 = wsp[k].robot.base_vel
+            traj_b = D.rollout(wsp[k], H * dt, dt, robot_plan=D.brake_plan(np.zeros(3) if v0 is None else v0, H, dt))
+            per = {"hold": _pred_perc(traj_p, mapping, H), "brake": _pred_perc(traj_b, mapping, H)}
+            st, ast = _combine_pred(per)
+            row["perc"] = st
+            if ast is not None:
+                row["perc_astat"] = ast
+            else:
+                row.pop("perc_astat", None)
+            row["perc_cont"] = {nm: dict(status=v[0][0], astat=v[1]) for nm, v in per.items()}
         pred.append(row)
     return dict(inst=rows, pred=pred, mapping=mapping)
 
 
 # ====================================================================================== driver
-def process(rec_path, calib_json=None, do=("e2", "e3", "e4"), e3_stride=5, tag=""):
+def process(rec_path, calib_json=None, do=("e2", "e3", "e4"), e3_stride=5, tag="", cup_tracker="wrist", pred_contingency="hold"):
     t0 = time.time()
     rec = Recording.load(rec_path)
     calib = P.Calib.from_json(calib_json) if calib_json else None
-    wsp, wst = build_states(rec, calib)
-    out = dict(path=str(rec_path), seed=rec.meta["seed"], scene=rec.meta["scene"], n=rec.n, tag=tag, t_states=time.time() - t0,
+    wsp, wst = build_states(rec, calib, cup_tracker)
+    out = dict(path=str(rec_path), seed=rec.meta["seed"], scene=rec.meta["scene"], n=rec.n, tag=tag, cup_tracker=cup_tracker, pred_contingency=pred_contingency,
+               cup_tracker_effective=effective_cup_tracker(rec, cup_tracker)[0], t_states=time.time() - t0,
                privileged_perc=sorted({f.split(".")[0] + "." + f.split(".")[-1] for f in wsp[-1].privileged()}))
     if "e2" in do:
         out["e2"] = e2_records(rec, wsp, wst)
     if "e3" in do:
         out["e3"] = e3_records(rec, wsp, wst, stride=e3_stride)
     if "e4" in do:
-        out["e4"] = e4_records(rec, wsp, wst)
+        out["e4"] = e4_records(rec, wsp, wst, pred_contingency=pred_contingency)
     out["t_total"] = time.time() - t0
     return out
 

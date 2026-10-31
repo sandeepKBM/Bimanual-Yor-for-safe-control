@@ -1,0 +1,10 @@
+Pre-registration, faithful VIZ-COAST baseline on the covered pan (2026-10-28, before execution).
+Planning: 4 scripted VRM profiles (none / lid / two_arm / buggy; scripted, NOT a real VLM) x stream seeds 0-4.
+Execution: each distinct grounded plan open loop on the first 20 theta of the pre-registered set (robust_L70/cases.json Set A).
+Predictions (owner):
+ - "none": Z3 returns a one-arm lift (it refines kinematically); physics: 0 lifts (one claw caps at 0.30 Nm vs >= 0.43 Nm needed).
+ - "lid"/"two_arm": push + clamp + two-arm lift with SAMPLED pinch 0.55-0.95 and push 4-9 cm; success over the 20 theta 30-70%
+   per plan (like robust L60 50% / L70 68%), lower for pushes giving < 3 cm overhang; VIZ-COAST reports success for every one
+   (its streams see only the nominal kinematic scene).
+Comparison point: ours (pan/vizcoast) admits only observe+pinch0.65+push0.07+clamp+lift under the ASSUMED post-observation
+pose bound, and returns NO plan for contents up to 0.8 kg.

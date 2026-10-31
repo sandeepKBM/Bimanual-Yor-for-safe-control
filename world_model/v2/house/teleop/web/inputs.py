@@ -42,6 +42,10 @@ CONFIG = dict(
     jog_v_full=0.08,                 # tray jog full-scale [m/s]   (= ShieldCfg.jog_v_max)
     jog_w_full=0.15,                 # [rad/s]                     (= ShieldCfg.jog_w_max)
     lift_v_full=0.12,                # [m/s]                       (= sim.LIFT_V_MAX; shield clamps to 0.06)
+    tuck_dp=(0.11, 0.11, 0.0),       # tray offset from the normal carry pose [m] (base frame, = ObjectFrame.dp) of the narrow doorway carry; inside the jog box (0.12, 0.12, 0.10)
+    tuck_yaw=0.33,                   # tray yaw offset [rad]; inside ObjectFrame.yaw_cap 0.35
+    tuck_tol=(0.004, 0.01),          # arrival tolerance (m, rad)
+    tuck_gain=3.0,                   # 1/s proportional gain on the offset error (output is clipped to the jog full-scale x speed scale)
 )
 
 # SIGN CONVENTION (ROS REP-103, what lands in sim.Cmd): +vx forward, +vy LEFT, +wz CCW, +z up.  Browser stick axes are +right/+down -> inverted below.
@@ -61,10 +65,13 @@ KBD_EVENTS = {
     "KeyZ": "speed_down", "KeyX": "speed_up",
     "Space": "zero", "Escape": "estop", "Enter": "enable",
     "KeyV": "shield_toggle", "KeyC": "camera_next", "KeyB": "inset_toggle", "Backspace": "reset",
+    "KeyO": "ghost_toggle",                      # O = operator-intent ghost overlay on/off
+    "KeyN": "tuck", "KeyM": "carry",             # N = tuck the tray to the narrow doorway carry pose, M = back to the normal carry pose
 }
 # gamepad ("standard" layout).  axes: 0 LX 1 LY 2 RX 3 RY (right/down = +).  buttons: 0 A 1 B 2 X 3 Y 4 LB 5 RB 6 LT 7 RT 8 View=Back 9 Start 10 LS 11 RS 12-15 dpad U/D/L/R
 # NOTE button 8 is BOTH "View" and "Back" in the standard layout -> it is DISARM (YOR safety convention); camera cycle lives on RS click.
-PAD_EVENTS = {0: "grasp", 1: "release", 2: "shield_toggle", 3: "preset_next", 9: "arm", 8: "disarm", 11: "camera_next", 10: "inset_toggle"}
+PAD_EVENTS = {0: "grasp", 1: "release", 2: "shield_toggle", 3: "preset_next", 9: "arm", 8: "disarm", 11: "camera_next", 10: "inset_toggle",
+              14: "tuck", 15: "carry"}       # D-pad left / right (LB must be held for the tuck motion to run: deadman)
 PAD_DEADMAN_BUTTON = 4     # LB HELD = deadman (teleop_twist_joy enable_button); released -> one explicit zero, motion zero
 PAD_TRAY_BUTTON = 5        # RB held (together with LB) = tray mode
 PAD_LT, PAD_RT = 6, 7      # tray mode: roll -/+ (analog value 0..1).  Disabled when mapping != 'standard'
@@ -273,7 +280,7 @@ class WebGamepadSource(InputSource):
 class InputHub:
     """arbitrates sources, owns enable / preset / watchdog, builds the sim Cmd.  step(obs) -> Cmd (same interface as the operators)."""
 
-    SERVER_EVENTS = ("shield_toggle", "camera_next", "inset_toggle", "reset")
+    SERVER_EVENTS = ("shield_toggle", "camera_next", "inset_toggle", "reset", "ghost_toggle")
 
     def __init__(self, sources=None, cfg=None):
         self.cfg = dict(CONFIG, **(cfg or {}))
@@ -293,6 +300,9 @@ class InputHub:
         self.last_seq = {s.name: -1 for s in self.sources}
         self.phase = "WEB"
         self.done = False
+        self.tuck_goal: str | None = None                        # None | "tuck" | "carry": the tray-offset motion in progress
+        self.tuck_src = "none"
+        self.tray_off = None                                     # (dp[3], yaw) of the commanded tray offset, from obs["tray_offset"] (None: not provided)
 
     # ---- inbound
     def feed(self, msg: dict, now: float | None = None) -> None:
@@ -306,9 +316,9 @@ class InputHub:
     def _drain_events(self, src) -> None:
         with self.lock:
             for ev in src.pop_events():
-                self._on_event(ev)
+                self._on_event(ev, src.name)
 
-    def _on_event(self, ev: str) -> None:
+    def _on_event(self, ev: str, src: str | None = None) -> None:
         cf = self.cfg
         if ev == "enable":                                       # Enter: arm AND clear an Esc latch
             self.latched = False
@@ -327,6 +337,7 @@ class InputHub:
             for s in self.sources:
                 s.zero()
             self._pending_cmd = dict(grasp=False, release=False)
+            self.tuck_goal = None
         elif ev == "preset_next":
             self.preset = (self.preset + 1) % len(cf["presets"])
             self._scale = float(cf["presets"][self.preset])
@@ -339,10 +350,14 @@ class InputHub:
         elif ev in ("grasp", "release"):
             if self.enabled:
                 self._pending_cmd[ev] = True
+        elif ev in ("tuck", "carry"):                            # tray to the narrow doorway pose / back to the normal carry pose (armed only)
+            if self.enabled:
+                self.tuck_goal, self.tuck_src = ev, (src or self.active)
         elif ev in self.SERVER_EVENTS:
             self._server_events.append(ev)
 
     def _stop(self, why: str) -> None:
+        self.tuck_goal = None
         self.enabled = False
         self.stopped_reason = why
         self._pending_cmd = dict(grasp=False, release=False)
@@ -359,6 +374,7 @@ class InputHub:
                     if s.name == "pad":
                         s.connected = False
             if name in (None, self.active) or name == "pad":
+                self.tuck_goal = None
                 self.enabled = False
                 self.stopped_reason = f"{name or 'client'} disconnected"
 
@@ -400,7 +416,54 @@ class InputHub:
             grasp, release = self._pending_cmd["grasp"], self._pending_cmd["release"]
             self._pending_cmd = dict(grasp=False, release=False)
             sc = self.scale
-        return self.to_cmd(it, sc, grasp and self.enabled, release and self.enabled)
+        cmd = self.to_cmd(it, sc, grasp and self.enabled, release and self.enabled)
+        if obs is not None and obs.get("tray_offset") is not None:
+            dp, yaw = obs["tray_offset"]
+            self.tray_off = (np.asarray(dp, float), float(yaw))
+            self._tuck_cmd(cmd, it, sc)
+        return cmd
+
+    # ---- tray offset presets (tuck / carry): proportional motion through the normal tray-jog channel
+    def tuck_target(self, goal: str):
+        cf = self.cfg
+        return (np.asarray(cf["tuck_dp"], float), float(cf["tuck_yaw"])) if goal == "tuck" else (np.zeros(3), 0.0)
+
+    def tuck_state(self) -> str:
+        """carry | tucked | to_tuck | to_carry | custom  (custom = the commanded tray offset is neither preset; unknown without obs["tray_offset"])."""
+        if self.tray_off is None:
+            return "unknown"
+        if self.tuck_goal:
+            return "to_" + self.tuck_goal
+        tol = self.cfg["tuck_tol"]
+        for nm in ("carry", "tuck"):
+            dp, yaw = self.tuck_target(nm)
+            if np.linalg.norm(self.tray_off[0] - dp) < 2 * tol[0] and abs(self.tray_off[1] - yaw) < 2 * tol[1]:
+                return "tucked" if nm == "tuck" else "carry"
+        return "custom"
+
+    def _tuck_cmd(self, cmd, it: "Intent", scale: float) -> None:
+        """writes the proportional jog toward the goal into cmd.jog.  Any manual tray-jog input cancels the motion; it runs only while armed and (pad) LB is held."""
+        if self.tuck_goal is None:
+            return
+        if not self.enabled or any(abs(it.ch[c]) > 1e-6 for c in ("jx", "jy", "jz", "jroll", "jyaw")):
+            self.tuck_goal = None
+            return
+        pad = self.by_name.get("pad")
+        if self.tuck_src == "pad" and pad is not None and not pad.deadman:
+            return                                               # LB released: pause (zero jog), resume when LB is held again
+        cf = self.cfg
+        dp_t, yaw_t = self.tuck_target(self.tuck_goal)
+        e, ey = dp_t - self.tray_off[0], yaw_t - self.tray_off[1]
+        if np.linalg.norm(e) < cf["tuck_tol"][0] and abs(ey) < cf["tuck_tol"][1]:
+            self.tuck_goal = None
+            return
+        vmax, wmax = cf["jog_v_full"] * scale, cf["jog_w_full"] * scale
+        v = e * cf["tuck_gain"]
+        n = np.linalg.norm(v)
+        if n > vmax:
+            v *= vmax / n
+        cmd.jog[:3] = v
+        cmd.jog[5] = float(np.clip(ey * cf["tuck_gain"], -wmax, wmax))
 
     def to_cmd(self, it: Intent, scale: float, grasp=False, release=False):
         from .. import base as BS
@@ -416,7 +479,7 @@ class InputHub:
     def status(self, now: float | None = None) -> dict:
         now = time.monotonic() if now is None else now
         return dict(enabled=self.enabled, latched=self.latched, src=self.active, preset=self.preset, preset_name=self.preset_name, scale=self.scale,
-                    watchdog=self.watchdog_tripped, stopped=self.stopped_reason,
+                    watchdog=self.watchdog_tripped, stopped=self.stopped_reason, tuck=self.tuck_state(),
                     pad=dict(connected=self.by_name["pad"].connected, mode=getattr(self.by_name["pad"], "mode", ""), deadman=getattr(self.by_name["pad"], "deadman", False),
                              warn=self.by_name["pad"].warn) if "pad" in self.by_name else None,
                     ack=dict(self.last_seq))

@@ -28,6 +28,7 @@ from world_model.v2.house.ocs import evalcore as EC, producers as P
 OUT = Path(os.environ.get("OCS_OUT", "/data/local/ss5772/molmospaces/ocs"))
 REC = OUT / "rec"       # recordings; --out redirects only the results, --rec the recordings
 ALPHA = 0.05
+CALIB_LEGACY = False    # --calib-legacy: v3 cup calibration (fit on ALL rows with a blob reading, stale ones included)
 UNDER = 0.90            # held-out coverage below this is flagged
 
 
@@ -44,8 +45,26 @@ def mean(x):
 
 
 # ====================================================================================== calibration
-def fit_calib(results_cal):
-    """results_cal: pass-A process() outputs of the calibration seeds."""
+def _fresh_sides(r, legacy):
+    """sides whose blob reading `r["raw"][side]` is FRESH in this e2 cup record (see evalcore: in the latest blob measurement and within the 0.15 s hold).
+    legacy=True (or a record without `blob_fresh`) = every side that has a reading, including stale / frozen ones (the v3 behaviour)."""
+    if legacy or "blob_fresh" not in r:
+        return list(r["raw"])
+    return [s_ for s_ in r["raw"] if r["blob_fresh"].get(s_, False)]
+
+
+def _held_sides(r, legacy):
+    """sides of the estimate the producer holds at this tick (mean over the sides of its latest blob measurement); legacy = all sides with a reading."""
+    if legacy or "blob_sides" not in r:
+        return list(r["raw"])
+    return [s_ for s_ in r["raw"] if s_ in r["blob_sides"]]
+
+
+def fit_calib(results_cal, legacy=False):
+    """results_cal: pass-A process() outputs of the calibration seeds.
+    legacy=False (default): the per-side blob affine / bias are fitted ONLY on rows whose blob reading is fresh for that side (record field blob_fresh), and the
+    visible residuals use the fresh sides; the occluded residuals use the sides of the held estimate.  legacy=True (--calib-legacy): the v3 behaviour, every row
+    with a reading (stale/frozen held readings included) -- kept so v3 numbers stay reproducible."""
     base = [r for res in results_cal for r in res["e2"]["base"]]
     tray = [r for res in results_cal for r in res["e2"]["tray"]]
     cup = [r for res in results_cal for r in res["e2"]["cup"]]
@@ -60,13 +79,14 @@ def fit_calib(results_cal):
     # residual of the corrected mean
     aff, bias = {}, {}
     for s_ in ("left", "right"):
-        rows = [(np.array([1.0, r["uv"][s_][0], r["uv"][s_][1]]), (np.array(r["raw"][s_]) - np.array(r["truth_tray"]))[:2]) for r in cup if s_ in r["raw"] and s_ in r.get("uv", {})]
+        fr = [r for r in cup if s_ in _fresh_sides(r, legacy)]
+        rows = [(np.array([1.0, r["uv"][s_][0], r["uv"][s_][1]]), (np.array(r["raw"][s_]) - np.array(r["truth_tray"]))[:2]) for r in fr if s_ in r.get("uv", {})]
         if len(rows) >= 30:
             X = np.array([a for a, _ in rows]); Y = np.array([b for _, b in rows])
             lam = 1e-3 * len(X)
             W = np.linalg.solve(X.T @ X + lam * np.diag([0.0, 1.0, 1.0]), X.T @ Y)     # (3, 2)
             aff[s_] = W.T.tolist()
-        d = [np.array(r["raw"][s_]) - np.array(r["truth_tray"]) for r in cup if s_ in r["raw"]]
+        d = [np.array(r["raw"][s_]) - np.array(r["truth_tray"]) for r in fr]
         bias[s_] = (np.median(d, 0).tolist() if d else [0.0, 0.0, 0.0])
         bias[s_][2] = 0.0
     sc["cup_affine"], sc["cup_bias"] = aff, bias
@@ -74,17 +94,27 @@ def fit_calib(results_cal):
     for r in cup:
         if not r["raw"]:
             continue
+        isvis = r.get("blob_vis", r["visible"])       # the blob's own freshness (another source may keep the cup "visible")
+        use = _fresh_sides(r, legacy) if isvis else _held_sides(r, legacy)
         ests = []
-        for s_, v in r["raw"].items():
+        for s_ in use:
+            v = r["raw"][s_]
             if s_ in aff and s_ in r.get("uv", {}):
                 ests.append(np.array(v) - np.r_[np.array(aff[s_]) @ np.array([1.0, *r["uv"][s_]]), 0.0])
             else:
-                ests.append(np.array(v) - np.array(bias[s_]))
+                ests.append(np.array(v) - np.array(bias.get(s_, [0.0, 0.0, 0.0])))
+        if not ests:
+            continue
         e = float(np.linalg.norm((np.mean(ests, 0) - np.array(r["truth_tray"]))[:2]))
-        (vis_e if r["visible"] else occ_e).append(e)
+        (vis_e if isvis else occ_e).append(e)
     sc["cup_pos"] = P.cq(vis_e, ALPHA)
     sc["cup_pos_occ"] = P.cq(occ_e, ALPHA) if len(occ_e) >= 20 else sc["cup_pos"]
     sc["cup_rot"] = P.cq([r["e_tilt_rel"] for r in cup], ALPHA)
+    # FoundationPose source (anchored_fp): split-conformal radius / tilt bound of its fresh measurements (tray frame, xy)
+    fp_rows = [r for r in cup if r.get("fp") is not None]
+    if len(fp_rows) >= 20:
+        sc["cup_fp_pos"] = P.cq([float(np.linalg.norm((np.array(r["fp"]) - np.array(r["truth_tray"]))[:2])) for r in fp_rows], ALPHA)
+        sc["cup_fp_rot"] = P.cq([r["fp_tilt"] for r in fp_rows], ALPHA)
     # people: split-conformal radius table of people_track (visibility x age x range bins), T = 0 (position error now)
     # people: Mahalanobis (normalised) split-conformal score of the ROBOT-FRAME error against the track covariance: set = ellipse(P, q) (+) disc(floor)
     sc["person_q"] = P.cq([r["mahal"] for r in per if np.isfinite(r["mahal"])], ALPHA)
@@ -370,7 +400,7 @@ def md_e4(priors, cal):
 
 
 # ====================================================================================== driver
-def run(cal_seeds, test_seeds, procs):
+def run(cal_seeds, test_seeds, procs, cup_tracker="wrist", pred_contingency="hold"):
     import multiprocessing as mp
     seeds = list(cal_seeds) + list(test_seeds)
     paths = [str(rec_path(s)) for s in seeds]
@@ -378,14 +408,14 @@ def run(cal_seeds, test_seeds, procs):
     t0 = time.time()
     ctx = mp.get_context("spawn")
     with ctx.Pool(min(procs, len(paths) + 1), maxtasksperchild=1) as pool:
-        resA = pool.map(EC.process_job, [(p, None, ("e2", "e4"), 5, "A") for p in paths] + [(fpath, None, ("e2", "e4"), 5, "A")])
+        resA = pool.map(EC.process_job, [(p, None, ("e2", "e4"), 5, "A", cup_tracker, pred_contingency) for p in paths] + [(fpath, None, ("e2", "e4"), 5, "A", cup_tracker, pred_contingency)])
     print(f"[pass A] {time.time() - t0:.0f}s", flush=True)
-    calib = fit_calib([r for r in resA if r["scene"] == "h5" and r["seed"] in cal_seeds])
+    calib = fit_calib([r for r in resA if r["scene"] == "h5" and r["seed"] in cal_seeds], legacy=CALIB_LEGACY)
     calib.save(OUT / "calib_h5.json")
     cj = calib.to_json()
     t0 = time.time()
     with ctx.Pool(min(procs, len(paths) + 1), maxtasksperchild=1) as pool:
-        resB = pool.map(EC.process_job, [(p, cj, ("e2", "e3", "e4"), 5, "B") for p in paths] + [(fpath, cj, ("e2", "e4"), 5, "B")])
+        resB = pool.map(EC.process_job, [(p, cj, ("e2", "e3", "e4"), 5, "B", cup_tracker, pred_contingency) for p in paths] + [(fpath, cj, ("e2", "e4"), 5, "B", cup_tracker, pred_contingency)])
     print(f"[pass B] {time.time() - t0:.0f}s", flush=True)
     import pickle
     with open(OUT / "e234_raw.pkl", "wb") as f:
@@ -417,18 +447,28 @@ def main():
     ap.add_argument("--procs", type=int, default=7)
     ap.add_argument("--out", default=None, help="results directory (default $OCS_OUT or the molmospaces/ocs dir); created if missing")
     ap.add_argument("--rec", default=None, help="recordings directory (default <default OUT>/rec, i.e. NOT redirected by --out)")
+    ap.add_argument("--cup-tracker", choices=["wrist", "anchored", "anchored_fp"], default="wrist",
+                    help="cup producer: 'wrist' = CupWristProducer (frozen while occluded), 'anchored' = ocs.anchored SE(3)-anchored tracker")
+    ap.add_argument("--calib-legacy", action="store_true", help="cup blob calibration as in v3 (fit on every row with a reading, stale/frozen included); default = fresh rows only")
+    ap.add_argument("--fp-dir", default=None, help="anchored_fp: directory of fp_s<seed>.npz (default $OCS_FP_DIR or molmospaces/ocs/fp)")
+    ap.add_argument("--pred-contingency", choices=["hold", "hold+brake"], default="hold",
+                    help="E4 predictive rollout contingency set: 'hold' = operator holds the current twist (default, v3 behaviour); 'hold+brake' = also the shield brake from now "
+                         "(base slews to 0 at the hardware limit); perceived pred status = conservative combination (true only if true under all, false only if false under all)")
     ap.add_argument("--flagship-cup", choices=["flagship", "sim"], default="flagship",
                     help="cup shape of the flagship_desk recording: 'flagship' = flagship.perception paper-cup model (0.045/0.115), 'sim' = the MJCF cup the sim contains")
     a = ap.parse_args()
-    global OUT, REC
+    global OUT, REC, CALIB_LEGACY
+    CALIB_LEGACY = bool(a.calib_legacy)
     if a.out:
         OUT = Path(a.out)
         OUT.mkdir(parents=True, exist_ok=True)
     if a.rec:
         REC = Path(a.rec)
     os.environ["OCS_FLAGSHIP_CUP"] = a.flagship_cup           # inherited by the spawned workers
+    if a.fp_dir:
+        os.environ["OCS_FP_DIR"] = a.fp_dir                     # anchored_fp: where fp_pass.py wrote fp_s<seed>.npz (inherited by the workers)
     if a.what in ("run", "all"):
-        resA, resB, calib = run(a.cal, a.test, a.procs)
+        resA, resB, calib = run(a.cal, a.test, a.procs, a.cup_tracker, a.pred_contingency)
     if a.what == "report":
         import pickle
         d = pickle.load(open(OUT / "e234_raw.pkl", "rb"))

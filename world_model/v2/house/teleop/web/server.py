@@ -35,7 +35,11 @@ from aiohttp import web, WSMsgType
 from . import inputs as IN
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CAMERAS = ("chase", "top", "wrist_l", "wrist_r")
+DOORWAYS = {"h5": ((3.875, 4.94),)}                 # map-frame doorway centres for --d-wall-door (h5: door|4|7 frame-to-frame span 3.45..4.31 m at y = 4.94)
+from . import render_proc as RP
+from .. import ghost as GH
+
+CAMERAS = RP.CAMERAS                                 # ("ego", "chase", "top", "wrist_l", "wrist_r"): ego = torso head camera (proposed ZED mount), the default view
 WRIST = {"wrist_l": "left_arm_egocentric", "wrist_r": "right_arm_egocentric"}
 
 
@@ -50,9 +54,11 @@ class SimWorker(threading.Thread):
         self.telemetry: dict = dict(ready=False)
         self.frame: bytes | None = None
         self.frame_id = 0
-        self.cam_i = 0
+        self.cam_i = CAMERAS.index(getattr(args, "view", "ego"))
         self.inset = True
         self.shield_on = bool(args.shield)
+        self.ghost_on = bool(getattr(args, "ghost", True))
+        self.gf = None                                         # last ghost frame (teleop/ghost.py); visual only
         self.wall_hist = collections.deque(maxlen=200)       # (wall, sim_t)
         self.interv_hist = collections.deque(maxlen=100)
         self.tick_ms = collections.deque(maxlen=50)
@@ -75,7 +81,11 @@ class SimWorker(threading.Thread):
             from .. import fastpath as FP
             FP.install_split_hook()                              # no-op once sim.py carries the 2-line hook itself
         carry = a.task == "carry"
-        kw = dict(scene_name=a.scene, grasped=carry, counter=not carry, desk=not carry, seed=a.seed)
+        people = getattr(a, "people", "on")
+        kw = dict(scene_name=a.scene, grasped=carry, counter=not carry, desk=not carry, seed=a.seed, with_people=people != "off")
+        if people == "on":
+            kw["people_clock"] = "time"      # the walker's track clock runs with sim time.  The legacy clock only advances while the CURRENT segment velocity is non-zero, so a track
+                                             # that starts with a stationary segment (h5 p_walker: t 0..2 s) never left its start (3.6, 3.8) -- see INTERFACE.md "People"
         if a.grasp_mode is not None:
             kw["grasp_mode"] = a.grasp_mode
         if getattr(a, "spawn_at", None):                           # start the robot at a scene waypoint (e.g. cafe_counter_pick: hands at the tray, for the assisted grasp)
@@ -84,10 +94,23 @@ class SimWorker(threading.Thread):
         t0 = time.time()
         self.sim = TeleopSim(**kw)
         sim = self.sim
+        if people == "static":               # everybody stands still where the track starts (the old frozen-walker behaviour, now explicit)
+            from .. import scene as SCN
+            SCN.freeze_people(sim.scene)
+            sim.set_people()
         wp = sim.scene.waypoints
-        self.shield = SH.Shield(occ=sim.occ, a_hw=sim.a_hw)
+        cfg = SH.ShieldCfg(footprint=getattr(a, "footprint", "fixed"), fallback=getattr(a, "fallback", "brake"))
+        if getattr(a, "d_wall_door", None) is not None:        # opt-in doorway buffer (default off)
+            cfg.d_wall_door = a.d_wall_door
+            cfg.doorways = tuple(DOORWAYS.get(a.scene, ()))
+        self.shield = SH.Shield(cfg, occ=sim.occ, a_hw=sim.a_hw)
+        self.hub.tuck_goal = None
         self.shield.docks = [wp["cafe_counter_pick"][:2]] if carry else [wp["cafe_counter_pick"][:2], wp["lab_desk_place"][:2]]
         self.passthru = SH.Passthrough()
+        self.ghost = GH.Predictor()                             # operator-intent ghost: re-created (= cleared) on every episode reset
+        self.arm_intent = GH.ArmIntent(sim.of, iters=4)
+        self.ghost_draw = GH.Drawer(sim.m)
+        self.gf = None
         if getattr(a, "lang", "off") != "off":                    # language layer (flag-gated): instruction box -> grounding + spec + mu prior -> shield
             if self.lang is None:
                 from world_model.v2.house.lang import web as LW
@@ -99,6 +122,7 @@ class SimWorker(threading.Thread):
         self.mj = mujoco
         self.cam = mujoco.MjvCamera()
         mujoco.mjv_defaultCamera(self.cam)
+        self.fovy0 = float(sim.m.vis.global_.fovy)
         if a.render_mode == "thread":
             self._make_thread_renderers()
         for _ in range(3):                                            # warm-up (numba compile of the FL-MPC) with a zero command
@@ -145,8 +169,13 @@ class SimWorker(threading.Thread):
     # ------------------------------------------------------------------ rendering
     def _render_one(self, r, camname, size):
         sim = self.sim
+        self.sim.m.vis.global_.fovy = self.fovy0
         if camname in WRIST:
             r.update_scene(sim.d, camera=WRIST[camname])
+        elif camname == "ego":
+            self.sim.m.vis.global_.fovy = RP.ego_cam(self.cam, sim.base.x, sim.base.y, sim.base.yaw, sim.lift_actual())
+            r.update_scene(sim.d, camera=self.cam)
+            self.ghost_draw.add(r.scene, sim.d, self.gf, which="arms", z_arrow=GH.Z_ARROW_EGO)
         else:
             yaw = sim.base.yaw
             cam = self.cam
@@ -157,13 +186,14 @@ class SimWorker(threading.Thread):
                 cam.lookat[:] = (sim.base.x + 0.5 * math.cos(yaw), sim.base.y + 0.5 * math.sin(yaw), 0.8)
                 cam.distance, cam.elevation, cam.azimuth = 2.4, -25.0, math.degrees(yaw)
             r.update_scene(sim.d, camera=cam)
+            self.ghost_draw.add(r.scene, sim.d, self.gf)                # no ghost in the wrist views
         return r.render()
 
     def render_frame(self):
         main = CAMERAS[self.cam_i]
         img = self._render_one(self.r, main, None)
         if self.inset:
-            other = "chase" if main in WRIST else ("wrist_l" if main != "wrist_l" else "wrist_r")
+            other = "chase" if (main in WRIST or main == "ego") else ("wrist_l" if main != "wrist_l" else "wrist_r")
             ins = self._render_one(self.r_in, other, None)
             h, w = ins.shape[:2]
             img = img.copy()
@@ -193,6 +223,9 @@ class SimWorker(threading.Thread):
                 self.cam_i = (self.cam_i + 1) % len(CAMERAS)
             elif ev == "inset_toggle":
                 self.inset = not self.inset
+            elif ev == "ghost_toggle":
+                self.ghost_on = not self.ghost_on
+                self.ghost.reset()
             elif ev == "reset":
                 self.ready = False
                 self.telemetry = dict(ready=False, msg="resetting")
@@ -217,6 +250,7 @@ class SimWorker(threading.Thread):
     def loop(self):
         a = self.a
         from ..sim import TICK
+        from ..arm import _log_R
         next_t = time.perf_counter()
         last_render = 0.0
         info = dict(intervention_norm=0.0, label="", qp="")
@@ -234,9 +268,21 @@ class SimWorker(threading.Thread):
             t0 = time.perf_counter()
             sim = self.sim
             obs = sim.observe()
+            obs["tray_offset"] = (sim.of.dp.copy(), float(_log_R(sim.of.dR)[2]))     # commanded tray offset from the normal carry pose: the tuck / carry presets drive it
             cmd = self.hub.step(obs)
             sh = self.shield if self.shield_on else self.passthru
             safe, info = sh.filter(sim, cmd)
+            self.gf = self.ghost_frame(sim, cmd, safe, info) if self.ghost_on else None     # read-only: before sim.tick, from the same state
+            lab = str(info.get("label", ""))
+            if sh is self.shield and lab != getattr(self, "_last_lab", "") and lab in ("brake_fallback", "escape_fallback"):
+                try:                                                  # log WHY the shield fell back: the three tightest keep-out rows + every tier's QP status
+                    _A, _b, _t = self.shield._keep_rows(sim, sim.base.v)
+                    tight = [(_t[i], round(float(_b[i]), 3)) for i in np.argsort(_b)[:3]]
+                except Exception as e:
+                    tight = f"n/a ({type(e).__name__})"
+                print(f"[shield] t={sim.t:.2f} {lab} pose=({sim.base.x:.2f},{sim.base.y:.2f},{sim.base.yaw:.2f}) v={np.round(sim.base.v, 2).tolist()} "
+                      f"cmd={np.round(np.asarray(getattr(cmd, 'base', [0, 0, 0]), float), 2).tolist()} tiers={getattr(self.shield, 'dbg', {})} tightest={tight}", flush=True)
+            self._last_lab = lab
             o = sim.tick(safe)
             t1 = time.perf_counter()
             self.tick_ms.append((t1 - t0) * 1e3)
@@ -245,7 +291,7 @@ class SimWorker(threading.Thread):
             now = t1
             if a.render_mode == "process":
                 if self.link.alive():
-                    self.link.publish(sim, self.cam_i, self.inset)    # memcpy only; the child renders at --fps
+                    self.link.publish(sim, self.cam_i, self.inset, None if self.gf is None else self.gf.to_vec())    # memcpy only; the child renders at --fps
                 else:
                     print("[render] child process died; falling back to in-thread rendering", flush=True)
                     self.link.close(); self.link = None
@@ -264,6 +310,21 @@ class SimWorker(threading.Thread):
             elif slack < -0.5:
                 next_t = time.perf_counter()
 
+    def ghost_frame(self, sim, cmd, safe, info):
+        """operator-intent ghost (teleop/ghost.py): raw command vs the shield's, from the current measured state.  Visual only."""
+        active = self.shield_on
+        arm_dq = self.arm_intent.dq(cmd.jog, safe.jog) if active else None
+        return self.ghost.step(sim.pose(), sim.base.v, cmd.twist, safe.twist, float(info.get("intervention_norm", 0.0)),
+                               float(info.get("intervention_aux", 0.0)), lift=(sim.lift_h, sim.lift_v, cmd.lift_v, safe.lift_v),
+                               arm_dq=arm_dq, active=active)
+
+    def ghost_telemetry(self):
+        gf = self.gf
+        if gf is None:
+            return dict(on=False)
+        tx = GH.describe(gf)
+        return dict(on=True, shown=gf.alpha > 0, warn=bool(gf.warn), requested=tx["requested"], permitted=tx["permitted"], gap=tx["gap"])
+
     def make_telemetry(self, sim, obs, o, info, cmd, safe):
         st = self.hub.status()
         rtf = float("nan")
@@ -276,6 +337,8 @@ class SimWorker(threading.Thread):
             fps = (len(self.render_n) - 1) / max(self.render_n[-1] - self.render_n[0], 1e-6)
         lost = sim.cup_lost_t is not None
         n_b = int(sim.rig.n_beads)
+        fp = self.shield.fp_now
+        rms = float(np.mean(self.render_ms)) if self.render_ms else float("nan")
         wall, pd = float(o["wall"]), float(o["pdist"])
         return dict(
             ready=True, t=round(sim.t, 2), **st, shield=self.shield_on, shield_label=str(info.get("label", "")),
@@ -291,7 +354,11 @@ class SimWorker(threading.Thread):
             grasped=bool(o["grasped"]), can_grasp=bool(obs["can_grasp"]), infeasible=bool(o["infeasible"]),
             bumps=int(o["bump_contacts"]), cmd_twist=[round(float(x), 3) for x in cmd.twist],
             safe_twist=[round(float(x), 3) for x in safe.twist], cam=CAMERAS[self.cam_i], inset=self.inset,
-            impl=getattr(sim.ctl.fl, "impl", "?"), task=self.a.task, scene=self.a.scene,
+            impl=getattr(sim.ctl.fl, "impl", "?"), task=self.a.task, scene=self.a.scene, ghost=self.ghost_telemetry(),
+            people=getattr(self.a, "people", "on"), render_ms=round(rms, 1) if rms == rms else None,
+            fp_mode=self.shield.cfg.footprint, fp_w=round(fp["y"][1] - fp["y"][0], 3), fp_l=round(fp["x"][1] - fp["x"][0], 3),
+            fp_ms=round(self.shield.fp_ms[0] / max(self.shield.fp_ms[1], 1), 3),
+            tray_off=([round(float(x), 3) for x in self.hub.tray_off[0]] + [round(self.hub.tray_off[1], 3)]) if self.hub.tray_off is not None else None,
             **({"assist": dict(state=str(sim.assist.state), attempt=int(sim.assist.attempt), t_state=round(float(sim.assist.t_state), 1),
                                fail=str(sim.assist.fail_reason or ""), place=sim.assist.metrics_.get("place", {}).get("ok"))}
                if getattr(sim, "assist", None) is not None else {}))
@@ -403,6 +470,17 @@ def parse_args(argv=None):
     ap.add_argument("--shield", dest="shield", action="store_true", default=True)
     ap.add_argument("--no-shield", dest="shield", action="store_false")
     ap.add_argument("--fps", type=float, default=15.0, help="render/stream rate")
+    ap.add_argument("--no-ghost", dest="ghost", action="store_false", default=True, help="start with the operator-intent ghost off (key O toggles)")
+    ap.add_argument("--view", choices=["ego", "chase"], default="ego", help="initial camera: ego = torso head camera (robot's-eye view, the default), chase = behind the robot.  C cycles all views")
+    ap.add_argument("--people", choices=["on", "off", "static"], default="on",
+                    help="on = scripted people walk (sim-time track clock); static = they stand still at their track start; off = no people (no person keep-out)")
+    ap.add_argument("--footprint", choices=["fixed", "live"], default="fixed",
+                    help="shield footprint: fixed = phase-1 hold-pose box (conservative, 0.77 m wide); live = box of the robot's CURRENT arm / tray / cup pose (tuck with N narrows it)")
+    ap.add_argument("--fallback", choices=["brake", "escape"], default="brake",
+                    help="shield fallback when every QP tier is infeasible: brake = emergency brake (holds the robot even inside a violated buffer); "
+                         "escape = first try the keep-out rows with violated demands capped at the hardware slew (moves out of the buffer), then brake")
+    ap.add_argument("--d-wall-door", dest="d_wall_door", type=float, default=None,
+                    help="opt-in: wall buffer [m] inside a doorway (within 0.7 m of its centre) instead of ShieldCfg.d_wall = 0.10.  Default off")
     ap.add_argument("--width", type=int, default=640)
     ap.add_argument("--height", type=int, default=360)
     ap.add_argument("--inset-w", dest="inset_w", type=int, default=224)

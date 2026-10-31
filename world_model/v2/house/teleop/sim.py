@@ -61,7 +61,7 @@ class Cmd:
 class TeleopSim:
     def __init__(self, scene_name="h5", grasped=True, seed=0, with_people=True, counter=False, desk=False, tilt=True,
                  spawn=None, a_hw=None, grasp_mode="weld", people_clock="legacy", people_policy=None, people_source="truth",
-                 pose_source="truth", loc_cfg=None, loc_seed=None, occ_source="true", occ_map=None):
+                 pose_source="truth", loc_cfg=None, loc_seed=None, occ_source="true", occ_map=None, task=None, pick_props=None):
         """pose_source="truth" (default, bit-identical): control-path consumers (shield wall keep-out) read the mocap base pose.  "est": they read
         `ctrl_pose()` = house/loc PoseEstimator (wheel odometry + ZED VIO, `loc_cfg` = LocCfg, `loc_seed` default = seed); truth stays for
         metrics/eval/operator.  occ_source="true" (default): shield wall grid = the true house grid; "perceived": `occ_map` (loc.mapper
@@ -70,6 +70,13 @@ class TeleopSim:
         track that starts with a stationary segment never moves (h5 p_walker).  "time": the clock runs with sim time (every tick) except while
         the person yields; `people_policy` = PersonPolicy (all dynamic people) or {name: PersonPolicy}."""
         assert grasp_mode in ("weld", "friction"), grasp_mode
+        assert task in (None, "pick"), task
+        # task="pick" (OPT-IN, default None = unchanged): FREE ARMS (no tray grasped; the tray + cup are stowed on the pick table) and the pick table + props of
+        # house/pick/props.py (`pick_props`: True | set name | names; default True).  Mocap base, weld-mode ArmCtl (no assist); the fingers use the friction-rig gain.
+        self.task = task
+        if task == "pick":
+            grasped = False
+            pick_props = pick_props or True
         assert people_clock in ("legacy", "time"), people_clock
         assert people_source in ("truth", "tracker"), people_source
         self.people_source = people_source        # what the SHIELD sees (make_shield); self.people_state is always the ground truth (metrics)
@@ -91,15 +98,24 @@ class TeleopSim:
             tx = pick[0] + c * SC.TRAY_LOCAL[0] - s * SC.TRAY_LOCAL[1]
             ty = pick[1] + s * SC.TRAY_LOCAL[0] + c * SC.TRAY_LOCAL[1]
             tray_at = (tx, ty, pick[2] + math.pi / 2, SC.TRAY_HOLD_Z)
+        if task == "pick":                   # stow the tray (+cup) on the pick table, left end (robot frame fwd 0.80, lat +0.22), table-top height
+            from ..pick import props as PP
+            tw = PP.robot_to_world(spawn[:2], spawn[2], 0.80, 0.22)
+            tray_at = (float(tw[0]), float(tw[1]), spawn[2] + math.pi / 2, PP.TABLE_TOP_Z + 0.006)
         self.rig = SC.new_rig(scene_name, spawn=spawn, grasped=grasped, dt=DT, with_people=with_people,
                               counter_at=counter_at, desk_at=desk_at, tray_at=tray_at,
-                              dynamic_base=grasp_mode == "friction", finger_contact=grasp_mode == "friction")
+                              dynamic_base=grasp_mode == "friction", finger_contact=grasp_mode == "friction" or task == "pick",
+                              pick_props=pick_props)
         m, d = self.rig.m, self.rig.d
         self.m, self.d = m, d
+        if task == "pick":
+            from ..pick import props as PP
+            PP.place_props(m, d, self.rig.info["spawn"], self.rig.info["yaw"])
+            PP.set_ready(self.rig)
         self.grasped = grasped
         self.with_people = with_people
-        if grasp_mode == "friction":
-            from ..grasp.ctl import FFArmCtl       # FL-MPC + base-acceleration / payload feed-forward (dynamic base)
+        if grasp_mode == "friction" or task == "pick":
+            from ..grasp.ctl import FFArmCtl       # FL-MPC + base-acceleration / payload feed-forward (dynamic base); task="pick": its joint-friction feed-forward (the static base adds no other term)
             self.ctl = FFArmCtl(self.rig, tilt=False)
         else:
             self.ctl = ArmCtl(self.rig, tilt=tilt and grasped)     # the tray-tilt cone is only meaningful while a tray is held
@@ -138,7 +154,7 @@ class TeleopSim:
         import re
         for b in range(m.nbody):
             nm = m.body(b).name or ""
-            if nm in ("cup", "tp_counter", "tp_desk") or re.fullmatch(r"ball_\d+", nm) or nm in [p.name for p in self.scene.people if p.dynamic]:
+            if nm in ("cup", "tp_counter", "tp_desk") or nm.startswith("pp_") or re.fullmatch(r"ball_\d+", nm) or nm in [p.name for p in self.scene.people if p.dynamic]:
                 own.add(b)
         self.house_geom = np.array([int(m.geom_bodyid[g]) not in own and m.geom_type[g] != mujoco.mjtGeom.mjGEOM_PLANE for g in range(m.ngeom)])
         self.robot_geom = np.array([int(m.geom_bodyid[g]) in B._robot_tray_bodies(m) for g in range(m.ngeom)])

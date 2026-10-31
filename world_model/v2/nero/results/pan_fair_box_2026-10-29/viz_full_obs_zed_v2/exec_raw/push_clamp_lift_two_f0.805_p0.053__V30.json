@@ -1,0 +1,88 @@
+{
+ "placement": "none",
+ "hidden_mass": null,
+ "mode": "real_friction_contact",
+ "push_m": 0.053489335688193515,
+ "perturb": {
+  "dx": 0.015,
+  "dy": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 1.2
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.8047846749285816,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.010798017150511263,
+ "statics": {
+  "mass_total_kg": 0.3048,
+  "com_u_from_centre_m": 0.0277,
+  "com_w_m": 0.0039,
+  "probe_A_pitch_about_pivot_Nm": 0.3595,
+  "probe_B_roll_Nm": 0.0116,
+  "lift_force_N": 2.991,
+  "lift_handle_moment_Nm": 0.5009,
+  "lift_roll_Nm": 0.0116,
+  "lever_grasp_to_pivot_m": 0.2877
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.1488379782368079
+  },
+  "right": {
+   "margin": 0.03338656286208437
+  }
+ },
+ "pan_dy_after_push_m": -0.043199986353858466,
+ "lift_achieved_m": 0.01597064982966212,
+ "final_tilt_deg": 9.92,
+ "max_tilt_deg_lift_hold": 10.37,
+ "hold_last1s_support_N": 0.8815,
+ "hold_last1s_fz_N": {
+  "left": 2.1221499999999995,
+  "right": 0.0
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.877500000000001,
+  "right": 0.0
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 33.87512028673068,
+   "deg": 9.853880572410535
+  },
+  "right": {
+   "mm": 60.827213359131676,
+   "deg": 6.046697495389346
+  }
+ },
+ "lid_offset_mm": 1.1698675009563873,
+ "hidden_still_in_pan": null,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 10.390027297230867,
+ "observe": {
+  "est": {
+   "dx": 0.013986893958779834,
+   "dy": 0.014052310479761743,
+   "yaw_deg": 11.845164939423936,
+   "rms_wall_mm": 1.3185355308510447,
+   "n_wall": 1221,
+   "n_handle": 1731,
+   "n_points": 16592,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": 0.014999999828410809,
+   "dy": 0.014999999904349325,
+   "yaw_deg": 7.999999658036776
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 1.3872630423088033,
+  "residual_yaw_deg": 3.8451652813871604
+ },
+ "held": false,
+ "tag": "push_clamp_lift_two_f0.805_p0.053__V30"
+}

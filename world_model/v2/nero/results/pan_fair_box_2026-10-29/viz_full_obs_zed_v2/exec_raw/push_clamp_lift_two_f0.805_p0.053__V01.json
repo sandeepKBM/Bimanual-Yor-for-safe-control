@@ -1,0 +1,88 @@
+{
+ "placement": "far_centre",
+ "hidden_mass": 0.4,
+ "mode": "real_friction_contact",
+ "push_m": 0.053489335688193515,
+ "perturb": {
+  "dx": -0.015,
+  "dy": -0.015,
+  "yaw_deg": -8.0,
+  "mu_scale": 0.6
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.8047846749285816,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.0396157912712794,
+ "statics": {
+  "mass_total_kg": 0.7048,
+  "com_u_from_centre_m": -0.0161,
+  "com_w_m": 0.0023,
+  "probe_A_pitch_about_pivot_Nm": 0.5282,
+  "probe_B_roll_Nm": 0.0157,
+  "lift_force_N": 6.915,
+  "lift_handle_moment_Nm": 1.4612,
+  "lift_roll_Nm": 0.0157,
+  "lever_grasp_to_pivot_m": 0.2877
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.07067723027327054
+  },
+  "right": {
+   "margin": 0.07401326205651314
+  }
+ },
+ "pan_dy_after_push_m": -0.0436000854408094,
+ "lift_achieved_m": 0.041432230880038556,
+ "final_tilt_deg": 3.96,
+ "max_tilt_deg_lift_hold": 4.84,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.6028,
+  "right": 7.14435
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.0015,
+  "right": 9.9875
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 6.548808284950752,
+   "deg": 2.0026867229351497
+  },
+  "right": {
+   "mm": 2.01189922948208,
+   "deg": 1.8041390371481196
+  }
+ },
+ "lid_offset_mm": 1.270428898655938,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.287850517960015,
+ "observe": {
+  "est": {
+   "dx": -0.014618162831681991,
+   "dy": -0.013645215663312671,
+   "yaw_deg": -1.5175187569730468,
+   "rms_wall_mm": 0.933602538390556,
+   "n_wall": 1371,
+   "n_handle": 1315,
+   "n_points": 18463,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": -0.01499999163836394,
+   "dy": -0.014999980892113912,
+   "yaw_deg": -8.00001050877107
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 1.4075446929959419,
+  "residual_yaw_deg": 6.4824917517980225
+ },
+ "held": true,
+ "tag": "push_clamp_lift_two_f0.805_p0.053__V01"
+}

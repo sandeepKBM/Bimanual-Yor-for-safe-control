@@ -1,0 +1,82 @@
+{
+ "placement": "far_right",
+ "hidden_mass": 0.2,
+ "payload_model": "nominal",
+ "nominal_mass_kg": 0.304845189535163,
+ "mode": "real_friction_contact",
+ "claws": 1,
+ "grasp_frac": 0.8047846749285816,
+ "left_grasp": null,
+ "second_frac": null,
+ "second_grip": null,
+ "second_depth": null,
+ "grip": "force",
+ "grip_force_N": 10.0,
+ "assumed": {
+  "finger_mu": 1.0,
+  "handle_mu": 0.6,
+  "finger_force_limit_N": 10.0,
+  "condim": 3,
+  "twist_friction_m": 0.01,
+  "cone": "elliptic",
+  "finger_open": 0.03,
+  "dt": 0.005
+ },
+ "statics": {
+  "mass_total_kg": 0.5048,
+  "com_u_from_centre_m": 0.001,
+  "com_w_m": -0.0178,
+  "probe_A_pitch_about_pivot_Nm": 0.4633,
+  "probe_B_roll_Nm": -0.0883,
+  "lift_force_N": 4.953,
+  "lift_handle_moment_Nm": 0.9711,
+  "lift_roll_Nm": -0.0883,
+  "lever_grasp_to_pivot_m": 0.2896
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.056199551556259386,
+   "ik_err": [
+    4.1607831132113297e-07,
+    8.425617978522436e-07,
+    7.203512689226272e-07
+   ]
+  }
+ },
+ "lift_achieved_m": 0.017595253586221493,
+ "dropped": false,
+ "final_tilt_deg": 10.941199611252534,
+ "max_tilt_deg_after_lift": 10.948515403629703,
+ "slip_final_mm": 42.568886131845275,
+ "slip_final_deg": 12.144769710233817,
+ "slip_max_deg": 12.476820490356275,
+ "creep_last_1s_deg": -0.11066473179592329,
+ "slip_by_claw": {
+  "left": {
+   "mm": 42.568886131845275,
+   "deg": 12.144769710233817
+  }
+ },
+ "grip_normal_N_hold": {
+  "left_f1": 3.617510472241879,
+  "left_f2": 6.191839886410576
+ },
+ "lid_offset_mm": 1.0130483949718319,
+ "hidden_still_in_pan": true,
+ "hold_last1s_claw_Fz_N": 2.691391322770711,
+ "hold_last1s_claw_pitch_moment_Nm": 0.19449230047349744,
+ "hold_last1s_by_claw": {
+  "left": {
+   "Fz_N": 2.691391322770711,
+   "pitch_moment_about_left_grasp_Nm": 0.19449230047349744
+  }
+ },
+ "hold_last1s_support_Fz_N": 2.2613228226094266,
+ "far_rim_still_supported": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "tau_saturated_steps": 0,
+ "ctrl_ms_mean": 8.598752504205285,
+ "held": false,
+ "tag": "one_arm_l_f0.805_p0.000__far_right"
+}

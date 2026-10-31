@@ -1,0 +1,467 @@
+{
+ "house": 17,
+ "door": "door|2|7",
+ "start": [
+  6.9,
+  10.6
+ ],
+ "goal": [
+  4.85,
+  5.35
+ ],
+ "fp": {
+  "x": [
+   -0.1645576,
+   0.5770901
+  ],
+  "y": [
+   -0.6438942,
+   0.1303877
+  ]
+ },
+ "res_coarse": 0.05,
+ "res_fine": 0.01,
+ "door_clear_w_m": 0.8837258883137502,
+ "door_design_w_m": 1.0815002918243408,
+ "door_centre": [
+  6.497,
+  5.28474
+ ],
+ "fp_width_m": 0.7742819,
+ "fp_depth_m": 0.7416477,
+ "travel_sign": 1,
+ "door_passage": {
+  "ok": true,
+  "u": -0.22999999999999982,
+  "clearance": 0.02,
+  "s_at_min": -0.6299999999999992,
+  "heading": 3.141592653589793,
+  "normal": [
+   -1.0,
+   0.0
+  ],
+  "wall_dir": [
+   0.0,
+   1.0
+  ],
+  "centre": [
+   6.497,
+   5.28474
+  ]
+ },
+ "door_coarse_5cm_free_centre": false,
+ "door_coarse_5cm_free_best": false,
+ "polyline": [
+  [
+   6.9,
+   10.6
+  ],
+  [
+   6.675000000000001,
+   10.375
+  ],
+  [
+   6.675000000000001,
+   7.675000000000001
+  ],
+  [
+   7.675000000000001,
+   6.675000000000001
+  ],
+  [
+   7.697,
+   5.054740000000001
+  ],
+  [
+   5.35,
+   5.054740000000001
+  ],
+  [
+   5.075,
+   5.054740000000001
+  ],
+  [
+   4.85,
+   5.35
+  ]
+ ],
+ "tried": [
+  {
+   "pad": 0.0,
+   "extra": 0.8,
+   "astar": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.6,
+   "astar": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.4,
+   "R": 0.6,
+   "colliding": 21,
+   "min_clear": 0.0,
+   "min_corner_r": 0.24988853278040019,
+   "length": 9.2595375036761,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.4,
+   "R": 0.45,
+   "colliding": 17,
+   "min_clear": 0.0,
+   "min_corner_r": 0.24988853278040019,
+   "length": 9.30196519003303,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.4,
+   "R": 0.3,
+   "colliding": 14,
+   "min_clear": 0.0,
+   "min_corner_r": 0.24988853278040019,
+   "length": 9.381640460362654,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.4,
+   "R": 0.2,
+   "colliding": 10,
+   "min_clear": 0.0,
+   "min_corner_r": 0.2,
+   "length": 9.441231387186976,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.2,
+   "R": 0.6,
+   "colliding": 21,
+   "min_clear": 0.0,
+   "min_corner_r": 0.24988853278040019,
+   "length": 8.94084414033577,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.2,
+   "R": 0.45,
+   "colliding": 17,
+   "min_clear": 0.0,
+   "min_corner_r": 0.24988853278040019,
+   "length": 9.020168945652518,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.2,
+   "R": 0.3,
+   "colliding": 14,
+   "min_clear": 0.0,
+   "min_corner_r": 0.24988853278040019,
+   "length": 9.099486328151748,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.2,
+   "R": 0.2,
+   "colliding": 11,
+   "min_clear": 0.0,
+   "min_corner_r": 0.2,
+   "length": 9.158837008144792,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.0,
+   "R": 0.6,
+   "colliding": 21,
+   "min_clear": 0.0,
+   "min_corner_r": 0.24988853278040019,
+   "length": 8.659041418075319,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.0,
+   "R": 0.45,
+   "colliding": 17,
+   "min_clear": 0.0,
+   "min_corner_r": 0.24988853278040019,
+   "length": 8.738100601780598,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.0,
+   "R": 0.3,
+   "colliding": 14,
+   "min_clear": 0.0,
+   "min_corner_r": 0.24988853278040019,
+   "length": 8.81715236699744,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.0,
+   "extra": 0.0,
+   "R": 0.2,
+   "colliding": 11,
+   "min_clear": 0.0,
+   "min_corner_r": 0.2,
+   "length": 8.876325964511826,
+   "turns": 5,
+   "ok": false
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.8,
+   "astar": false
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.6,
+   "astar": false
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.4,
+   "astar": false
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.2,
+   "R": 0.6,
+   "colliding": 0,
+   "min_clear": 0.02,
+   "min_corner_r": 0.24988853278040019,
+   "length": 8.979250841047435,
+   "turns": 5,
+   "ok": true
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.2,
+   "R": 0.45,
+   "colliding": 0,
+   "min_clear": 0.02,
+   "min_corner_r": 0.24988853278040019,
+   "length": 9.058502070383579,
+   "turns": 5,
+   "ok": true
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.2,
+   "R": 0.3,
+   "colliding": 0,
+   "min_clear": 0.02,
+   "min_corner_r": 0.24988853278040019,
+   "length": 9.13970995814482,
+   "turns": 5,
+   "ok": true
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.2,
+   "R": 0.2,
+   "colliding": 0,
+   "min_clear": 0.02,
+   "min_corner_r": 0.2,
+   "length": 9.200350248685346,
+   "turns": 5,
+   "ok": true
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.0,
+   "R": 0.6,
+   "colliding": 0,
+   "min_clear": 0.02,
+   "min_corner_r": 0.24988853278040019,
+   "length": 8.697379108387988,
+   "turns": 5,
+   "ok": true
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.0,
+   "R": 0.45,
+   "colliding": 0,
+   "min_clear": 0.02,
+   "min_corner_r": 0.24988853278040019,
+   "length": 8.776382334044943,
+   "turns": 5,
+   "ok": true
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.0,
+   "R": 0.3,
+   "colliding": 0,
+   "min_clear": 0.02,
+   "min_corner_r": 0.24988853278040019,
+   "length": 8.857342222152639,
+   "turns": 5,
+   "ok": true
+  },
+  {
+   "pad": 0.05,
+   "extra": 0.0,
+   "R": 0.2,
+   "colliding": 0,
+   "min_clear": 0.02,
+   "min_corner_r": 0.2,
+   "length": 8.917817175526217,
+   "turns": 5,
+   "ok": true
+  },
+  {
+   "pad": 0.1,
+   "extra": 0.8,
+   "astar": false
+  },
+  {
+   "pad": 0.1,
+   "extra": 0.6,
+   "astar": false
+  },
+  {
+   "pad": 0.1,
+   "extra": 0.4,
+   "astar": false
+  },
+  {
+   "pad": 0.1,
+   "extra": 0.2,
+   "astar": false
+  },
+  {
+   "pad": 0.1,
+   "extra": 0.0,
+   "astar": false
+  }
+ ],
+ "chosen": {
+  "pad": 0.05,
+  "extra": 0.0,
+  "R": 0.6
+ },
+ "reason": "ok",
+ "door_bodies": [
+  "doorway_fee6ea5c4766fbf3fb30edadd9ddd22a_1_0_2",
+  "doorway_fee6ea5c4766fbf3fb30edadd9ddd22a_1_1_2",
+  "doorway_fee6ea5c4766fbf3fb30edadd9ddd22a_1_2_2",
+  "doorway_fee6ea5c4766fbf3fb30edadd9ddd22a_1_3_2"
+ ],
+ "door_u_curve_nonzero": [
+  [
+   -0.23999999999999982,
+   0.01
+  ],
+  [
+   -0.23499999999999982,
+   0.01
+  ],
+  [
+   -0.22999999999999982,
+   0.02
+  ],
+  [
+   -0.2249999999999998,
+   0.01
+  ],
+  [
+   -0.2199999999999998,
+   0.01
+  ]
+ ],
+ "route": {
+  "fillet_radius": 0.6,
+  "corners": [
+   {
+    "vertex": [
+     6.675000000000001,
+     10.375
+    ],
+    "turn_deg": 45.0,
+    "radius": 0.34568912319027534
+   },
+   {
+    "vertex": [
+     6.675000000000001,
+     7.675000000000001
+    ],
+    "turn_deg": 45.0,
+    "radius": 0.6
+   },
+   {
+    "vertex": [
+     7.675000000000001,
+     6.675000000000001
+    ],
+    "turn_deg": -44.222081830174616,
+    "radius": 0.6
+   },
+   {
+    "vertex": [
+     7.697,
+     5.054740000000001
+    ],
+    "turn_deg": -90.77791816982538,
+    "radius": 0.6
+   },
+   {
+    "vertex": [
+     5.075,
+     5.054740000000001
+    ],
+    "turn_deg": -52.69114088572167,
+    "radius": 0.24988853278040019
+   }
+  ],
+  "n_turns": 5,
+  "min_clearance_all_m": 0.02,
+  "min_clearance_door_zone_m": 0.02,
+  "length_m": 8.697379108387988,
+  "duration_s": 33.575,
+  "peak_speed": 0.30000000000036664,
+  "peak_acc": 0.23507673303708151,
+  "peak_jerk": 0.6879568592882349,
+  "peak_wz": 0.9988674871141967,
+  "peak_tray_acc_long": 1.658857351415119,
+  "peak_tray_acc_short": 1.1408842297411663,
+  "peak_tray_acc": 1.8626252716623188,
+  "caps": {
+   "vmax": 0.3,
+   "amax": 0.25,
+   "jmax": 0.4166666666666667,
+   "lat_frac": 0.85,
+   "t_filter": 0.6
+  },
+  "door_pass_u": -0.22999999999999982,
+  "travel_heading_deg": 180.0,
+  "end_err_m": 5.3225490509198335e-05,
+  "traj_meta": {
+   "length_m": 8.697379108387988,
+   "duration_s": 33.575,
+   "dt": 0.005,
+   "lead_in_s": 1.5
+  }
+ }
+}

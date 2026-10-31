@@ -1,0 +1,453 @@
+{
+ "observe_mode": "built",
+ "obs_noise": "zed",
+ "belief": "prereg",
+ "belief_box": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.4
+  ],
+  "payload": "empty",
+  "assumptions": [],
+  "observed": null
+ },
+ "belief_after_proposer": {
+  "dxy_m": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": [
+   0.6,
+   1.2
+  ],
+  "hidden_mass_kg": [
+   0.0,
+   0.4
+  ],
+  "payload": "empty",
+  "assumptions": [],
+  "observed": null
+ },
+ "proposer": "llm",
+ "proposer_backend": "cached(codex)",
+ "proposer_model": {
+  "spec": "codex:gpt-5.6-sol:high",
+  "backend": "codex",
+  "model": "gpt-5.6-sol",
+  "reasoning": "high",
+  "caveats": "codex exec adds its own agent system prompt; temperature not settable; ChatGPT-plan rate limits; the gateway preface is prepended to every prompt: You are being used as a plain chat-completion backend for a robot task planner. Do not run commands, read files or edit anything. Reply with exactly the assistant message that answers the conversation below, nothing else."
+ },
+ "proposer_constraints": [
+  [
+   "forbid",
+   "pinch",
+   [
+    [
+     "part",
+     "lid"
+    ]
+   ]
+  ],
+  [
+   "forbid",
+   "probe_mass",
+   []
+  ],
+  [
+   "require",
+   "pinch",
+   "pose_refined"
+  ],
+  [
+   "require",
+   "lift",
+   "held_L_handle"
+  ],
+  [
+   "require",
+   "lift",
+   "held_R_rim"
+  ],
+  [
+   "require",
+   "lift",
+   "lid_secured"
+  ]
+ ],
+ "proposer_log": [],
+ "proposer_raw": "{\"facts\":{\"lid_attached\":false,\"contents\":\"Unknown; the pan may contain food of unknown mass.\"},\"constraints\":[{\"forbid\":{\"skill\":\"pinch\",\"part\":\"lid\"},\"why\":\"The lid merely rests on the pan, so gripping it cannot safely support the pan or secure the contents.\"},{\"forbid\":{\"skill\":\"probe_mass\"},\"why\":\"Tipping the pan about its rim could shift or spill unknown contents and dislodge the unattached lid.\"},{\"require\":{\"skill\":\"pinch\",\"atom\":\"pose_refined\"},\"why\":\"Refining the pose reduces the chance of a claw contacting the pan or lid incorrectly.\"},{\"require\":{\"skill\":\"lift\",\"atom\":\"held_L_handle\"},\"why\":\"The handle-side arm must support and control the pan during lifting.\"},{\"require\":{\"skill\":\"lift\",\"atom\":\"held_R_rim\"},\"why\":\"The far-side rim clamp supports the vessel while retaining the lid and contents.\"},{\"require\":{\"skill\":\"lift\",\"atom\":\"lid_secured\"},\"why\":\"The unattached lid must be secured before the pan leaves the stove.\"}]}",
+ "n_evidence": 489,
+ "stageB": true,
+ "plan": null,
+ "stage": "no_plan",
+ "verdict": null,
+ "assumptions": [],
+ "aim_belief": null,
+ "stats": {
+  "nodes": 157,
+  "pruned_by_proposer": 225,
+  "candidates": 21,
+  "pruned_by_counterexample": 13,
+  "certificate_calls": 8,
+  "sim_rounds": 3,
+  "sim_runs": 8,
+  "rejected_by_rule": {
+   "R3_recorded": 5
+  }
+ },
+ "trace": [
+  {
+   "round": 0,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 0,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 2,
+    "failed": 2,
+    "cats": [
+     "no_clean_pregrasp",
+     "sag_or_no_lift"
+    ]
+   }
+  },
+  {
+   "round": 1,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (0/2 held); e.g. no_clean_pregrasp in stageB_evidence_prereg.jsonl:r0000_v03",
+   "counterexample": {
+    "dx": 0.015,
+    "dy": 0.015,
+    "yaw_deg": -8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.4,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_prereg.jsonl:r0000_v03"
+   },
+   "support": {
+    "held": 0,
+    "total": 2
+   }
+  },
+  {
+   "round": 1,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "16 recorded failure(s) inside the box (46/62 held); e.g. right_claw_lost_or_missed in I09_zed.json",
+   "counterexample": {
+    "dx": 0.005498607180097714,
+    "dy": 0.00861290824664403,
+    "yaw_deg": -4.934139855677836,
+    "mu_scale": 1.081418496680718,
+    "hidden_mass": 0.07652957042288011,
+    "placement": "far_right",
+    "cat": "right_claw_lost_or_missed",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_observe_pose_2026-10-29/raw/I09_zed.json"
+   },
+   "support": {
+    "held": 46,
+    "total": 62
+   }
+  },
+  {
+   "round": 1,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "11 recorded failure(s) inside the box (0/11 held); e.g. no_clean_pregrasp in I06_zed.json",
+   "counterexample": {
+    "dx": 0.003390099031591213,
+    "dy": 0.01251893114372708,
+    "yaw_deg": -7.366513973372754,
+    "mu_scale": 0.9171535579560129,
+    "hidden_mass": 0.1837343531541615,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_observe_pose_2026-10-29/raw/I06_zed.json"
+   },
+   "support": {
+    "held": 0,
+    "total": 11
+   }
+  },
+  {
+   "round": 1,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 1,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 3,
+    "failed": 2,
+    "cats": [
+     "no_clean_pregrasp",
+     "sag_or_no_lift"
+    ]
+   }
+  },
+  {
+   "round": 2,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (1/3 held); e.g. no_clean_pregrasp in stageB_evidence_prereg.jsonl:r0002_v03",
+   "counterexample": {
+    "dx": 0.015,
+    "dy": 0.015,
+    "yaw_deg": -8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.4,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_prereg.jsonl:r0002_v03"
+   },
+   "support": {
+    "held": 1,
+    "total": 3
+   }
+  },
+  {
+   "round": 2,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": true,
+   "rule": "admit_stageA",
+   "evidence": "-",
+   "detail": "no known counterexample; 0/0 recorded runs inside the box held",
+   "counterexample": null,
+   "support": {
+    "held": 0,
+    "total": 0
+   }
+  },
+  {
+   "round": 2,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "stageB": {
+    "runs": 3,
+    "failed": 2,
+    "cats": [
+     "no_clean_pregrasp",
+     "sag_or_no_lift"
+    ]
+   }
+  },
+  {
+   "round": 3,
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()",
+   "ok": false,
+   "rule": "R3_recorded",
+   "evidence": "empirical",
+   "detail": "2 recorded failure(s) inside the box (1/3 held); e.g. no_clean_pregrasp in stageB_evidence_prereg.jsonl:r0005_v03",
+   "counterexample": {
+    "dx": 0.015,
+    "dy": 0.015,
+    "yaw_deg": -8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.4,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_prereg.jsonl:r0005_v03"
+   },
+   "support": {
+    "held": 1,
+    "total": 3
+   }
+  }
+ ],
+ "counterexamples": [
+  {
+   "scope": [
+    "pregrasp",
+    [
+     [
+      "L",
+      "handle"
+     ],
+     [
+      "R",
+      "rim"
+     ]
+    ],
+    0.6,
+    "obs:zed"
+   ],
+   "theta": {
+    "dx": 0.015,
+    "dy": 0.015,
+    "yaw_deg": -8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.4,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_prereg.jsonl:r0000_v03"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.6) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "sig",
+    [
+     [
+      [
+       "L",
+       "handle"
+      ],
+      [
+       "R",
+       "rim"
+      ]
+     ],
+     0.65,
+     0.07,
+     10.0,
+     "empty",
+     "obs:zed"
+    ]
+   ],
+   "theta": {
+    "dx": 0.005498607180097714,
+    "dy": 0.00861290824664403,
+    "yaw_deg": -4.934139855677836,
+    "mu_scale": 1.081418496680718,
+    "hidden_mass": 0.07652957042288011,
+    "placement": "far_right",
+    "cat": "right_claw_lost_or_missed",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_observe_pose_2026-10-29/raw/I09_zed.json"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "pregrasp",
+    [
+     [
+      "L",
+      "handle"
+     ],
+     [
+      "R",
+      "rim"
+     ]
+    ],
+    0.65,
+    "obs:zed"
+   ],
+   "theta": {
+    "dx": 0.003390099031591213,
+    "dy": 0.01251893114372708,
+    "yaw_deg": -7.366513973372754,
+    "mu_scale": 0.9171535579560129,
+    "hidden_mass": 0.1837343531541615,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "/common/users/ss5772/bimanual/world_model/v2/nero/results/pan_observe_pose_2026-10-29/raw/I06_zed.json"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.65) -> push(push=0.08) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "pregrasp",
+    [
+     [
+      "L",
+      "handle"
+     ],
+     [
+      "R",
+      "rim"
+     ]
+    ],
+    0.7,
+    "obs:zed"
+   ],
+   "theta": {
+    "dx": 0.015,
+    "dy": 0.015,
+    "yaw_deg": -8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.4,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_prereg.jsonl:r0002_v03"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.7) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  },
+  {
+   "scope": [
+    "pregrasp",
+    [
+     [
+      "L",
+      "handle"
+     ],
+     [
+      "R",
+      "rim"
+     ]
+    ],
+    0.75,
+    "obs:zed"
+   ],
+   "theta": {
+    "dx": 0.015,
+    "dy": 0.015,
+    "yaw_deg": -8.0,
+    "mu_scale": 1.2,
+    "hidden_mass": 0.4,
+    "placement": "far_centre",
+    "cat": "no_clean_pregrasp",
+    "src": "stageB_evidence_prereg.jsonl:r0005_v03"
+   },
+   "rule": "R3_recorded",
+   "plan": "observe_pose() -> pinch(L, handle, frac=0.75) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  }
+ ],
+ "wall_s": 118.09,
+ "total_wall_s": 118.4,
+ "blocking_constraints": [
+  {
+   "constraint": [
+    "require",
+    "pinch",
+    "pose_refined"
+   ],
+   "plan_without_it": "pinch(L, handle, frac=0.65) -> push(push=0.07) -> clamp_rim(R, rim) -> lift()"
+  }
+ ]
+}

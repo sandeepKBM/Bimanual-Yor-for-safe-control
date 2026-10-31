@@ -110,16 +110,24 @@ function onTel() {
   h += row("input", `${tel.src} ${tel.watchdog ? '<span class="bad">WATCHDOG (stale)</span>' : ""}  pad: ${pad.connected ? "on (" + pad.mode + (pad.deadman ? "" : ", LB up") + ")" : "none"} ${pad.warn ? '<span class="warn">' + pad.warn + "</span>" : ""}`);
   h += row("shield", `${tel.shield ? "ON" : '<span class="bad">OFF</span>'}  interv ${(100 * tel.interv_frac).toFixed(0)}% (now ${tel.interv_now})  ${tel.shield_label || ""}`);
   h += row("real-time", tel.rtf == null ? "-" : `x${tel.rtf}  (${tel.tick_ms} ms/tick, FL-MPC ${tel.impl})`, rtfc);
-  h += row("stream", `${fpsShown.toFixed(1)} fps (server ${tel.render_fps ?? "-"}), cam ${tel.cam}${tel.inset ? " +inset" : ""}`);
+  h += row("stream", `${fpsShown.toFixed(1)} fps (server ${tel.render_fps ?? "-"}, render ${tel.render_ms ?? "-"} ms), cam ${tel.cam}${tel.inset ? " +inset" : ""}`);
   h += row("latency", `net RTT ${rtt == null ? "-" : rtt.toFixed(0)} ms, input->ack ${ackLat == null ? "-" : ackLat.toFixed(0)} ms`);
   h += row("cup", `${tel.cup_state}  beads out ${tel.beads_out}/${tel.n_beads}  tilt ${tel.cup_tilt} deg`, cup);
   h += row("clearance", `wall ${tel.wall_clr == null ? "-" : (100 * tel.wall_clr).toFixed(0)} cm, person ${tel.person_clr == null || tel.person_clr > 50 ? "-" : (100 * tel.person_clr).toFixed(0)} cm`,
     (tel.wall_clr != null && tel.wall_clr < 0.1) ? "warn" : "");
   h += row("base", `${tel.speed} m/s, wz ${tel.wz} rad/s, lift ${tel.lift_h} m`);
   h += row("cmd", `op [${tel.cmd_twist}]  safe [${tel.safe_twist}]`);
+  const g = tel.ghost || {};
+  h += row("ghost", !g.on ? "off (O)" : !g.shown ? "on, on the robot (shield passes the command)" :
+    `<span class="${g.warn ? "warn" : ""}">${g.gap}</span><br>requested ${g.requested}<br>permitted ${g.permitted}`, g.shown && g.warn ? "warn" : "");
+  h += row("footprint", `${tel.fp_mode}  ${tel.fp_w == null ? "-" : (100 * tel.fp_w).toFixed(0)} cm wide x ${tel.fp_l == null ? "-" : (100 * tel.fp_l).toFixed(0)} cm long  (${tel.fp_ms} ms/tick)   tray ${tel.tuck || "-"}`,
+    tel.tuck === "tucked" ? "ok" : "");
+  h += row("people", `${tel.people}`);
   h += row("tray", `${tel.grasped ? "GRASPED" : "free"}  can_grasp ${tel.can_grasp ? "yes" : "no"}  bumps ${tel.bumps}  ${tel.infeasible ? '<span class="warn">QP infeasible</span>' : ""}`);
   h += row("sim", `t=${tel.t}s  ${tel.scene}/${tel.task}  pose [${tel.pose}]`);
   telEl.innerHTML = h;
+  const ts = document.getElementById("tuck_st");
+  if (ts) ts.textContent = tel.tuck ? "tray: " + tel.tuck : "";
   updateAssist(tel);
 }
 // ---- assisted friction grasp (only when the server runs --grasp-mode friction: telemetry carries `assist`; otherwise the panel stays hidden).
@@ -139,6 +147,9 @@ function updateAssist(tel) {
 }
 document.addEventListener("DOMContentLoaded", () => {
   const ab = document.getElementById("assist_btn"), pb = document.getElementById("place_btn");
+  const tb = document.getElementById("tuck_btn"), cb = document.getElementById("carry_btn");
+  if (tb) tb.onclick = () => { tapKey("KeyN"); tb.blur(); };
+  if (cb) cb.onclick = () => { tapKey("KeyM"); cb.blur(); };
   if (ab) ab.onclick = () => tapKey("KeyG");
   if (pb) pb.onclick = () => tapKey("KeyH");
 });

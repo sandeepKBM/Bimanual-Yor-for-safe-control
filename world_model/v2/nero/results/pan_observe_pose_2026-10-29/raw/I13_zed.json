@@ -1,0 +1,98 @@
+{
+ "placement": "near_handle",
+ "hidden_mass": 0.00979627099734528,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": -0.0005336283540199032,
+  "dy": 0.011841475865885204,
+  "yaw_deg": -1.2365294888730034,
+  "mu_scale": 0.9537012372504288
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.031530039478784355,
+ "statics": {
+  "mass_total_kg": 0.3146,
+  "com_u_from_centre_m": 0.0287,
+  "com_w_m": -0.0006,
+  "probe_A_pitch_about_pivot_Nm": 0.374,
+  "probe_B_roll_Nm": -0.0019,
+  "lift_force_N": 3.087,
+  "lift_handle_moment_Nm": 0.4578,
+  "lift_roll_Nm": -0.0019,
+  "lever_grasp_to_pivot_m": 0.2695
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.05123783041640928
+  },
+  "right": {
+   "margin": 0.062404052387008434
+  }
+ },
+ "pan_dy_after_push_m": -0.061941462258475244,
+ "lift_achieved_m": 0.05196777461947921,
+ "final_tilt_deg": 4.31,
+ "max_tilt_deg_lift_hold": 5.99,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 1.3607999999999998,
+  "right": 3.47235
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.019000000000002,
+  "right": 10.037
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 6.03309399042229,
+   "deg": 2.0799315068296407
+  },
+  "right": {
+   "mm": 1.8290133184304784,
+   "deg": 1.3230812249230433
+  }
+ },
+ "lid_offset_mm": 12.622376978280707,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 7.719868790368919,
+ "observe": {
+  "est": {
+   "dx": -0.0005369789078236709,
+   "dy": 0.01094690921379543,
+   "yaw_deg": -1.470443392613223,
+   "rms_wall_mm": 0.7320767722854635,
+   "n_wall": 1216,
+   "n_handle": 1592,
+   "n_points": 17648,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": -0.000533628303326594,
+   "dy": 0.011841475760214486,
+   "yaw_deg": -1.236529638788289
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 0.8945728212519155,
+  "residual_yaw_deg": -0.23391375382493407
+ },
+ "held": true,
+ "tag": "I13_zed",
+ "noise": "zed",
+ "theta": {
+  "dx": -0.0005336283540199032,
+  "dy": 0.011841475865885204,
+  "yaw_deg": -1.2365294888730034,
+  "mu_scale": 0.9537012372504288,
+  "placement": "near_handle",
+  "hidden_mass": 0.00979627099734528
+ },
+ "category": "held"
+}

@@ -1,10 +1,13 @@
 # bimanual YOR — safe cooperative bimanual control
 # Pinned to the versions in use (env: mujoco_ur5e, Python 3.12).
-# Generated 2026-09-21.
+# Generated 2026-09-21; regenerated 2026-10-13 from an AST scan of every tracked
+# .py import, mapped to the distributions installed in mujoco_ur5e.
+# Separate envs (FoundationStereo/Pose, person detector, VLM): see README.md.
 
 # ── Core simulation & math ──
 mujoco==3.9.0
 numpy==2.4.3
+scipy==1.17.1
 numba==0.66.0
 
 # ── Deep learning ──
@@ -20,8 +23,21 @@ matplotlib==3.10.8
 imageio==2.37.0
 imageio-ffmpeg==0.6.0
 Pillow==12.3.0
+opencv-python==4.13.0.92
 glfw==2.10.0
 viser==1.1.0
+mjviser==0.0.14
+
+# ── Browser teleop server ──
+aiohttp==3.13.3
+websockets==16.1.1
+
+# ── Geometry / assets ──
+trimesh==4.12.2
+zstandard==0.25.0
 
 # ── Config ──
 PyYAML==6.0.3
+
+# ── Tests ──
+pytest==9.0.2

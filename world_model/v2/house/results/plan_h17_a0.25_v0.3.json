@@ -1,0 +1,83 @@
+{
+ "house": 17,
+ "door": "door|2|7",
+ "start": [
+  6.9,
+  10.6
+ ],
+ "goal": [
+  4.85,
+  5.35
+ ],
+ "fp": {
+  "x": [
+   -0.1645576,
+   0.5770901
+  ],
+  "y": [
+   -0.6438942,
+   0.1303877
+  ]
+ },
+ "res_coarse": 0.05,
+ "res_fine": 0.01,
+ "door_clear_w_m": 0.8837258883137502,
+ "door_design_w_m": 1.0815002918243408,
+ "door_centre": [
+  6.497,
+  5.28474
+ ],
+ "fp_width_m": 0.7742819,
+ "fp_depth_m": 0.7416477,
+ "travel_sign": 1,
+ "door_passage": {
+  "ok": true,
+  "u": -0.22999999999999982,
+  "clearance": 0.02,
+  "s_at_min": -0.6299999999999992,
+  "heading": 3.141592653589793,
+  "normal": [
+   -1.0,
+   0.0
+  ],
+  "wall_dir": [
+   0.0,
+   1.0
+  ],
+  "centre": [
+   6.497,
+   5.28474
+  ]
+ },
+ "door_coarse_5cm_free_centre": false,
+ "door_coarse_5cm_free_best": false,
+ "reason": "no route: best door clearance 0.020 m < required 0.05 m",
+ "door_bodies": [
+  "doorway_fee6ea5c4766fbf3fb30edadd9ddd22a_1_0_2",
+  "doorway_fee6ea5c4766fbf3fb30edadd9ddd22a_1_1_2",
+  "doorway_fee6ea5c4766fbf3fb30edadd9ddd22a_1_2_2",
+  "doorway_fee6ea5c4766fbf3fb30edadd9ddd22a_1_3_2"
+ ],
+ "door_u_curve_nonzero": [
+  [
+   -0.23999999999999982,
+   0.01
+  ],
+  [
+   -0.23499999999999982,
+   0.01
+  ],
+  [
+   -0.22999999999999982,
+   0.02
+  ],
+  [
+   -0.2249999999999998,
+   0.01
+  ],
+  [
+   -0.2199999999999998,
+   0.01
+  ]
+ ]
+}

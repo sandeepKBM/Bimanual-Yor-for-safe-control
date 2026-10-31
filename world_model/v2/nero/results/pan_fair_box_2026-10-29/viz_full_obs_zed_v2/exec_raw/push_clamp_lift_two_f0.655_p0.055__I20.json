@@ -1,0 +1,88 @@
+{
+ "placement": "far_left",
+ "hidden_mass": 0.3052514130176213,
+ "mode": "real_friction_contact",
+ "push_m": 0.05492455717070616,
+ "perturb": {
+  "dx": -0.007703536070810186,
+  "dy": -0.007293975983186918,
+  "yaw_deg": -6.828958841744544,
+  "mu_scale": 0.7546818713980419
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.6546448536997266,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.03420952485302403,
+ "statics": {
+  "mass_total_kg": 0.6101,
+  "com_u_from_centre_m": -0.0033,
+  "com_w_m": 0.0231,
+  "probe_A_pitch_about_pivot_Nm": 0.5338,
+  "probe_B_roll_Nm": 0.1381,
+  "lift_force_N": 5.985,
+  "lift_handle_moment_Nm": 1.0752,
+  "lift_roll_Nm": 0.1381,
+  "lever_grasp_to_pivot_m": 0.2688
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.030828141928873794
+  },
+  "right": {
+   "margin": 0.07529608576143748
+  }
+ },
+ "pan_dy_after_push_m": -0.04010602852860645,
+ "lift_achieved_m": 0.03631703226237337,
+ "final_tilt_deg": 6.11,
+ "max_tilt_deg_lift_hold": 6.41,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.1866999999999996,
+  "right": 6.87945
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.991500000000002,
+  "right": 10.0075
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 10.144821479637821,
+   "deg": 5.414968791239523
+  },
+  "right": {
+   "mm": 1.3869293298240304,
+   "deg": 0.2577403913872531
+  }
+ },
+ "lid_offset_mm": 1.1711583074225758,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.703545450718485,
+ "observe": {
+  "est": {
+   "dx": -0.009348971557520347,
+   "dy": -0.007424716364664352,
+   "yaw_deg": -8.753495205471967,
+   "rms_wall_mm": 0.8832767250766743,
+   "n_wall": 1542,
+   "n_handle": 1531,
+   "n_points": 18569,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": -0.007703534407785124,
+   "dy": -0.007293975389749898,
+   "yaw_deg": -6.828959017430287
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 1.6506230993931827,
+  "residual_yaw_deg": -1.9245361880416807
+ },
+ "held": false,
+ "tag": "push_clamp_lift_two_f0.655_p0.055__I20"
+}

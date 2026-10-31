@@ -1,0 +1,561 @@
+{
+ "_ASSUMPTION": "ASSUMPTION - HAND-WRITTEN, ORDER-OF-MAGNITUDE real-world priors for typical household objects, EMPTY. NOT measured, NOT from the sim (sim masses are per-category constants and often wrong). mass_kg = sane [lo,hi] bounds; where density_kg_m3 is given the label range = oriented-bounding-box volume x density range, intersected with the bounds. fragile/has_handle are per-category defaults (assets inside a category vary).",
+ "categories": {
+  "Book": {
+   "display": "book",
+   "mass_kg": [
+    0.1,
+    2.5
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty",
+   "density_kg_m3": [
+    450,
+    900
+   ]
+  },
+  "Pencil": {
+   "display": "pencil",
+   "mass_kg": [
+    0.004,
+    0.02
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Pen": {
+   "display": "pen",
+   "mass_kg": [
+    0.005,
+    0.03
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Pillow": {
+   "display": "pillow",
+   "mass_kg": [
+    0.2,
+    1.2
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty",
+   "density_kg_m3": [
+    8,
+    40
+   ]
+  },
+  "RemoteControl": {
+   "display": "remote control",
+   "mass_kg": [
+    0.08,
+    0.25
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "CellPhone": {
+   "display": "phone",
+   "mass_kg": [
+    0.12,
+    0.25
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Bowl": {
+   "display": "bowl",
+   "mass_kg": [
+    0.15,
+    0.8
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Statue": {
+   "display": "statue",
+   "mass_kg": [
+    0.3,
+    5.0
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Vase": {
+   "display": "vase",
+   "mass_kg": [
+    0.2,
+    2.0
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Plate": {
+   "display": "plate",
+   "mass_kg": [
+    0.2,
+    0.8
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "SprayBottle": {
+   "display": "spray bottle",
+   "mass_kg": [
+    0.08,
+    0.4
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty",
+   "density_kg_m3": [
+    40,
+    150
+   ]
+  },
+  "ToiletPaper": {
+   "display": "toilet paper roll",
+   "mass_kg": [
+    0.08,
+    0.2
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "SoapBottle": {
+   "display": "soap bottle",
+   "mass_kg": [
+    0.03,
+    0.3
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty",
+   "density_kg_m3": [
+    30,
+    120
+   ]
+  },
+  "Candle": {
+   "display": "candle",
+   "mass_kg": [
+    0.1,
+    0.6
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Egg": {
+   "display": "egg",
+   "mass_kg": [
+    0.045,
+    0.07
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "DishSponge": {
+   "display": "sponge",
+   "mass_kg": [
+    0.005,
+    0.03
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "AlarmClock": {
+   "display": "alarm clock",
+   "mass_kg": [
+    0.1,
+    0.5
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Mug": {
+   "display": "mug",
+   "mass_kg": [
+    0.2,
+    0.5
+   ],
+   "fragile": true,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "Potato": {
+   "display": "potato",
+   "mass_kg": [
+    0.1,
+    0.4
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "BasketBall": {
+   "display": "basketball",
+   "mass_kg": [
+    0.55,
+    0.65
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "TissueBox": {
+   "display": "tissue box",
+   "mass_kg": [
+    0.03,
+    0.5
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty",
+   "density_kg_m3": [
+    8,
+    30
+   ]
+  },
+  "DeskLamp": {
+   "display": "desk lamp",
+   "mass_kg": [
+    0.4,
+    2.5
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "CD": {
+   "display": "CD",
+   "mass_kg": [
+    0.01,
+    0.03
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Cup": {
+   "display": "cup",
+   "mass_kg": [
+    0.1,
+    0.4
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Newspaper": {
+   "display": "newspaper",
+   "mass_kg": [
+    0.05,
+    0.5
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "TeddyBear": {
+   "display": "teddy bear",
+   "mass_kg": [
+    0.1,
+    1.0
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty",
+   "density_kg_m3": [
+    4,
+    20
+   ]
+  },
+  "Spatula": {
+   "display": "spatula",
+   "mass_kg": [
+    0.03,
+    0.15
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "Fork": {
+   "display": "fork",
+   "mass_kg": [
+    0.02,
+    0.08
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "Spoon": {
+   "display": "spoon",
+   "mass_kg": [
+    0.02,
+    0.08
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "Knife": {
+   "display": "knife",
+   "mass_kg": [
+    0.03,
+    0.25
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "ButterKnife": {
+   "display": "butter knife",
+   "mass_kg": [
+    0.02,
+    0.08
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "Ladle": {
+   "display": "ladle",
+   "mass_kg": [
+    0.05,
+    0.3
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "Bread": {
+   "display": "bread",
+   "mass_kg": [
+    0.2,
+    0.8
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Apple": {
+   "display": "apple",
+   "mass_kg": [
+    0.12,
+    0.3
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Lettuce": {
+   "display": "lettuce",
+   "mass_kg": [
+    0.25,
+    0.7
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Tomato": {
+   "display": "tomato",
+   "mass_kg": [
+    0.08,
+    0.25
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "PaperTowelRoll": {
+   "display": "paper towel roll",
+   "mass_kg": [
+    0.1,
+    0.4
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "SoapBar": {
+   "display": "soap bar",
+   "mass_kg": [
+    0.08,
+    0.15
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Kettle": {
+   "display": "kettle",
+   "mass_kg": [
+    0.5,
+    1.5
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "PepperShaker": {
+   "display": "pepper shaker",
+   "mass_kg": [
+    0.03,
+    0.2
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "SaltShaker": {
+   "display": "salt shaker",
+   "mass_kg": [
+    0.03,
+    0.2
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "WineBottle": {
+   "display": "wine bottle",
+   "mass_kg": [
+    0.3,
+    0.7
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty",
+   "density_kg_m3": [
+    100,
+    300
+   ]
+  },
+  "Bottle": {
+   "display": "bottle",
+   "mass_kg": [
+    0.02,
+    0.5
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty",
+   "density_kg_m3": [
+    30,
+    150
+   ]
+  },
+  "Toaster": {
+   "display": "toaster",
+   "mass_kg": [
+    1.0,
+    3.0
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Pan": {
+   "display": "pan",
+   "mass_kg": [
+    0.4,
+    2.0
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "Pot": {
+   "display": "pot",
+   "mass_kg": [
+    0.5,
+    2.5
+   ],
+   "fragile": false,
+   "has_handle": true,
+   "contents": "empty"
+  },
+  "Laptop": {
+   "display": "laptop",
+   "mass_kg": [
+    0.8,
+    2.5
+   ],
+   "fragile": true,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Cloth": {
+   "display": "cloth",
+   "mass_kg": [
+    0.02,
+    0.3
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "CoffeeMachine": {
+   "display": "coffee machine",
+   "mass_kg": [
+    1.5,
+    6.0
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "BaseballBat": {
+   "display": "baseball bat",
+   "mass_kg": [
+    0.5,
+    1.1
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  },
+  "Box": {
+   "display": "box",
+   "mass_kg": [
+    0.05,
+    2.0
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty",
+   "density_kg_m3": [
+    5,
+    40
+   ]
+  },
+  "GarbageCan": {
+   "display": "trash can",
+   "mass_kg": [
+    0.4,
+    2.5
+   ],
+   "fragile": false,
+   "has_handle": false,
+   "contents": "empty"
+  }
+ }
+}

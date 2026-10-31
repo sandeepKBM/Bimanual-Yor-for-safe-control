@@ -1,0 +1,88 @@
+{
+ "placement": "far_left",
+ "hidden_mass": 0.07851875404590136,
+ "mode": "real_friction_contact",
+ "push_m": 0.05882432921886363,
+ "perturb": {
+  "dx": 0.00396405352500501,
+  "dy": 0.009308230563188972,
+  "yaw_deg": -2.531284416958192,
+  "mu_scale": 0.9262015738010734
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.7929423327980119,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.023749315224910028,
+ "statics": {
+  "mass_total_kg": 0.3834,
+  "com_u_from_centre_m": 0.0145,
+  "com_w_m": 0.0086,
+  "probe_A_pitch_about_pivot_Nm": 0.4022,
+  "probe_B_roll_Nm": 0.0323,
+  "lift_force_N": 3.761,
+  "lift_handle_moment_Nm": 0.6805,
+  "lift_roll_Nm": 0.0323,
+  "lever_grasp_to_pivot_m": 0.2879
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.029797177862859018
+  },
+  "right": {
+   "margin": 0.05838703882630406
+  }
+ },
+ "pan_dy_after_push_m": -0.04360824848383743,
+ "lift_achieved_m": 0.012038918876707383,
+ "final_tilt_deg": 7.51,
+ "max_tilt_deg_lift_hold": 7.71,
+ "hold_last1s_support_N": 1.3865500000000002,
+ "hold_last1s_fz_N": {
+  "left": 2.43235,
+  "right": 0.0
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.02,
+  "right": 0.0
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 26.365517723522498,
+   "deg": 7.691219138011353
+  },
+  "right": {
+   "mm": 64.54938337037001,
+   "deg": 3.536290887461192
+  }
+ },
+ "lid_offset_mm": 7.333391579329788,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.504286250285274,
+ "observe": {
+  "est": {
+   "dx": 0.00479674046386136,
+   "dy": 0.007505234230375246,
+   "yaw_deg": -2.791044919137592,
+   "rms_wall_mm": 1.0083635673349076,
+   "n_wall": 1200,
+   "n_handle": 1605,
+   "n_points": 17147,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": 0.003964055226398085,
+   "dy": 0.00930823117799219,
+   "yaw_deg": -2.531284615928209
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 1.9859916157439557,
+  "residual_yaw_deg": -0.2597603032093829
+ },
+ "held": false,
+ "tag": "push_clamp_lift_two_f0.793_p0.059__I19"
+}

@@ -51,7 +51,9 @@ def ask(text, images=(), system=None, max_new_tokens=512, temperature=0.0, n=1, 
     resp = SVC / "resp" / f"{rid}.json"
     t0 = time.time()
     while time.time() - t0 < timeout_s:
-        if resp.exists():
+        # list the directory instead of stat-ing the expected name: NFS caches the negative lookup of resp/<id>.json until the parent's
+        # attribute cache expires (acdirmin, ~30 s here), so a bare exists() saw responses ~30 s late; opendir revalidates the directory.
+        if f"{rid}.json" in os.listdir(resp.parent):
             try:
                 o = json.loads(resp.read_text())
             except Exception:

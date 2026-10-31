@@ -100,6 +100,14 @@ def _h5():
 SCENES = {"h5": _h5}
 
 
+def freeze_people(scene: SceneSpec) -> SceneSpec:
+    """every person stands still at the first point of its track (people option `static`).  In place on a freshly built SceneSpec (get_scene returns a new one per call)."""
+    for p in scene.people:
+        x, y = float(p.pts[0, 1]), float(p.pts[0, 2])
+        p.pts = np.array([[0.0, x, y], [1e4, x, y]])
+    return scene
+
+
 def _resample(x, y, step=0.5):
     s = np.concatenate([[0], np.cumsum(np.hypot(np.diff(x), np.diff(y)))])
     k = np.unique(np.concatenate([np.arange(0, s[-1], step), [s[-1]]]))
@@ -253,8 +261,10 @@ class Rig:
 
 
 def build_rig(scene: SceneSpec, spawn_xy, yaw, dt=0.005, with_people=True, counter_at=None, desk_at=None, cup=True,
-              contents=None, dynamic_base=False, finger_contact=False) -> Rig:
-    """counter_at / desk_at: (x, y, yaw) base poses whose hold-pose tray position gets a table slab (pick / place spots).
+              contents=None, dynamic_base=False, finger_contact=False, pick_props=None) -> Rig:
+    """pick_props (OPT-IN, default None = scene unchanged): add the pick table + pickable props of house/pick/props.py in front of the spawn pose
+    (True | prop-set name | list of prop names) and a fixed world camera `pick_head` (pose set by the pick module from the head-camera mount + lift).
+    counter_at / desk_at: (x, y, yaw) base poses whose hold-pose tray position gets a table slab (pick / place spots).
     dynamic_base (OPT-IN, default off: the weld-mode rig is bit-identical): the robot root is a free body that follows the kinematic
     base target (mocap `yor_target`, mocap index 0) through a stiff weld, so the base's velocity/acceleration is visible to the contact
     solver -- required for a FRICTION grasp (a mocap root gives the solver zero base velocity: a tray held by pad friction would be
@@ -316,6 +326,11 @@ def build_rig(scene: SceneSpec, spawn_xy, yaw, dt=0.005, with_people=True, count
             if p.dynamic:
                 _add_person(house, p.name)
             extra_own.append(p.name)
+    pick_names = []
+    if pick_props:
+        from ..pick import props as PP
+        pick_names = PP.add_pick_props(house, spawn_xy, yaw, pick_props)
+        house.worldbody.add_camera(name="pick_head", pos=[0, 0, 0], fovy=70.0)
     sc._patch_real_collision_geoms(house)
     m = house.compile()
     own = B._robot_tray_bodies(m)
@@ -365,6 +380,8 @@ def build_rig(scene: SceneSpec, spawn_xy, yaw, dt=0.005, with_people=True, count
     info = dict(scene=scene.name, spawn=spawn_xy.tolist(), yaw=yaw, dt=dt, n_conaff_or=n_or, nbody=m.nbody, ngeom=m.ngeom, nv=m.nv,
                 nmocap=m.nmocap, model_hash=B.model_hash(m), has_tray=True, lift_h=0.0, lift_mode="locked", has_cup=cup,
                 mu_true=MU_TRUE, dynamic_base=dynamic_base, finger_contact=finger_contact)
+    if pick_names:
+        info["pick_props"] = pick_names
     rig = Rig(m, d, info, scene, n_beads=(cont.n_balls if cont else 0), person_mocap=pm)
     return rig
 
@@ -471,12 +488,12 @@ def set_hold(rig: Rig, grasped: bool = True, tray_xy_yaw=None):
 
 
 def new_rig(scene_name="h5", spawn=None, grasped=True, dt=0.005, with_people=True, counter_at=None, desk_at=None, tray_at=None,
-            cup=True, dynamic_base=False, finger_contact=False) -> Rig:
+            cup=True, dynamic_base=False, finger_contact=False, pick_props=None) -> Rig:
     scene = get_scene(scene_name)
     if spawn is None:
         spawn = scene.waypoints["lab_start"]
     rig = build_rig(scene, spawn[:2], spawn[2], dt=dt, with_people=with_people, counter_at=counter_at, desk_at=desk_at, cup=cup,
-                    dynamic_base=dynamic_base, finger_contact=finger_contact)
+                    dynamic_base=dynamic_base, finger_contact=finger_contact, pick_props=pick_props)
     set_hold(rig, grasped=grasped, tray_xy_yaw=tray_at)
     B.disable_arm_servos(rig.m)
     fin = rig.info["finger"]

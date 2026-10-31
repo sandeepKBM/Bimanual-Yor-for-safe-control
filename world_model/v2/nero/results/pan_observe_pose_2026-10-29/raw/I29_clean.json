@@ -1,0 +1,98 @@
+{
+ "placement": "far_centre",
+ "hidden_mass": 0.3898771251529157,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": -0.003225246719622526,
+  "dy": -0.008043003646135846,
+  "yaw_deg": 5.4596478830781905,
+  "mu_scale": 0.834044731163917
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.05023566966578824,
+ "statics": {
+  "mass_total_kg": 0.6947,
+  "com_u_from_centre_m": -0.0157,
+  "com_w_m": -0.0015,
+  "probe_A_pitch_about_pivot_Nm": 0.5233,
+  "probe_B_roll_Nm": -0.0102,
+  "lift_force_N": 6.815,
+  "lift_handle_moment_Nm": 1.3079,
+  "lift_roll_Nm": -0.0102,
+  "lever_grasp_to_pivot_m": 0.2687
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.18160531450121845
+  },
+  "right": {
+   "margin": 0.05684913752950931
+  }
+ },
+ "pan_dy_after_push_m": -0.05595707640091108,
+ "lift_achieved_m": 0.04334560212147753,
+ "final_tilt_deg": 2.75,
+ "max_tilt_deg_lift_hold": 4.19,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.74675,
+  "right": 7.0262
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.001999999999999,
+  "right": 10.006
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 4.928470570481611,
+   "deg": 1.7193291921960285
+  },
+  "right": {
+   "mm": 0.7815459678542589,
+   "deg": 0.8363761178592082
+  }
+ },
+ "lid_offset_mm": 1.2501742885447578,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 9.788762591779232,
+ "observe": {
+  "est": {
+   "dx": -0.003221391103535809,
+   "dy": -0.008060394403008986,
+   "yaw_deg": 5.5209565404747885,
+   "rms_wall_mm": 0.22601498564494218,
+   "n_wall": 1325,
+   "n_handle": 1959,
+   "n_points": 16426,
+   "fit_ok": true,
+   "noise": "clean"
+  },
+  "true": {
+   "dx": -0.0032252488577793064,
+   "dy": -0.008042986244148068,
+   "yaw_deg": 5.459651120379753
+  },
+  "n_images": 1,
+  "noise": "clean",
+  "residual_mm": 0.01783048688987943,
+  "residual_yaw_deg": 0.061305420095035146
+ },
+ "held": true,
+ "tag": "I29_clean",
+ "noise": "clean",
+ "theta": {
+  "dx": -0.003225246719622526,
+  "dy": -0.008043003646135846,
+  "yaw_deg": 5.4596478830781905,
+  "mu_scale": 0.834044731163917,
+  "placement": "far_centre",
+  "hidden_mass": 0.3898771251529157
+ },
+ "category": "held"
+}

@@ -1,0 +1,98 @@
+{
+ "placement": "near_handle",
+ "hidden_mass": 0.0308335234002155,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": 0.0029096319157126925,
+  "dy": 0.012530767715127383,
+  "yaw_deg": 3.034082487153295,
+  "mu_scale": 0.9002138584421225
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.029882157838815593,
+ "statics": {
+  "mass_total_kg": 0.3357,
+  "com_u_from_centre_m": 0.03,
+  "com_w_m": 0.0016,
+  "probe_A_pitch_about_pivot_Nm": 0.4033,
+  "probe_B_roll_Nm": 0.0052,
+  "lift_force_N": 3.293,
+  "lift_handle_moment_Nm": 0.4834,
+  "lift_roll_Nm": 0.0052,
+  "lever_grasp_to_pivot_m": 0.2693
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.1156530955578459
+  },
+  "right": {
+   "margin": 0.05366311931983488
+  }
+ },
+ "pan_dy_after_push_m": -0.061930748456426044,
+ "lift_achieved_m": 0.05250544548389002,
+ "final_tilt_deg": 4.06,
+ "max_tilt_deg_lift_hold": 5.73,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 1.5014499999999997,
+  "right": 5.89825
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.005,
+  "right": 10.0145
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 5.011563191253277,
+   "deg": 1.7745052767720575
+  },
+  "right": {
+   "mm": 2.3108177298186487,
+   "deg": 1.4403597042847835
+  }
+ },
+ "lid_offset_mm": 1.2089835937107964,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 9.36161159906547,
+ "observe": {
+  "est": {
+   "dx": 0.0029188307399083957,
+   "dy": 0.012515422274691601,
+   "yaw_deg": 3.0998003458474943,
+   "rms_wall_mm": 0.22357400953343026,
+   "n_wall": 1072,
+   "n_handle": 1905,
+   "n_points": 16182,
+   "fit_ok": true,
+   "noise": "clean"
+  },
+  "true": {
+   "dx": 0.0029096327963711774,
+   "dy": 0.012530767866888795,
+   "yaw_deg": 3.034084010484918
+  },
+  "n_images": 1,
+  "noise": "clean",
+  "residual_mm": 0.01789104147880823,
+  "residual_yaw_deg": 0.06571633536257648
+ },
+ "held": true,
+ "tag": "I25_clean",
+ "noise": "clean",
+ "theta": {
+  "dx": 0.0029096319157126925,
+  "dy": 0.012530767715127383,
+  "yaw_deg": 3.034082487153295,
+  "mu_scale": 0.9002138584421225,
+  "placement": "near_handle",
+  "hidden_mass": 0.0308335234002155
+ },
+ "category": "held"
+}

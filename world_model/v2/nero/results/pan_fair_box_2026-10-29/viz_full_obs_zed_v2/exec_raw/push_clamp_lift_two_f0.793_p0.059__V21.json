@@ -1,0 +1,88 @@
+{
+ "placement": "far_centre",
+ "hidden_mass": 0.4,
+ "mode": "real_friction_contact",
+ "push_m": 0.05882432921886363,
+ "perturb": {
+  "dx": 0.015,
+  "dy": -0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 0.6
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.7929423327980119,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.04540851878599911,
+ "statics": {
+  "mass_total_kg": 0.7048,
+  "com_u_from_centre_m": -0.0161,
+  "com_w_m": -0.0023,
+  "probe_A_pitch_about_pivot_Nm": 0.5282,
+  "probe_B_roll_Nm": -0.0157,
+  "lift_force_N": 6.915,
+  "lift_handle_moment_Nm": 1.4506,
+  "lift_roll_Nm": -0.0157,
+  "lever_grasp_to_pivot_m": 0.2862
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.18684666608274805
+  },
+  "right": {
+   "margin": 0.03598412531050914
+  }
+ },
+ "pan_dy_after_push_m": -0.048200094812929084,
+ "lift_achieved_m": 0.04159964930191917,
+ "final_tilt_deg": 2.76,
+ "max_tilt_deg_lift_hold": 4.33,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.6751000000000005,
+  "right": 7.131299999999999
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.0635,
+  "right": 10.016500000000002
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 6.333611852275026,
+   "deg": 1.9352145319592409
+  },
+  "right": {
+   "mm": 1.7247354617866195,
+   "deg": 1.7387397925558876
+  }
+ },
+ "lid_offset_mm": 1.2334193578126766,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 9.860267380300241,
+ "observe": {
+  "est": {
+   "dx": 0.015175230080722801,
+   "dy": -0.01458149309635487,
+   "yaw_deg": 7.455492652263478,
+   "rms_wall_mm": 0.886345024278751,
+   "n_wall": 1304,
+   "n_handle": 1582,
+   "n_points": 16568,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": 0.01500001746574616,
+   "dy": -0.014999976256661067,
+   "yaw_deg": 7.9999382284584
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 0.45368228520277915,
+  "residual_yaw_deg": -0.5444455761949216
+ },
+ "held": true,
+ "tag": "push_clamp_lift_two_f0.793_p0.059__V21"
+}

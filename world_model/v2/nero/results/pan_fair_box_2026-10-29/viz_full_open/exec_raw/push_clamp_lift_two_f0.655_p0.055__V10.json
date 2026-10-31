@@ -1,0 +1,14 @@
+{
+ "placement": "none",
+ "hidden_mass": null,
+ "perturb": {
+  "dx": -0.015,
+  "dy": 0.015,
+  "yaw_deg": -8.0,
+  "mu_scale": 1.2
+ },
+ "push": 0.05492455717070616,
+ "grasp_frac": 0.6546448536997266,
+ "error": "anual/world_model/v2/nero/pan/vizcoast_faithful/run_baseline.py\", line 48, in _exec\n    r = U.run(**kw)\n        ^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/world_model/v2/nero/pan/under_rim.py\", line 126, in run\n    preL = find_pregrasp(m, d, \"left\", left_target, left_app, left_jaw)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/world_model/v2/nero/pan/handle_grasp.py\", line 108, in find_pregrasp\n    raise RuntimeError(f\"no contact-free pre-grasp for the {side} claw\")\nRuntimeError: no contact-free pre-grasp for the left claw\n",
+ "tag": "push_clamp_lift_two_f0.655_p0.055__V10"
+}

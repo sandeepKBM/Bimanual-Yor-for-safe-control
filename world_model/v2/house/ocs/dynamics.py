@@ -76,6 +76,20 @@ def hold_plan(twist, K=1):
     return RobotPlan(np.tile(np.asarray(twist, float), (K, 1)))
 
 
+def brake_plan(v0, K, dt, a_hw=None):
+    """the shield's brake contingency as a RobotPlan: from the current body twist v0 every axis slews to zero at the hardware limit a_hw
+    ([4, 4, 8] m/s^2 | rad/s^2 = teleop.base.A_HW), i.e. the shield's emergency fallback  u = v - sign(v) min(|v|, a_hw dt)  (shield.py filter_base)
+    applied every tick, which is also what teleop release / u_op = 0 gives at best (sim.base.advance slews at a_hw).  twists[k] = the twist at the END
+    of rollout step k, so the step acceleration (v_k - v_{k-1}) / dt that drives the cup is the true brake decel (the position integral is slightly short)."""
+    if a_hw is None:
+        from world_model.v2.house.teleop import base as BS
+        a_hw = BS.A_HW
+    v0 = np.asarray(v0, float)
+    a_hw = np.asarray(a_hw, float)
+    tw = [v0 - np.sign(v0) * np.minimum(np.abs(v0), a_hw * dt * (k + 1)) for k in range(max(int(K), 1))]
+    return RobotPlan(np.array(tw))
+
+
 # ====================================================================================== helpers
 def _clone_ws(ws: WorldState, t: float) -> WorldState:
     return WorldState(t=t, robot=replace(ws.robot), objects={k: replace(o) for k, o in ws.objects.items()}, relations=list(ws.relations),

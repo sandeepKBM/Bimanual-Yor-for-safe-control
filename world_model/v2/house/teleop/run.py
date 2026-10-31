@@ -65,7 +65,7 @@ class Recorder:
 
 
 def run_episode(shielded, seed=0, task="carry", scene="h5", max_s=30.0, stream="closed", video=None, cfg=None, op_params=None,
-                tail_s=1.0, log_every=0, with_people=True, a_hw=None, verbose=True, people_source="truth", people_kw=None, loc_kw=None):
+                tail_s=1.0, log_every=0, with_people=True, a_hw=None, verbose=True, people_source="truth", people_kw=None, loc_kw=None, filt=None):
     carry = task == "carry"
     sim = TeleopSim(scene, grasped=carry, seed=seed, with_people=with_people, counter=not carry, desk=not carry, a_hw=a_hw, people_source=people_source,
                      **(loc_kw or {}))        # loc_kw: pose_source/loc_cfg/loc_seed/occ_source/occ_map (house/loc); default = truth
@@ -80,6 +80,8 @@ def run_episode(shielded, seed=0, task="carry", scene="h5", max_s=30.0, stream="
     shield = SH.Shield(cfg, occ=sim.occ_ctrl, a_hw=sim.a_hw) if shielded else SH.Passthrough()
     if shielded and people_source != "truth":            # head-camera tracker as the people source (people_track); sim.people_state stays the metric truth
         shield = sim.make_shield(cfg, **(people_kw or {}))
+    if filt is not None:                                  # custom filter object (e.g. gatekeeper.Gatekeeper) replaces the Shield/Passthrough; default None = unchanged
+        shield = filt
     if shielded:
         shield.docks = [wp["cafe_counter_pick"][:2], wp["lab_desk_place"][:2]] if not carry else [wp["cafe_counter_pick"][:2]]
     rec = Recorder(sim, str(video)) if video else None

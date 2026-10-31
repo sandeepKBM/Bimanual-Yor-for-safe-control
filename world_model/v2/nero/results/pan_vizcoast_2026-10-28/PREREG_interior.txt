@@ -1,0 +1,5 @@
+Pre-registration (2026-10-28, before running): 30 uniform random theta INSIDE the box of the prereg Stage-B plan
+observe_pose -> pinch(L,0.65) -> push 0.07 -> clamp_rim -> lift (pose +-5 mm, yaw +-2 deg [assumed post-observation], mu x0.6-1.2,
+hidden 0-0.4 kg at a random placement incl. off-centre far_left/far_right). It passed all 32 vertices (far-centre mass only).
+Prediction: 26-30/30 held; off-centre heavy + high-mu (like robust_L70/A25) is the likeliest failure. Any failure = an interior
+counterexample the vertex search missed (reported as such; the plan is then NOT admitted under prereg).

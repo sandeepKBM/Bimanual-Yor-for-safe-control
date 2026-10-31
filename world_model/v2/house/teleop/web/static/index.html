@@ -27,6 +27,8 @@
    <textarea id="lang_in" rows="2" style="width:100%;box-sizing:border-box;background:#222;color:#ddd;border:1px solid #555" placeholder="e.g. bring the coffee to my desk without spilling and keep it 10 cm away from the monitor"></textarea>
    <div><button id="lang_go">Ask VLM</button> <button id="lang_clr">Clear (defaults)</button> <span style="color:#888">typing here never moves the robot; Enter = ask, Esc = leave the box</span></div>
    <div id="lang_out"></div></div>
+  <div id="tuckbox"><button id="tuck_btn">Tuck tray (N)</button> <button id="carry_btn">Normal carry (M)</button> <span id="tuck_st"></span>
+   <div style="color:#888">tuck = narrow tray carry for doorways; it moves only while armed and any tray-jog key cancels it. Pair with <code>--footprint live</code> so the shield sees the narrower robot.</div></div>
   <h4>Keyboard (hold to move; each key is its own deadman)</h4>
   <table>
    <tr><td><kbd>W</kbd>/<kbd>S</kbd></td><td>forward / back</td><td><kbd>A</kbd>/<kbd>D</kbd></td><td>strafe left / right</td></tr>
@@ -36,8 +38,9 @@
    <tr><td><kbd>1 2 3</kbd></td><td>speed preset</td><td><kbd>Z</kbd>/<kbd>X</kbd></td><td>speed x0.9 / x1.1</td></tr>
    <tr><td><kbd>Enter</kbd></td><td>ARM / clear latch</td><td><kbd>Space</kbd></td><td>zero everything</td></tr>
    <tr><td><kbd>Esc</kbd></td><td>LATCHED stop (Enter clears)</td><td><kbd>V</kbd></td><td>shield on/off</td></tr>
-   <tr><td><kbd>C</kbd></td><td>cycle camera</td><td><kbd>B</kbd></td><td>inset on/off</td></tr>
-   <tr><td><kbd>Backspace</kbd></td><td>reset episode</td></tr>
+   <tr><td><kbd>C</kbd></td><td>cycle camera (ego, chase, top, wrist L/R)</td><td><kbd>B</kbd></td><td>inset on/off</td></tr>
+   <tr><td><kbd>N</kbd></td><td>TUCK tray (narrow doorway carry)</td><td><kbd>M</kbd></td><td>normal carry pose</td></tr>
+   <tr><td><kbd>Backspace</kbd></td><td>reset episode</td><td><kbd>O</kbd></td><td>ghost on/off (operator command before the shield; orange = shield intervening)</td></tr>
   </table>
   <h4>Xbox pad (standard mapping) - motion needs ARMED + LB held</h4>
   <table>
@@ -47,6 +50,7 @@
    <tr><td colspan="4">tray mode: left stick x/y, right stick Y = z, right stick X = yaw, LT/RT = roll -/+</td></tr>
    <tr><td>A / B</td><td>grasp / release</td><td>Y</td><td>cycle speed</td></tr>
    <tr><td>X</td><td>shield on/off</td><td>RS / LS click</td><td>camera / inset</td></tr>
+   <tr><td>D-pad left</td><td>TUCK tray (LB held)</td><td>D-pad right</td><td>normal carry (LB held)</td></tr>
   </table>
   <div style="margin-top:6px;color:#888">A pad shows up only after you press a button on it while this tab is focused.</div>
  </div>

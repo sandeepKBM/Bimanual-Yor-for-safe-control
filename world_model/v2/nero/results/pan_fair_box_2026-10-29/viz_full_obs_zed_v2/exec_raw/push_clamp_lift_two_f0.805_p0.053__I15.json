@@ -1,0 +1,88 @@
+{
+ "placement": "far_left",
+ "hidden_mass": 0.33019512535742235,
+ "mode": "real_friction_contact",
+ "push_m": 0.053489335688193515,
+ "perturb": {
+  "dx": 0.008055509966887631,
+  "dy": -0.008649757721774684,
+  "yaw_deg": 5.300397354631379,
+  "mu_scale": 0.6376307535424609
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.8047846749285816,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.03411611144130139,
+ "statics": {
+  "mass_total_kg": 0.635,
+  "com_u_from_centre_m": -0.0095,
+  "com_w_m": 0.0226,
+  "probe_A_pitch_about_pivot_Nm": 0.5171,
+  "probe_B_roll_Nm": 0.1409,
+  "lift_force_N": 6.23,
+  "lift_handle_moment_Nm": 1.2819,
+  "lift_roll_Nm": 0.1409,
+  "lever_grasp_to_pivot_m": 0.2888
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.1415450857914811
+  },
+  "right": {
+   "margin": 0.04775067400330741
+  }
+ },
+ "pan_dy_after_push_m": -0.04415026056526611,
+ "lift_achieved_m": 0.04508495400218915,
+ "final_tilt_deg": 4.88,
+ "max_tilt_deg_lift_hold": 6.05,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 2.4387,
+  "right": 6.88355
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 10.006000000000002,
+  "right": 10.0045
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 6.095210890993802,
+   "deg": 1.8690346035716805
+  },
+  "right": {
+   "mm": 1.4448587575469787,
+   "deg": 1.0742584053193898
+  }
+ },
+ "lid_offset_mm": 1.2930767410934,
+ "hidden_still_in_pan": true,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 9.182418111255366,
+ "observe": {
+  "est": {
+   "dx": 0.007937063969259972,
+   "dy": -0.008318255911141326,
+   "yaw_deg": 4.84948430942077,
+   "rms_wall_mm": 1.0940015050762637,
+   "n_wall": 1343,
+   "n_handle": 1799,
+   "n_points": 16317,
+   "fit_ok": true,
+   "noise": "zed"
+  },
+  "true": {
+   "dx": 0.00805550850396423,
+   "dy": -0.008649756686366321,
+   "yaw_deg": 5.300396079766218
+  },
+  "n_images": 1,
+  "noise": "zed",
+  "residual_mm": 0.35202538513022175,
+  "residual_yaw_deg": -0.4509117703454475
+ },
+ "held": true,
+ "tag": "push_clamp_lift_two_f0.805_p0.053__I15"
+}

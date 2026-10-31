@@ -1,0 +1,98 @@
+{
+ "placement": "none",
+ "hidden_mass": null,
+ "mode": "real_friction_contact",
+ "push_m": 0.07,
+ "perturb": {
+  "dx": -0.015,
+  "dy": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 1.2
+ },
+ "payload_model_mass_kg": 0.304845189535163,
+ "grasp_frac": 0.65,
+ "grip_force_N": 10.0,
+ "condim": 3,
+ "overhang_planned_m": 0.026790308495907078,
+ "statics": {
+  "mass_total_kg": 0.3048,
+  "com_u_from_centre_m": 0.0277,
+  "com_w_m": 0.0039,
+  "probe_A_pitch_about_pivot_Nm": 0.3595,
+  "probe_B_roll_Nm": 0.0116,
+  "lift_force_N": 2.991,
+  "lift_handle_moment_Nm": 0.4413,
+  "lift_roll_Nm": 0.0116,
+  "lever_grasp_to_pivot_m": 0.2678
+ },
+ "pregrasp": {
+  "left": {
+   "margin": 0.13142993357027755
+  },
+  "right": {
+   "margin": 0.06493834286375783
+  }
+ },
+ "pan_dy_after_push_m": -0.05959998635167918,
+ "lift_achieved_m": 0.053365638162424234,
+ "final_tilt_deg": 3.98,
+ "max_tilt_deg_lift_hold": 5.57,
+ "hold_last1s_support_N": 0.0,
+ "hold_last1s_fz_N": {
+  "left": 1.2811000000000001,
+  "right": 5.90425
+ },
+ "hold_last1s_squeeze_N": {
+  "left": 9.9945,
+  "right": 10.038499999999999
+ },
+ "slip_by_claw": {
+  "left": {
+   "mm": 5.445877680563859,
+   "deg": 1.8999884769336797
+  },
+  "right": {
+   "mm": 1.9325381601203164,
+   "deg": 1.2409881945638352
+  }
+ },
+ "lid_offset_mm": 1.2024235456009655,
+ "hidden_still_in_pan": null,
+ "n_infeasible": 0,
+ "n_fallback": 0,
+ "ctrl_ms_mean": 8.549921490527966,
+ "observe": {
+  "est": {
+   "dx": -0.015006309933755735,
+   "dy": 0.015010181021506475,
+   "yaw_deg": 8.106773648763532,
+   "rms_wall_mm": 0.2206204224152454,
+   "n_wall": 771,
+   "n_handle": 2053,
+   "n_points": 16946,
+   "fit_ok": true,
+   "noise": "clean"
+  },
+  "true": {
+   "dx": -0.015000000371619412,
+   "dy": 0.014999999897386995,
+   "yaw_deg": 7.999999334342934
+  },
+  "n_images": 1,
+  "noise": "clean",
+  "residual_mm": 0.011977723602103212,
+  "residual_yaw_deg": 0.10677431442059859
+ },
+ "held": true,
+ "tag": "V14_clean",
+ "noise": "clean",
+ "theta": {
+  "dx": -0.015,
+  "dy": 0.015,
+  "yaw_deg": 8.0,
+  "mu_scale": 1.2,
+  "hidden_mass": 0.0,
+  "placement": "none"
+ },
+ "category": "held"
+}

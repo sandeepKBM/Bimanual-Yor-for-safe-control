@@ -62,6 +62,7 @@ class ShieldCfg:
     jog_a_max: float = 0.6             # m/s^2
     jog_alpha_max: float = 2.0         # rad/s^2
     use_cup: bool = True
+    cup_row: str = "always"            # OPT-IN (10-22): "always" (default, bit-identical) | "attached": cup rows + cup lever arm only while the cup rides on the robot (geom.cup_attached)
     use_keepout: bool = True
     use_ir_veto: bool = True
     r_cup: float = 0.03
@@ -74,6 +75,9 @@ class ShieldCfg:
     pred_min_speed: float = 0.05       # m/s, a person slower than this gets no predictive row (static people keep the original CBF row only)
     pred_buffer: float = 0.10          # m, buffer beyond PERSON_CLEAR_R in the predictive rows
     relax_tier: bool = False           # before the emergency brake try the keep-out with relaxed buffers (wall d_wall_relax, person d_person_relax), no cup rows
+    fallback: str = "brake"            # "escape": before the emergency brake, try the keep-out rows with each ALREADY-VIOLATED row's demand capped at what the hardware slew
+                                       # can deliver this tick (A_i u >= min over the slew box), no cup rows.  The brake ignores the operator and holds the robot inside a
+                                       # violated buffer forever (h < 0 needs gamma*|h| > a_hw*dt outward speed from rest, which the brake never builds up); escape moves out.
     d_wall_relax: float = 0.02
     d_person_relax: float = 0.0
     deadlock_s: float | None = None    # social yield: operator pushing + person row binding + robot (almost) stopped for this long -> retreat, then hold
@@ -83,6 +87,12 @@ class ShieldCfg:
     hold_s: float = 3.0                # stationary hold after a retreat (lets the other party pass) before control returns to the operator
     squeeze_s: float | None = None     # social yield also fires when the predictive rows (pred_taus) demand intrusion (b<0) but cannot be met for this long
     blk_near: float = 0.25             # m, a person within this keep-out margin h counts as 'blocking'
+    # ---- live footprint / doorway buffer (default "fixed" / off -> bit-identical to before) -------------------------------------------------
+    footprint: str = "fixed"           # "fixed" = geom.FP (phase-1 hold-pose AABB, conservative) | "live" = base-frame xy box of the robot's CURRENT geoms (arms, tray, cup) + live_pad
+    live_pad: float = 0.02             # m, pad added on every side of the live box (hull is of the collision geoms; pad covers the <= 5 ms kinematics lag + tracking error)
+    doorways: tuple = ()               # [(x, y)] map-frame doorway centres: within door_radius the wall buffer is d_wall_door (opt-in; needs d_wall_door)
+    d_wall_door: float | None = None   # m, wall buffer inside a doorway (None = off: d_wall everywhere)
+    door_radius: float = 0.5           # m, distance from the footprint rectangle to the doorway centre under which d_wall_door applies
 
     @property
     def ratio(self):
@@ -118,12 +128,12 @@ class IRMonitor:
         st = TS.EnvState(d.xpos[sim.tray].copy(), d.xquat[sim.tray].copy(), d.xpos[sim.cup].copy())
         return float(IR.margin(self.spec, st))
 
-    def person_margin(self, sim):
+    def person_margin(self, sim, fp=None):
         """min over people of ir.Clear(footprint box, person disc) [m]; footprint = AABB zonotope of the robot, person = outer ball zonotope."""
         if not sim.people_state:
             return np.inf
         pose = sim.pose()
-        fp = GM.FP
+        fp = GM.FP if fp is None else fp
         half = np.array([(fp["x"][1] - fp["x"][0]) / 2, (fp["y"][1] - fp["y"][0]) / 2, 0.5])
         cen_local = np.array([(fp["x"][1] + fp["x"][0]) / 2, (fp["y"][1] + fp["y"][0]) / 2, 0.5])
         R3 = np.eye(3); R3[:2, :2] = GM.rot(pose[2])
@@ -164,6 +174,10 @@ class Shield:
         self.n_deadlock = 0
         self.n_pred = 0
         self.n_squeeze = 0
+        self._live = None                  # geom.LiveFootprint (built lazily for cfg.footprint == "live")
+        self._live_m = None
+        self.fp_now = GM.FP                # footprint used by the current tick's rows (dict x/y)
+        self.fp_ms = [0.0, 0]              # [sum ms, n] cost of the live footprint
         self.docks = []                    # [(x, y)] stand-off poses: the manipulation phase needs to get within `standoff_clear` (0.07 m) of the counter
         if lang is not None:
             self.set_lang(lang)
@@ -232,18 +246,34 @@ class Shield:
         loc = getattr(sim, "loc", None)
         return cfg.loc_margin + (cfg.loc_margin_k * loc.sigma_xy if (loc is not None and cfg.loc_margin_k) else 0.0)
 
+    def footprint_of(self, sim):
+        """footprint rectangle (robot frame) the rows of THIS tick use: geom.FP ("fixed", default) or the live box of the current configuration ("live")."""
+        if self.cfg.footprint != "live":
+            return GM.FP
+        import time as _t
+        if self._live is None or self._live_m is not sim.m:          # one-time precompute of the hull point sets (not counted in fp_ms)
+            self._live, self._live_m = GM.LiveFootprint(sim.m, pad=self.cfg.live_pad), sim.m
+        t0 = _t.perf_counter()
+        fp = self._live.box(sim.d, sim.pose(), pad=self.cfg.live_pad)
+        self.fp_ms[0] += (_t.perf_counter() - t0) * 1e3
+        self.fp_ms[1] += 1
+        return fp
+
     def _keep_rows(self, sim, v, relax=False):
         cfg = self.cfg
         rows, b, tags = [], [], []
         pose = self._wall_pose(sim)                        # MAP-frame pose (= truth by default; the localization estimate with pose_source="est")
         d_wall = cfg.d_wall_dock if any(np.hypot(pose[0] - x, pose[1] - y) < cfg.dock_radius for x, y in self.docks) else cfg.d_wall
+        if cfg.d_wall_door is not None and any(GM.rect_dist_point(np.array([x, y]), pose, self.fp_now)[0] < cfg.door_radius for x, y in cfg.doorways):
+            d_wall = min(d_wall, cfg.d_wall_door)           # opt-in doorway buffer: while the FOOTPRINT is within door_radius of the doorway centre
         if relax:
             d_wall = min(d_wall, cfg.d_wall_relax)
         d_wall = d_wall + self._loc_margin(sim)            # localization-error margin (0 by default)
         R = GM.rot(pose[2])
         a_b = cfg.a_brk_frac * cfg.a_lim_flat
+        pts = self._pts if cfg.footprint != "live" else GM.boundary_pts(self.fp_now, step=0.05)
         if self.occ is not None:
-            w = self._pts @ R.T + pose[:2]
+            w = pts @ R.T + pose[:2]
             d, gx, gy = GM.grid_lookup_grad(self.occ, w[:, 0], w[:, 1])
             h = d - d_wall
             idx = np.argsort(h)[:cfg.n_keep]
@@ -253,7 +283,7 @@ class Shield:
                 if not n.any():
                     n = (pose[:2] - w[i]) / (np.linalg.norm(pose[:2] - w[i]) + 1e-9)
                 nb = R.T @ n
-                q = self._pts[i]
+                q = pts[i]
                 row = np.array([nb[0], nb[1], -q[1] * nb[0] + q[0] * nb[1]])
                 hi = float(h[i])
                 beta = min(cfg.gamma * hi, math.sqrt(2 * a_b * hi)) if hi >= 0 else max(cfg.gamma * hi, -0.3)
@@ -271,7 +301,7 @@ class Shield:
         a_b = cfg.a_brk_frac * cfg.a_lim_flat
         d_p = cfg.d_person_relax if relax else cfg.d_person
         for (xy, vel), p in zip(sim.people_state, sim.scene.people):
-            dist, qn, nw = GM.rect_dist_point(xy, pose)
+            dist, qn, nw = GM.rect_dist_point(xy, pose, self.fp_now)
             hi = dist - (GM.PERSON_CLEAR_R + d_p)
             if hi > 2.0:
                 continue
@@ -293,7 +323,7 @@ class Shield:
             if float(np.hypot(*vel)) < cfg.pred_min_speed:
                 continue
             for tau in cfg.pred_taus:
-                dist, qn, nw = GM.rect_dist_point(np.asarray(xy) + np.asarray(vel) * tau, pose)
+                dist, qn, nw = GM.rect_dist_point(np.asarray(xy) + np.asarray(vel) * tau, pose, self.fp_now)
                 h = dist - (GM.PERSON_CLEAR_R + cfg.pred_buffer)
                 rhs = h / tau
                 if rhs > 1.2:
@@ -307,7 +337,7 @@ class Shield:
         pose = sim.pose()
         best, who = np.inf, None
         for (xy, vel), p in zip(sim.people_state, sim.scene.people):
-            dist, qn, nw = GM.rect_dist_point(xy, pose)
+            dist, qn, nw = GM.rect_dist_point(xy, pose, self.fp_now)
             h = dist - (GM.PERSON_CLEAR_R + self.cfg.d_person)
             if h < best:
                 best, who = h, (p.name, nw)
@@ -351,7 +381,7 @@ class Shield:
                 if dirw is None:
                     dirw = np.zeros(2)
                     for (xy, vel), p in zip(sim.people_state, sim.scene.people):
-                        dist, qn, nw = GM.rect_dist_point(xy, pose)
+                        dist, qn, nw = GM.rect_dist_point(xy, pose, self.fp_now)
                         if dist - (GM.PERSON_CLEAR_R + cfg.d_person) < 1.0:
                             dirw -= nw / max(dist, 0.05)
                 db = R.T @ dirw
@@ -388,12 +418,16 @@ class Shield:
 
     def filter_base(self, sim, u_op):
         cfg = self.cfg
+        self.fp_now = self.footprint_of(sim)               # one footprint for all rows of this tick (GM.FP unless cfg.footprint == "live")
         d = sim.d
         v = sim.base.v.copy()
         c = d.xmat[sim.tray].reshape(3, 3)[:, 2].copy()
         R = GM.rot(sim.base.yaw)
         cup_xy = d.xpos[sim.cup][:2]
         r_c = R.T @ (cup_xy - np.array([sim.base.x, sim.base.y]))
+        use_cup = cfg.use_cup
+        if cfg.cup_row == "attached" and not GM.cup_attached(sim):
+            r_c, use_cup = np.zeros(2), False               # the cup is not on the robot: no cup rows, no lever arm (it sits on a surface)
         vs = BS.V_STICK
         wgt = 1.0 / vs
         dt = TICK
@@ -426,7 +460,7 @@ class Shield:
         sol_ok, used = True, "all"
         for it in range(2):                                # fixed point on the mid-tick yaw rate
             w_mid = 0.5 * (v[2] + u[2])
-            if cfg.use_cup:
+            if use_cup:
                 (Aw, bw), (Aj, bj), (Rw, Au, a0) = self._cup_rows(sim, c, v, r_c, w_mid)
             else:
                 Aw = Aj = np.zeros((0, 3)); bw = bj = np.zeros(0)
@@ -454,6 +488,29 @@ class Shield:
                     u = us
                     break
             else:
+                if cfg.fallback == "escape" and cfg.use_keepout and len(b_keep):
+                    # slew-capped keep-out: each row asks for at most theta x the improvement the hardware slew box allows this tick,
+                    # b_i(theta) = max(b_i, A_i v - theta |A_i| a_hw dt).  theta = 0 is always feasible (u = v holds every row at its current value,
+                    # so nothing gets worse); bisect for the largest theta at which all rows are jointly feasible (two walls in a corner each
+                    # asking for their own full-slew escape can be jointly infeasible), then project the operator's command onto that set.
+                    Av, step = A_keep @ v, np.abs(A_keep) @ (self.a_hw * dt)
+                    A_e = np.vstack([A_hw, A_keep])
+                    best = None
+                    lo_t, hi_t = 0.0, 1.0
+                    for th in (1.0, *([None] * 7)):
+                        th = hi_t if th is not None else 0.5 * (lo_t + hi_t)
+                        us, ok, nsw, viol = QP.project(A_e, np.concatenate([b_hw, np.maximum(b_keep, Av - th * step + 1e-6)]), u_req, wgt)
+                        if ok:
+                            best, lo_t = (us, th), th
+                            if th == hi_t:
+                                break
+                        else:
+                            hi_t = th
+                    self.dbg["escape"] = (best is not None, float(best[1]) if best else -1.0, 0)
+                    if best is not None:
+                        self._pred_fail = bool(len(b_pred) and float(b_pred.min()) < 0.0)
+                        u, used = best[0], "escape"
+                        break
                 # emergency brake at the hardware limit
                 self._pred_fail = bool(len(b_pred) and float(b_pred.min()) < 0.0)
                 u = v - np.sign(v) * np.minimum(np.abs(v), self.a_hw * dt)
@@ -485,6 +542,8 @@ class Shield:
             label = "ir_veto"
         if used == "brake":
             label = "brake_fallback"
+        elif used == "escape":
+            label = "escape_fallback"
         if social and used != "brake":
             label = social
         a_body = Au @ u + a0

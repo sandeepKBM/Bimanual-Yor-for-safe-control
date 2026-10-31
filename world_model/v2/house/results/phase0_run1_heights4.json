@@ -1,0 +1,1284 @@
+{
+ "load_avg": [
+  65.35302734375,
+  56.3779296875,
+  40.9189453125
+ ],
+ "mujoco": "3.9.0",
+ "rows": [
+  {
+   "house": 0,
+   "missing_meshes": 0,
+   "load_s": 3.875284967944026,
+   "nbody": 415,
+   "ngeom": 3492,
+   "nmesh": 2458,
+   "njnt": 129,
+   "nfree": 93,
+   "nv": 594,
+   "size_mb": 66.706492,
+   "dt": 0.002,
+   "model_hash": "e070246a40ee",
+   "step_dyn_ms": 5.978162111714482,
+   "step_dyn_min_ms": 5.672643966972828,
+   "ncon_dyn": 461,
+   "load_static_s": 4.234124909155071,
+   "nv_static": 0,
+   "step_static_ms": 0.37247355096042156,
+   "step_static_min_ms": 0.3521958366036415,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "LivingRoom",
+    "x": 3.8000000000000007,
+    "y": 7.572,
+    "free_r": 1.7500542907918646
+   },
+   "ray14400_all_ms": 222.79250187178454,
+   "ray_hit": 0.871875,
+   "ray14400_g4_ms": 84.10019675890605,
+   "ray1600_all_ms": 25.37031254420678,
+   "ray1600_g4_ms": 9.327391162514687,
+   "doors": [
+    {
+     "id": "door|4|5",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.806385916001011,
+     "n_valid": 3
+    },
+    {
+     "id": "door|3|4",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137501,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|7",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063655,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|8",
+     "asset": "Doorway_Double_3",
+     "design": 1.9428100585937498,
+     "measured": 1.80638591600101,
+     "n_valid": 3
+    },
+    {
+     "id": "door|2|6",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111082,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|4",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063646,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 1,
+   "missing_meshes": 0,
+   "load_s": 0.4530315026640892,
+   "nbody": 141,
+   "ngeom": 879,
+   "nmesh": 601,
+   "njnt": 35,
+   "nfree": 21,
+   "nv": 140,
+   "size_mb": 18.793852,
+   "dt": 0.002,
+   "model_hash": "d94f4fae55b4",
+   "step_dyn_ms": 1.703838175162673,
+   "step_dyn_min_ms": 1.6884665004909039,
+   "ncon_dyn": 154,
+   "load_static_s": 0.3391505107283592,
+   "nv_static": 0,
+   "step_static_ms": 0.09574698284268379,
+   "step_static_min_ms": 0.08781475946307182,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bathroom",
+    "x": 8.030000000000001,
+    "y": 3.8000000000000007,
+    "free_r": 1.93100044250488
+   },
+   "ray14400_all_ms": 64.04225404063861,
+   "ray_hit": 1.0,
+   "ray14400_g4_ms": 16.761253587901592,
+   "ray1600_all_ms": 7.485453970730305,
+   "ray1600_g4_ms": 1.9204672425985336,
+   "doors": [
+    {
+     "id": "door|2|3",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063654,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|2",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492779,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 2,
+   "missing_meshes": 0,
+   "load_s": 3.2866058573126793,
+   "nbody": 480,
+   "ngeom": 3424,
+   "nmesh": 2133,
+   "njnt": 140,
+   "nfree": 96,
+   "nv": 620,
+   "size_mb": 61.295688,
+   "dt": 0.002,
+   "model_hash": "1ea569892c4b",
+   "step_dyn_ms": 5.887092025950551,
+   "step_dyn_min_ms": 5.592342372983694,
+   "ncon_dyn": 520,
+   "load_static_s": 3.608333734795451,
+   "nv_static": 0,
+   "step_static_ms": 0.4124626237899065,
+   "step_static_min_ms": 0.39760855957865715,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bedroom",
+    "x": 6.728,
+    "y": 6.728,
+    "free_r": 2.0679621749402974
+   },
+   "ray14400_all_ms": 219.93414498865604,
+   "ray_hit": 0.9972222222222222,
+   "ray14400_g4_ms": 74.1195185109973,
+   "ray1600_all_ms": 22.908862059315044,
+   "ray1600_g4_ms": 8.464801435669264,
+   "doors": [
+    {
+     "id": "door|2|3",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.8063859160010112,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|5",
+     "asset": "Doorframe_4",
+     "design": 1.042591571807861,
+     "measured": 0.8628928817728642,
+     "n_valid": 3
+    },
+    {
+     "id": "door|2|4",
+     "asset": "Doorframe_1",
+     "design": 1.0814999341964722,
+     "measured": 0.8668595326312492,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|7",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111082,
+     "measured": 0.8940585894492779,
+     "n_valid": 3
+    },
+    {
+     "id": "door|8|9",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338619,
+     "measured": 0.8638455202063646,
+     "n_valid": 3
+    },
+    {
+     "id": "door|10|11",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111086,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|10",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492782,
+     "n_valid": 3
+    },
+    {
+     "id": "door|8|10",
+     "asset": "Doorway_3",
+     "design": 1.024445295333862,
+     "measured": 0.8638455202063655,
+     "n_valid": 3
+    },
+    {
+     "id": "door|5|8",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|3",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137498,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 3,
+   "missing_meshes": 0,
+   "load_s": 1.1204801192507148,
+   "nbody": 265,
+   "ngeom": 1945,
+   "nmesh": 1284,
+   "njnt": 62,
+   "nfree": 41,
+   "nv": 267,
+   "size_mb": 39.837472,
+   "dt": 0.002,
+   "model_hash": "d619c7ba3890",
+   "step_dyn_ms": 2.5888340827077627,
+   "step_dyn_min_ms": 2.550991289317608,
+   "ncon_dyn": 245,
+   "load_static_s": 1.22460201010108,
+   "nv_static": 0,
+   "step_static_ms": 0.199237996712327,
+   "step_static_min_ms": 0.18800709396600723,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bedroom",
+    "x": 3.0500000000000003,
+    "y": 8.841999999999999,
+    "free_r": 1.5480083
+   },
+   "ray14400_all_ms": 166.34478171666464,
+   "ray_hit": 0.9999305555555555,
+   "ray14400_g4_ms": 48.55641846855482,
+   "ray1600_all_ms": 19.54192544023196,
+   "ray1600_g4_ms": 5.479330196976662,
+   "doors": [
+    {
+     "id": "door|2|3",
+     "asset": "Doorway_1",
+     "design": 1.081500291824341,
+     "measured": 0.8837258883137504,
+     "n_valid": 3
+    },
+    {
+     "id": "door|5|6",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.8063859160010105,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|6",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137493,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|2",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.8310384000000004,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 4,
+   "missing_meshes": 0,
+   "load_s": 0.7752542868256569,
+   "nbody": 198,
+   "ngeom": 1432,
+   "nmesh": 1099,
+   "njnt": 56,
+   "nfree": 36,
+   "nv": 236,
+   "size_mb": 31.980632,
+   "dt": 0.002,
+   "model_hash": "7ef66ad3628a",
+   "step_dyn_ms": 2.6882643066346645,
+   "step_dyn_min_ms": 2.578126695007086,
+   "ncon_dyn": 234,
+   "load_static_s": 0.7575341667979956,
+   "nv_static": 0,
+   "step_static_ms": 0.15137539245188236,
+   "step_static_min_ms": 0.1370111107826233,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "LivingRoom",
+    "x": 5.753,
+    "y": 9.737,
+    "free_r": 2.0032016518393894
+   },
+   "ray14400_all_ms": 123.88228283574183,
+   "ray_hit": 0.9991666666666666,
+   "ray14400_g4_ms": 45.95490110417207,
+   "ray1600_all_ms": 15.379734337329865,
+   "ray1600_g4_ms": 6.452570048471292,
+   "doors": [
+    {
+     "id": "door|4|5",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111086,
+     "measured": 0.8940585894492782,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|7",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111082,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|6",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137514,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 5,
+   "missing_meshes": 0,
+   "load_s": 0.6066962191835046,
+   "nbody": 192,
+   "ngeom": 1354,
+   "nmesh": 987,
+   "njnt": 50,
+   "nfree": 40,
+   "nv": 250,
+   "size_mb": 28.137608,
+   "dt": 0.002,
+   "model_hash": "4bf8ff0d03ff",
+   "step_dyn_ms": 2.7415535412728786,
+   "step_dyn_min_ms": 2.6662787422537804,
+   "ncon_dyn": 212,
+   "load_static_s": 0.7208017539232969,
+   "nv_static": 0,
+   "step_static_ms": 0.14675474725663662,
+   "step_static_min_ms": 0.1302270032465458,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Kitchen",
+    "x": 5.486,
+    "y": 2.8000000000000003,
+    "free_r": 1.6179450241169748
+   },
+   "ray14400_all_ms": 93.84635866930087,
+   "ray_hit": 1.0,
+   "ray14400_g4_ms": 30.609228027363617,
+   "ray1600_all_ms": 11.94343746950229,
+   "ray1600_g4_ms": 4.037271564205487,
+   "doors": [
+    {
+     "id": "door|4|5",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.8063859160010103,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|7",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.863845520206365,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|6",
+     "asset": "Doorway_1",
+     "design": 1.081500291824341,
+     "measured": 0.8837258883137513,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 6,
+   "missing_meshes": 0,
+   "load_s": 0.12563321460038424,
+   "nbody": 46,
+   "ngeom": 428,
+   "nmesh": 405,
+   "njnt": 10,
+   "nfree": 8,
+   "nv": 50,
+   "size_mb": 11.53888,
+   "dt": 0.002,
+   "model_hash": "bcaf58ba2a44",
+   "step_dyn_ms": 1.0013952292501926,
+   "step_dyn_min_ms": 0.9812366217374802,
+   "ncon_dyn": 64,
+   "load_static_s": 0.10193680040538311,
+   "nv_static": 0,
+   "step_static_ms": 0.04070512019097805,
+   "step_static_min_ms": 0.04011273384094238,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bathroom",
+    "x": 2.8000000000000003,
+    "y": 2.5500000000000003,
+    "free_r": 2.413195462739931
+   },
+   "ray14400_all_ms": 57.81862046569586,
+   "ray_hit": 1.0,
+   "ray14400_g4_ms": 9.246300595502058,
+   "ray1600_all_ms": 7.492121619482835,
+   "ray1600_g4_ms": 1.1972533538937569,
+   "doors": [
+    {
+     "id": "door|1|2",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111086,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 7,
+   "missing_meshes": 0,
+   "load_s": 0.18719503562897444,
+   "nbody": 106,
+   "ngeom": 655,
+   "nmesh": 478,
+   "njnt": 26,
+   "nfree": 18,
+   "nv": 116,
+   "size_mb": 16.58634,
+   "dt": 0.002,
+   "model_hash": "555bfb0a262b",
+   "step_dyn_ms": 1.3092432729899883,
+   "step_dyn_min_ms": 1.2283010594546795,
+   "ncon_dyn": 107,
+   "load_static_s": 0.2111538527533412,
+   "nv_static": 0,
+   "step_static_ms": 0.06717477925121784,
+   "step_static_min_ms": 0.06704827770590782,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bedroom",
+    "x": 1.5500000000000003,
+    "y": 1.8000000000000005,
+    "free_r": 1.2381228076068598
+   },
+   "ray14400_all_ms": 157.45667306085429,
+   "ray_hit": 1.0,
+   "ray14400_g4_ms": 29.91559573759635,
+   "ray1600_all_ms": 18.180905220409233,
+   "ray1600_g4_ms": 3.7779221311211586,
+   "doors": [
+    {
+     "id": "door|2|3",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137504,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|3",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 8,
+   "missing_meshes": 0,
+   "load_s": 0.12489227391779423,
+   "nbody": 41,
+   "ngeom": 335,
+   "nmesh": 315,
+   "njnt": 4,
+   "nfree": 4,
+   "nv": 24,
+   "size_mb": 7.875024,
+   "dt": 0.002,
+   "model_hash": "2c27a3ef0d20",
+   "step_dyn_ms": 0.4522023443132639,
+   "step_dyn_min_ms": 0.4321485757827759,
+   "ncon_dyn": 35,
+   "load_static_s": 0.0828175488859415,
+   "nv_static": 0,
+   "step_static_ms": 0.05723052658140659,
+   "step_static_min_ms": 0.05481848493218422,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bathroom",
+    "x": 3.0500000000000003,
+    "y": 3.3299999999999996,
+    "free_r": 0.6407715319160554
+   },
+   "ray14400_all_ms": 77.98168590913217,
+   "ray_hit": 1.0,
+   "ray14400_g4_ms": 11.885182000696659,
+   "ray1600_all_ms": 8.865835765997568,
+   "ray1600_g4_ms": 1.5524768580993016,
+   "doors": [
+    {
+     "id": "door|1|2",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137507,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 9,
+   "missing_meshes": 0,
+   "load_s": 6.941670418716967,
+   "nbody": 620,
+   "ngeom": 4596,
+   "nmesh": 2538,
+   "njnt": 188,
+   "nfree": 132,
+   "nv": 848,
+   "size_mb": 74.512448,
+   "dt": 0.002,
+   "model_hash": "ea71372dc0a7",
+   "step_dyn_ms": 11.537086507305503,
+   "step_dyn_min_ms": 10.981841050088406,
+   "ncon_dyn": 823,
+   "load_static_s": 8.03205051086843,
+   "nv_static": 0,
+   "step_static_ms": 0.6189418584108353,
+   "step_static_min_ms": 0.6168191507458687,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bedroom",
+    "x": 10.184000000000001,
+    "y": 5.800000000000001,
+    "free_r": 2.244239298922654
+   },
+   "ray14400_all_ms": 215.8902104323109,
+   "ray_hit": 1.0,
+   "ray14400_g4_ms": 98.02387033899625,
+   "ray1600_all_ms": 27.16225168357293,
+   "ray1600_g4_ms": 13.047725583116213,
+   "doors": [
+    {
+     "id": "door|2|3",
+     "asset": "Doorframe_8",
+     "design": 1.0505082607269287,
+     "measured": 0.8956192757447781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|5",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492776,
+     "n_valid": 3
+    },
+    {
+     "id": "door|2|5",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338619,
+     "measured": 0.8638455202063643,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|7",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137513,
+     "n_valid": 3
+    },
+    {
+     "id": "door|8|9",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|10|11",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137513,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|8",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|8|10",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137504,
+     "n_valid": 3
+    },
+    {
+     "id": "door|3|6",
+     "asset": "Doorway_3",
+     "design": 1.024445295333862,
+     "measured": 0.8638455202063644,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|3",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492799,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 10,
+   "missing_meshes": 0,
+   "load_s": 2.671787654981017,
+   "nbody": 279,
+   "ngeom": 2499,
+   "nmesh": 1795,
+   "njnt": 86,
+   "nfree": 64,
+   "nv": 406,
+   "size_mb": 51.0213,
+   "dt": 0.002,
+   "model_hash": "7dde4a13de21",
+   "step_dyn_ms": 5.612621670588851,
+   "step_dyn_min_ms": 4.309819936752319,
+   "ncon_dyn": 334,
+   "load_static_s": 3.4733423506841063,
+   "nv_static": 0,
+   "step_static_ms": 0.29125128872692585,
+   "step_static_min_ms": 0.2906130440533161,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "LivingRoom",
+    "x": 7.694999999999999,
+    "y": 4.050000000000001,
+    "free_r": 2.601905784932306
+   },
+   "ray14400_all_ms": 134.39667814721665,
+   "ray_hit": 0.8907638888888889,
+   "ray14400_g4_ms": 58.25934621194998,
+   "ray1600_all_ms": 20.610446731249493,
+   "ray1600_g4_ms": 11.799242968360582,
+   "doors": [
+    {
+     "id": "door|4|5",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137507,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|7",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.80638591600101,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|6",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243406,
+     "measured": 0.8837258883137504,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 11,
+   "missing_meshes": 0,
+   "load_s": 1.7970781438052654,
+   "nbody": 272,
+   "ngeom": 2098,
+   "nmesh": 1357,
+   "njnt": 73,
+   "nfree": 53,
+   "nv": 338,
+   "size_mb": 40.040168,
+   "dt": 0.002,
+   "model_hash": "8cc57630fd4e",
+   "step_dyn_ms": 4.533778075128794,
+   "step_dyn_min_ms": 3.3913031592965126,
+   "ncon_dyn": 271,
+   "load_static_s": 1.947934384457767,
+   "nv_static": 0,
+   "step_static_ms": 0.2512799762189388,
+   "step_static_min_ms": 0.23743299767374992,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bedroom",
+    "x": 4.550000000000001,
+    "y": 4.800000000000001,
+    "free_r": 2.764517001029553
+   },
+   "ray14400_all_ms": 129.3969868371884,
+   "ray_hit": 0.8644444444444445,
+   "ray14400_g4_ms": 49.09023394187292,
+   "ray1600_all_ms": 16.601445463796455,
+   "ray1600_g4_ms": 6.861941268046697,
+   "doors": [
+    {
+     "id": "door|4|5",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.8063859160010114,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|7",
+     "asset": "Doorframe_9",
+     "design": 0.9980238676071167,
+     "measured": 0.8966868507502301,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|7",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.88372588831375,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|7",
+     "asset": "Doorway_1",
+     "design": 1.081500291824341,
+     "measured": 0.8837258883137511,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 12,
+   "missing_meshes": 0,
+   "load_s": 6.257079298608005,
+   "nbody": 531,
+   "ngeom": 4432,
+   "nmesh": 2753,
+   "njnt": 156,
+   "nfree": 111,
+   "nv": 711,
+   "size_mb": 75.595884,
+   "dt": 0.002,
+   "model_hash": "2c25dfba82b8",
+   "step_dyn_ms": 7.516102408990264,
+   "step_dyn_min_ms": 7.429221849888563,
+   "ncon_dyn": 606,
+   "load_static_s": 6.1920645060017705,
+   "nv_static": 0,
+   "step_static_ms": 0.5202404130250216,
+   "step_static_min_ms": 0.5108401924371719,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "LivingRoom",
+    "x": 5.224,
+    "y": 5.300000000000001,
+    "free_r": 2.90199966430664
+   },
+   "ray14400_all_ms": 310.67479867488146,
+   "ray_hit": 0.9960416666666667,
+   "ray14400_g4_ms": 111.95863721271355,
+   "ray1600_all_ms": 32.38936917235454,
+   "ray1600_g4_ms": 12.937085703015327,
+   "doors": [
+    {
+     "id": "door|2|3",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|2|4",
+     "asset": "Doorway_Double_3",
+     "design": 1.9428100585937504,
+     "measured": 1.8063859160010114,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|7",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|8|9",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137514,
+     "n_valid": 3
+    },
+    {
+     "id": "door|10|11",
+     "asset": "Doorway_3",
+     "design": 1.024445295333862,
+     "measured": 0.8638455202063647,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|10",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137504,
+     "n_valid": 3
+    },
+    {
+     "id": "door|8|10",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|2|10",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063647,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|2",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.8310383999999995,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 13,
+   "missing_meshes": 0,
+   "load_s": 1.1019574608653784,
+   "nbody": 224,
+   "ngeom": 1815,
+   "nmesh": 1302,
+   "njnt": 63,
+   "nfree": 49,
+   "nv": 308,
+   "size_mb": 36.978732,
+   "dt": 0.002,
+   "model_hash": "bd55c6fa14fe",
+   "step_dyn_ms": 3.3899822365492582,
+   "step_dyn_min_ms": 3.2316093146800995,
+   "ncon_dyn": 313,
+   "load_static_s": 1.15591982845217,
+   "nv_static": 0,
+   "step_static_ms": 0.19335354678332806,
+   "step_static_min_ms": 0.16785046085715294,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Kitchen",
+    "x": 2.3000000000000003,
+    "y": 3.5500000000000007,
+    "free_r": 1.7470000267028816
+   },
+   "ray14400_all_ms": 140.20874568571648,
+   "ray_hit": 0.9713194444444444,
+   "ray14400_g4_ms": 39.65579718351364,
+   "ray1600_all_ms": 16.809698504706223,
+   "ray1600_g4_ms": 4.676566148797671,
+   "doors": [
+    {
+     "id": "door|4|5",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|7",
+     "asset": "Doorframe_1",
+     "design": 1.0814999341964722,
+     "measured": 0.866859532631248,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|6",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492779,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|6",
+     "asset": "Doorway_7",
+     "design": 1.0358121395111084,
+     "measured": 0.8940585894492781,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 14,
+   "missing_meshes": 0,
+   "load_s": 0.12733728997409344,
+   "nbody": 67,
+   "ngeom": 428,
+   "nmesh": 285,
+   "njnt": 19,
+   "nfree": 18,
+   "nv": 109,
+   "size_mb": 10.166788,
+   "dt": 0.002,
+   "model_hash": "bbb922de6f65",
+   "step_dyn_ms": 1.3315158523619175,
+   "step_dyn_min_ms": 1.3063397072255611,
+   "ncon_dyn": 146,
+   "load_static_s": 0.11315604485571384,
+   "nv_static": 0,
+   "step_static_ms": 0.054438915103673935,
+   "step_static_min_ms": 0.04743434488773346,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "LivingRoom",
+    "x": 3.5500000000000007,
+    "y": 4.800000000000001,
+    "free_r": 2.7199999809265125
+   },
+   "ray14400_all_ms": 56.63671468695005,
+   "ray_hit": 1.0,
+   "ray14400_g4_ms": 11.25500537455082,
+   "ray1600_all_ms": 7.341685704886913,
+   "ray1600_g4_ms": 1.445298083126545,
+   "doors": [
+    {
+     "id": "door|1|2",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063647,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 15,
+   "missing_meshes": 0,
+   "load_s": 4.905220444314182,
+   "nbody": 548,
+   "ngeom": 4322,
+   "nmesh": 2230,
+   "njnt": 161,
+   "nfree": 93,
+   "nv": 626,
+   "size_mb": 71.818896,
+   "dt": 0.002,
+   "model_hash": "f6b4ff465a62",
+   "step_dyn_ms": 6.5243632439523935,
+   "step_dyn_min_ms": 6.408860143274069,
+   "ncon_dyn": 531,
+   "load_static_s": 5.944188476540148,
+   "nv_static": 0,
+   "step_static_ms": 0.8432390447705984,
+   "step_static_min_ms": 0.8372445218265057,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "LivingRoom",
+    "x": 5.743000000000003,
+    "y": 15.533000000000001,
+    "free_r": 2.030451189884038
+   },
+   "ray14400_all_ms": 289.4301004707813,
+   "ray_hit": 0.9982638888888888,
+   "ray14400_g4_ms": 137.06931751221418,
+   "ray1600_all_ms": 34.72826567788919,
+   "ray1600_g4_ms": 15.775402386983234,
+   "doors": [
+    {
+     "id": "door|2|3",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063631,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|5",
+     "asset": "Doorframe_4",
+     "design": 1.0425915718078609,
+     "measured": 0.8628928817728643,
+     "n_valid": 3
+    },
+    {
+     "id": "door|3|4",
+     "asset": "Doorframe_8",
+     "design": 1.0505082607269287,
+     "measured": 0.895619275744778,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|7",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137507,
+     "n_valid": 3
+    },
+    {
+     "id": "door|8|9",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063645,
+     "n_valid": 3
+    },
+    {
+     "id": "door|10|11",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137495,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|8",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137502,
+     "n_valid": 3
+    },
+    {
+     "id": "door|8|10",
+     "asset": "Doorway_7",
+     "design": 1.035812139511108,
+     "measured": 0.8940585894492782,
+     "n_valid": 3
+    },
+    {
+     "id": "door|5|6",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137509,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|2",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.8310383999999986,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 16,
+   "missing_meshes": 0,
+   "load_s": 0.4493555575609207,
+   "nbody": 79,
+   "ngeom": 770,
+   "nmesh": 670,
+   "njnt": 16,
+   "nfree": 12,
+   "nv": 76,
+   "size_mb": 15.623424,
+   "dt": 0.002,
+   "model_hash": "2ed2292eba54",
+   "step_dyn_ms": 1.381028275936842,
+   "step_dyn_min_ms": 1.368946935981512,
+   "ncon_dyn": 50,
+   "load_static_s": 0.4385494375601411,
+   "nv_static": 0,
+   "step_static_ms": 0.12643433175981045,
+   "step_static_min_ms": 0.12491891160607338,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "LivingRoom",
+    "x": 2.0500000000000003,
+    "y": 3.662,
+    "free_r": 1.4673851849942385
+   },
+   "ray14400_all_ms": 87.79649001856644,
+   "ray_hit": 1.0,
+   "ray14400_g4_ms": 23.253606011470158,
+   "ray1600_all_ms": 9.689968389769396,
+   "ray1600_g4_ms": 2.4326189110676446,
+   "doors": [
+    {
+     "id": "door|1|3",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063655,
+     "n_valid": 2
+    }
+   ]
+  },
+  {
+   "house": 17,
+   "missing_meshes": 0,
+   "load_s": 1.751997223123908,
+   "nbody": 270,
+   "ngeom": 2309,
+   "nmesh": 1511,
+   "njnt": 86,
+   "nfree": 60,
+   "nv": 386,
+   "size_mb": 39.143044,
+   "dt": 0.002,
+   "model_hash": "e06de0f9b2b0",
+   "step_dyn_ms": 3.9579719118773937,
+   "step_dyn_min_ms": 3.7486902810633183,
+   "ncon_dyn": 312,
+   "load_static_s": 1.9440410798415542,
+   "nv_static": 0,
+   "step_static_ms": 0.25045142509043217,
+   "step_static_min_ms": 0.22050926461815834,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Kitchen",
+    "x": 3.5500000000000007,
+    "y": 10.047,
+    "free_r": 2.9320245482636325
+   },
+   "ray14400_all_ms": 135.84707429011664,
+   "ray_hit": 0.8177777777777778,
+   "ray14400_g4_ms": 38.6177779485782,
+   "ray1600_all_ms": 13.256553250054518,
+   "ray1600_g4_ms": 6.152038772900899,
+   "doors": [
+    {
+     "id": "door|2|7",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137502,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|7",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137514,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 18,
+   "missing_meshes": 0,
+   "load_s": 1.3000910906121135,
+   "nbody": 238,
+   "ngeom": 1865,
+   "nmesh": 1359,
+   "njnt": 60,
+   "nfree": 43,
+   "nv": 275,
+   "size_mb": 41.123796,
+   "dt": 0.002,
+   "model_hash": "d4dba5fb4579",
+   "step_dyn_ms": 2.9496565461158752,
+   "step_dyn_min_ms": 2.840052656829357,
+   "ncon_dyn": 231,
+   "load_static_s": 1.3665657984092832,
+   "nv_static": 0,
+   "step_static_ms": 0.2085578255355358,
+   "step_static_min_ms": 0.17993729561567307,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bathroom",
+    "x": 2.3000000000000003,
+    "y": 10.845,
+    "free_r": 1.8129999923706046
+   },
+   "ray14400_all_ms": 184.19375705222288,
+   "ray_hit": 1.0,
+   "ray14400_g4_ms": 55.28658845772346,
+   "ray1600_all_ms": 21.967971076567967,
+   "ray1600_g4_ms": 8.566468954086304,
+   "doors": [
+    {
+     "id": "door|4|5",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.8063859160010105,
+     "n_valid": 3
+    },
+    {
+     "id": "door|6|7",
+     "asset": "Doorway_Double_3",
+     "design": 1.94281005859375,
+     "measured": 1.80638591600101,
+     "n_valid": 3
+    },
+    {
+     "id": "door|4|6",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137502,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|6",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063647,
+     "n_valid": 3
+    }
+   ]
+  },
+  {
+   "house": 19,
+   "missing_meshes": 0,
+   "load_s": 0.3420363012701273,
+   "nbody": 114,
+   "ngeom": 811,
+   "nmesh": 641,
+   "njnt": 25,
+   "nfree": 18,
+   "nv": 115,
+   "size_mb": 18.73142,
+   "dt": 0.002,
+   "model_hash": "ade137fd0552",
+   "step_dyn_ms": 1.6576027870178223,
+   "step_dyn_min_ms": 1.5300152078270912,
+   "ncon_dyn": 115,
+   "load_static_s": 0.3109513958916068,
+   "nv_static": 0,
+   "step_static_ms": 0.10519479401409626,
+   "step_static_min_ms": 0.0993119366466999,
+   "ncon_static": 0,
+   "clear_spot": {
+    "room": "Bedroom",
+    "x": 3.3000000000000007,
+    "y": 5.789,
+    "free_r": 1.6863808957443647
+   },
+   "ray14400_all_ms": 162.61010027180114,
+   "ray_hit": 0.9824305555555556,
+   "ray14400_g4_ms": 38.25441903124253,
+   "ray1600_all_ms": 19.295312153796356,
+   "ray1600_g4_ms": 5.831333498160045,
+   "doors": [
+    {
+     "id": "door|2|3",
+     "asset": "Doorway_3",
+     "design": 1.0244452953338623,
+     "measured": 0.8638455202063651,
+     "n_valid": 3
+    },
+    {
+     "id": "door|1|2",
+     "asset": "Doorway_1",
+     "design": 1.0815002918243408,
+     "measured": 0.8837258883137507,
+     "n_valid": 3
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,14 @@
+Pre-registration, VIZ-COAST-style constraint layer Stage B (written 2026-10-28 before any Stage-B run).
+Code: world_model/v2/nero/pan/vizcoast/ (demo --stageB). Proposer: scripted "good" (forbid lid pinch; lift requires lid_secured).
+Loop: Stage-A candidate -> sim at the 32 vertices of its belief box (pan/under_rim.py; early stop after 2 failures) -> failures
+join the evidence -> replan; max 10 rounds. Vertex search finds counterexamples; passing it is NOT a proof.
+Beliefs: prereg (pose +-1.5 cm, yaw +-8 deg, mu x0.6-1.2, hidden 0-0.4 kg) and overload (same, hidden 0-0.8 kg).
+observe_pose (residual +-5 mm / 2 deg) and probe_mass (exact total mass) are ASSUMED skills: not built in sim; Stage B models them
+by perturbing the truth only within the residual box / telling FL-MPC the true mass.
+Predictions (owner):
+ - plans without observe_pose fail at yaw 8 deg vertices (right claw misses the rim) or dy +1.5 cm (0.65: no clean pre-grasp);
+ - the recorded counterexample A25 (mu 1.11, 0.38 kg off-centre, slip) means observe-only plans at frac 0.7 / push 0.07 are blocked;
+   the planner then needs probe_mass or a different push;
+ - mu x1.2 vertices (short pushes seen in robust_L70) are the likeliest remaining killers; 50/50 that prereg ends with NO plan
+   surviving 32 vertices within 10 rounds; overload more likely to end with no plan (mass 0.8 kg at mu 1.2).
+Either outcome is reported as is; a no-plan result points to the missing friction / closed-loop push check.
