@@ -50,6 +50,7 @@ Full-scale: base `base.V_STICK` = (0.9, 0.45, 1.2); tray jog 0.08 m/s / 0.15 rad
 | Space | zero everything | Esc | latched stop |
 | V | shield on/off | C | cycle camera (ego, chase, top, wrist_l, wrist_r) |
 | B | wrist inset on/off | Backspace | reset episode |
+| **O** | operator-intent ghost on/off (default on; `--no-ghost` starts it off) | | |
 | **N** | TUCK: tray to the narrow doorway carry pose (offset +0.11, +0.11, 0 m, yaw +0.33 rad from the normal carry; ~4 s) | **M** | back to the normal carry pose |
 N / M move the tray through the normal tray-jog path (so the shield's jog governor applies), only while armed; any tray-jog key, Space, Esc, disarm or a disconnect cancels the motion. HUD: `footprint ... tray tucked|carry|to_tuck|to_carry|custom`; the page has Tuck / Normal carry buttons (same keys).
 Ctrl/Alt/Meta combos are ignored (browser shortcuts keep working).
@@ -114,3 +115,11 @@ The default view is `ego`: the torso ZED head camera (PROPOSED mount, confirm on
 ## Known limits
 * Real-time factor is about 0.17 in the h5 scene at the time of writing: the controller is not the bottleneck (rt FL-MPC ~1 ms/step); `arm.ArmCtl.tau` (`all_pair_barriers` ~16 ms/call, `mj_forward` 8 ms) and `mj_step` (8 ms) per physics step dominate. The operator therefore sees ~6x slow motion; the watchdog runs in wall time.
 * Tests: `python -m pytest -q world_model/v2/house/teleop/web/tests` (mapping, deadzone, deadman, watchdog, latch). End-to-end smoke: `python -m world_model.v2.house.teleop.web.smoke_client --out DIR` against a running server (`--token`).
+
+## Operator-intent ghost (`teleop/ghost.py`, key O)
+A translucent robot shows where the operator's RAW command (before the shield) would take the robot over a 0.8 s look-ahead, re-synced to
+the measured state every tick. Cyan = the shield passes the command (the ghost then coincides with the robot and fades out); orange = the
+shield is intervening. Chase / top views: whole robot plus arrows above it (orange = requested base motion, green = permitted = the shield
+QP's output this tick). Ego view: ghost arms only, arrows on the floor. Wrist views: no ghost. Arms: the raw and the governed tray jog both go
+through ObjectFrame's clamps and DLS IK on a private MjData (it never touches the controller reference). The HUD row `ghost` shows the
+requested vs permitted twist and the separation. Visual only: nothing reaches physics, contacts or control. Reset clears it.

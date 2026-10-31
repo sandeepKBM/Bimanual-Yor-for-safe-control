@@ -11,7 +11,7 @@ while the rig is built, and `zed_demo.stereo.error_at_range` made robust to empt
 | `perception.py` | `Twin` (speckle-textured twin + ZED stereo + SGBM + zonotopes + planners), `PerceptionService` (live / cached), place-planner switch |
 | `simulate.py` | one side headless (CPU physics) -> `run_<side>_s<seed>.npz/.json` (per-tick qpos, mocap, ctrl, stand pose, scalars) |
 | `analyze.py` | post-hoc clearance of each recorded run to the stereo zonotopes and to the true object geoms |
-| `render.py` | replay -> 1920x1080 25 fps side-by-side video (+ `--preview`), no re-simulation |
+| `render.py` | replay -> 1920x1080 25 fps side-by-side video (+ `--preview`), no re-simulation; operator-intent ghost on the shield side (`--no-ghost` = the 10-10 video) |
 | `tests/` | state machine, operator determinism, replay determinism, schedule |
 
 ## Pipeline / commands
@@ -42,6 +42,15 @@ Outputs in `/data/local/ss5772/molmospaces/flagship/` (override `FLAGSHIP_OUT`).
   naive straight line to the desk centre, halts on first contact, retraces, and the mission fails.
 * **zono_rows switch**: `--place-backend zono_rows` calls `world_model.v2.house.zono_rows.flagship_backend(result, obs)` (expected to return `dict(ok, spot_t, path_t)`);
   absent module / function -> falls back to the zed_demo planner and logs it.
+
+## Operator-intent ghost (2026-10-30, `teleop/ghost.py`)
+The shield side shows a translucent robot where the operator's RAW command would put it (cyan = shield passing, orange = shield
+intervening), plus arrows above the robot: orange = requested base motion, green = permitted (the shield QP's output this tick, not a
+guarantee over the horizon).  Each tick both commands are rolled through the sim's own base model for 0.8 s (`--ghost-h`, a display choice)
+from the measured state; the ghost is the robot composed with the raw-minus-permitted difference, so it sits on the robot when the shield
+passes the command.  The 10-10 runs record the raw base twist (`s_u_op`) but not the raw tray jog / lift rate: in the video the ghost is
+base-only and its arms ride along at the measured joints (the live web teleop also predicts the arms).  Output defaults to
+`*_ghost.mp4`, so the 10-10 video is never overwritten.  CPU render: `MUJOCO_GL=osmesa LP_NUM_THREADS=2 ... --jobs 2`.
 
 ## Known issues / findings
 * **People that pause freeze** (read-only `teleop/sim.py::set_people`): a person's track clock only advances while the current track velocity is non-zero, and

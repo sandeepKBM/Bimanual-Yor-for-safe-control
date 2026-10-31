@@ -29,6 +29,7 @@ import numpy as np
 
 from . import scene as FS
 from . import mission as MS
+from world_model.v2.house.teleop import ghost as GH
 
 TICK = 0.02
 W, H, FPS = 1920, 1080, 25
@@ -81,7 +82,19 @@ class Run:
         self.pd_min = np.minimum.accumulate(s["s_pdist"])
         self.pcont = np.cumsum((s["s_pdist"] <= 0) & (np.r_[False, s["s_pdist"][:-1] > 0]))
         self.wcont = np.cumsum((self.wall <= 0) & (np.r_[False, self.wall[:-1] > 0]))
+        self.gh = None
         self._cam()
+
+    def ghost_track(self, H=GH.H_LOOK):
+        """operator-intent ghost per tick (teleop/ghost.py) from the recorded u_op / u_safe.  Base (+ lift) only: the 10-10 runs record the
+        raw base twist but not the raw tray jog / lift rate, so the ghost arms ride with the ghost base at the measured joint angles."""
+        s = self.a
+        active = ~np.isin(self.ph, [MS.PHASE_ID[p] for p in MS.AUTONOMOUS + ("DONE",)])
+        self.gh = GH.track(s["s_pose"], s["s_v"], s["s_u_op"], s["s_u_safe"], s["s_interv"], s["s_interv_aux"], active, H=H)
+        vis = self.gh[:, 19] > 0
+        print(f"[render] ghost {self.tag}: visible {vis.mean():.0%} of ticks, max gap {self.gh[:, 25].max() * 100:.0f} cm / "
+              f"{math.degrees(self.gh[:, 26].max()):.0f} deg (H = {H} s)", flush=True)
+        return self.gh
 
     def idx(self, t):
         return int(np.clip(round(t / TICK) - 1, 0, self.n - 1))
@@ -336,6 +349,7 @@ class Views:
         self.cam = mujoco.MjvCamera()
         self.stand_id = self.m.body("tp_stand").id
         self.percs = percs
+        self.ghost = GH.Drawer(self.m)
         from world_model.v2.house.zed_demo import viz as VZ
         self.VZ = VZ
         self.shown = {}
@@ -353,7 +367,7 @@ class Views:
                 sup = [z for z in r["zonos"] if z["kind"] == "support"]
                 self.support = zono_unpack(sup[0]["Zi"]) if sup else None
 
-    def render(self, run: Run, i, which_zono=None, plan=None, naive=None):
+    def render(self, run: Run, i, which_zono=None, plan=None, naive=None, ghost=None):
         mj, m, d = self.mj, self.m, self.d
         a = run.a
         d.qpos[:] = a["qpos"][i]
@@ -370,6 +384,8 @@ class Views:
         cam.distance, cam.elevation, cam.azimuth = float(run.cdist[i]), float(run.cel[i]), math.degrees(yaw) + float(run.caz[i])
         self.r.update_scene(d, camera=cam)
         scn = self.r.scene
+        if ghost is not None:
+            self.ghost.add(scn, d, ghost, z_arrow=GH.Z_ARROW_CHASE)
         VZ = self.VZ
         if which_zono:
             for zd in self.shown.get(which_zono, []):
@@ -430,6 +446,7 @@ class Composer:
         self.static_people = [(p["xy"][0], p["xy"][1], p["radius"]) for p in meta["persons"]]
         self.pnames = [self.sim.m.body(int(np.flatnonzero(self.sim.m.body_mocapid == i)[0])).name for i in range(self.sim.m.nmocap)]
         self.place_vis = {}
+        self.gf = {}
         for r in runs:
             pi = r.meta.get("place_info", {})
             if pi.get("spot_t") is not None:
@@ -475,7 +492,9 @@ class Composer:
             td = next((e[0] for e in run.meta["events"] if e[1] == "SENSE_D"), None)
             if tp_ is not None and td is not None and t >= td:
                 naive = tp_
-        view = self.views.render(run, i, zono_kind, plan, naive)
+        gf = GH.GhostFrame.from_vec(run.gh[i]) if (run.gh is not None and not done) else None
+        self.gf[run.side] = gf
+        view = self.views.render(run, i, zono_kind, plan, naive, ghost=gf)
         return view, i, ph, t
 
     @staticmethod
@@ -619,6 +638,9 @@ class Composer:
                 dr.rectangle([x0 + 20, HEAD_H + 14, x0 + 330, HEAD_H + 56], fill=(0, 0, 0, 170))
                 draw_text(dr, (x0 + 30, HEAD_H + 20), f"MISSION DONE  {run.metrics.get('mission_time_s') or run.T:.0f} s", 24, GREEN)
             draw_text(dr, (x0 + 12, HEAD_H + VH - 28), f"3rd-person view   {ph}", 17, (230, 230, 235), False)
+            gf = self.gf.get(run.side)
+            if gf is not None and gf.alpha > 0:
+                self.ghost_legend(dr, gf, x0 + VW - 492, HEAD_H + VH - 132)
         # perception text
         if perc is not None:
             head, lines = self.perc_text(perc[0], perc[1], dr, 0, 0)
@@ -647,6 +669,17 @@ class Composer:
             draw_text(dr, (x0 + VW // 2, HEAD_H + 215), f"{'RAW' if side == 'raw' else 'SHIELD'}: {msg}", 44, WHITE, anchor="ma")
         pil.save  # noqa
         return np.asarray(pil)
+
+    @staticmethod
+    def ghost_legend(dr, gf, x, y):
+        tx = GH.describe(gf)
+        col = (255, 150, 40) if gf.warn else (80, 205, 255)
+        dr.rectangle([x, y, x + 482, y + 122], fill=(0, 0, 0, 175))
+        draw_text(dr, (x + 10, y + 6), "GHOST = operator's command before the shield", 16, col)
+        draw_text(dr, (x + 10, y + 28), f"({GH.H_LOOK:.1f} s look-ahead; the solid robot runs the shield's command)", 13, GREY, False)
+        draw_text(dr, (x + 10, y + 50), f"requested  {tx['requested']}", 16, (255, 150, 40), False)
+        draw_text(dr, (x + 10, y + 72), f"permitted  {tx['permitted']}", 16, (60, 235, 110), False)
+        draw_text(dr, (x + 10, y + 96), tx["gap"] + "   (arrows: orange req., green perm.)", 14, WHITE, False)
 
     # --------------------------------------------------------------------------------------- cards
     def card(self, f):
@@ -748,7 +781,7 @@ def run_parallel(a):
     import subprocess
     import imageio_ffmpeg
     gpus = [g for g in a.gpus.split(",") if g] or ["1"]
-    out = a.out or str(Path(a.dir) / "flagship_coffee_run.mp4")
+    out = a.out or str(Path(a.dir) / default_name(a))
     procs = []
     for i in range(a.jobs):
         cmd = [sys.executable, "-m", "world_model.v2.house.flagship.render", "--seed", str(a.seed), "--dir", a.dir, "--out", out, "--part", f"{i}/{a.jobs}"]
@@ -761,7 +794,11 @@ def run_parallel(a):
             cmd += ["--window", a.window]
         if a.preview:
             cmd.append("--preview")
-        env = dict(os.environ, CUDA_VISIBLE_DEVICES=gpus[i % len(gpus)], MUJOCO_GL="egl")
+        if a.no_ghost:
+            cmd.append("--no-ghost")
+        cmd += ["--ghost-h", str(a.ghost_h)]
+        gl = os.environ.get("MUJOCO_GL", "egl")
+        env = dict(os.environ, MUJOCO_GL=gl, **({"CUDA_VISIBLE_DEVICES": gpus[i % len(gpus)]} if gl == "egl" else {}))
         procs.append(subprocess.Popen(cmd, env=env))
     rc = [p.wait() for p in procs]
     if any(rc):
@@ -771,6 +808,12 @@ def run_parallel(a):
     Path(lst).write_text("".join(f"file '{p}'\n" for p in parts))
     subprocess.check_call([imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy", out])
     print(f"[render] concatenated {a.jobs} parts -> {out}", flush=True)
+
+
+def default_name(a):
+    """the ghost video never overwrites the 10-10 one."""
+    base = "flagship_preview" if a.preview else "flagship_coffee_run"
+    return f"{base}.mp4" if a.no_ghost else f"{base}_ghost.mp4"
 
 
 def main():
@@ -788,6 +831,8 @@ def main():
     ap.add_argument("--jobs", type=int, default=0, help="N>1: render N contiguous parts in parallel subprocesses (one per GPU in --gpus) and concat")
     ap.add_argument("--gpus", default="", help="comma list of GPU ids for --jobs (never 0)")
     ap.add_argument("--part", default=None, help="i/n: render only frames i::n chunk (contiguous), writes <out>.part<i>.mp4")
+    ap.add_argument("--no-ghost", action="store_true", help="the 10-10 video without the operator-intent ghost")
+    ap.add_argument("--ghost-h", type=float, default=GH.H_LOOK, help="ghost look-ahead [s] (display choice)")
     a = ap.parse_args()
     if a.jobs > 1:
         return run_parallel(a)
@@ -825,9 +870,12 @@ def main():
         i, n = (int(x) for x in a.part.split("/"))
         L = int(math.ceil(len(sched) / n))
         sched = sched[i * L:(i + 1) * L]
-    out = a.out or str(d / ("flagship_preview.mp4" if a.preview else "flagship_coffee_run.mp4"))
+    out = a.out or str(d / default_name(a))
     if a.part:
         out = out.replace(".mp4", f".part{a.part.split('/')[0]}.mp4")
+    if not a.no_ghost:
+        GH.H_LOOK = a.ghost_h
+        shd.ghost_track(a.ghost_h)              # the raw side has no filter (u_safe = u_op): no ghost
     views = Views(sim, percs)
     mm = MiniMap(sim, meta)
     comp = Composer(runs, percs, views, mm, cfg)

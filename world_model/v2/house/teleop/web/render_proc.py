@@ -18,7 +18,10 @@ import math
 import os
 import time
 
-HDR = 9              # [seq, base_x, base_y, base_yaw, cam_i, inset, sim_t, tick_id, lift_h]
+from world_model.v2.house.teleop import ghost as GH      # light: numpy + mujoco + teleop.base
+
+GH0 = 9              # header: [seq, base_x, base_y, base_yaw, cam_i, inset, sim_t, tick_id, lift_h] + ghost frame (GH.G_LEN floats)
+HDR = GH0 + GH.G_LEN
 CAMERAS = ("ego", "chase", "top", "wrist_l", "wrist_r")
 WRIST = {"wrist_l": "left_arm_egocentric", "wrist_r": "right_arm_egocentric"}
 # ego view = the torso ZED head camera (PROPOSED mount, confirm on hardware): same constants as ocs/fp_render (HEAD_POS / HEAD_PITCH_DEG / HEAD_FOVY), duplicated here so the
@@ -59,11 +62,12 @@ class Snapshot:
         self.eq = self.a[o:o + lay["neq"]]
 
     # ---- writer
-    def write(self, d, base_x, base_y, base_yaw, cam_i, inset, t, tick_id, lift_h=0.0):
+    def write(self, d, base_x, base_y, base_yaw, cam_i, inset, t, tick_id, lift_h=0.0, ghost=None):
         a = self.a
         s = a[0]
         a[0] = s + 1.0 if (int(s) % 2 == 0) else s + 2.0       # odd = write in progress
         a[1:9] = (base_x, base_y, base_yaw, cam_i, float(inset), t, tick_id, lift_h)
+        a[GH0:HDR] = ghost if ghost is not None else 0.0        # alpha 0 = no ghost
         self.qpos[:] = d.qpos
         self.mpos[:] = d.mocap_pos.reshape(-1)
         self.mquat[:] = d.mocap_quat.reshape(-1)
@@ -108,6 +112,7 @@ def render_main(shm_name, lay, model_path, ctrl, out, cfg):
         return m, d, mujoco.Renderer(m, H, W), mujoco.Renderer(m, IH, IW)
 
     m, d, r, r_in = load(model_path)
+    ghost = GH.Drawer(m)
     cam = mujoco.MjvCamera()
     mujoco.mjv_defaultCamera(cam)
 
@@ -120,6 +125,7 @@ def render_main(shm_name, lay, model_path, ctrl, out, cfg):
         elif name == "ego":
             m.vis.global_.fovy = ego_cam(cam, hdr[1], hdr[2], hdr[3], hdr[8])
             rr.update_scene(d, camera=cam)
+            ghost.add(rr.scene, d, GH.GhostFrame.from_vec(hdr[GH0:HDR]), which="arms", z_arrow=GH.Z_ARROW_EGO)
         else:
             x, y, yaw = hdr[1], hdr[2], hdr[3]
             if name == "top":
@@ -129,6 +135,7 @@ def render_main(shm_name, lay, model_path, ctrl, out, cfg):
                 cam.lookat[:] = (x + 0.5 * math.cos(yaw), y + 0.5 * math.sin(yaw), 0.8)
                 cam.distance, cam.elevation, cam.azimuth = 2.4, -25.0, math.degrees(yaw)
             rr.update_scene(d, camera=cam)
+            ghost.add(rr.scene, d, GH.GhostFrame.from_vec(hdr[GH0:HDR]))      # no ghost in the wrist views (it would cover them)
         return rr.render()
 
     last_tick = -1.0
@@ -144,6 +151,7 @@ def render_main(shm_name, lay, model_path, ctrl, out, cfg):
                 if msg[0] == "reload":
                     r.close(); r_in.close()
                     m, d, r, r_in = load(msg[1])
+                    ghost = GH.Drawer(m)
                     fovy0 = float(m.vis.global_.fovy)
                     last_tick = -1.0
             now = time.perf_counter()
@@ -232,9 +240,9 @@ class RenderLink:
         self.ctrl_p.send(("reload", self.path))
         self._rm_later = old                     # removed at close(): the child may still be mid-load
 
-    def publish(self, sim, cam_i, inset):
+    def publish(self, sim, cam_i, inset, ghost=None):
         self.tick_id += 1
-        self.snap.write(sim.d, sim.base.x, sim.base.y, sim.base.yaw, cam_i, inset, sim.t, self.tick_id, sim.lift_actual())
+        self.snap.write(sim.d, sim.base.x, sim.base.y, sim.base.yaw, cam_i, inset, sim.t, self.tick_id, sim.lift_actual(), ghost)
 
     def close(self):
         self._stop = True
