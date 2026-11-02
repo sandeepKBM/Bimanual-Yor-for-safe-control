@@ -74,7 +74,32 @@ def world_trials(ep, segments=S.SEGMENTS, **kw):
     return out
 
 
-def certify(records, seg, family=BK.FAMILY):
+def certify(records, seg, family=BK.FAMILY, static=None, conf=0.95):
+    """11-01 (user step 3): STATIC rows (torque/payload, rest support/tilt, open-content limits) come from exact corner checks
+    (contents/static_cert.static_rows: proof under MODEL); the sampled worlds cover only the DYNAMIC effects.  The result reports
+    both, plus a one-sided Clopper-Pearson bound on the dynamic failure rate (i.i.d. worlds from the cell, conf).
+    static=None keeps the pre-11-01 behaviour (sampled only)."""
+    from ..segcert import cp_upper
+    dyn = _certify_sampled(records, seg, family)
+    n = dyn["n_worlds"]
+    k = 0 if dyn["ok"] else len({c.get("tag") for c in dyn.get("counterexamples", [])})
+    dyn["eps_upper"] = round(cp_upper(k, n, conf), 4) if n else 1.0
+    dyn["eps_conf"] = conf
+    if static is None:
+        return dyn
+    out = dict(dyn, ok=bool(dyn["ok"] and static["ok"]), static=static,
+               guarantee=f"static rows: proof under MODEL ({', '.join(static['rows'])}); dynamic rows: {dyn['guarantee']}, "
+                         f"failure rate <= {dyn['eps_upper']} at {conf:.0%} (Clopper-Pearson, i.i.d. worlds)")
+    if not static["ok"]:
+        out.setdefault("counterexamples", [])
+        for name, r in static["rows"].items():
+            if not r["ok"]:
+                out["counterexamples"].append(dict(where="static", row=name, worst=r.get("worst") or r.get("worst_contents"),
+                                                   guarantee=r["guarantee"]))
+    return out
+
+
+def _certify_sampled(records, seg, family=BK.FAMILY):
     """records: world_trials outputs (each with 'theta' and 'tag').  -> dict(ok, backup_retreat, n, counterexample).
     A world where the robot refuses at B0 is not a sample of this segment; a world whose earlier segment failed is not either."""
     worlds = [(r, next((s for s in r["segments"] if s["seg"] == seg), None)) for r in records if not r.get("refused")]

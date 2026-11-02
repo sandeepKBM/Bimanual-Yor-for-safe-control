@@ -306,11 +306,13 @@ class Episode:
     """One world theta, one plan, with the robot's policy (observe_pose re-aim). Snapshot/restore for branching backups."""
 
     def __init__(self, world, push=0.07, grasp_frac=0.65, grip_force=10.0, observe="zed", obs_seed=0, retries=3,
-                 payload_mass=None, clamp="v2", est=None, obj="pan", claw_N=None, lift_ctl="nominal"):
+                 payload_mass=None, clamp="v2", est=None, obj="pan", claw_N=None, lift_ctl="nominal", grasp="friction"):
         """est: a GIVEN pose estimate dict(dx, dy, yaw_deg) used instead of running observe_pose (cert/ reconstruction: the
         robot aimed there; this world is one theta it must cover).  None = run observe_pose at noise `observe`."""
         from . import observe_pose as O
         self.obj = obj                                  # 11-01: "pan" (one handle: push + rim clamp) | "pot" (two side handles: pinch both)
+        assert grasp in ("friction", "weld"), grasp
+        self.grasp = grasp                              # 11-01 USER scope: "weld" = rigid weld once the claw closes (ASSUMED grasp)
         if obj == "pot":
             push = 0.0
         self.world, self.plan = world, dict(push=push, grasp_frac=grasp_frac, grip_force=grip_force, clamp=clamp, obj=obj, claw_N=claw_N,
@@ -328,8 +330,16 @@ class Episode:
                                                              handle2_grasp_frac=grasp_frac))
         self.cp, self.p = cp, cp.pan
         p = self.p
-        m = self.m = CV.compose(cp)
+        if grasp == "weld":                             # inactive welds gripper_base <-> pan, switched on at the end of each "close"
+            spec = CV.build_spec(cp)
+            for s_ in SIDES:
+                spec.add_equality(name=f"weld_{s_}", type=mujoco.mjtEq.mjEQ_WELD, objtype=mujoco.mjtObj.mjOBJ_BODY,
+                                  name1=f"{s_}_arm_gripper_base", name2="pan", active=False)
+            m = self.m = CV.S.apply_sim_defaults(spec.compile())
+        else:
+            m = self.m = CV.compose(cp)
         m.opt.timestep = DT
+        self.weld_id = {s_: m.equality(f"weld_{s_}").id for s_ in SIDES} if grasp == "weld" else {}
         if perturb.get("mu_scale"):
             m.geom_friction[:, 0] *= perturb["mu_scale"]
         if perturb.get("lid_mu_scale"):        # 11-01 hard worlds: lid friction.  MuJoCo combines a pair by MAX friction unless the
@@ -460,6 +470,7 @@ class Episode:
         from .handle_grasp import set_claw_limit
         self.claw_N = set_claw_limit(m, list(self.act.values()), claw_N)   # 11-01: None = compose default (config.claw_default, 40 N)
         self.plan["claw_N"], self.plan["physics_substeps"] = self.claw_N, C.substeps_default()   # record what actually ran
+        self.plan["grasp"] = grasp
         self.act_pos = {s: (m.actuator_gainprm[self.act[s], :3].copy(), m.actuator_biasprm[self.act[s], :3].copy(),
                             m.actuator_ctrlrange[self.act[s]].copy()) for s in SIDES}
         self.fing = {m.geom(f"{s}_arm_finger{i}_col").id: (s, i) for s in SIDES for i in (1, 2)}
@@ -501,15 +512,36 @@ class Episode:
     # ---------------- state ----------------
     _SPEC = mujoco.mjtState.mjSTATE_INTEGRATION
 
+    def weld(self, s, on):
+        """rigid weld of claw s to the object (grasp="weld" only).  On: hold the CURRENT relative pose (body2 = pan in the
+        gripper_base frame, anchor 0; checked: zero residual at activation).  Off: release."""
+        if s not in self.weld_id:
+            return
+        i, m, d = self.weld_id[s], self.m, self.d
+        if on:
+            b1, b2 = m.eq_obj1id[i], m.eq_obj2id[i]
+            R1 = d.xmat[b1].reshape(3, 3)
+            qi, q = np.zeros(4), np.zeros(4)
+            mujoco.mju_negQuat(qi, d.xquat[b1])
+            mujoco.mju_mulQuat(q, qi, d.xquat[b2])
+            m.eq_data[i, 0:3] = 0.0
+            m.eq_data[i, 3:6] = R1.T @ (d.xpos[b2] - d.xpos[b1])
+            m.eq_data[i, 6:10] = q
+            m.eq_data[i, 10] = 1.0
+        d.eq_active[i] = 1 if on else 0
+
     def snapshot(self, label=None):
         st = np.zeros(mujoco.mj_stateSize(self.m, self._SPEC))
         mujoco.mj_getState(self.m, self.d, st, self._SPEC)
-        return dict(st=st, ctl=copy.deepcopy(self.ctl, {id(self.m): self.m}), k=self.k,
+        weld = {s: self.m.eq_data[i].copy() for s, i in self.weld_id.items()}   # relpose lives in the model, not the state
+        return dict(st=st, weld=weld, ctl=copy.deepcopy(self.ctl, {id(self.m): self.m}), k=self.k,
                     paths={s: list(v) for s, v in self.paths.items()}, gmode=dict(self.gmode), gcmd=dict(self.gcmd),
                     mem=copy.deepcopy(self.mem), sense=copy.deepcopy(self.sense), label=label, t=self.k * DT)
 
     def restore(self, sn):
-        mujoco.mj_setState(self.m, self.d, sn["st"], self._SPEC)
+        for s, i in self.weld_id.items():
+            self.m.eq_data[i] = sn["weld"][s]
+        mujoco.mj_setState(self.m, self.d, sn["st"], self._SPEC)   # INTEGRATION state includes eq_active
         self.ctl = copy.deepcopy(sn["ctl"], {id(self.m): self.m})
         self.k, self.paths = sn["k"], {s: list(v) for s, v in sn["paths"].items()}
         self.gmode, self.gcmd = dict(sn["gmode"]), dict(sn["gcmd"])
@@ -768,6 +800,8 @@ class Episode:
                 self.gcmd[s] = -self.plan["grip_force"] if kind == "close" else self.open_cmd[s]
                 if kind == "open" and len(ph) > 3:    # cert/ v2 release: open each finger by a FIXED amount past its encoder reading
                     self.gcmd[s] = min(self.open_cmd[s], self.finger_q(s) + float(ph[3]))
+                if kind == "open":
+                    self.weld(s, False)
                 self._apply_grip(s)
             else:
                 dur = ph[1]
@@ -783,6 +817,8 @@ class Episode:
                     why = monitor(self)
                     if why:
                         return "abort", dict(t=round(self.k * DT, 3), why=why, snaps=snaps)
+            if kind == "close":
+                self.weld(ph[1], True)                # grasp="weld": rigid once the claw has closed (no-op otherwise)
         return "done", dict(snaps=snaps)
 
     def reobserve(self):
