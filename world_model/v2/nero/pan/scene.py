@@ -205,12 +205,37 @@ def _add_spatula(W, p):
     sp.add_site(name="spatula_grasp", pos=[0.02, 0, 0], size=[0.005, 0, 0], rgba=[1, 0.2, 0.2, 1])
 
 
+def apply_sim_defaults(m):
+    """11-01 USER: the pan/pot scenes run the NERO claws at config.claw_default() (40 N; MJCF says 10 N). In memory only."""
+    f = float(C.claw_default())
+    for s in C.SIDES:
+        a = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_ACTUATOR, f"{s}_arm_gripper_pos")
+        if a >= 0:
+            m.actuator_forcerange[a] = (-f, f)
+    return m
+
+
+def step(m, d, nsub=None):
+    """one control step of m.opt.timestep as nsub physics substeps (applied torque/ctrl held). nsub None = config.substeps_default()."""
+    n = C.substeps_default() if nsub is None else int(nsub)
+    if n <= 1:
+        mujoco.mj_step(m, d)
+        return
+    dt = m.opt.timestep
+    m.opt.timestep = dt / n
+    try:
+        for _ in range(n):
+            mujoco.mj_step(m, d)
+    finally:
+        m.opt.timestep = dt
+
+
 def compose(p: PanParams | None = None, dt: float | None = None):
     spec = build_spec(p)
     m = spec.compile()
     if dt is not None:
         m.opt.timestep = dt
-    return m
+    return apply_sim_defaults(m)
 
 
 def write_mjcf(p: PanParams | None = None, path=SCENE_OUT):
@@ -249,7 +274,7 @@ def settle(m, d, seconds=2.0):
     pan = m.body("pan").id
     p0 = d.xpos[pan].copy()
     for _ in range(int(seconds / m.opt.timestep)):
-        mujoco.mj_step(m, d)
+        step(m, d)
     return float(np.linalg.norm(d.xpos[pan] - p0))
 
 

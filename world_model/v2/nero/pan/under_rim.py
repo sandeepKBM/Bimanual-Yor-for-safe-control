@@ -219,7 +219,7 @@ def run(placement="far_centre", hidden_mass=None, push=0.07, grasp_frac=0.6, gri
         d.qfrc_applied[:] = 0.0
         d.qfrc_applied[ctl.ld] = te
         d.qfrc_applied[ctl.rd] = ti
-        mujoco.mj_step(m, d)
+        S.step(m, d)                                     # 11-01: 1 ms physics substeps (config.substeps_default)
         if snap is not None:
             snap(t, m, d)
         fz = {s: 0.0 for s in C.SIDES}

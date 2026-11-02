@@ -153,7 +153,7 @@ def find_pregrasp(m, d0, side, target, approach, jaw, n_sol=10, seeds=60, open_w
 
 def set_claw_limit(m, acts, claw_N):
     """11-01: raise (or lower) the claw actuators' force limit to claw_N [N] in memory (config.CLAW_PRESETS; the MJCF stays at
-    GRIPPER_EFFORT).  None = leave the MJCF value.  -> the limit in force."""
+    GRIPPER_EFFORT).  None = leave the value set at compose (config.claw_default(): 40 N since 11-01).  -> the limit in force."""
     if claw_N is None:
         return float(m.actuator_forcerange[acts[0], 1])
     for a in acts:
@@ -191,7 +191,7 @@ class TwoCtl(Ctl):
 
 def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=None, grip="servo", grip_force=10.0,
         grasp_frac=None, second_frac=None, second_grip="tilt", snap=None, second_depth=None, condim=None, left_grasp=None,
-        claw_N=None, obs_tau_f=None, obs_sigma=None, nsub=1):
+        claw_N=None, obs_tau_f=None, obs_sigma=None, nsub=None):
     """grasp_frac: left pinch point along the handle (default scene 0.6).  second_frac: if set, the RIGHT claw also grips the
     handle there (top-down, jaw across the handle width) and both arms lift together (two-claw lift)."""
     cp = CV.CoveredParams(placement=placement)
@@ -242,7 +242,8 @@ def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=
     else:
         ctl = Ctl(m, hold, tau)
     NP, FDT = ctl.fl.NP, ctl.fl.DT
-    m.opt.timestep = DT / nsub                   # after settle + pre-grasp (those stay at DT); nsub=1 = unchanged
+    nsub = C.substeps_default() if nsub is None else int(nsub)   # 11-01 default 5 (1 ms); BIMANUAL_LEGACY_CLAW=1 -> 1
+    m.opt.timestep = DT / nsub                   # after settle + pre-grasp (settle substeps via scene.step); nsub=1 = 5 ms
     act_g = {s: m.actuator(f"{s}_arm_gripper_pos").id for s in sides}
     set_claw_limit(m, list(act_g.values()), claw_N)            # 11-01: None = MJCF 10 N; config.CLAW_PRESETS
     fing = {m.geom(f"{s}_arm_finger{i}_col").id: (s, f"f{i}") for s in sides for i in (1, 2)}
@@ -399,8 +400,8 @@ def main(argv=None):
     ap.add_argument("--second-frac", type=float, default=None, help="two-claw lift: right claw on the handle at this fraction")
     ap.add_argument("--second-grip", default="tilt", choices=["tilt", "side"])
     ap.add_argument("--condim", type=int, default=None, choices=[3, 4, 6])
-    ap.add_argument("--nsub", type=int, default=1, help="physics substeps per 5 ms control step (5 -> 1 ms; needed above 10 N)")
-    ap.add_argument("--claw-N", type=float, default=None, help="claw force limit [N] (config.CLAW_PRESETS; default = MJCF 10 N)")
+    ap.add_argument("--nsub", type=int, default=None, help="physics substeps per 5 ms control step (default config: 5 -> 1 ms)")
+    ap.add_argument("--claw-N", type=float, default=None, help="claw force limit [N] (config.CLAW_PRESETS; default = config.claw_default(), 40 N)")
     ap.add_argument("--out", default=None)
     a = ap.parse_args(argv)
     r = run(a.placement, a.hidden_mass, a.payload, grip=a.grip, grip_force=a.grip_force, grasp_frac=a.grasp_frac, second_frac=a.second_frac,

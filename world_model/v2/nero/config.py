@@ -4,6 +4,7 @@ Everything not read from the official URDF/docs is tagged ASSUMED here and nowhe
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import numpy as np
 
@@ -45,10 +46,30 @@ MANUAL = dict(
 # Gripper: RESELLER pages only (mybotshop.de AgileX-Nero-Gripper, generationrobots.com PiPER/NERO gripper, openelab.io), 2026-11-01:
 # rated 40 N, max 50 N clamping, 0-70 mm opening (one page also says 100 mm), 500 g, rubber fingers.  The manual says a PiPER gripper
 # works on NERO after an ID change, so the two grippers are separate but compatible products.  NOT confirmed by AgileX.
-GRIPPER_DATASHEET = dict(rated_N=40.0, max_N=50.0, stroke_m=0.07, source="reseller, unconfirmed")
+GRIPPER_DATASHEET = dict(rated_N=40.0, max_N=50.0, stroke_m=0.07,
+                         source="reseller pages; 40 N rating confirmed by the user 2026-11-01 (relayed via peer session)")
 # Named claw force limits (USER 11-01: 40 N variant approved).  "urdf" = the MJCF forcerange every result before 11-01 used, and stays
 # the default; the others raise the gripper actuator forcerange IN MEMORY (pan.handle_grasp.set_claw_limit), the MJCF is not edited.
-CLAW_PRESETS = {"urdf": GRIPPER_EFFORT, "nero_rated": 40.0, "nero_max": 50.0}   # N; nero_* = GRIPPER_DATASHEET (reseller, ASSUMED)
+CLAW_PRESETS = {"urdf": GRIPPER_EFFORT, "nero_rated": 40.0, "nero_max": 50.0}   # N; nero_* = GRIPPER_DATASHEET
+
+# ---- 2026-11-01 USER decision (relayed): 40 N rating confirmed -> PAN/POT scene sim default = 40 N claw + 1 ms physics step.
+# Applied by pan.scene.apply_sim_defaults (at compose) and pan.scene.step (physics substeps); other scenes (democ, house, ...) unchanged.
+# The MJCF/URDF file still says 10 N (not edited); the limit is raised in memory.
+CLAW_N_DEFAULT = 40.0   # N. MEASURED (vendor datasheet rating: GRIPPER_DATASHEET rated_N, user-confirmed 11-01). A rated spec, not
+                        #    our own measurement: no n / statistic / noise model; actual force vs current not measured.
+PHYSICS_SUBSTEPS = 5    # MODEL choice: 1 ms physics inside each 5 ms control step, torque held. Needed above 10 N (5 ms made the lid walk,
+                        #    results/contact_model_2026-11-01/claw40/RESULT.txt). Control rate stays 200 Hz.
+LEGACY_CLAW = os.environ.get("BIMANUAL_LEGACY_CLAW") == "1"   # 1 = the setup of every result before 11-01 (10 N, 5 ms physics)
+
+
+def claw_default():
+    """pan-scene claw force limit [N]: 40 (default) or the MJCF 10 N under BIMANUAL_LEGACY_CLAW=1."""
+    return GRIPPER_EFFORT if LEGACY_CLAW else CLAW_N_DEFAULT
+
+
+def substeps_default():
+    """physics substeps per 5 ms control step in the pan scenes: 5 (1 ms) or 1 (5 ms) under BIMANUAL_LEGACY_CLAW=1."""
+    return 1 if LEGACY_CLAW else PHYSICS_SUBSTEPS
 
 # ---- torque limits: NOT published as motor specs anywhere official.  Presets (one config):
 TORQUE_PRESETS = {

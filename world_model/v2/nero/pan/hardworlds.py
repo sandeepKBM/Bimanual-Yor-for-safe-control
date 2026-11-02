@@ -26,6 +26,8 @@ import time
 
 import numpy as np
 
+from .. import config as C
+
 # ---- Theta: (lo, hi, label).  Raised to the user 11-01 (demos_2026-11-01.md sec. 3); USER said "get that running" 11-01.
 THETA = {
     "dx": (-0.015, 0.015, "ASSUMED (prior box, unchanged)"),
@@ -43,7 +45,7 @@ SOBOL_SEED = 11
 CORNER_FRACS = (0.45, 0.85)
 CORNER_FORCES = (10.0, 40.0)
 LIFTS = ("v1", "v3")
-CLAW_N = 40.0         # ASSUMED (reseller rating)
+CLAW_N = C.CLAW_N_DEFAULT   # 40 N, MEASURED vendor rating (user-confirmed 11-01; see config)
 NSUB = 5              # 1 ms physics step
 TAU_MIT = 16.0        # Nm, NERO MIT feed-forward command range fw >= 1.11 (pyAgxArm firmware_reference) -- ASSUMED as the limit
 RISE_MIN_MM = 40.0    # = handle_grasp 'held' rule (0.8 x LIFT)
@@ -107,7 +109,7 @@ def run_job(job):
     path = os.path.join(outdir, "jobs", key + ".json")
     if os.path.exists(path):
         return key, "cached"
-    _patch_substeps(NSUB)
+    _patch_substeps(NSUB // C.substeps_default())   # 11-01: the scene now substeps by default -> no extra proxy (legacy: x5)
     from . import segments as S
     from .cert import contact_falsify as F
     t0 = time.time()

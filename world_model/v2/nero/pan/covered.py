@@ -112,7 +112,7 @@ def build_spec(cp: CoveredParams | None = None):
 
 
 def compose(cp: CoveredParams | None = None):
-    return build_spec(cp).compile()
+    return S.apply_sim_defaults(build_spec(cp).compile())     # 11-01: 40 N claws (config.claw_default)
 
 
 def write_mjcf(cp: CoveredParams | None = None, path=SCENE_OUT):

@@ -458,7 +458,8 @@ class Episode:
         self.NP, self.FDT = self.ctl.fl.NP, self.ctl.fl.DT
         self.act = {s: m.actuator(f"{s}_arm_gripper_pos").id for s in SIDES}
         from .handle_grasp import set_claw_limit
-        self.claw_N = set_claw_limit(m, list(self.act.values()), claw_N)   # 11-01: None = MJCF 10 N (config.CLAW_PRESETS)
+        self.claw_N = set_claw_limit(m, list(self.act.values()), claw_N)   # 11-01: None = compose default (config.claw_default, 40 N)
+        self.plan["claw_N"], self.plan["physics_substeps"] = self.claw_N, C.substeps_default()   # record what actually ran
         self.act_pos = {s: (m.actuator_gainprm[self.act[s], :3].copy(), m.actuator_biasprm[self.act[s], :3].copy(),
                             m.actuator_ctrlrange[self.act[s]].copy()) for s in SIDES}
         self.fing = {m.geom(f"{s}_arm_finger{i}_col").id: (s, i) for s in SIDES for i in (1, 2)}
@@ -580,7 +581,7 @@ class Episode:
         d.qfrc_applied[:] = 0.0
         d.qfrc_applied[ctl.ld] = te
         d.qfrc_applied[ctl.rd] = ti
-        mujoco.mj_step(m, d)
+        CV.S.step(m, d)                                  # 11-01: 1 ms physics substeps (config.substeps_default)
         self.k += 1
         r = max(float(np.max(np.abs(te) / self.tau_max)), float(np.max(np.abs(ti) / self.tau_max)))
         self.track["tau_ratio"] = max(self.track["tau_ratio"], r)

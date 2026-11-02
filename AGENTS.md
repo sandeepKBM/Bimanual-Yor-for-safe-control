@@ -29,7 +29,9 @@ This file = how to *operate* here. Last updated 2026-10-29 (bounds and assumptio
   `git status`-clean vs origin before trusting a value.
 - **Arms are AgileX NERO 7-DoF** (`world_model/v2/nero/`), not Piper. Its limits are in `nero/config.py`: datasheet 3 kg payload,
   joints 180/225 deg/s; MIT t_ff command range ±16 Nm (fw ≥ 1.11, no rated torque published); gripper 40 N rated / 50 N max
-  (reseller only) vs sim 10 N. The Piper 8 Nm cap does not apply to NERO (2026-11-01).
+  (40 N confirmed by the user 11-01). Pan/pot sim default since 11-01: 40 N claws + 1 ms physics inside the 5 ms control step
+  (`config.claw_default/substeps_default`; MJCF still says 10 N); `BIMANUAL_LEGACY_CLAW=1` = the pre-11-01 10 N / 5 ms setup.
+  The Piper 8 Nm cap does not apply to NERO (2026-11-01).
 - ZED mount in sim is a *proposed* torso mount — confirm-on-hardware.
 
 ## Controller landscape (current)
