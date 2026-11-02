@@ -1,0 +1,78 @@
+carry certificate per cell (2026-11-02), n = 20 sampled worlds per admitted cell
+
+tray2|0.0-0.05: contents 0.60..0.70 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.6471
+    support at destination: margin 58.9 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray2|0.05-0.125: contents 0.70..0.85 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.6675
+    support at destination: margin 53.8 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=False  n=20  eps<=0.2161  cx: obj_tilt
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray2|0.125-0.25: contents 0.85..1.10 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.7014
+    support at destination: margin 47.8 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=False  n=20  eps<=0.2826  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    place    ok=True  n=18  eps<=0.1533  
+    release  ok=True  n=18  eps<=0.1533  
+tray4|0.0-0.05: contents 1.20..1.40 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.7422
+    support at destination: margin 42.8 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray4|0.05-0.125: contents 1.40..1.70 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.783
+    support at destination: margin 39.4 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=False  n=20  eps<=0.2161  cx: obj_tilt, obj_tilt
+    place    ok=True  n=19  eps<=0.1459  
+    release  ok=True  n=19  eps<=0.1459  
+tray4|0.125-0.25: contents 1.70..2.20 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.851
+    support at destination: margin 35.5 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=False  n=20  eps<=0.3437  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    place    ok=False  n=18  eps<=0.2377  cx: obj_tilt
+    release  ok=True  n=18  eps<=0.1533  
+tray6|0.0-0.05: contents 1.80..2.10 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.8374
+    support at destination: margin 36.2 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=False  n=20  eps<=0.2161  cx: obj_tilt, obj_tilt
+    place    ok=True  n=19  eps<=0.1459  
+    release  ok=True  n=19  eps<=0.1459  
+tray6|0.05-0.125: contents 2.10..2.55 kg -> refuse  u_nom(a_nom) = 0.9756
+    support at destination: margin 33.6 mm (proof under MODEL)
+tray6|0.125-0.25: contents 2.55..3.30 kg -> refuse  u_nom(a_nom) = 1.244
+    support at destination: margin 30.7 mm (proof under MODEL)
+box|0.5-1.0: contents 0.50..1.00 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.7059
+    support at destination: margin 14.3 mm (proof under MODEL)
+    lift     ok=False  n=20  eps<=1.0  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    carry    ok=False  n=4  eps<=1.0  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    place    ok=False  n=2  eps<=1.0  cx: obj_tilt, obj_tilt
+    release  ok=True  n=2  eps<=0.7764  
+box|1.0-1.5: contents 1.00..1.50 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.7921
+    support at destination: margin 8.9 mm (proof under MODEL)
+    lift     ok=False  n=20  eps<=0.9819  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    carry    ok=False  n=8  eps<=1.0  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    place    ok=False  n=4  eps<=1.0  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    release  ok=True  n=4  eps<=0.5271  
+box|1.5-2.0: contents 1.50..2.00 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.8817
+    support at destination: margin 5.9 mm (proof under MODEL)
+    lift     ok=False  n=20  eps<=0.9974  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    carry    ok=False  n=11  eps<=1.0  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    place    ok=False  n=9  eps<=1.0  cx: obj_tilt, obj_tilt, obj_tilt, obj_tilt
+    release  ok=True  n=9  eps<=0.2831  
+box|2.0-2.5: contents 2.00..2.50 kg -> refuse  u_nom(a_nom) = 1.0133
+    support at destination: margin 4.0 mm (proof under MODEL)
+box|2.5-3.0: contents 2.50..3.00 kg -> refuse  u_nom(a_nom) = 1.2155
+    support at destination: margin 2.7 mm (proof under MODEL)
+box|3.0-3.5: contents 3.00..3.50 kg -> refuse  u_nom(a_nom) = 1.4178
+    support at destination: margin 1.7 mm (proof under MODEL)
+box|3.5-4.0: contents 3.50..4.00 kg -> refuse  u_nom(a_nom) = 1.6201
+    support at destination: margin 0.9 mm (proof under MODEL)
+box|4.0-4.5: contents 4.00..4.50 kg -> refuse  u_nom(a_nom) = 1.8223
+    support at destination: margin 0.3 mm (proof under MODEL)
+box|4.5-5.0: contents 4.50..5.00 kg -> refuse  u_nom(a_nom) = 2.0246
+    support at destination: margin -0.1 mm (proof under MODEL)

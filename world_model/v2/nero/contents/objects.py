@@ -99,7 +99,7 @@ def pan_like(name, empty_mass, empty_com, m_hi_sim=1.5):
 # coffee tray (AgentChord's 'setup coffee tray' task, agentchord_probe/coffee_tray/build.py geometry) with hidden cup fill + placement
 TRAY = dict(lx=0.22, ly=0.34, mass=0.30, rim_h=0.03)            # MODEL from build.py (their numbers were our choice, 10-28)
 CUP = dict(D=0.08, H=0.095, empty=0.30, fill_max_kg=0.25, freeboard_min=0.01)   # ASSUMED: ceramic mug 300 g, 250 ml, >= 1 cm freeboard
-N_CUPS = 2                                                      # ASSUMED: the number of cups is visible (count known)
+N_CUPS = 2                                                      # ASSUMED: the number of cups is visible (count known); 11-02 runs use 2, 4, 6
 
 
 def coffee_tray(n_cups=N_CUPS):
@@ -119,3 +119,19 @@ def coffee_tray(n_cups=N_CUPS):
     return ObjectSpec("coffee_tray", TRAY["mass"], np.array([0.0, 0.0, 0.004]), c, [spill],
                       sim_box=dict(note="no NERO tray scene yet (step 2)"),
                       plausible=dict(note=f"{n_cups} mugs: {m_lo:.2f}..{m_hi:.2f} kg"))
+
+
+# closed box with hidden contents (cans etc.) for the shelf task (contents/scenes.BoxWorld geometry)
+BOX = dict(lx=0.20, ly=0.30, lz=0.15, wall=0.005, mass=0.25)    # ASSUMED cardboard crate with end tabs (scenes.py)
+BOX_CONTENTS_KG = (0.5, 5.0)                                     # ASSUMED (user-approved 11-02): box of cans 0.5..5 kg
+
+
+def boxed(m_lo=BOX_CONTENTS_KG[0], m_hi=BOX_CONTENTS_KG[1]):
+    hx, hy, w = BOX["lx"] / 2 - BOX["wall"], BOX["ly"] / 2 - BOX["wall"], BOX["wall"]
+    P = prism(np.array([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]]), w, BOX["lz"] - w)
+    c = Contents(m_lo, m_hi, P, labels=dict(
+        m=f"ASSUMED {m_lo}..{m_hi} kg (user-approved 11-02)",
+        P="MODEL (conservative): the contents COM lies anywhere inside the box interior (the sim block is a subset)"))
+    return ObjectSpec("box", BOX["mass"], np.array([0.0, 0.0, BOX["lz"] / 2]), c, [],
+                      sim_box=dict(note="scenes.BoxWorld: one free block, half (0.04, 0.06, 0.05), on the box floor"),
+                      plausible=dict(note="box of cans / jars: 0.5..5 kg"))

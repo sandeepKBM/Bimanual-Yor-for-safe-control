@@ -1,0 +1,28 @@
+carry certificate per cell, 2026-11-02 (contents/carry_cert.py; raw: /data/local/ss5772/contents/carry_cert_2026-11-02)
+Grasp = rigid weld (ASSUMED, user 11-01).  Controller = carry.LeverCtl (FL-MPC + lever-split payload ff), 16 Nm torque box.
+Static rows = proof under MODEL (corner checks over each cell x acceleration box; T_cap 1.30 Nm ASSUMED; admit u <= 0.9 ASSUMED).
+Dynamic rows = sampled, n = 20 worlds per admitted cell (theta uniform on the cell), stored backups branched every 0.25 s.
+
+STATIC (which cells are admitted; hidden contents change the action):
+  tray2 / tray4: all fill cells admitted, two arms at 0.5 m/s^2 (u_nom 0.65..0.85)
+  tray6: 0..50 g per mug admitted (u 0.84); 50..125 g and 125..250 g refused (u 0.98, 1.24)
+  box:   0.5..2.0 kg admitted (u 0.71..0.88); 2.0..5.0 kg refused (u 1.01..2.02); shelf support margin 14 mm .. -0.1 mm
+
+DYNAMIC (sampled): every failure is object tilt > 10 deg (ASSUMED U threshold).  No torque saturation, spill-proxy, mug-tip,
+collision or drop events in any trial.
+  cell             nominal U entries (of 20)        worlds with a failed stored backup   max nominal tilt
+  tray2 0-50g      0                                0                                    9.6 deg
+  tray2 50-125g    0                                1 (carry)                            10.0
+  tray2 125-250g   2 (carry)                        2 (carry)                            11.4
+  tray4 0-50g      0                                0                                    9.3
+  tray4 50-125g    1 (carry)                        1 (carry)                            11.8
+  tray4 125-250g   2 (carry)                        3 carry, 1 place                     10.8
+  tray6 0-50g      1 (carry)                        1 (carry)                            10.0
+  box 0.5-1.0kg    16 lift, 2 carry                 20 lift, 4 carry, 2 place            14.8
+  box 1.0-1.5kg    12 lift, 4 carry                 18 lift, 8 carry, 4 place            20.9
+  box 1.5-2.0kg    9 lift, 2 carry                  19 lift, 11 carry, 9 place           44.1
+Reading: the static proof admits, sampling refutes.  The tilt is the welded object rotating with the claws (arm tracking under the
+closed chain: joints 0.03..0.07 rad off their references even at a static hold; 11-02 sag diagnosis), not the contents: in the box,
+LIGHTER cells fail more often (16 > 12 > 9 of 20).  Root cause not yet isolated (candidates: closed-chain internal stress between
+two independent position-tracking arms; the right arm near its reach limit on the 18 cm lift; nominal-COM mismatch in the lever ff).
+Claw wrench rows are recorded but not in U (carry.py doc).  Tray tilt near 10 deg did not trigger the spill proxy (freeboard >= 2.4 cm).

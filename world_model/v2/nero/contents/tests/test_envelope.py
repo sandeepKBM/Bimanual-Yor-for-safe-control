@@ -98,3 +98,35 @@ def test_controller_split_balances_and_is_no_better_than_lp(setup):
     assert u_lp <= u_share + 1e-9                                     # the LP split is the best split
     F, _ = env.wrench(pi, (0.2, 0, 0), env.o0)
     assert np.isclose(det["Fz"]["left"] + det["Fz"]["right"], F[2], atol=1e-3)
+
+
+def test_twist_polytope_inside_ball_and_tight_on_axes():
+    A, b = E.TWIST_A, E.TWIST_B
+    rng = np.random.default_rng(1)
+    for _ in range(2000):                                           # every point of the polytope is inside the unit ball
+        x = rng.normal(size=3)
+        x /= np.linalg.norm(x)
+        s = np.min(b / np.maximum(A @ x, 1e-12))                    # largest scale with A (s x) <= b
+        assert s <= 1.0 + 1e-9
+    for ax in np.eye(3):                                            # full capacity along each axis
+        assert np.all(A @ ax <= b + 1e-9)
+
+
+def test_lever_split_balances_and_lp_is_no_worse(setup):
+    _, arms, env, spec = setup
+    pl, pr = arms.terms[("W0_liftoff", "left")]["p"], arms.terms[("W0_liftoff", "right")]["p"]
+    o = env.o0
+    pi = np.array([0.7, 0.7 * 0.03, -0.7 * 0.05, 0.7 * 0.02])
+    acc = np.array([0.2, -0.1, 0.3]) - E.G_VEC
+    Mtot = spec.empty_mass + pi[0]
+    S = spec.empty_mass * env.c0 + pi[1:4]
+    FL, TL, FR, TR = E.lever_split(Mtot, acc, S, o, pl, pr)
+    assert np.allclose(FL + FR, Mtot * acc)
+    assert np.allclose(TL + TR + np.cross(pl - o, FL) + np.cross(pr - o, FR), np.cross(S, acc))
+    u_lp, _ = env.u("W0_liftoff", pi, (0.2, -0.1, 0.3), "two")       # no twist row: the LP is optimal over ALL splits
+    for mode in ("two_lever", "two_share"):
+        assert u_lp <= env.u("W0_liftoff", pi, (0.2, -0.1, 0.3), mode)[0] + 1e-9
+    env2 = E.Envelope(spec, arms, env.o0, env.R0, ["left", "right"], grip_mass=0.5, T_cap=E.T_CAP)
+    u_lv, det = env2.u("W0_liftoff", pi, (0.0, 0.0, 0.0), "two_lever")
+    u_sh, det_sh = env2.u("W0_liftoff", pi, (0.0, 0.0, 0.0), "two_share")
+    assert max(det["twist"].values()) < max(det_sh["twist"].values())  # the lever split commands less claw twist

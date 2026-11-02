@@ -19,6 +19,12 @@ Limits (labels):
                                arm is torque-commanded (our controller).  Not a motor rating (none published).  URDF 100 Nm = placeholder.
     F_cap    (3.0 kg - gripper mass) g per arm, vertical   MEASURED-spec: NERO user manual payload 3 kg ("controlled test environment").
     a_nom    0.5 m/s^2 box per axis   ASSUMED (cert/model_check.A_MAX)
+    T_cap    1.30 Nm per claw, |T| (2-norm, isotropic)   ASSUMED (user-approved 11-02): the MEASURED 10-28 sim fit of claw pitch
+             capacity vs squeeze (vizcoast/certify.CAPACITY_PTS, pan handle, 2.5..10 N, one run each) extrapolated linearly to 40 N.
+             The weld hides this limit, so without it one arm "carries" a pot by one side handle.  Opt-in (T_cap=None = old runs).
+             In the LP the ball is replaced by an inner polytope (hull of 26 unit directions; conservative: u* can only rise).
+    u_admit  0.9: admit only when the MODEL utilisation <= 0.9   ASSUMED (user-approved 11-02): margin for the controller's feedback
+             torque above the model (11-01 smoke: sim 0.548 vs model 0.507 at the true contents, +8%); to be sized from sim runs.
 """
 from __future__ import annotations
 
@@ -41,6 +47,8 @@ G_VEC = np.array([0.0, 0.0, -OB.G])
 TAU_LIM = C.tau_limits("mit_fw_ge_1.11")          # 16 Nm, see module doc
 PAYLOAD_KG = C.MANUAL["payload_kg"]                # 3.0 kg, NERO manual
 A_NOM = 0.5                                        # m/s^2, ASSUMED
+T_CAP = 1.30                                       # Nm per claw, ASSUMED (see module doc; vizcoast claw_capacity(40 N) = 1.298)
+U_ADMIT = 0.9                                      # ASSUMED admission margin on the MODEL utilisation (see module doc)
 # waypoints: offsets of the object (and both TCPs) from the grasp pose [m]  (ASSUMED plan)
 # carry is TOWARD the robot (-x): +x 10 cm is out of the right arm's reach at the pot grasp (IK error 105 mm, 11-01 probe)
 WAYPOINTS = {"W0_liftoff": (0, 0, 0.0), "W1_lift5cm": (0, 0, 0.05), "W2_carry10cm": (-0.10, 0, 0.05), "W3_shelf25cm": (-0.10, 0, 0.25)}
@@ -114,6 +122,36 @@ class Arms:
         m.body_gravcomp[:] = gc
 
 
+def _twist_polytope():
+    """H-rep (A, b) of an INNER polytope of the unit ball: hull of the 26 directions {-1,0,1}^3 normalised (all vertices on the
+    sphere, so the hull lies inside the ball: conservative).  |T| <= cap is replaced by A T <= b * cap."""
+    from scipy.spatial import ConvexHull
+    P = np.array([[i, j, k] for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1) if (i, j, k) != (0, 0, 0)], float)
+    P /= np.linalg.norm(P, axis=1, keepdims=True)
+    h = ConvexHull(P)
+    A, b = h.equations[:, :3], -h.equations[:, 3]
+    _, idx = np.unique(np.round(np.c_[A, b], 9), axis=0, return_index=True)
+    return A[idx], b[idx]
+
+
+TWIST_A, TWIST_B = _twist_polytope()
+
+
+def lever_split(Mtot, acc, S, o, pL, pR):
+    """the LEVER split (contents/carry.LeverCtl commands it).  Mtot = total mass, acc = a - g, S = Mtot (c - o) the first moment about
+    o (world axes).  Each claw carries the load by the lever rule along the grasp line e = pL - pR:
+        F_L = ((S + Mtot (o - pR)) . e / |e|^2) acc,   F_R = Mtot acc - F_L
+    and the moment left over (COM off the grasp line; with a != 0 also the inertial moment) is split equally as claw twist:
+        T_L = T_R = (S x acc - (pL - o) x F_L - (pR - o) x F_R) / 2        (about each claw's own point)
+    All linear in pi = (m, m c) -> the corner check stays exact.  -> (F_L, T_L, F_R, T_R)."""
+    e = pL - pR
+    F = Mtot * acc
+    F_L = (float(np.dot(S + Mtot * (o - pR), e)) / float(np.dot(e, e))) * acc
+    F_R = F - F_L
+    T_res = np.cross(S, acc) - np.cross(pL - o, F_L) - np.cross(pR - o, F_R)
+    return F_L, 0.5 * T_res, F_R, 0.5 * T_res
+
+
 def _cross_mat(v):
     return np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
 
@@ -122,8 +160,10 @@ class Envelope:
     """u*(pi, a) per waypoint and mode for one object.  pi = [m, m cx, m cy, m cz] with c in the WORLD-aligned object frame at o."""
 
     def __init__(self, spec: OB.ObjectSpec, arms: Arms, o0, R0, sides, tau_lim=TAU_LIM, payload_kg=PAYLOAD_KG, grip_mass=0.0,
-                 offsets=None):
-        """offsets: {key: object offset from o0 [m]} for the keys of arms.terms (default WAYPOINTS)."""
+                 offsets=None, T_cap=None):
+        """offsets: {key: object offset from o0 [m]} for the keys of arms.terms (default WAYPOINTS).
+        T_cap: per-claw twist capacity [Nm] (None = no twist row, the 11-01 runs)."""
+        self.T_cap = T_cap
         self.spec, self.arms, self.sides = spec, arms, list(sides)
         self.offsets = offsets if offsets is not None else WAYPOINTS
         self.o0, self.R0 = np.asarray(o0, float), np.asarray(R0, float)
@@ -142,6 +182,7 @@ class Envelope:
 
     def u(self, wp, pi, a=(0, 0, 0), mode="two"):
         """-> (u*, detail) at one waypoint.  mode 'one' = left arm alone; 'two' = both arms, best split (LP: capability);
+        'two_lever' = both arms, the lever split (lever_split; what contents/carry.LeverCtl commands);
         'two_share' = both arms, each takes half the load applied at the total COM (the FL-MPC payload model's split, democ/payload,
         share 0.5: what OUR controller commands; MODEL -- the feedback's share of a model error is not covered)."""
         o = self.o0 + np.asarray(self.offsets[wp], float)
@@ -153,22 +194,45 @@ class Envelope:
         if miss:
             return float("inf"), dict(unreachable=miss)
         base = [t["G"] + t["M"] @ (t["Jpinv"] @ a6) for t in tt]
+        if mode == "two_lever":
+            m = pi[0]
+            Mtot = self.spec.empty_mass + m
+            S = self.spec.empty_mass * self.c0 + self.R0 @ pi[1:4]
+            acc = np.asarray(a, float) - G_VEC
+            pl, pr = (self.arms.terms[(wp, s)]["p"] for s in ("left", "right"))
+            FL, TL, FR, TR = lever_split(Mtot, acc, S, o, pl, pr)
+            taus, fz, tw = {}, {}, {}
+            for s, t, b, (Fi, Ti) in zip(sides, tt, base, ((FL, TL), (FR, TR))):
+                taus[s] = b + t["J"].T @ np.concatenate([Fi, Ti])
+                fz[s], tw[s] = float(Fi[2]), float(np.linalg.norm(Ti))
+            r = max(max(float(np.max(np.abs(v) / self.tau_lim)) for v in taus.values()), max(abs(v) for v in fz.values()) / self.F_cap)
+            if self.T_cap:
+                r = max(r, max(tw.values()) / self.T_cap)
+            return float(r), dict(tau={s: v.round(3).tolist() for s, v in taus.items()}, Fz={s: round(v, 3) for s, v in fz.items()},
+                                  twist={s: round(v, 3) for s, v in tw.items()})
         if mode == "two_share":
-            taus, fz = {}, {}
+            taus, fz, tw = {}, {}, {}
             for s, t, b in zip(sides, tt, base):
                 w = 0.5 * np.concatenate([F, T + np.cross(o - t["p"], F)])
                 taus[s] = b + t["J"].T @ w
                 fz[s] = w[2]
+                tw[s] = float(np.linalg.norm(w[3:]))
             r = max(max(float(np.max(np.abs(v) / self.tau_lim)) for v in taus.values()), max(abs(v) for v in fz.values()) / self.F_cap)
-            return float(r), dict(tau={s: v.round(3).tolist() for s, v in taus.items()}, Fz={s: round(float(v), 3) for s, v in fz.items()})
+            if self.T_cap:
+                r = max(r, max(tw.values()) / self.T_cap)
+            return float(r), dict(tau={s: v.round(3).tolist() for s, v in taus.items()}, Fz={s: round(float(v), 3) for s, v in fz.items()},
+                                  twist={s: round(v, 3) for s, v in tw.items()})
         if mode == "one" or len(sides) == 1:
             t = tt[0]
             w = np.concatenate([F, T - np.cross(t["p"] - o, F)])
             tau = base[0] + t["J"].T @ w
             r_tau = np.abs(tau) / self.tau_lim
             r_pay = abs(w[2]) / self.F_cap
-            return float(max(r_tau.max(), r_pay)), dict(tau=tau.round(3).tolist(), Fz=round(float(w[2]), 3),
-                                                         worst_joint=int(np.argmax(r_tau)) + 1)
+            tw = float(np.linalg.norm(w[3:]))
+            r_tw = tw / self.T_cap if self.T_cap else 0.0
+            return float(max(r_tau.max(), r_pay, r_tw)), dict(tau=tau.round(3).tolist(), Fz=round(float(w[2]), 3), twist=round(tw, 3),
+                                                               worst_joint=int(np.argmax(r_tau)) + 1,
+                                                               binding=["torque", "payload", "twist"][int(np.argmax([r_tau.max(), r_pay, r_tw]))])
         # LP over x = [w_L (6), w_R (6), t]; minimise t
         nx = 13
         Aeq = np.zeros((6, nx))
@@ -194,6 +258,13 @@ class Envelope:
                 r[12] = -self.F_cap
                 Aub.append(r)
                 bub.append(0.0)
+            if self.T_cap:                              # inner polytope of the twist ball (conservative: u* can only rise)
+                for af, bf in zip(TWIST_A, TWIST_B):
+                    r = np.zeros(nx)
+                    r[6 * k + 3:6 * k + 6] = af
+                    r[12] = -bf * self.T_cap
+                    Aub.append(r)
+                    bub.append(0.0)
         c = np.zeros(nx)
         c[12] = 1.0
         res = linprog(c, A_ub=np.array(Aub), b_ub=np.array(bub), A_eq=Aeq, b_eq=beq,
@@ -203,7 +274,8 @@ class Envelope:
         x = res.x
         tau = [base[k] + tt[k]["J"].T @ x[6 * k:6 * k + 6] for k in range(len(tt))]
         return float(x[12]), dict(tau={s: tau[k].round(3).tolist() for k, s in enumerate(sides)},
-                                  Fz={s: round(float(x[6 * k + 2]), 3) for k, s in enumerate(sides)})
+                                  Fz={s: round(float(x[6 * k + 2]), 3) for k, s in enumerate(sides)},
+                                  twist={s: round(float(np.linalg.norm(x[6 * k + 3:6 * k + 6])), 3) for k, s in enumerate(sides)})
 
     # ---- exact corner checks -------------------------------------------------------------------------------------------
     @staticmethod
@@ -225,54 +297,54 @@ class Envelope:
                                           a=acc.round(3).tolist(), **det))
         return best
 
-    def m_max(self, contents: OB.Contents, wps, a=0.0, mode="two", m_cap=6.0, tol=1e-3):
-        """largest m_hi with worst u* <= 1 (bisection; the feasible m along each vertex ray is an interval by convexity)."""
-        if self.worst(contents.scaled(max(contents.m_lo, 1e-9)), wps, a, mode)[0] > 1.0:
+    def m_max(self, contents: OB.Contents, wps, a=0.0, mode="two", m_cap=6.0, tol=1e-3, limit=1.0):
+        """largest m_hi with worst u* <= limit (bisection; the feasible m along each vertex ray is an interval by convexity)."""
+        if self.worst(contents.scaled(max(contents.m_lo, 1e-9)), wps, a, mode)[0] > limit:
             return 0.0 if contents.m_lo == 0 else None
         lo, hi = contents.m_lo, m_cap
-        if self.worst(contents.scaled(hi), wps, a, mode)[0] <= 1.0:
+        if self.worst(contents.scaled(hi), wps, a, mode)[0] <= limit:
             return hi
         while hi - lo > tol:
             mid = 0.5 * (lo + hi)
-            if self.worst(contents.scaled(mid), wps, a, mode)[0] <= 1.0:
+            if self.worst(contents.scaled(mid), wps, a, mode)[0] <= limit:
                 lo = mid
             else:
                 hi = mid
         return round(lo, 4)
 
-    def a_max(self, contents: OB.Contents, wps, mode="two", a_cap=5.0, tol=1e-3):
-        if self.worst(contents, wps, 0.0, mode)[0] > 1.0:
+    def a_max(self, contents: OB.Contents, wps, mode="two", a_cap=5.0, tol=1e-3, limit=1.0):
+        if self.worst(contents, wps, 0.0, mode)[0] > limit:
             return None
         lo, hi = 0.0, a_cap
-        if self.worst(contents, wps, hi, mode)[0] <= 1.0:
+        if self.worst(contents, wps, hi, mode)[0] <= limit:
             return hi
         while hi - lo > tol:
             mid = 0.5 * (lo + hi)
-            if self.worst(contents, wps, mid, mode)[0] <= 1.0:
+            if self.worst(contents, wps, mid, mode)[0] <= limit:
                 lo = mid
             else:
                 hi = mid
         return round(lo, 4)
 
-    def action(self, contents: OB.Contents, a_nom=A_NOM, modes=("one", "two")):
+    def action(self, contents: OB.Contents, a_nom=A_NOM, modes=("one", "two"), limit=1.0, carry=CARRY, liftoff=LIFTOFF):
         """the action rule (ASSUMED policy, raised to the user): first that holds for ALL contents in the set (exact corner check):
         one arm at a_nom -> two arms at a_nom -> two arms slowed to a* < a_nom -> set down (lift-off holds, carry does not) -> refuse.
         Open-content limits (spill, lid) cap a* for every mode."""
         a_open = min([ol.a_max for ol in self.spec.open_limits], default=np.inf)
         rows = {}
         for md in modes:
-            rows[md] = dict(carry_nom=self.worst(contents, CARRY, a_nom, md)[0], carry_static=self.worst(contents, CARRY, 0.0, md)[0],
-                            liftoff_static=self.worst(contents, LIFTOFF, 0.0, md)[0])
+            rows[md] = dict(carry_nom=self.worst(contents, carry, a_nom, md)[0], carry_static=self.worst(contents, carry, 0.0, md)[0],
+                            liftoff_static=self.worst(contents, liftoff, 0.0, md)[0])
         for md in modes:
-            if rows[md]["carry_nom"] <= 1.0 and a_nom <= a_open:
+            if rows[md]["carry_nom"] <= limit and a_nom <= a_open:
                 return dict(action="one arm" if md == "one" else "two arms", mode=md, a_star=None, rows=rows)
         for md in modes:
-            if rows[md]["carry_static"] <= 1.0:
-                a_t = self.a_max(contents, CARRY, md)
+            if rows[md]["carry_static"] <= limit:
+                a_t = self.a_max(contents, carry, md, limit=limit)
                 return dict(action=f"{'one arm' if md == 'one' else 'two arms'}, slow", mode=md,
                             a_star=round(min(a_t, a_open), 4), rows=rows)
         for md in modes:
-            if rows[md]["liftoff_static"] <= 1.0:
+            if rows[md]["liftoff_static"] <= limit:
                 return dict(action="set down (lift-off holds, carry does not)", mode=md, a_star=None, rows=rows)
         return dict(action="refuse", mode=None, a_star=None, rows=rows)
 
