@@ -1,0 +1,20 @@
+cell | contents kg | OURS: decision | nominal unsafe (of n) | worlds with a failed backup || AGENTCHORD-STYLE: executes | unsafe (of n) | first unsafe kind | ends tipped/not at rest | its monitor fired
+
+tray2|0.0-0.05 | 0.60-0.70 | two arms | 0/20 | 0/20 || executes (same plan) | 0/20 | - | 0/20 | 0/20 (weld: no relative motion)
+tray2|0.05-0.125 | 0.70-0.85 | two arms | 0/20 | 1/20 || executes (same plan) | 0/20 | - | 0/20 | 0/20 (weld: no relative motion)
+tray2|0.125-0.25 | 0.85-1.10 | two arms | 2/20 | 2/20 || executes (same plan) | 2/20 | {'obj_tilt': 2} | 2/20 | 0/20 (weld: no relative motion)
+tray4|0.0-0.05 | 1.20-1.40 | two arms | 0/20 | 0/20 || executes (same plan) | 0/20 | - | 0/20 | 0/20 (weld: no relative motion)
+tray4|0.05-0.125 | 1.40-1.70 | two arms | 1/20 | 1/20 || executes (same plan) | 1/20 | {'obj_tilt': 1} | 1/20 | 0/20 (weld: no relative motion)
+tray4|0.125-0.25 | 1.70-2.20 | two arms | 2/20 | 3/20 || executes (same plan) | 2/20 | {'obj_tilt': 2} | 2/20 | 0/20 (weld: no relative motion)
+tray6|0.0-0.05 | 1.80-2.10 | two arms | 1/20 | 1/20 || executes (same plan) | 1/20 | {'obj_tilt': 1} | 1/20 | 0/20 (weld: no relative motion)
+tray6|0.05-0.125 | 2.10-2.55 | REFUSE (u_nom 0.9756) | - | - || executes | 0/20 | - | 0/20 | 0/20
+tray6|0.125-0.25 | 2.55-3.30 | REFUSE (u_nom 1.244) | - | - || executes | 4/20 | {'obj_tilt': 4} | 0/20 | 0/20
+box|0.5-1.0 | 0.50-1.00 | two arms | 18/20 | 20/20 || executes (same plan) | 18/20 | {'obj_tilt': 18} | 18/20 | 0/20 (weld: no relative motion)
+box|1.0-1.5 | 1.00-1.50 | two arms | 16/20 | 20/20 || executes (same plan) | 16/20 | {'obj_tilt': 16} | 16/20 | 0/20 (weld: no relative motion)
+box|1.5-2.0 | 1.50-2.00 | two arms | 11/20 | 20/20 || executes (same plan) | 11/20 | {'obj_tilt': 11} | 11/20 | 0/20 (weld: no relative motion)
+box|2.0-2.5 | 2.00-2.50 | REFUSE (u_nom 1.0133) | - | - || executes | 16/20 | {'obj_tilt': 16} | 14/20 | 0/20
+box|2.5-3.0 | 2.50-3.00 | REFUSE (u_nom 1.2155) | - | - || executes | 15/20 | {'obj_tilt': 15} | 13/20 | 0/20
+box|3.0-3.5 | 3.00-3.50 | REFUSE (u_nom 1.4178) | - | - || executes | 16/20 | {'obj_tilt': 16} | 14/20 | 0/20
+box|3.5-4.0 | 3.50-4.00 | REFUSE (u_nom 1.6201) | - | - || executes | 18/20 | {'obj_tilt': 18} | 10/20 | 0/20
+box|4.0-4.5 | 4.00-4.50 | REFUSE (u_nom 1.8223) | - | - || executes | 18/20 | {'obj_tilt': 18} | 14/20 | 0/20
+box|4.5-5.0 | 4.50-5.00 | REFUSE (u_nom 2.0246) | - | - || executes | 20/20 | {'obj_tilt': 11, 'tau_sat': 9} | 14/20 | 0/20

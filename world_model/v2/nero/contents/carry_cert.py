@@ -152,18 +152,18 @@ def sample_world(task, cell, rng):
 
 
 def _trial(args):
-    task, cell, i, seed, a, m_hat = args
+    task, cell, i, seed, a, m_hat, fc = args
     rng = np.random.default_rng(seed)
     w = sample_world(task, cell, rng)
     try:
-        r = CR.world_trial(w, f"{task}_{cell[0]}_{i}", a_plan=a, m_hat=m_hat)
+        r = CR.world_trial(w, f"{task}_{cell[0]}_{i}", a_plan=a, m_hat=m_hat, fric_comp=fc)
     except Exception as e:                                  # a crash is reported, never silently dropped
         r = dict(tag=f"{task}_{cell[0]}_{i}", error=repr(e), theta=CR._theta(w), segments=[])
     r["cell"], r["seed"] = list(cell), seed
     return task, tuple(cell), r
 
 
-def run(tasks, n, procs, out):
+def run(tasks, n, procs, out, fric_comp=False):
     import multiprocessing as mp
     from ..pan.cert import admit as AD
     out = pathlib.Path(out)
@@ -174,7 +174,8 @@ def run(tasks, n, procs, out):
         claw_rows_in_sim="recorded, NOT in U (closed-chain internal stress under the weld; see carry.py doc)",
         spill_sim="quasi-static proxy from sim mug acceleration; slosh NOT modelled",
         worlds="theta ~ uniform on the cell (tray: scenes.sample_tray_world placement + uniform fills; box: uniform mass + xy)",
-        proposer="none (scripted plan; no LLM in this run)"), cells={})
+        proposer="none (scripted plan; no LLM in this run)",
+        fric_comp=(f"carry.FRIC_COMP {CR.FRIC_COMP} (wrapper after FL-MPC; ASSUMED gains)" if fric_comp else "off")), cells={})
     jobs = []
     for task in tasks:
         world0 = SC.TrayWorld(n_cups=int(task[4:])) if task.startswith("tray") else SC.BoxWorld()
@@ -185,7 +186,7 @@ def run(tasks, n, procs, out):
             print(f"static {key}: {st['action']} a={st['a_admit']} u_nom={st['u_nom']}", flush=True)
             if st["a_admit"] is not None:
                 for i in range(n):
-                    jobs.append((task, cell, i, 1000 * len(jobs) + i, st["a_admit"], 0.5 * sum(st["contents_m"])))
+                    jobs.append((task, cell, i, 1000 * len(jobs) + i, st["a_admit"], 0.5 * sum(st["contents_m"]), fric_comp))
     (out / "STATIC.json").write_text(json.dumps(res, indent=1, default=float))
     with mp.get_context("spawn").Pool(procs, maxtasksperchild=3) as pool:
         for task, cell, r in pool.imap_unordered(_trial, jobs):
@@ -231,6 +232,7 @@ def main(argv=None):
     ap.add_argument("--procs", type=int, default=10)
     ap.add_argument("--out", default="/data/local/ss5772/contents/carry_cert_2026-11-02")
     ap.add_argument("--static-only", action="store_true")
+    ap.add_argument("--fric-comp", action="store_true", help="joint friction compensation + integral wrapper (carry.FRIC_COMP)")
     a = ap.parse_args(argv)
     if a.static_only:
         for task in a.tasks.split(","):
@@ -241,7 +243,7 @@ def main(argv=None):
                       {s: r["torque_payload_twist"]["u_max"] for s, r in st["rows"].items() if "torque_payload_twist" in r}, flush=True)
         return
     t0 = time.time()
-    res = run(a.tasks.split(","), a.n, a.procs, a.out)
+    res = run(a.tasks.split(","), a.n, a.procs, a.out, fric_comp=a.fric_comp)
     print(summary(res))
     print(f"wall {time.time() - t0:.0f} s")
 

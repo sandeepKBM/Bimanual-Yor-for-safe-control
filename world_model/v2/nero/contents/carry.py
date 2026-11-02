@@ -108,6 +108,16 @@ class LeverCtl(TwoCtl):
         return te, ti
 
 
+FRIC_COMP = dict(f=0.3, v_s=0.02, ki=8.0, i_max=0.6, kp=5.0)     # ASSUMED gains (11-02 test: box tilt 18.7 -> 1.85 deg)
+# 11-02 (new, opt-in): joint friction compensation + integral action, added AFTER FL-MPC (mpc_fl.py unchanged).
+#   tau_add = f tanh(qdot_cmd / v_s) + ki * int(q_cmd - q) dt (clamped to +-i_max) + kp (q_cmd - q);  total clipped to the torque box.
+#   Why: FL-MPC's model has no joint friction and the wrists have tiny inertia, so its torque per rad of wrist error is ~1 Nm/rad while
+#   the MJCF frictionloss is 0.3 Nm (config.ASSUMED) -> the wrists (j5, j6) stall 0.2-0.28 rad off the reference and the welded object
+#   tilts 10-15 deg (11-02 diagnosis, box 0.59 kg: commanded orientation constant; same with one claw welded or the payload ff off).
+#   f = the MJCF frictionloss (MODEL of the sim; the real NERO friction is not known: ASSUMED for hardware).  These torques are not in
+#   the static torque row (<= f + i_max = 0.9 Nm per joint, inside the u <= 0.9 margin of 1.6 Nm).
+
+
 def move_time(dist, a):
     """smoothstep: peak acceleration 6 d / T^2 = a."""
     return max(T_MIN, float(np.sqrt(6.0 * max(dist, 1e-9) / a)))
@@ -118,7 +128,8 @@ def _tilt_deg(R):
 
 
 class CarryEpisode:
-    def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=E.T_CAP, ctl="lever", strict_claw=False):
+    def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=E.T_CAP, ctl="lever", strict_claw=False,
+                 fric_comp=None):
         self.world, self.task = world, ("tray" if isinstance(world, SC.TrayWorld) else "box")
         self.a_plan, self.T_cap, self.strict_claw = float(a_plan), T_cap, bool(strict_claw)
         spec = SC.build_spec(world)
@@ -175,6 +186,8 @@ class CarryEpisode:
         xy, fills = world.layout() if self.task == "tray" else ([], [])
         self.freeboard = [world.cup_H - (SC.CUP_BOT + f / (SC.WATER * np.pi * SC.CUP_RIN ** 2)) for f in fills]
         self.carried = {self.obj} | set(self.cups) | ({m.body("contents").id} if self.task == "box" else set())
+        self.fc = dict(FRIC_COMP, **fric_comp) if isinstance(fric_comp, dict) else (dict(FRIC_COMP) if fric_comp else None)
+        self.e_int = {s: np.zeros(7) for s in SIDES}
         self.k = 0
         self.paths = {s: [] for s in SIDES}
         self.stored = {}                                       # stored TCP poses (admission-time), per segment start
@@ -204,7 +217,8 @@ class CarryEpisode:
         mujoco.mj_getState(self.m, self.d, st, self._SPEC)
         return dict(st=st, weld={s: self.m.eq_data[i].copy() for s, i in self.weld_id.items()},
                     ctl=copy.deepcopy(self.ctl, {id(self.m): self.m}), k=self.k, paths={s: list(v) for s, v in self.paths.items()},
-                    track=copy.deepcopy(self.track), acc=copy.deepcopy(self._acc), vprev=copy.deepcopy(self._vprev))
+                    track=copy.deepcopy(self.track), acc=copy.deepcopy(self._acc), vprev=copy.deepcopy(self._vprev),
+                    e_int=copy.deepcopy(self.e_int))
 
     def restore(self, sn):
         for s, i in self.weld_id.items():
@@ -214,6 +228,7 @@ class CarryEpisode:
         self.k, self.paths = sn["k"], {s: list(v) for s, v in sn["paths"].items()}
         self.track = copy.deepcopy(sn["track"])
         self._acc, self._vprev = copy.deepcopy(sn["acc"]), copy.deepcopy(sn["vprev"])
+        self.e_int = copy.deepcopy(sn["e_int"])
         mujoco.mj_forward(self.m, self.d)
 
     def reset_track(self):
@@ -254,6 +269,16 @@ class CarryEpisode:
         ctl.qe_ref = np.stack([self._cmd("left", t + i * self.FDT) for i in range(self.NP + 1)])
         ctl.qi_ref = np.stack([self._cmd("right", t + i * self.FDT) for i in range(self.NP + 1)])
         te, ti = ctl.tau(d)
+        if self.fc is not None:
+            fc, out = self.fc, []
+            for s, tau in (("left", te), ("right", ti)):
+                qc = self._cmd(s, t)
+                vc = (self._cmd(s, t + DT) - qc) / DT
+                e = qc - d.qpos[self.addr[s]]
+                self.e_int[s] = np.clip(self.e_int[s] + e * DT, -fc["i_max"] / max(fc["ki"], 1e-9), fc["i_max"] / max(fc["ki"], 1e-9))
+                add = fc["f"] * np.tanh(vc / fc["v_s"]) + fc["ki"] * self.e_int[s] + fc["kp"] * e
+                out.append(np.clip(tau + add, -self.tau_lim, self.tau_lim))
+            te, ti = out
         d.qfrc_applied[:] = 0.0
         d.qfrc_applied[ctl.ld] = te
         d.qfrc_applied[ctl.rd] = ti
@@ -448,14 +473,15 @@ class CarryEpisode:
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
-def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=E.T_CAP, ctl="lever", strict_claw=False, m_hat=None):
+def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=E.T_CAP, ctl="lever", strict_claw=False, m_hat=None,
+                fric_comp=None):
     """m_hat: the robot's nominal contents mass (belief cell centre; None = the prior's centre)."""
     """nominal run of all segments in one world + the stored backup from branch points of each segment.  -> record for admit."""
     t0 = time.time()
-    ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat)
+    ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp)
     ep.run_phases([("hold", 0.4)])                            # load transfer, object still on the counter
     rec = dict(tag=tag, task=ep.task, theta=_theta(world), truth=_jsonable(ep.truth0), a_plan=a_plan, m_nom=ep.m_nom, ctl=ctl,
-               strict_claw=strict_claw,
+               strict_claw=strict_claw, fric_comp=ep.fc,
                segments=[])
     hold_viol = ep.track["viol"]
     for seg in SEGS:

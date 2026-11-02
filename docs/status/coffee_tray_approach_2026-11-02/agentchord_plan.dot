@@ -1,0 +1,34 @@
+digraph G {
+  rankdir=TB; nodesep=0.35; ranksep=0.32;
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=10, fillcolor="#e3efe8", color="#2f6b4f"];
+  edge [fontname="Helvetica", fontsize=8, color="#2f6b4f", fontcolor="#2f6b4f", penwidth=1.6];
+  v0 [label="v0  start; capsule on table"];
+  v1 [label="v1  left arm holds capsule"];
+  v2 [label="v2  capsule lifted 8 cm"];
+  v3 [label="v3  capsule above tray"];
+  v4 [label="v4  capsule released in tray"];
+  v5 [label="v5  both arms grasp tray handles"];
+  v6 [label="v6  tray lifted 5 cm"];
+  v7 [label="v7  tray moved 10 cm forward"];
+  v8 [label="v8  tray set down"];
+  v9 [label="v9  released, arms home"];
+  v0 -> v1 [label=" e01 grasp [L]\n object_moved 2 cm"];
+  v1 -> v2 [label=" e02 lift [L]\n object_held 1 cm"];
+  v2 -> v3 [label=" e03 position [L]\n object_held 1 cm"];
+  v3 -> v4 [label=" e04 open gripper [L]\n NO MONITOR", color="#b3392f", fontcolor="#b3392f"];
+  v4 -> v5 [label=" e05 grasp tray [L+R]\n object_moved 2 cm"];
+  v5 -> v6 [label=" e06 lift [L+R]\n object_held 1 cm"];
+  v6 -> v7 [label=" e07 forward [L+R]\n object_held 1 cm"];
+  v7 -> v8 [label=" e08 lower [L+R]\n NO MONITOR", color="#b3392f", fontcolor="#b3392f"];
+  v8 -> v9 [label=" e09 release+return\n NO MONITOR", color="#b3392f", fontcolor="#b3392f"];
+  node [fillcolor="#fbeee0", color="#b0662a"];
+  edge [style=dashed, color="#b0662a", fontcolor="#b0662a", penwidth=1.0];
+  r2 [label="regrasp capsule"]; r3 [label="regrasp capsule"]; r3b [label="action (retry)"];
+  r6 [label="regrasp tray"]; r7 [label="regrasp tray"];
+  v1 -> r2 [label="fires in e02"]; r2 -> v2 [label="retry"];
+  v2 -> r3 [label="fires in e03"]; r3 -> r3b; r3b -> v3 [label="retry"];
+  v5 -> r6 [label="fires in e06"]; r6 -> v6 [label="retry"];
+  v6 -> r7 [label="fires in e07"]; r7 -> v7 [label="retry"];
+  v0 -> v1 [label="regrasp (e01)", constraint=false];
+  v4 -> v5 [label="regrasp (e05)", constraint=false];
+}
