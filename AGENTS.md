@@ -3,7 +3,7 @@
 Bimanual YOR (simulation in this repo; a hardware experiment is planned as claim 4, no hardware code here): classical planning + formal safety checkers + VLM proposals, evaluated as a POMDP
 (set-valued beliefs), autonomous AND shared-autonomy modes. The learned world-model / latent-HJ thesis was DROPPED
 2026-10-15. Novelty = the checkers + theorems; VLM, planners, FL-MPC, perception are borrowed components.
-Current claims + scope: `docs/paper/claims_2026-10-27.md` (five claims; main demo = serve from a pan). Formulation: `docs/paper/proposal_2026-10-27.md`. Superseded: `claims_2026-10-26.md`, the 2026-10-15 plan docx, `docs/design/MASTER.md` (history only).
+Current claims + scope: `docs/paper/claims_2026-11-02.md` (four claims; hidden contents; grasp = rigid weld, not our problem; probing = a means). Demos: `docs/paper/demos_2026-11-01.md`. Formulation: `docs/paper/proposal_2026-10-27.md` (needs revision for 11-01/02). Superseded: `claims_2026-10-27.md`, `claims_2026-10-26.md`, the 2026-10-15 plan docx, `docs/design/MASTER.md` (history only).
 This file = how to *operate* here. Last updated 2026-10-29 (bounds and assumptions rule).
 
 ## Environment / running
