@@ -1,0 +1,78 @@
+carry certificate per cell (2026-11-02), n = 20 sampled worlds per admitted cell
+
+tray2|0.0-0.05: contents 0.60..0.70 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.6457
+    support at destination: margin 61.0 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray2|0.05-0.125: contents 0.70..0.85 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.6658
+    support at destination: margin 57.5 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray2|0.125-0.25: contents 0.85..1.10 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.6992
+    support at destination: margin 51.7 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray4|0.0-0.05: contents 1.20..1.40 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.7394
+    support at destination: margin 47.0 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray4|0.05-0.125: contents 1.40..1.70 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.7796
+    support at destination: margin 43.7 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray4|0.125-0.25: contents 1.70..2.20 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.8466
+    support at destination: margin 39.9 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray6|0.0-0.05: contents 1.80..2.10 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.8332
+    support at destination: margin 40.5 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+tray6|0.05-0.125: contents 2.10..2.55 kg -> refuse  u_nom(a_nom) = 0.9612
+    support at destination: margin 38.1 mm (proof under MODEL)
+tray6|0.125-0.25: contents 2.55..3.30 kg -> refuse  u_nom(a_nom) = 1.2254
+    support at destination: margin 35.3 mm (proof under MODEL)
+box|0.5-1.0: contents 0.50..1.00 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.7059
+    support at destination: margin 14.3 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+box|1.0-1.5: contents 1.00..1.50 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.7921
+    support at destination: margin 8.9 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+box|1.5-2.0: contents 1.50..2.00 kg -> two arms (a = 0.500 m/s^2)  u_nom(a_nom) = 0.8817
+    support at destination: margin 5.9 mm (proof under MODEL)
+    lift     ok=True  n=20  eps<=0.1391  
+    carry    ok=True  n=20  eps<=0.1391  
+    place    ok=True  n=20  eps<=0.1391  
+    release  ok=True  n=20  eps<=0.1391  
+box|2.0-2.5: contents 2.00..2.50 kg -> refuse  u_nom(a_nom) = 1.0133
+    support at destination: margin 4.0 mm (proof under MODEL)
+box|2.5-3.0: contents 2.50..3.00 kg -> refuse  u_nom(a_nom) = 1.2155
+    support at destination: margin 2.7 mm (proof under MODEL)
+box|3.0-3.5: contents 3.00..3.50 kg -> refuse  u_nom(a_nom) = 1.4178
+    support at destination: margin 1.7 mm (proof under MODEL)
+box|3.5-4.0: contents 3.50..4.00 kg -> refuse  u_nom(a_nom) = 1.6201
+    support at destination: margin 0.9 mm (proof under MODEL)
+box|4.0-4.5: contents 4.00..4.50 kg -> refuse  u_nom(a_nom) = 1.8223
+    support at destination: margin 0.3 mm (proof under MODEL)
+box|4.5-5.0: contents 4.50..5.00 kg -> refuse  u_nom(a_nom) = 2.0246
+    support at destination: margin -0.1 mm (proof under MODEL)

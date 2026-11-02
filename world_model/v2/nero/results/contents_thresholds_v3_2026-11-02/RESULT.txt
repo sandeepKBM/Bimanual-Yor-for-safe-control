@@ -1,0 +1,67 @@
+contents thresholds v2 (2026-11-02): proof under MODEL at the waypoints; see RESULT.json assumptions
+
+pan: empty 0.30 kg, contents 0.00..1.50 kg  open limits {'lid_slide': 4.905}
+  [v1] full set -> one arm
+       m_max (largest contents mass, every COM in the set): one: static 2.0925 (centred 2.1951) a_nom 1.8984
+       map m_hi -> action: 0.0: one arm; 0.167: one arm; 0.333: one arm; 0.5: one arm; 0.667: one arm; 0.833: one arm; 1.0: one arm; 1.167: one arm; 1.333: one arm; 1.5: one arm
+  [v2] full set -> refuse
+       m_max (largest contents mass, every COM in the set): one: static 0.2241 (centred 0.3245) a_nom 0.2021
+       map m_hi -> action: 0.0: one arm; 0.167: one arm; 0.333: refuse; 0.5: refuse; 0.667: refuse; 0.833: refuse; 1.0: refuse; 1.167: refuse; 1.333: refuse; 1.5: refuse
+  [v3] full set -> one arm
+       m_max (largest contents mass, every COM in the set): one: static 1.793 (centred 1.9446) a_nom 1.6179
+       map m_hi -> action: 0.0: one arm; 0.167: one arm; 0.333: one arm; 0.5: one arm; 0.667: one arm; 0.833: one arm; 1.0: one arm; 1.167: one arm; 1.333: one arm; 1.5: one arm
+
+pot: empty 0.34 kg, contents 0.00..1.50 kg  open limits {'lid_slide': 4.905}
+  [v1] full set -> one arm
+       m_max (largest contents mass, every COM in the set): one: static 1.9929 (centred 2.157) a_nom 1.8215  two: static 4.6575 (centred 4.6575) a_nom 4.415  two_lever: static 3.1355 (centred 4.6545) a_nom 2.9722  two_share: static 4.2729 (centred 4.6575) a_nom 3.9302
+       map m_hi -> action: 0.0: one arm; 0.167: one arm; 0.333: one arm; 0.5: one arm; 0.667: one arm; 0.833: one arm; 1.0: one arm; 1.167: one arm; 1.333: one arm; 1.5: one arm
+  [v2] full set -> two arms
+       m_max (largest contents mass, every COM in the set): one: static 0.2007 (centred 0.2988) a_nom 0.178  two: static 2.6331 (centred 4.1572) a_nom 2.4602  two_lever: static 2.6338 (centred 4.155) a_nom 2.4573  two_share: static 0.6313 (centred 0.939) a_nom 0.5845
+       map m_hi -> action: 0.0: one arm; 0.167: one arm; 0.333: two arms; 0.5: two arms; 0.667: two arms; 0.833: two arms; 1.0: two arms; 1.167: two arms; 1.333: two arms; 1.5: two arms
+  [v3] full set -> one arm
+       m_max (largest contents mass, every COM in the set): one: static 1.7 (centred 1.9072) a_nom 1.5454  two: static 4.1572 (centred 4.1572) a_nom 3.939  two_lever: static 2.7986 (centred 4.155) a_nom 2.6521  two_share: static 3.687 (centred 4.1572) a_nom 3.3779
+       map m_hi -> action: 0.0: one arm; 0.167: one arm; 0.333: one arm; 0.5: one arm; 0.667: one arm; 0.833: one arm; 1.0: one arm; 1.167: one arm; 1.333: one arm; 1.5: one arm
+
+tray2: empty 0.30 kg, contents 0.60..1.10 kg  open limits {'cup_spill': 2.452}
+  [v1] full set -> one arm
+       m_max (largest contents mass, every COM in the set): one: static 1.8953 (centred 2.1998) a_nom 1.7331  two: static 4.6994 (centred 4.6994) a_nom 4.4569  two_lever: static 2.8043 (centred 4.6994) a_nom 2.6599  two_share: static 4.0251 (centred 4.6994) a_nom 3.6995
+       map m_hi -> action: 0.6: one arm; 0.656: one arm; 0.711: one arm; 0.767: one arm; 0.822: one arm; 0.878: one arm; 0.933: one arm; 0.989: one arm; 1.044: one arm; 1.1: one arm
+  [v2] full set -> two arms
+       m_max (largest contents mass, every COM in the set): one: static None (centred None) a_nom None  two: static 2.8142 (centred 4.1998) a_nom 2.6573  two_lever: static 2.5063 (centred 4.1998) a_nom 2.3758  two_share: static None (centred 0.9823) a_nom None
+       map m_hi -> action: 0.6: two arms; 0.656: two arms; 0.711: two arms; 0.767: two arms; 0.822: two arms; 0.878: two arms; 0.933: two arms; 0.989: two arms; 1.044: two arms; 1.1: two arms
+  [v3] full set -> one arm
+       m_max (largest contents mass, every COM in the set): one: static 1.6211 (centred 1.95) a_nom 1.4754  two: static 4.1998 (centred 4.1998) a_nom 3.9816  two_lever: static 2.5063 (centred 4.1998) a_nom 2.3758  two_share: static 3.4773 (centred 4.1998) a_nom 3.1846
+       map m_hi -> action: 0.6: one arm; 0.656: one arm; 0.711: one arm; 0.767: one arm; 0.822: one arm; 0.878: one arm; 0.933: one arm; 0.989: one arm; 1.044: one arm; 1.1: one arm
+
+tray4: empty 0.30 kg, contents 1.20..2.20 kg  open limits {'cup_spill': 2.452}
+  [v1] full set -> two arms
+       m_max (largest contents mass, every COM in the set): one: static 1.8955 (centred 2.1996) a_nom 1.7332  two: static 4.6998 (centred 4.6998) a_nom 4.4572  two_lever: static 2.8043 (centred 4.6998) a_nom 2.6596  two_share: static 4.0254 (centred 4.6998) a_nom 3.6996
+       map m_hi -> action: 1.2: one arm; 1.311: one arm; 1.422: one arm; 1.533: one arm; 1.644: one arm; 1.756: two arms; 1.867: two arms; 1.978: two arms; 2.089: two arms; 2.2: two arms
+  [v2] full set -> two arms
+       m_max (largest contents mass, every COM in the set): one: static None (centred None) a_nom None  two: static 2.8143 (centred 4.2) a_nom 2.6572  two_lever: static 2.5061 (centred 4.1994) a_nom 2.376  two_share: static None (centred None) a_nom None
+       map m_hi -> action: 1.2: two arms; 1.311: two arms; 1.422: two arms; 1.533: two arms; 1.644: two arms; 1.756: two arms; 1.867: two arms; 1.978: two arms; 2.089: two arms; 2.2: two arms
+  [v3] full set -> two arms
+       m_max (largest contents mass, every COM in the set): one: static 1.6213 (centred 1.95) a_nom 1.4754  two: static 4.2 (centred 4.2) a_nom 3.9814  two_lever: static 2.5061 (centred 4.1994) a_nom 2.376  two_share: static 3.4775 (centred 4.2) a_nom 3.1846
+       map m_hi -> action: 1.2: one arm; 1.311: one arm; 1.422: one arm; 1.533: two arms; 1.644: two arms; 1.756: two arms; 1.867: two arms; 1.978: two arms; 2.089: two arms; 2.2: two arms
+
+tray6: empty 0.30 kg, contents 1.80..3.30 kg  open limits {'cup_spill': 2.452}
+  [v1] full set -> refuse
+       m_max (largest contents mass, every COM in the set): one: static 1.8954 (centred 2.1999) a_nom None  two: static 4.6998 (centred 4.6998) a_nom 4.4573  two_lever: static 2.8044 (centred 4.6998) a_nom 2.6598  two_share: static 4.0251 (centred 4.6998) a_nom 3.7
+       map m_hi -> action: 1.8: two arms; 1.967: two arms; 2.133: two arms; 2.3: two arms; 2.467: two arms; 2.633: two arms; 2.8: two arms, slow (a*=0.0159); 2.967: refuse; 3.133: refuse; 3.3: refuse
+  [v2] full set -> refuse
+       m_max (largest contents mass, every COM in the set): one: static None (centred None) a_nom None  two: static 2.8141 (centred 4.1999) a_nom 2.6572  two_lever: static 2.506 (centred 4.1999) a_nom 2.3758  two_share: static None (centred None) a_nom None
+       map m_hi -> action: 1.8: two arms; 1.967: two arms; 2.133: two arms; 2.3: two arms; 2.467: two arms, slow (a*=0.1459); 2.633: refuse; 2.8: refuse; 2.967: refuse; 3.133: refuse; 3.3: refuse
+  [v3] full set -> refuse
+       m_max (largest contents mass, every COM in the set): one: static None (centred 1.9497) a_nom None  two: static 4.1999 (centred 4.1999) a_nom 3.9815  two_lever: static 2.506 (centred 4.1999) a_nom 2.3758  two_share: static 3.4775 (centred 4.1999) a_nom 3.1843
+       map m_hi -> action: 1.8: two arms; 1.967: two arms; 2.133: two arms; 2.3: two arms; 2.467: two arms, slow (a*=0.1459); 2.633: refuse; 2.8: refuse; 2.967: refuse; 3.133: refuse; 3.3: refuse
+
+box: empty 0.25 kg, contents 0.50..5.00 kg  open limits {}
+  [v1] full set -> refuse
+       m_max (largest contents mass, every COM in the set): one: static 1.8361 (centred 2.2496) a_nom 1.6655  two: static 4.7499 (centred 4.7499) a_nom 4.5075  two_lever: static 2.6612 (centred 4.7499) a_nom 2.5256  two_share: static 3.8583 (centred 4.7499) a_nom 3.5159
+       map m_hi -> action: 0.5: one arm; 1.0: one arm; 1.5: one arm; 2.0: two arms; 2.5: two arms; 3.0: refuse; 3.5: refuse; 4.0: refuse; 4.5: refuse; 5.0: refuse
+  [v2] full set -> refuse
+       m_max (largest contents mass, every COM in the set): one: static None (centred None) a_nom None  two: static 2.4235 (centred 4.2497) a_nom 2.2248  two_lever: static 2.3812 (centred 4.2497) a_nom 2.1006  two_share: static 0.5604 (centred 1.0324) a_nom 0.5154
+       map m_hi -> action: 0.5: two arms; 1.0: two arms; 1.5: two arms; 2.0: two arms; 2.5: refuse; 3.0: refuse; 3.5: refuse; 4.0: refuse; 4.5: refuse; 5.0: refuse
+  [v3] full set -> refuse
+       m_max (largest contents mass, every COM in the set): one: static 1.5762 (centred 1.9999) a_nom 1.4232  two: static 4.2497 (centred 4.2497) a_nom 4.0315  two_lever: static 2.3812 (centred 4.2497) a_nom 2.1006  two_share: static 3.338 (centred 4.2497) a_nom 3.0311
+       map m_hi -> action: 0.5: one arm; 1.0: one arm; 1.5: two arms; 2.0: two arms; 2.5: refuse; 3.0: refuse; 3.5: refuse; 4.0: refuse; 4.5: refuse; 5.0: refuse

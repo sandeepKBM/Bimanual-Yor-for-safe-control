@@ -1,0 +1,74 @@
+tilt sweep (corners, nominal runs, fc + stiff weld) -- max over corners; budget fractions: tilt/10.0 deg, mug/20.0 deg, spill/1, tau/16 Nm
+
+box    (0.5, 1.0)   a=0.1   n= 8 U= 0 err=0  tilt  2.43 deg (0.24)  mug  0.00 (0.00)  spill 0.00  tau 0.64  e_obj 2.31 deg  worst=m1.0_x+1y-1
+box    (0.5, 1.0)   a=0.25  n= 8 U= 0 err=0  tilt  2.60 deg (0.26)  mug  0.00 (0.00)  spill 0.00  tau 0.65  e_obj 2.47 deg  worst=m1.0_x+1y-1
+box    (0.5, 1.0)   a=0.5   n= 8 U= 0 err=0  tilt  2.99 deg (0.30)  mug  0.00 (0.00)  spill 0.00  tau 0.66  e_obj 2.86 deg  worst=m1.0_x+1y-1
+box    (0.5, 1.0)   a=1.0   n= 8 U= 0 err=0  tilt  3.48 deg (0.35)  mug  0.00 (0.00)  spill 0.00  tau 0.67  e_obj 3.35 deg  worst=m1.0_x+1y-1
+box    (1.0, 1.5)   a=0.1   n= 8 U= 0 err=0  tilt  3.26 deg (0.33)  mug  0.00 (0.00)  spill 0.00  tau 0.69  e_obj 3.10 deg  worst=m1.5_x+1y-1
+box    (1.0, 1.5)   a=0.25  n= 8 U= 0 err=0  tilt  3.53 deg (0.35)  mug  0.00 (0.00)  spill 0.00  tau 0.70  e_obj 3.37 deg  worst=m1.5_x+1y-1
+box    (1.0, 1.5)   a=0.5   n= 8 U= 0 err=0  tilt  3.81 deg (0.38)  mug  0.00 (0.00)  spill 0.00  tau 0.71  e_obj 3.64 deg  worst=m1.5_x+1y-1
+box    (1.0, 1.5)   a=1.0   n= 8 U= 0 err=0  tilt  4.24 deg (0.42)  mug  0.00 (0.00)  spill 0.00  tau 0.73  e_obj 4.07 deg  worst=m1.5_x+1y-1
+box    (1.5, 2.0)   a=0.1   n= 8 U= 0 err=0  tilt  4.13 deg (0.41)  mug  0.00 (0.00)  spill 0.00  tau 0.74  e_obj 3.92 deg  worst=m2.0_x+1y-1
+box    (1.5, 2.0)   a=0.25  n= 8 U= 0 err=0  tilt  4.55 deg (0.45)  mug  0.00 (0.00)  spill 0.00  tau 0.75  e_obj 4.33 deg  worst=m2.0_x+1y-1
+box    (1.5, 2.0)   a=0.5   n= 8 U= 0 err=0  tilt  4.92 deg (0.49)  mug  0.00 (0.00)  spill 0.00  tau 0.76  e_obj 4.69 deg  worst=m2.0_x+1y-1
+box    (1.5, 2.0)   a=1.0   n= 8 U= 0 err=0  tilt  5.42 deg (0.54)  mug  0.00 (0.00)  spill 0.00  tau 0.79  e_obj 5.19 deg  worst=m2.0_x+1y-1
+box    (2.0, 2.5)   a=0.1   n= 8 U= 0 err=0  tilt  4.91 deg (0.49)  mug  0.00 (0.00)  spill 0.00  tau 0.80  e_obj 4.64 deg  worst=m2.5_x+1y-1
+box    (2.0, 2.5)   a=0.25  n= 8 U= 0 err=0  tilt  5.45 deg (0.55)  mug  0.00 (0.00)  spill 0.00  tau 0.81  e_obj 5.17 deg  worst=m2.5_x+1y-1
+box    (2.0, 2.5)   a=0.5   n= 8 U= 0 err=0  tilt  5.92 deg (0.59)  mug  0.00 (0.00)  spill 0.00  tau 0.82  e_obj 5.63 deg  worst=m2.5_x+1y-1
+box    (2.0, 2.5)   a=1.0   n= 8 U= 0 err=0  tilt  6.50 deg (0.65)  mug  0.00 (0.00)  spill 0.00  tau 0.85  e_obj 6.21 deg  worst=m2.5_x+1y-1
+box    (2.5, 3.0)   a=0.1   n= 8 U= 0 err=0  tilt  5.66 deg (0.57)  mug  0.00 (0.00)  spill 0.00  tau 0.86  e_obj 5.32 deg  worst=m3.0_x+1y-1
+box    (2.5, 3.0)   a=0.25  n= 8 U= 0 err=0  tilt  6.31 deg (0.63)  mug  0.00 (0.00)  spill 0.00  tau 0.87  e_obj 5.97 deg  worst=m3.0_x+1y-1
+box    (2.5, 3.0)   a=0.5   n= 8 U= 0 err=0  tilt  6.89 deg (0.69)  mug  0.00 (0.00)  spill 0.00  tau 0.88  e_obj 6.54 deg  worst=m3.0_x+1y-1
+box    (2.5, 3.0)   a=1.0   n= 8 U= 0 err=0  tilt  7.56 deg (0.76)  mug  0.00 (0.00)  spill 0.00  tau 0.91  e_obj 7.20 deg  worst=m3.0_x+1y-1
+box    (3.0, 3.5)   a=0.1   n= 8 U= 0 err=0  tilt  6.38 deg (0.64)  mug  0.00 (0.00)  spill 0.00  tau 0.93  e_obj 5.98 deg  worst=m3.5_x+1y-1
+box    (3.0, 3.5)   a=0.25  n= 8 U= 0 err=0  tilt  7.15 deg (0.71)  mug  0.00 (0.00)  spill 0.00  tau 0.93  e_obj 6.73 deg  worst=m3.5_x+1y-1
+box    (3.0, 3.5)   a=0.5   n= 8 U= 0 err=0  tilt  7.84 deg (0.78)  mug  0.00 (0.00)  spill 0.00  tau 0.95  e_obj 7.42 deg  worst=m3.5_x+1y-1
+box    (3.0, 3.5)   a=1.0   n= 8 U= 0 err=0  tilt  8.61 deg (0.86)  mug  0.00 (0.00)  spill 0.00  tau 0.97  e_obj 8.18 deg  worst=m3.5_x+1y-1
+box    (3.5, 4.0)   a=0.1   n= 8 U= 0 err=0  tilt  7.08 deg (0.71)  mug  0.00 (0.00)  spill 0.00  tau 0.99  e_obj 6.60 deg  worst=m4.0_x+1y-1
+box    (3.5, 4.0)   a=0.25  n= 8 U= 0 err=0  tilt  7.96 deg (0.80)  mug  0.00 (0.00)  spill 0.00  tau 0.99  e_obj 7.47 deg  worst=m4.0_x+1y-1
+box    (3.5, 4.0)   a=0.5   n= 8 U= 1 err=0  tilt  8.77 deg (0.88)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 8.27 deg  worst=m4.0_x+1y-1
+box    (3.5, 4.0)   a=1.0   n= 8 U= 1 err=0  tilt  9.64 deg (0.96)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 9.12 deg  worst=m4.0_x+1y-1
+box    (4.0, 4.5)   a=0.1   n= 8 U= 1 err=0  tilt  7.76 deg (0.78)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 7.20 deg  worst=m4.5_x+1y-1
+box    (4.0, 4.5)   a=0.25  n= 8 U= 1 err=0  tilt  8.74 deg (0.87)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 8.16 deg  worst=m4.5_x+1y-1
+box    (4.0, 4.5)   a=0.5   n= 8 U= 3 err=0  tilt  9.58 deg (0.96)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 9.04 deg  worst=m4.5_x+1y-1
+box    (4.0, 4.5)   a=1.0   n= 8 U= 4 err=0  tilt 10.48 deg (1.05)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 9.90 deg  worst=m4.5_x+1y-1
+box    (4.5, 5.0)   a=0.1   n= 8 U= 4 err=0  tilt 10.13 deg (1.01)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 10.41 deg  worst=m5.0_x+1y-1
+box    (4.5, 5.0)   a=0.25  n= 8 U= 4 err=0  tilt 10.46 deg (1.05)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 10.31 deg  worst=m5.0_x+1y-1
+box    (4.5, 5.0)   a=0.5   n= 8 U= 5 err=0  tilt 11.24 deg (1.12)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 11.01 deg  worst=m5.0_x+1y-1
+box    (4.5, 5.0)   a=1.0   n= 8 U= 6 err=0  tilt 12.23 deg (1.22)  mug  0.00 (0.00)  spill 0.00  tau 1.00  e_obj 11.91 deg  worst=m5.0_x+1y-1
+tray2  (0.0, 0.05)  a=0.1   n=12 U= 0 err=0  tilt  1.73 deg (0.17)  mug  1.73 (0.09)  spill 0.05  tau 0.60  e_obj 1.65 deg  worst=f0.05_c+1-1
+tray2  (0.0, 0.05)  a=0.25  n=12 U= 0 err=0  tilt  1.80 deg (0.18)  mug  1.80 (0.09)  spill 0.05  tau 0.61  e_obj 1.71 deg  worst=f0.05_c+1-1
+tray2  (0.0, 0.05)  a=0.5   n=12 U= 0 err=0  tilt  1.92 deg (0.19)  mug  1.92 (0.10)  spill 0.06  tau 0.62  e_obj 1.84 deg  worst=f0.05_c+1-1
+tray2  (0.0, 0.05)  a=1.0   n=12 U= 0 err=0  tilt  2.09 deg (0.21)  mug  2.09 (0.10)  spill 0.07  tau 0.63  e_obj 2.00 deg  worst=f0.05_c+1-1
+tray2  (0.05, 0.125) a=0.1   n=12 U= 0 err=0  tilt  2.06 deg (0.21)  mug  2.06 (0.10)  spill 0.06  tau 0.62  e_obj 1.96 deg  worst=f0.125_c+1-1
+tray2  (0.05, 0.125) a=0.25  n=12 U= 0 err=0  tilt  2.17 deg (0.22)  mug  2.17 (0.11)  spill 0.06  tau 0.63  e_obj 2.07 deg  worst=f0.125_c+1-1
+tray2  (0.05, 0.125) a=0.5   n=12 U= 0 err=0  tilt  2.32 deg (0.23)  mug  2.32 (0.12)  spill 0.08  tau 0.63  e_obj 2.22 deg  worst=f0.125_c+1-1
+tray2  (0.05, 0.125) a=1.0   n=12 U= 0 err=0  tilt  2.47 deg (0.25)  mug  2.47 (0.12)  spill 0.09  tau 0.65  e_obj 2.37 deg  worst=f0.125_c+1-1
+tray2  (0.125, 0.25) a=0.1   n=12 U= 0 err=0  tilt  2.61 deg (0.26)  mug  2.61 (0.13)  spill 0.15  tau 0.65  e_obj 2.49 deg  worst=f0.25_c+1-1
+tray2  (0.125, 0.25) a=0.25  n=12 U= 0 err=0  tilt  2.80 deg (0.28)  mug  2.80 (0.14)  spill 0.16  tau 0.65  e_obj 2.68 deg  worst=f0.25_c+1-1
+tray2  (0.125, 0.25) a=0.5   n=12 U= 0 err=0  tilt  3.00 deg (0.30)  mug  3.00 (0.15)  spill 0.21  tau 0.66  e_obj 2.88 deg  worst=f0.25_c+1-1
+tray2  (0.125, 0.25) a=1.0   n=12 U= 0 err=0  tilt  3.18 deg (0.32)  mug  3.18 (0.16)  spill 0.23  tau 0.67  e_obj 3.06 deg  worst=f0.25_c+1-1
+tray4  (0.0, 0.05)  a=0.1   n=12 U= 0 err=0  tilt  1.32 deg (0.13)  mug  1.32 (0.07)  spill 0.04  tau 0.67  e_obj 1.23 deg  worst=f0.05_c+1-1
+tray4  (0.0, 0.05)  a=0.25  n=12 U= 0 err=0  tilt  1.38 deg (0.14)  mug  1.38 (0.07)  spill 0.08  tau 0.67  e_obj 1.29 deg  worst=f0.05_c+1-1
+tray4  (0.0, 0.05)  a=0.5   n=12 U= 0 err=0  tilt  1.61 deg (0.16)  mug  1.61 (0.08)  spill 0.08  tau 0.68  e_obj 1.52 deg  worst=f0.05_c+1-1
+tray4  (0.0, 0.05)  a=1.0   n=12 U= 0 err=0  tilt  1.81 deg (0.18)  mug  1.81 (0.09)  spill 0.11  tau 0.69  e_obj 1.72 deg  worst=f0.05_c+1-1
+tray4  (0.05, 0.125) a=0.1   n=12 U= 0 err=0  tilt  1.58 deg (0.16)  mug  1.59 (0.08)  spill 0.06  tau 0.69  e_obj 1.49 deg  worst=f0.125_c+1-1
+tray4  (0.05, 0.125) a=0.25  n=12 U= 0 err=0  tilt  1.64 deg (0.16)  mug  1.65 (0.08)  spill 0.10  tau 0.70  e_obj 1.55 deg  worst=f0.125_c+1-1
+tray4  (0.05, 0.125) a=0.5   n=12 U= 0 err=0  tilt  1.87 deg (0.19)  mug  1.88 (0.09)  spill 0.11  tau 0.71  e_obj 1.77 deg  worst=f0.125_c+1-1
+tray4  (0.05, 0.125) a=1.0   n=12 U= 0 err=0  tilt  2.07 deg (0.21)  mug  2.07 (0.10)  spill 0.13  tau 0.72  e_obj 1.97 deg  worst=f0.125_c+1-1
+tray4  (0.125, 0.25) a=0.1   n=12 U= 0 err=0  tilt  2.06 deg (0.21)  mug  2.06 (0.10)  spill 0.16  tau 0.74  e_obj 1.95 deg  worst=f0.25_c+1-1
+tray4  (0.125, 0.25) a=0.25  n=12 U= 0 err=0  tilt  2.20 deg (0.22)  mug  2.20 (0.11)  spill 0.23  tau 0.75  e_obj 2.09 deg  worst=f0.25_c+1-1
+tray4  (0.125, 0.25) a=0.5   n=12 U= 0 err=0  tilt  2.36 deg (0.24)  mug  2.36 (0.12)  spill 0.23  tau 0.76  e_obj 2.24 deg  worst=f0.25_c+1-1
+tray4  (0.125, 0.25) a=1.0   n=12 U= 0 err=0  tilt  2.53 deg (0.25)  mug  2.53 (0.13)  spill 0.31  tau 0.77  e_obj 2.41 deg  worst=f0.25_c+1-1
+tray6  (0.0, 0.05)  a=0.1   n=12 U= 0 err=0  tilt  1.71 deg (0.17)  mug  1.71 (0.09)  spill 0.05  tau 0.70  e_obj 1.64 deg  worst=f0.05_c+1-1
+tray6  (0.0, 0.05)  a=0.25  n=12 U= 0 err=0  tilt  1.81 deg (0.18)  mug  1.81 (0.09)  spill 0.08  tau 0.71  e_obj 1.75 deg  worst=f0.05_c+1-1
+tray6  (0.0, 0.05)  a=0.5   n=12 U= 0 err=0  tilt  1.94 deg (0.19)  mug  1.95 (0.10)  spill 0.11  tau 0.72  e_obj 1.88 deg  worst=f0.05_c+1-1
+tray6  (0.0, 0.05)  a=1.0   n=12 U= 0 err=0  tilt  2.08 deg (0.21)  mug  2.08 (0.10)  spill 0.14  tau 0.73  e_obj 2.01 deg  worst=f0.05_c+1-1
+tray6  (0.05, 0.125) a=0.1   n=12 U= 0 err=0  tilt  2.06 deg (0.21)  mug  2.07 (0.10)  spill 0.08  tau 0.74  e_obj 1.99 deg  worst=f0.125_c+1-1
+tray6  (0.05, 0.125) a=0.25  n=12 U= 0 err=0  tilt  2.23 deg (0.22)  mug  2.23 (0.11)  spill 0.13  tau 0.75  e_obj 2.16 deg  worst=f0.125_c+1-1
+tray6  (0.05, 0.125) a=0.5   n=12 U= 0 err=0  tilt  2.39 deg (0.24)  mug  2.39 (0.12)  spill 0.16  tau 0.76  e_obj 2.32 deg  worst=f0.125_c+1-1
+tray6  (0.05, 0.125) a=1.0   n=12 U= 0 err=0  tilt  2.55 deg (0.26)  mug  2.55 (0.13)  spill 0.16  tau 0.77  e_obj 2.47 deg  worst=f0.125_c+1-1
+tray6  (0.125, 0.25) a=0.1   n=12 U= 0 err=0  tilt  2.72 deg (0.27)  mug  2.73 (0.14)  spill 0.18  tau 0.80  e_obj 2.63 deg  worst=f0.25_c+1-1
+tray6  (0.125, 0.25) a=0.25  n=12 U= 0 err=0  tilt  2.97 deg (0.30)  mug  2.97 (0.15)  spill 0.22  tau 0.81  e_obj 2.87 deg  worst=f0.25_c+1-1
+tray6  (0.125, 0.25) a=0.5   n=12 U= 0 err=0  tilt  3.19 deg (0.32)  mug  3.19 (0.16)  spill 0.26  tau 0.82  e_obj 3.09 deg  worst=f0.25_c+1-1
+tray6  (0.125, 0.25) a=1.0   n=12 U= 0 err=0  tilt  3.38 deg (0.34)  mug  3.38 (0.17)  spill 0.26  tau 0.83  e_obj 3.28 deg  worst=f0.25_c+1-1
