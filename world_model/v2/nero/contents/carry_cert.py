@@ -5,12 +5,15 @@ The robot's belief about the hidden contents is a CELL: a contents-mass interval
   box       contents mass in [0.5, 1.0], [1.0, 1.5], ..., [4.5, 5.0] kg, COM anywhere in the interior
 Per cell:
   1. STATIC rows, proof under MODEL (exact corner checks over the cell's contents vertices x the acceleration box):
-       torque_payload_twist  envelope u* (16 Nm, 3 kg - gripper, claw twist <= T_cap) of the COMMANDED lever split
-                             (carry.LeverCtl) at path samples of every move, <= U_ADMIT
+       torque_payload        ARM-SIDE envelope u* (joint torque vs 16 Nm, arm vertical load vs 3 kg - gripper) of the COMMANDED
+                             lever split (carry.LeverCtl) at path samples of every move, <= U_ADMIT
        support_dest          the total COM over the destination support (object footprint x support top) for every vertex
        open_content          tray: planned peak acceleration <= the quasi-static spill limit at the fullest fill of the cell
      Action (ASSUMED rule, user-confirmed): two arms at a_nom; else two arms slowed to a* (largest a with the torque row
-     passing, capped by the spill limit); else refuse.  (One arm is refused everywhere by the twist row: see thresholds.)
+     passing, capped by the spill limit); else refuse.  The one-arm utilisation is REPORTED (u_one_nom) but not acted on: the
+     carry sim welds both claws, a one-arm carry is not built.
+     USER 11-02 (afternoon): the grasp is not our problem -> NO claw rows.  The claw twist cap (envelope.T_CAP, approved that morning)
+     is dropped from admission; T_cap=... / --twist-cap reproduces the old rule only.  Failures must come from how the arms carry.
   2. DYNAMIC rows, sampled: worlds theta drawn uniformly from the cell, each run at the admitted speed with the stored backups
      branched every 0.25 s (carry.world_trial) -> pan/cert/admit.certify(..., static=...) per segment, with the Clopper-Pearson
      bound on the dynamic failure rate.
@@ -95,7 +98,8 @@ def support_row(task, spec, contents, world):
                           "rectangle; placement at the nominal destination, placement error NOT covered)")
 
 
-def static_cell(task, cell, world):
+def static_cell(task, cell, world, T_cap=None):
+    """T_cap=None (default, user 11-02 pm): arm-side rows only.  T_cap=E.T_CAP reproduces the morning rule (claw twist row)."""
     spec = cell_spec(task, cell)
     caps = json.loads(TH.CAP_FILE.read_text())
     offs, per_seg = path_offsets(task)
@@ -103,11 +107,16 @@ def static_cell(task, cell, world):
     arms = E.Arms(cap)
     tl, tr = np.asarray(caps["pot"]["tcp"]["W0_liftoff"]["left"]), np.asarray(caps["pot"]["tcp"]["W0_liftoff"]["right"])
     o_ref = 0.5 * (tl + tr) - np.array([0, 0, TH.GRASP_DZ])
-    env = E.Envelope(spec, arms, o_ref, np.eye(3), ["left", "right"], grip_mass=caps["pot"]["gripper_mass"], offsets=offs, T_cap=E.T_CAP)
+    env = E.Envelope(spec, arms, o_ref, np.eye(3), ["left", "right"], grip_mass=caps["pot"]["gripper_mass"], offsets=offs, T_cap=T_cap)
     cont = spec.contents
     a_open = min([ol.a_max for ol in spec.open_limits], default=np.inf)
     keys = list(offs)
     u_nom, det_nom = env.worst(cont, keys, E.A_NOM, "two_lever")
+    u_one, det_one = env.worst(cont, keys, E.A_NOM, "one")          # reported only (one-arm carry not built)
+    row_name = "torque_payload" if T_cap is None else "torque_payload_twist"
+    row_guar = (f"proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, "
+                + ("no claw rows (user 11-02)" if T_cap is None else f"claw twist {T_cap} Nm ASSUMED")
+                + f", admit u <= {E.U_ADMIT} ASSUMED)")
     if u_nom <= E.U_ADMIT and E.A_NOM <= a_open:
         a_adm, action = E.A_NOM, "two arms"
     else:
@@ -121,11 +130,10 @@ def static_cell(task, cell, world):
         aa = a_adm if a_adm is not None else E.A_NOM
         u, det = env.worst(cont, ks, aa, "two_lever")
         u_lp, _ = env.worst(cont, ks, aa, "two")
-        rows[seg] = dict(torque_payload_twist=dict(
+        rows[seg] = {row_name: dict(
             ok=bool(u <= E.U_ADMIT), u_max=round(float(u), 4), u_best_split=round(float(u_lp), 4), a=aa, n_samples=len(ks),
             worst={k: v for k, v in det.items() if k in ("wp", "m", "c", "a", "Fz", "twist")},
-            guarantee=f"proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist "
-                      f"{E.T_CAP} Nm ASSUMED, admit u <= {E.U_ADMIT} ASSUMED) over the cell x acceleration box at {len(ks)} path samples"))
+            guarantee=row_guar + f" over the cell x acceleration box at {len(ks)} path samples")}
         if a_open < np.inf:
             rows[seg]["open_content"] = dict(ok=bool(aa <= a_open), a_plan=aa, a_open=round(float(a_open), 4),
                                              guarantee="proof under MODEL (quasi-static liquid surface; slosh NOT covered)")
@@ -136,7 +144,8 @@ def static_cell(task, cell, world):
         a_adm = None
     return dict(task=task, cell=list(cell), contents_m=[cont.m_lo, cont.m_hi], action=action, a_admit=a_adm, a_open=a_open,
                 u_nom=round(float(u_nom), 4), worst_nom={k: v for k, v in det_nom.items() if k in ("wp", "m", "c", "Fz", "twist")},
-                rows=rows)
+                u_one_nom=round(float(u_one), 4), worst_one={k: v for k, v in det_one.items() if k in ("wp", "m", "c", "worst_joint", "binding")},
+                T_cap=T_cap, rows=rows)
 
 
 def sample_world(task, cell, rng):
@@ -152,41 +161,59 @@ def sample_world(task, cell, rng):
 
 
 def _trial(args):
-    task, cell, i, seed, a, m_hat, fc = args
+    task, cell, i, seed, a, m_hat, fc, *rest = args
+    ws = rest[0] if rest else None
     rng = np.random.default_rng(seed)
     w = sample_world(task, cell, rng)
     try:
-        r = CR.world_trial(w, f"{task}_{cell[0]}_{i}", a_plan=a, m_hat=m_hat, fric_comp=fc)
+        r = CR.world_trial(w, f"{task}_{cell[0]}_{i}", a_plan=a, m_hat=m_hat, fric_comp=fc, weld_solref=ws)
     except Exception as e:                                  # a crash is reported, never silently dropped
         r = dict(tag=f"{task}_{cell[0]}_{i}", error=repr(e), theta=CR._theta(w), segments=[])
     r["cell"], r["seed"] = list(cell), seed
     return task, tuple(cell), r
 
 
-def run(tasks, n, procs, out, fric_comp=False):
+WELD_STIFF = (0.004, 1.0)    # weld solref [s, dampratio]: 4 ms (>= 2 x the 1 ms physics step); MuJoCo default 0.02 s bends 2-3 deg
+
+
+TASK_ID = {"tray2": 2, "tray4": 4, "tray6": 6, "box": 9}
+
+
+def cell_seed(task, cell, i):
+    """world seed fixed by (task, cell, index) -- NOT by which cells a rule admits -- so two rules sample the same worlds in a cell."""
+    return int(np.random.SeedSequence([TASK_ID[task], int(round(1000 * cell[0])), int(round(1000 * cell[1])), i]).generate_state(1)[0])
+
+
+def run(tasks, n, procs, out, fric_comp=False, weld_stiff=False, T_cap=None, only=None):
+    """only: set of cell keys "task|lo-hi" to simulate (the rest get the static rows only); None = every admitted cell."""
     import multiprocessing as mp
     from ..pan.cert import admit as AD
     out = pathlib.Path(out)
     out.mkdir(parents=True, exist_ok=True)
     res = dict(date=time.strftime("%Y-%m-%d"), n_per_cell=n, assumptions=dict(
-        grasp="ASSUMED rigid weld (user 11-01)", T_cap=f"ASSUMED {E.T_CAP} Nm", u_admit=f"ASSUMED {E.U_ADMIT}", a_nom=E.A_NOM,
+        grasp="ASSUMED rigid weld (user 11-01)",
+        T_cap=("none: no claw rows (user 11-02 pm, arm-side rows only)" if T_cap is None else f"ASSUMED {T_cap} Nm (old 11-02 am rule)"),
+        seeds="carry_cert.cell_seed(task, cell, i)", u_admit=f"ASSUMED {E.U_ADMIT}", a_nom=E.A_NOM,
         a_backup=CR.A_BACKUP, a_min=A_MIN, controller="carry.LeverCtl (FL-MPC + lever-split payload ff), 16 Nm torque box",
         claw_rows_in_sim="recorded, NOT in U (closed-chain internal stress under the weld; see carry.py doc)",
         spill_sim="quasi-static proxy from sim mug acceleration; slosh NOT modelled",
         worlds="theta ~ uniform on the cell (tray: scenes.sample_tray_world placement + uniform fills; box: uniform mass + xy)",
         proposer="none (scripted plan; no LLM in this run)",
-        fric_comp=(f"carry.FRIC_COMP {CR.FRIC_COMP} (wrapper after FL-MPC; ASSUMED gains)" if fric_comp else "off")), cells={})
+        fric_comp=(f"carry.FRIC_COMP {CR.FRIC_COMP} (wrapper after FL-MPC; ASSUMED gains)" if fric_comp else "off"),
+        weld=(f"solref {WELD_STIFF} (stiff; MODEL choice for the ASSUMED rigid grasp)" if weld_stiff else "MuJoCo default solref (0.02, 1)")),
+        cells={})
     jobs = []
     for task in tasks:
         world0 = SC.TrayWorld(n_cups=int(task[4:])) if task.startswith("tray") else SC.BoxWorld()
         for (cell,) in cells(task):
-            st = static_cell(task, cell, world0)
+            st = static_cell(task, cell, world0, T_cap=T_cap)
             key = f"{task}|{cell[0]}-{cell[1]}"
             res["cells"][key] = dict(static=st, records=[])
-            print(f"static {key}: {st['action']} a={st['a_admit']} u_nom={st['u_nom']}", flush=True)
-            if st["a_admit"] is not None:
+            print(f"static {key}: {st['action']} a={st['a_admit']} u_nom={st['u_nom']} u_one={st['u_one_nom']}", flush=True)
+            if st["a_admit"] is not None and (only is None or key in only):
                 for i in range(n):
-                    jobs.append((task, cell, i, 1000 * len(jobs) + i, st["a_admit"], 0.5 * sum(st["contents_m"]), fric_comp))
+                    jobs.append((task, cell, i, cell_seed(task, cell, i), st["a_admit"], 0.5 * sum(st["contents_m"]), fric_comp,
+                                 WELD_STIFF if weld_stiff else None))
     (out / "STATIC.json").write_text(json.dumps(res, indent=1, default=float))
     with mp.get_context("spawn").Pool(procs, maxtasksperchild=3) as pool:
         for task, cell, r in pool.imap_unordered(_trial, jobs):
@@ -233,17 +260,24 @@ def main(argv=None):
     ap.add_argument("--out", default="/data/local/ss5772/contents/carry_cert_2026-11-02")
     ap.add_argument("--static-only", action="store_true")
     ap.add_argument("--fric-comp", action="store_true", help="joint friction compensation + integral wrapper (carry.FRIC_COMP)")
+    ap.add_argument("--weld-stiff", action="store_true", help=f"weld solref {WELD_STIFF} instead of the MuJoCo default")
+    ap.add_argument("--twist-cap", action="store_true", help=f"old 11-02 am rule: claw twist row at {E.T_CAP} Nm (default: arm-side only)")
+    ap.add_argument("--only", default=None, help="comma list of cell keys task|lo-hi to simulate (default: every admitted cell)")
     a = ap.parse_args(argv)
+    T_cap = E.T_CAP if a.twist_cap else None
     if a.static_only:
         for task in a.tasks.split(","):
             world0 = SC.TrayWorld(n_cups=int(task[4:])) if task.startswith("tray") else SC.BoxWorld()
             for (cell,) in cells(task):
-                st = static_cell(task, cell, world0)
-                print(task, cell, st["action"], st["a_admit"], st["u_nom"], st["rows"]["release"]["support_dest"]["margin_m"],
-                      {s: r["torque_payload_twist"]["u_max"] for s, r in st["rows"].items() if "torque_payload_twist" in r}, flush=True)
+                st = static_cell(task, cell, world0, T_cap=T_cap)
+                rn = "torque_payload" if T_cap is None else "torque_payload_twist"
+                print(task, cell, st["action"], st["a_admit"], "u_nom", st["u_nom"], "u_one", st["u_one_nom"], st["worst_one"].get("binding"),
+                      "support", st["rows"]["release"]["support_dest"]["margin_m"],
+                      {s: r[rn]["u_max"] for s, r in st["rows"].items() if rn in r}, flush=True)
         return
     t0 = time.time()
-    res = run(a.tasks.split(","), a.n, a.procs, a.out, fric_comp=a.fric_comp)
+    only = set(a.only.split(",")) if a.only else None
+    res = run(a.tasks.split(","), a.n, a.procs, a.out, fric_comp=a.fric_comp, weld_stiff=a.weld_stiff, T_cap=T_cap, only=only)
     print(summary(res))
     print(f"wall {time.time() - t0:.0f} s")
 

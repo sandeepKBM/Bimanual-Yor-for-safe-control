@@ -71,7 +71,7 @@ class TrayWorld(Common):
     base_t: float = 0.008             # MODEL build.py
     rim_t: float = 0.008              # MODEL build.py
     rim_h: float = TRAY["rim_h"]      # MODEL: rim height above the base top
-    tab_inner_y: float = 0.17         # tab runs from the end wall out to |y| = 0.21
+    tab_inner_y: float = TRAY["ly"] / 2   # tab runs from the end wall out to |y| = 0.21 (11-02: follows the base edge)
     tab_outer_y: float = 0.21
     cup_D: float = CUP["D"]           # ASSUMED mug
     cup_H: float = CUP["H"]

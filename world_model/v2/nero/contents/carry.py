@@ -24,6 +24,8 @@ default (strict_claw=True puts it in U): under the rigid weld the two position-t
 internal stress set by their tracking errors (11-02 diagnosis: ~19 N pull along the grasp line and 1.2-1.7 Nm twist in the air
 with the payload feedforward OFF), so the measured claw wrench reflects the weld + controller, not the hidden contents.  The
 claw limits enter the certificate through the static rows (model wrench of the commanded split, proof under MODEL).
+USER 11-02 pm: the grasp is not our problem -> no claw rows anywhere (twist cap dropped; T_cap/strict_claw only reproduce old runs).
+The claw wrench stays a logged diagnostic.  U above is arm/object-side: joint torque, object/mug tilt, drop, spill, collisions.
 R (rest set): object resting on a support (speed < 5 mm/s, tilt < 3 deg), mugs upright (< 5 deg) on the tray, no U entry.
 """
 from __future__ import annotations
@@ -118,6 +120,18 @@ FRIC_COMP = dict(f=0.3, v_s=0.02, ki=8.0, i_max=0.6, kp=5.0)     # ASSUMED gains
 #   the static torque row (<= f + i_max = 0.9 Nm per joint, inside the u <= 0.9 margin of 1.6 Nm).
 
 
+COOP = dict(L=0.19, lam=1e-3, gain=1.0)    # L = orientation weight [m] (~ half the claw spacing); lam = damping of J^+ (MODEL)
+# 11-02 (new, opt-in): cooperative layer for the welded closed chain (FL-MPC unchanged; same 5 ms control step, same torque box).
+#   Why: each arm tracks its own joint reference stiffly.  Under the weld the claws cannot move relative to each other, so any
+#   DIFFERENCE between the two arms' tracking errors cannot be corrected and FL-MPC's gains (and the friction wrapper's integral) turn
+#   it into internal force / twist (11-02: 1.33-2.2 Nm measured twist in admitted cells vs 1.3 Nm cap).
+#   What: every step, map each claw's joint error to a 6-D claw error e_i = J_i (q_cmd,i - q_i) (encoders + FK only), fit ONE rigid
+#   object motion u = (dp, dtheta) about the claw midpoint o by weighted least squares (e_i ~ A_i u, A_i = [[I, -[p_i - o]x], [0, I]],
+#   orientation rows weighted by L), and remove the remainder (the internal part e_i - A_i u) from both arms' references:
+#   q_ref,i <- q_ref,i - J_i^+ e_int,i (whole horizon).  The arms then correct only the shared object error, together.
+#   Only while both welds are on; the joint null-space error (posture) is untouched.
+
+
 def move_time(dist, a):
     """smoothstep: peak acceleration 6 d / T^2 = a."""
     return max(T_MIN, float(np.sqrt(6.0 * max(dist, 1e-9) / a)))
@@ -128,8 +142,8 @@ def _tilt_deg(R):
 
 
 class CarryEpisode:
-    def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=E.T_CAP, ctl="lever", strict_claw=False,
-                 fric_comp=None):
+    def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=None, ctl="lever", strict_claw=False,
+                 fric_comp=None, coop=None, weld_solref=None):
         self.world, self.task = world, ("tray" if isinstance(world, SC.TrayWorld) else "box")
         self.a_plan, self.T_cap, self.strict_claw = float(a_plan), T_cap, bool(strict_claw)
         spec = SC.build_spec(world)
@@ -138,6 +152,10 @@ class CarryEpisode:
                               name1=f"{s}_arm_gripper_base", name2="obj", active=False)
         m = self.m = PS.apply_sim_defaults(spec.compile())
         m.opt.timestep = DT
+        self.weld_solref = None if weld_solref is None else tuple(float(x) for x in weld_solref)
+        if self.weld_solref is not None:      # 11-02 opt-in: stiffer weld (MuJoCo default solref 0.02 s lets the "rigid" weld bend 2-3 deg)
+            for s in SIDES:
+                m.eq_solref[m.equality(f"weld_{s}").id] = self.weld_solref
         d = self.d = mujoco.MjData(m)
         SC.settle(m, d, 0.5)                                   # objects at rest, arms at their initial pose
         cap = json.loads(CAP_FILE.read_text())["pot"]
@@ -188,6 +206,7 @@ class CarryEpisode:
         self.carried = {self.obj} | set(self.cups) | ({m.body("contents").id} if self.task == "box" else set())
         self.fc = dict(FRIC_COMP, **fric_comp) if isinstance(fric_comp, dict) else (dict(FRIC_COMP) if fric_comp else None)
         self.e_int = {s: np.zeros(7) for s in SIDES}
+        self.coop = dict(COOP, **coop) if isinstance(coop, dict) else (dict(COOP) if coop else None)
         self.k = 0
         self.paths = {s: [] for s in SIDES}
         self.stored = {}                                       # stored TCP poses (admission-time), per segment start
@@ -233,7 +252,7 @@ class CarryEpisode:
 
     def reset_track(self):
         self.track = dict(viol=None, tau_ratio=0.0, n_sat=0, Fz_max=0.0, twist_max=0.0, F_int_max=0.0, spill_ratio=0.0,
-                          cup_tilt_max=0.0, obj_tilt_max=0.0)
+                          cup_tilt_max=0.0, obj_tilt_max=0.0, e_obj_mm=0.0, e_obj_deg=0.0, e_int_mm=0.0, e_int_deg=0.0)
 
     # ---------------- motion ----------------
     def tcp(self, s):
@@ -263,16 +282,50 @@ class CarryEpisode:
             q = (1 - (a - i)) * wp[i] + (a - i) * wp[i + 1]
         return q
 
+    def _coop_split(self, t):
+        """claw errors -> (shared rigid object error u, internal parts e_int, joint shifts dq).  Encoders + FK only."""
+        m, d = self.m, self.d
+        mujoco.mj_forward(m, d)
+        L = (self.coop or COOP)["L"]
+        lam = (self.coop or COOP)["lam"]
+        p = {s: d.site_xpos[self.site[s]].copy() for s in SIDES}
+        o = 0.5 * (p["left"] + p["right"])
+        W = np.diag([1, 1, 1, L, L, L])
+        J, ex, A = {}, {}, {}
+        for s in SIDES:
+            jp, jr = np.zeros((3, m.nv)), np.zeros((3, m.nv))
+            mujoco.mj_jacSite(m, d, jp, jr, self.site[s])
+            J[s] = np.vstack([jp[:, self.dofs[s]], jr[:, self.dofs[s]]])
+            ex[s] = J[s] @ (self._cmd(s, t) - d.qpos[self.addr[s]])
+            r = p[s] - o
+            sk = np.array([[0, -r[2], r[1]], [r[2], 0, -r[0]], [-r[1], r[0], 0]])
+            A[s] = np.block([[np.eye(3), -sk], [np.zeros((3, 3)), np.eye(3)]])
+        u = np.linalg.lstsq(np.vstack([W @ A[s] for s in SIDES]), np.concatenate([W @ ex[s] for s in SIDES]), rcond=None)[0]
+        e_int = {s: ex[s] - A[s] @ u for s in SIDES}
+        dq = {s: J[s].T @ np.linalg.solve(J[s] @ J[s].T + lam * np.eye(6), e_int[s]) for s in SIDES}
+        return u, e_int, dq
+
     def _step(self):
         m, d, ctl = self.m, self.d, self.ctl
         t = self.k * DT
-        ctl.qe_ref = np.stack([self._cmd("left", t + i * self.FDT) for i in range(self.NP + 1)])
-        ctl.qi_ref = np.stack([self._cmd("right", t + i * self.FDT) for i in range(self.NP + 1)])
+        welded = all(d.eq_active[self.weld_id[s]] for s in SIDES)
+        dq = {s: np.zeros(7) for s in SIDES}
+        if welded:
+            u, e_int, dq_c = self._coop_split(t)
+            tr = self.track
+            tr["e_obj_mm"] = max(tr["e_obj_mm"], 1e3 * float(np.linalg.norm(u[:3])))
+            tr["e_obj_deg"] = max(tr["e_obj_deg"], float(np.degrees(np.linalg.norm(u[3:]))))
+            tr["e_int_mm"] = max(tr["e_int_mm"], 1e3 * max(float(np.linalg.norm(e_int[s][:3])) for s in SIDES))
+            tr["e_int_deg"] = max(tr["e_int_deg"], float(np.degrees(max(np.linalg.norm(e_int[s][3:]) for s in SIDES))))
+            if self.coop is not None:
+                dq = {s: self.coop["gain"] * dq_c[s] for s in SIDES}
+        ctl.qe_ref = np.stack([self._cmd("left", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["left"]
+        ctl.qi_ref = np.stack([self._cmd("right", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["right"]
         te, ti = ctl.tau(d)
         if self.fc is not None:
             fc, out = self.fc, []
             for s, tau in (("left", te), ("right", ti)):
-                qc = self._cmd(s, t)
+                qc = self._cmd(s, t) - dq[s]
                 vc = (self._cmd(s, t + DT) - qc) / DT
                 e = qc - d.qpos[self.addr[s]]
                 self.e_int[s] = np.clip(self.e_int[s] + e * DT, -fc["i_max"] / max(fc["ki"], 1e-9), fc["i_max"] / max(fc["ki"], 1e-9))
@@ -473,15 +526,16 @@ class CarryEpisode:
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
-def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=E.T_CAP, ctl="lever", strict_claw=False, m_hat=None,
-                fric_comp=None):
+def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl="lever", strict_claw=False, m_hat=None,
+                fric_comp=None, coop=None, weld_solref=None):
     """m_hat: the robot's nominal contents mass (belief cell centre; None = the prior's centre)."""
     """nominal run of all segments in one world + the stored backup from branch points of each segment.  -> record for admit."""
     t0 = time.time()
-    ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp)
+    ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp,
+                      coop=coop, weld_solref=weld_solref)
     ep.run_phases([("hold", 0.4)])                            # load transfer, object still on the counter
     rec = dict(tag=tag, task=ep.task, theta=_theta(world), truth=_jsonable(ep.truth0), a_plan=a_plan, m_nom=ep.m_nom, ctl=ctl,
-               strict_claw=strict_claw, fric_comp=ep.fc,
+               strict_claw=strict_claw, fric_comp=ep.fc, coop=ep.coop, weld_solref=ep.weld_solref,
                segments=[])
     hold_viol = ep.track["viol"]
     for seg in SEGS:

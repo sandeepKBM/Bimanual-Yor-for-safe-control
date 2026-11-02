@@ -38,11 +38,12 @@ def seed_of(task, cell, i):
 def _trial(args):
     task, cell, i, m_hat, *rest = args                       # 4-tuple jobs from runs launched before --fric-comp
     fc = rest[0] if rest else None
+    ws = rest[1] if len(rest) > 1 else None                  # weld solref (None = MuJoCo default)
     seed = seed_of(task, cell, i)
     w = CC.sample_world(task, cell, np.random.default_rng(seed))
     t0 = time.time()
     try:
-        ep = CR.CarryEpisode(w, a_plan=E.A_NOM, m_hat=m_hat, fric_comp=fc)
+        ep = CR.CarryEpisode(w, a_plan=E.A_NOM, m_hat=m_hat, fric_comp=fc, weld_solref=ws)
         ep.run_phases([("hold", 0.4)])
         segs, mon = [], dict(fired=False, max_step_m=0.0)
         rel_prev = None
@@ -68,6 +69,7 @@ def _trial(args):
         tr = SC.object_truth(ep.m, ep.d)
         dest = ep.d.xpos[ep.obj][2] - ep.z0
         r = dict(task=task, cell=list(cell), i=i, seed=seed, theta=CR._theta(w), segments=segs, monitor=mon, fric_comp=bool(fc),
+                 weld_solref=ws,
                  end_in_R=ep.in_R(), dz_end=round(float(dest), 4), any_U=any(s["viol"] for s in segs),
                  first_U=next((dict(seg=s["seg"], **s["viol"]) for s in segs if s["viol"]), None),
                  truth_total_kg=round(float(tr["total_mass"]), 3), wall_s=round(time.time() - t0, 1))
@@ -85,7 +87,9 @@ def main(argv=None):
     ap.add_argument("--static", default="/data/local/ss5772/contents/carry_cert_2026-11-02/STATIC.json")
     ap.add_argument("--out", default="/data/local/ss5772/contents/baseline_ungated_2026-11-02")
     ap.add_argument("--fric-comp", action="store_true")
+    ap.add_argument("--weld-stiff", action="store_true", help=f"weld solref {CC.WELD_STIFF} (as carry_cert --weld-stiff)")
     a = ap.parse_args(argv)
+    ws = CC.WELD_STIFF if a.weld_stiff else None
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     st = json.loads(pathlib.Path(a.static).read_text())["cells"]
@@ -95,7 +99,7 @@ def main(argv=None):
         cell = tuple(float(x) for x in cs.split("-"))
         if task in a.tasks.split(",") and c["static"]["a_admit"] is None:          # the cells WE refuse
             m_hat = 0.5 * sum(c["static"]["contents_m"])
-            jobs += [(task, cell, i, m_hat, a.fric_comp) for i in range(a.n)]
+            jobs += [(task, cell, i, m_hat, a.fric_comp, ws) for i in range(a.n)]
     print(f"{len(jobs)} trials", flush=True)
     t0 = time.time()
     with mp.get_context("spawn").Pool(a.procs, maxtasksperchild=3) as pool, open(out / "trials.jsonl", "a") as f:

@@ -21,7 +21,9 @@ Limits (labels):
     a_nom    0.5 m/s^2 box per axis   ASSUMED (cert/model_check.A_MAX)
     T_cap    1.30 Nm per claw, |T| (2-norm, isotropic)   ASSUMED (user-approved 11-02): the MEASURED 10-28 sim fit of claw pitch
              capacity vs squeeze (vizcoast/certify.CAPACITY_PTS, pan handle, 2.5..10 N, one run each) extrapolated linearly to 40 N.
-             The weld hides this limit, so without it one arm "carries" a pot by one side handle.  Opt-in (T_cap=None = old runs).
+             The weld hides this limit, so without it one arm "carries" a pot by one side handle.  Opt-in (T_cap=None = no row).
+             DROPPED 11-02 pm (USER: "make grasp something we do not care about ... arm joint angles causing issues"): admission
+             uses arm-side rows only (tau_lim, F_cap); T_CAP is kept only to reproduce the 11-02 am runs.
              In the LP the ball is replaced by an inner polytope (hull of 26 unit directions; conservative: u* can only rise).
     u_admit  0.9: admit only when the MODEL utilisation <= 0.9   ASSUMED (user-approved 11-02): margin for the controller's feedback
              torque above the model (11-01 smoke: sim 0.548 vs model 0.507 at the true contents, +8%); to be sized from sim runs.
@@ -47,7 +49,7 @@ G_VEC = np.array([0.0, 0.0, -OB.G])
 TAU_LIM = C.tau_limits("mit_fw_ge_1.11")          # 16 Nm, see module doc
 PAYLOAD_KG = C.MANUAL["payload_kg"]                # 3.0 kg, NERO manual
 A_NOM = 0.5                                        # m/s^2, ASSUMED
-T_CAP = 1.30                                       # Nm per claw, ASSUMED (see module doc; vizcoast claw_capacity(40 N) = 1.298)
+T_CAP = 1.30                                       # Nm per claw, ASSUMED, DROPPED 11-02 pm (old-rule reproduction only; module doc)
 U_ADMIT = 0.9                                      # ASSUMED admission margin on the MODEL utilisation (see module doc)
 # waypoints: offsets of the object (and both TCPs) from the grasp pose [m]  (ASSUMED plan)
 # carry is TOWARD the robot (-x): +x 10 cm is out of the right arm's reach at the pot grasp (IK error 105 mm, 11-01 probe)

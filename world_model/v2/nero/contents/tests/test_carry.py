@@ -38,3 +38,13 @@ def test_nominal_tray_carry_ends_in_R():
     assert [s["seg"] for s in r["segments"]] == list(CR.SEGS)
     assert all(s["nominal"]["viol"] is None for s in r["segments"])
     assert r["end_in_R"][0]
+
+
+def test_weld_solref_option_and_coop_split_zero_error():
+    w = SC.sample_tray_world(2, np.random.default_rng(0))
+    ep = CR.CarryEpisode(w, weld_solref=(0.004, 1.0))
+    for s in CR.SIDES:
+        assert np.allclose(ep.m.eq_solref[ep.weld_id[s]], (0.004, 1.0))
+    assert np.allclose(CR.CarryEpisode(w).m.eq_solref[ep.weld_id["left"]], (0.02, 1.0))   # default unchanged
+    u, e_int, dq = ep._coop_split(0.0)                      # arms exactly at the commanded start pose
+    assert np.linalg.norm(u) < 1e-9 and all(np.linalg.norm(dq[s]) < 1e-9 for s in CR.SIDES)

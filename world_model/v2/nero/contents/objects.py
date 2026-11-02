@@ -97,7 +97,10 @@ def pan_like(name, empty_mass, empty_com, m_hi_sim=1.5):
 
 
 # coffee tray (AgentChord's 'setup coffee tray' task, agentchord_probe/coffee_tray/build.py geometry) with hidden cup fill + placement
-TRAY = dict(lx=0.22, ly=0.34, mass=0.30, rim_h=0.03)            # MODEL from build.py (their numbers were our choice, 10-28)
+TRAY = dict(lx=0.22, ly=0.33, mass=0.30, rim_h=0.03)            # MODEL from build.py (their numbers were our choice, 10-28)
+# 11-02: ly 0.34 -> 0.33.  At the stored grasp pose the lower finger of each claw reached ~1 mm past the base-plate edge and sat 2 mm
+# inside it (90 N finger-tray contact while carried, 160 N before lift; drag at release).  Base edge 5 mm in from the finger; tabs and
+# grasp sites unchanged.
 CUP = dict(D=0.08, H=0.095, empty=0.30, fill_max_kg=0.25, freeboard_min=0.01)   # ASSUMED: ceramic mug 300 g, 250 ml, >= 1 cm freeboard
 N_CUPS = 2                                                      # ASSUMED: the number of cups is visible (count known); 11-02 runs use 2, 4, 6
 

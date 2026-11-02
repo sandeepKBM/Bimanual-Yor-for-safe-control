@@ -7,7 +7,8 @@ User-approved 11-02 (relayed: "approved for those go"):
     shelf (objects.boxed, scenes.BoxWorld);
   * a_nom 0.5 m/s^2, mug 300 g / 250 ml / >= 1 cm freeboard, action order one arm -> two arms -> slow -> set down -> refuse, and
     the waypoints below (ASSUMED, confirmed by the user).
-Each task is run twice: "v1" = the 11-01 rules (no twist row, u <= 1) and "v2" = the rules above, on the same contents sets.
+Each task is run per setting on the same contents sets: "v1" = the 11-01 rules (no twist row, u <= 1), "v2" = the rules above,
+"v3" = CURRENT (USER 11-02 pm: the grasp is not our problem -> twist cap dropped; arm-side rows at u <= 0.9).
 
 Tray and box use the pot's grasp points (scenes.py places the tabs there): q at W0 = the pot capture (results/contents_envelope_
 2026-11-01/capture.json), the other waypoints by continuation IK along the planned moves.  o = obj_ref = the base centre, 0.0355 m
@@ -35,7 +36,10 @@ GRASP_DZ = 0.0355                                   # MODEL (scenes.py): grasp p
 # ASSUMED plans (user-confirmed 11-02), offsets of the object from its start pose [m], in order (continuation IK follows them)
 TRAY_WPS = {"W0_liftoff": (0, 0, 0), "T1_lift5cm": (0, 0, 0.05), "T2_carry10cm": (-0.10, 0, 0.05), "T3_place": (-0.10, 0, 0.0)}
 BOX_WPS = {"W0_liftoff": (0, 0, 0), "B1_lift18cm": (0, 0, 0.18), "B2_over_shelf": (-0.20, 0, 0.18), "B3_on_shelf": (-0.20, 0, 0.15)}
-SETTINGS = {"v1": dict(T_cap=None, limit=1.0), "v2": dict(T_cap=E.T_CAP, limit=E.U_ADMIT)}
+SETTINGS = {"v1": dict(T_cap=None, limit=1.0), "v2": dict(T_cap=E.T_CAP, limit=E.U_ADMIT),
+            # v3 (USER 11-02 pm, CURRENT): grasp is not our problem -> no claw twist row; arm-side rows (16 Nm joints, 3 kg arm
+            # payload) at the u <= 0.9 margin.  v1/v2 kept for the side-by-side only.
+            "v3": dict(T_cap=None, limit=E.U_ADMIT)}
 
 
 def capture_path(cap_pot, wps):
@@ -121,7 +125,7 @@ def summary_text(res):
     for name, o in res["objects"].items():
         L.append(f"{name}: empty {o['empty_mass']:.2f} kg, contents {o['contents_m'][0]:.2f}..{o['contents_m'][1]:.2f} kg"
                  f"  open limits {o['open_limits']}")
-        for st in ("v1", "v2"):
+        for st in SETTINGS:
             r = o["settings"].get(st)
             if not r:
                 continue
@@ -144,8 +148,9 @@ def run(out_dir=RESULTS, procs=8):
     T = tasks(caps)
     res = dict(date="2026-11-02", assumptions=dict(
         grasp="ASSUMED rigid weld once closed (user 11-01)",
-        T_cap=f"v2: ASSUMED {E.T_CAP} Nm per claw (2-norm; LP uses the inscribed box) = vizcoast claw_capacity fit extrapolated to 40 N",
-        u_admit=f"v2: ASSUMED admit at MODEL u <= {E.U_ADMIT} (controller feedback margin; to be sized from sim)",
+        T_cap=f"v2 only: ASSUMED {E.T_CAP} Nm per claw (2-norm; LP uses the inscribed box) = vizcoast claw_capacity fit extrapolated "
+              f"to 40 N.  v1 and v3 (current): no claw rows",
+        u_admit=f"v2, v3: ASSUMED admit at MODEL u <= {E.U_ADMIT} (controller feedback margin; to be sized from sim)",
         tau_lim="MEASURED-spec 16 Nm MIT command range (fw >= 1.11)",
         payload=f"MEASURED-spec {E.PAYLOAD_KG} kg (NERO manual) minus gripper 0.5 kg (MJCF), vertical",
         a_nom=f"ASSUMED {E.A_NOM} m/s^2 per axis", quasi_static="ASSUMED (Coriolis dropped, object level, translation only)",
