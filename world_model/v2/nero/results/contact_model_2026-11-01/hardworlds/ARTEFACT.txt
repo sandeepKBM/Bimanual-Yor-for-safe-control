@@ -1,0 +1,3 @@
+artefact check: c4t003 = finger condim 4, torsional friction 0.003 m (MODEL check: best twist match), 1 ms step; src /data/local/ss5772/pan_cert/hardworlds_stage1_2026-11-01
+verdict agreement 152/152 plan runs
+flips:

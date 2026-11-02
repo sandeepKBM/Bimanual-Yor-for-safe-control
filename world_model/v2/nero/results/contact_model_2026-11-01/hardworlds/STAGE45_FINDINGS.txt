@@ -1,0 +1,21 @@
+Hard worlds stages 4-5 (2026-11-01). Pot, two-handle pinch, 1 ms step, sim only. All verdicts SAMPLED (no proof).
+Theta box = hardworlds.THETA (ASSUMED ranges, pending user approval). Raw: /data/local/ss5772/pan_cert/hardworlds_stage{4,5}_2026-11-01
+
+Artefact check (c4t003 contact, 19 stage-1 worlds): verdict agreement 152/152 plan runs, 0 flips.
+
+Stage 4 (kNN boundary sampling, 32 new worlds, 8 corner plans each):
+  tiers: boundary 32/32 (sampler hit the boundary in every draw)
+  held: f45_F10 0/32 (v1, v3); f85_F10 1/32; f45_F40 25/32 (v1) 24/32 (v3); f85_F40 30/32 (v1, v3)
+  strongest correlate of share held: handle_len +0.56, then c_r -0.35 (contents off-centre)
+Stage 5 (CEM worst-case, 10 x 3 gens per plan, seed 13):
+  f85_F40_v3: 23/30 evaluated worlds fail; worst margin -4.75 (slip_deg; m 1.06 kg, mu 0.85, handle 9.3 cm)
+  f45_F40_v3: 20/30 fail (reach + slip_deg); worst margin -4.22
+
+Cause cross-tab at 40 N (lift runs, both lifts, by executed grasp from the fallback search):
+                 unrolled held   rolled held   rolled fail   refused
+  stage 4        100/100         9             17            1
+  stage 5        22/22           8             88            1
+=> every 40 N failure found in stages 4-5 uses a rolled (+-20 deg) substituted grasp; unrolled grasps held 122/122 (sampled).
+   The worst-case search finds hardness ONLY by forcing the grasp search into a rolled claw (short handles, off-centre contents).
+   Same pattern as stage 1 (unrolled 168/170, rolled 12/86). So "hard worlds" for D1 at 40 N = a reachability/grasp-choice
+   problem, not a hold-force problem. Decision needed: rolled grasps = refusal vs allowed skill.

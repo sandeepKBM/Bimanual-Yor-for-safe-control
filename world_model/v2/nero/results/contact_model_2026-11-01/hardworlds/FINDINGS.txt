@@ -1,0 +1,18 @@
+HARD WORLDS for D1 (pot) -- findings so far (11-01).  SIMULATION ONLY.  Code: world_model/v2/nero/pan/hardworlds.py.
+Raw: /data/local/ss5772/pan_cert/hardworlds_stage1_2026-11-01 (jobs/, worlds.jsonl, cand/).
+Setup for every plan: payload-aware lift, claw limit 40 N (reseller, ASSUMED), 1 ms step, zed observe, Theta = THETA in the code
+(widened ranges ASSUMED; user "get that running" 11-01).  Sampled results, n stated; not bounds.
+
+Stage 1 (64 Sobol worlds x 8 corner plans): tiers easy 15 / boundary 45 / infeasible 4.  Corner plans held 26/64 .. 56/64.
+
+Grasp substitution (cand/ probe: the pregrasp candidate actually used):
+  * grasp_frac 0.45 nominal reachable in 0/64 worlds (lower finger vs stove edge) -> every "f45" run is a substituted grasp
+    (frac +0.1/+0.2 and/or claw yaw 15-30 deg and/or roll 20 deg).  frac 0.85 nominal in 39/64.
+  * held by executed grasp type, plan runs (both lifts, both fracs):
+        no roll, 40 N: 168/170      no roll, 10 N: 99/170
+        rolled 20 deg (left and/or right claw), 40 N: 12/86      10 N: 28/86
+  * all 4 infeasible worlds (H001 H010 H017 H029) use a -20 deg rolled LEFT claw at both fracs (negative pot yaw: reach).
+  * 40 N worse than 10 N happens with rolled grasps: a slanted pinch on the flat handle turns squeeze into twist (hypothesis;
+    the artefact check with condim 4 / torsional friction tests the contact-model part).
+Consequence: the main hard-world driver is REACH (rolled-claw fallback), then contents cross-moment x low force.  The plan menu's
+grasp_frac is not what runs unless the substitution is reported; f45 results must be read as "nearest reachable grasp".

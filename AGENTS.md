@@ -27,6 +27,9 @@ This file = how to *operate* here. Last updated 2026-10-29 (bounds and assumptio
   arm joints `effort=100` / MJCF piper-class `forcerange ±100` → `sim_common.TAU_MAX=100 Nm`;
   fingers ±20; base lift actuator ±56 (not an arm joint). Confirm files are
   `git status`-clean vs origin before trusting a value.
+- **Arms are AgileX NERO 7-DoF** (`world_model/v2/nero/`), not Piper. Its limits are in `nero/config.py`: datasheet 3 kg payload,
+  joints 180/225 deg/s; MIT t_ff command range ±16 Nm (fw ≥ 1.11, no rated torque published); gripper 40 N rated / 50 N max
+  (reseller only) vs sim 10 N. The Piper 8 Nm cap does not apply to NERO (2026-11-01).
 - ZED mount in sim is a *proposed* torso mount — confirm-on-hardware.
 
 ## Controller landscape (current)

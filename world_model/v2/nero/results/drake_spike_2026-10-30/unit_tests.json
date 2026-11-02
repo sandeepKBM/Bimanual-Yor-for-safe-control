@@ -1,0 +1,96 @@
+{
+ "assumed": {
+  "hydro_modulus_Pa": 5000000.0,
+  "dissipation_s_per_m": 1.0,
+  "res_hint_m": 0.01,
+  "note": "all ASSUMED; point-contact rows use Drake default point stiffness/dissipation, i.e. not tuned"
+ },
+ "results": [
+  {
+   "test": "twist",
+   "n_hydro_contacts_final": 0,
+   "n_point_contacts_final": 0,
+   "dt": 0.001,
+   "approx": "sap",
+   "contact_model": "hydroelastic_with_fallback",
+   "slip_torque_Nm": 0.139,
+   "yaw_at_1s_rad": 0.0004481339523660921,
+   "final_yaw_rad": 1.343142820226558,
+   "wall_s": 6.016247510910034,
+   "analytic_slip_Nm": 0.15304
+  },
+  {
+   "test": "creep",
+   "n_hydro_contacts_final": 1,
+   "n_point_contacts_final": 0,
+   "dt": 0.001,
+   "approx": "sap",
+   "contact_model": "hydroelastic_with_fallback",
+   "mean_speed_last2s_mm_s": 0.0012375517014965118,
+   "total_slide_mm": 0.00482507671487188,
+   "settle_z_mm": -0.012855770980618741,
+   "wall_s": 2.621487617492676
+  },
+  {
+   "test": "twist",
+   "n_hydro_contacts_final": 2,
+   "n_point_contacts_final": 0,
+   "dt": 0.005,
+   "approx": "sap",
+   "contact_model": "hydroelastic_with_fallback",
+   "slip_torque_Nm": 0.1565,
+   "yaw_at_1s_rad": 0.0009179236565981519,
+   "final_yaw_rad": 0.10851495814961787,
+   "wall_s": 1.5962140560150146,
+   "analytic_slip_Nm": 0.15304
+  },
+  {
+   "test": "creep",
+   "n_hydro_contacts_final": 1,
+   "n_point_contacts_final": 0,
+   "dt": 0.005,
+   "approx": "sap",
+   "contact_model": "hydroelastic_with_fallback",
+   "mean_speed_last2s_mm_s": 0.0032369639569658046,
+   "total_slide_mm": 0.012897348828844623,
+   "settle_z_mm": -0.05019364259580515,
+   "wall_s": 0.6326453685760498
+  },
+  {
+   "test": "twist",
+   "dt": 0.001,
+   "contact_model": "point",
+   "error": "SceneGraph encountered a non-finite value (e.g., NaN or infinity) on a pose input port. It came from the input associated with source id 9075 and name 'plant'."
+  },
+  {
+   "test": "creep",
+   "n_hydro_contacts_final": 0,
+   "n_point_contacts_final": 1,
+   "dt": 0.001,
+   "approx": "sap",
+   "contact_model": "point",
+   "mean_speed_last2s_mm_s": 2.300128660929321,
+   "total_slide_mm": 6.871348745083725,
+   "settle_z_mm": -5.612467561762261,
+   "wall_s": 0.81349778175354
+  },
+  {
+   "test": "twist",
+   "dt": 0.005,
+   "contact_model": "point",
+   "error": "SceneGraph encountered a non-finite value (e.g., NaN or infinity) on a pose input port. It came from the input associated with source id 16449 and name 'plant'."
+  },
+  {
+   "test": "creep",
+   "n_hydro_contacts_final": 0,
+   "n_point_contacts_final": 0,
+   "dt": 0.005,
+   "approx": "sap",
+   "contact_model": "point",
+   "mean_speed_last2s_mm_s": 9822.195696278934,
+   "total_slide_mm": 22109.08708883679,
+   "settle_z_mm": -52458.55508848407,
+   "wall_s": 0.06967878341674805
+  }
+ ]
+}

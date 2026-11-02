@@ -61,8 +61,9 @@ def compose_flat_pads(p):
     return m
 
 
-def build(mu, comy, pre_cache, pads="flat"):
-    p = S.DemoCParams(box_mu=mu, box_com_offset=(0.0, comy, 0.0))
+def build(mu, comy, pre_cache, pads="flat", mass=None, comx=0.0):
+    kw = {} if mass is None else dict(box_mass=float(mass))
+    p = S.DemoCParams(box_mu=mu, box_com_offset=(float(comx), comy, 0.0), **kw)
     m = compose_flat_pads(p) if pads == "flat" else S.compose(p, dt=DT)
     for g in range(m.ngeom):
         n = m.geom(g).name

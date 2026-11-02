@@ -1,0 +1,19 @@
+{
+ "nq": 39,
+ "nv": 36,
+ "n_actuated": 14,
+ "CalcMassMatrix_ms_incl_SetPositions": 0.026526451110839844,
+ "M_shape": [
+  36,
+  36
+ ],
+ "CalcBiasTerm_ms": 0.025832653045654297,
+ "CalcJacobianSpatialVelocity_ms": 0.014022588729858398,
+ "J_shape": [
+  6,
+  36
+ ],
+ "has_CalcGravityGeneralizedForces": true,
+ "pd_hold_full_scene_wall_per_sim_s": 3.0122263431549072,
+ "pd_hold_arm_q_maxabs_after_2s": 0.0026965794711495154
+}

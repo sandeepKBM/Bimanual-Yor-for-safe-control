@@ -1,0 +1,47 @@
+{
+ "twist": {
+  "box condim3 dt5": {
+   "slip_torque_Nm": 0.08974999999999887,
+   "yaw_at_1s_deg": 0.7956136076258148,
+   "n_contacts": 8
+  },
+  "box condim3 dt1": {
+   "slip_torque_Nm": 0.1413999999999883,
+   "yaw_at_1s_deg": 0.5047450588876515,
+   "n_contacts": 8
+  },
+  "box condim4 tors=patch dt5": {
+   "slip_torque_Nm": 0.11574999999999831,
+   "yaw_at_1s_deg": 0.615565097505395,
+   "n_contacts": 8
+  },
+  "box condim6 tors=patch dt5": {
+   "slip_torque_Nm": 0.11574999999999831,
+   "yaw_at_1s_deg": 0.6155650975053951,
+   "n_contacts": 8
+  },
+  "box condim3 noslip10 dt5": {
+   "slip_torque_Nm": null,
+   "yaw_at_1s_deg": 0.0005434432291878962,
+   "n_contacts": 8
+  }
+ },
+ "creep": {
+  "base dt5 impratio10": {
+   "mean_speed_mm_s": 0.12775473943439933,
+   "slide_mm": 0.3847600438538945
+  },
+  "dt1": {
+   "mean_speed_mm_s": 0.12775473943441126,
+   "slide_mm": 0.38424901022434643
+  },
+  "noslip10": {
+   "mean_speed_mm_s": 2.4067871113640496e-05,
+   "slide_mm": 0.002680339558207927
+  },
+  "impratio100": {
+   "mean_speed_mm_s": 0.012775473943440118,
+   "slide_mm": 0.040342203768590094
+  }
+ }
+}

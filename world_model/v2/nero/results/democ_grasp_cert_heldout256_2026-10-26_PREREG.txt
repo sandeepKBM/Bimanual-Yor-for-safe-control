@@ -1,0 +1,8 @@
+PRE-REGISTRATION written 2026-10-26T12:20:18.637898 BEFORE any heldout256 run
+set: heldout256 = A/B x keep left/right x mu {0.3,0.6} x com_y {0.0125,0.0375,0.0625,0.0875} x com_x {0,0.03} x mass {0.45,0.8} x Fg {7.0,8.5}; grip mode force
+frozen certificate: mode=compliant, GC.Stiffness() = {'kn': 47000.0, 'rho': 1.0, 'kappa': 1.0, 'rho_s': None, 'kd': None, 'tangential': 'creep', 'ct': 12000.0, 'ct_s': None}  GAP_TOL = 6e-06
+failure def (unchanged): box stays <=> max world disp < 5 mm AND max tilt < 3 deg AND end speed < 1 mm/s over 2 s after release
+pass criterion for C3 'measured': 0 FALSE_SAFE on heldout256 under the frozen config; report false_unsafe count too. Scored once.
+grasp_cert.py 0c018e140b1f702f3fe9ce83388d775051d0a7ade9b3ad5daca9214ed45d0fc9
+grasp_cert_compliant_xcheck.py 72ab98716c6e9d081eb4c2df618dc610c8ffa02ee993c3d3796d7e3c3992282a
+grasp_cert_xcheck.py cfcc77b3f6035b219517c94e67d228b0e8e2695a144e946bf092d7bf4a44f814

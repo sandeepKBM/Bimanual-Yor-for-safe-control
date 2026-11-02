@@ -60,6 +60,8 @@ class PanParams:
     handle_t: float = ASSUMED["handle_t"]
     handle_dir_deg: float = ASSUMED["handle_dir_deg"]
     handle_grasp_frac: float = ASSUMED["handle_grasp_frac"]
+    handle2_len: float = 0.0           # 11-01 pot variant (USER: two side handles): second handle opposite the first; 0 = none (pan)
+    handle2_grasp_frac: float = 0.7    # ASSUMED: right pinch point at 70 % of handle2 from the wall (past the stove edge, reach)
     pan_mu: float = ASSUMED["pan_mu"]
     pan_centre_xy: tuple = ASSUMED["pan_centre_xy"]
     table_top_z: float = ASSUMED["table_top_z"]
@@ -115,7 +117,17 @@ def _pan_local(p: PanParams):
     geoms.append(dict(name="pan_handle", type=mujoco.mjtGeom.mjGEOM_BOX, size=[p.handle_len / 2, p.handle_w / 2, p.handle_t / 2],
                       pos=[hc[0], hc[1], hz], quat=q))
     grasp = ax * (R + t + p.handle_grasp_frac * p.handle_len) + np.array([0, 0, hz])
+    if p.handle2_len > 0:                                           # pot: same cross-section, pointing the other way
+        hc2 = -ax * (R + t + p.handle2_len / 2)
+        geoms.append(dict(name="pan_handle2", type=mujoco.mjtGeom.mjGEOM_BOX, size=[p.handle2_len / 2, p.handle_w / 2, p.handle_t / 2],
+                          pos=[hc2[0], hc2[1], hz], quat=q))
     return geoms, grasp
+
+
+def handle2_local(p):
+    """pinch point on the second handle (pot variant) in the pan body frame."""
+    R, t, h, tb = p.pan_radius, p.pan_wall_t, p.pan_wall_h, p.pan_bottom_t
+    return -p.handle_axis() * (R + t + p.handle2_grasp_frac * p.handle2_len) + np.array([0, 0, tb + h - p.handle_t / 2])
 
 
 def build_spec(p: PanParams | None = None):
@@ -149,8 +161,10 @@ def build_spec(p: PanParams | None = None):
     for g in geoms:
         pan.add_geom(name=g["name"], type=g["type"], size=g["size"], pos=g["pos"], quat=g["quat"], density=p.pla_density,
                      friction=[p.pan_mu, 0.005, 0.0001], contype=1, conaffinity=1,
-                     rgba=[0.2, 0.45, 0.8, 1] if g["name"] != "pan_handle" else [0.15, 0.3, 0.6, 1])
+                     rgba=[0.2, 0.45, 0.8, 1] if not g["name"].startswith("pan_handle") else [0.15, 0.3, 0.6, 1])
     pan.add_site(name="pan_handle_grasp", pos=list(grasp), size=[0.006, 0, 0], rgba=[1, 0.2, 0.2, 1])
+    if p.handle2_len > 0:
+        pan.add_site(name="pan_handle2_grasp", pos=list(handle2_local(p)), size=[0.006, 0, 0], rgba=[1, 0.2, 0.2, 1])
     pan.add_site(name="pan_centre", pos=[0, 0, p.pan_bottom_t], size=[0.004, 0, 0], rgba=[0.2, 1, 0.2, 1])
 
     # food beads: hidden amount and position (seeded positions inside the pan, resting on the bottom)

@@ -1,0 +1,15 @@
+Physics A/B, 2026-11-01 (USER: measure only; the MJCF was NOT edited, settings applied in memory). SIMULATION ONLY, CPU.
+Scripts here: physics_ab.py (raw JSON on westeros /data/local/ss5772/pan_cert/physics_ab_2026-11-01), twist_mj.py (+ twist_mj.json).
+1) Twist test (MuJoCo copy of the 10-30 Drake test; analytic slip torque 0.153 Nm; Drake 0.157):
+   5 ms condim3 0.090 (59 %) | 5 ms condim4 tor 0.01 0.135 (88 %) | 1 ms condim3 0.141 (92 %) | 1 ms condim4 0.01 no slip <= 0.2 (>= 131 %,
+   too grippy) | 1 ms condim4 0.003 0.148 (97 %) | 1 ms condim4 0.001 0.142.  -> the weakness is mostly the 5 ms step.
+2) Lift A/B, I03 / V10 / V11 x lifts v1 v2 v3 x settings base (as scene), c4 (finger condim 4), ts1 (1 ms physics, 5 substeps per 5 ms
+   control step), c4ts1. base reproduces run158b exactly (I03 v1 9.2 mm / 3.0 deg, v2 14.1 / 13.0).
+   - Claw-to-claw drift and the right in-claw twist are UNCHANGED by every setting (I03 v2 right twist 10.3-11.3 deg in all four, even
+     with the over-grippy 1 ms + condim4) -> the twist is the arms' doing, not MuJoCo contact softness.
+   - Hold/fail verdicts are the same in every setting: I03 v1 and v3 hold, v2 fails; V10/V11 fail for v1/v3 (right claw slides off
+     66-76 mm: fingers on the wall's outer face, geometry) and v2.
+   - Only lid creep changes: I03 lid vs pan during the lift 2.2-2.5 mm (base) -> 0.1 mm with condim4 or 1 ms (a contact-softness
+     artifact).
+   - Cost: ts1 about +15 % wall time per world.
+n = 3 worlds, one seed each: examples, not rates.

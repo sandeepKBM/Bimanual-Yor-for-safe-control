@@ -1,0 +1,12 @@
+PAYLOAD-AWARE ONE-CLAW PAN LIFT (USER 11-01).  SIMULATION ONLY, westeros CPU.  handle_grasp --payload adaptive (pan/payload_obs.py
+LoadObserver -> FL-MPC bias hook; mpc_fl.py not edited) vs --payload nominal (controller knows the empty pan only).
+Same 9 cases, 40 N claw (claw_N=40, reseller rating, ASSUMED), 1 ms physics step (nsub 5), force grip, grasp_frac scene default.
+Raw: /data/local/ss5772/pan_cert/payload_obs_full_2026-11-01.
+                       held   lift (target 50 mm)   max in-claw rot   max tilt after lift
+  nominal              1/9    13.3-47.6 mm          1.5-2.5 deg       5.6-10.3 deg
+  adaptive             9/9    44.3-45.1 mm          1.8-2.5 deg       2.9-4.8 deg
+held = lift >= 40 mm, not dropped, stove carries nothing (handle_grasp).  Sampled, n = 9 (placements x 0.2/0.4 kg + empty), not a bound.
+Load estimate at the end of the hold vs truth (pan + lid + contents): m_hat - m_true p50 -0.046 kg, max |.| 0.056 kg (n = 9),
+a consistent under-read (~0.45 N), likely joint friction (0.3 Nm stiction, left in the estimate on purpose); it leaves ~5 mm sag.
+ASSUMED: observer filter 0.10 s, no torque-sensor noise (sigma 0), exact arm model, exact torque command.  Not yet tested: noise,
+model error, fast moves.

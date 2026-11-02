@@ -1,0 +1,9 @@
+Scripted baseline (pan/baseline_scripted.py), written 2026-10-29 BEFORE the runs.  SIMULATION ONLY, CPU only.
+What: hand-written success bar (no certificate, no backups): observe_pose (zed) -> pinch -> tilt-probe mass -> push with force
+window -> clamp -> lift with payload = pan + lid + estimated contents; refuse lift if estimate > 0.45 kg (ASSUMED).
+Plan: pinch 0.65 / push 0.07 / grip 10 N / clamp v2 (same as ours).  Worlds: segcert.worlds full (62), iid (70), overload (26),
+the SAME tags and obs seeds (world_seed(tag)) as lib3 of pan_segments_2026-10-29.
+Note: it uses the same Episode as ours, so the start-of-task pre-grasp selector refusals are shared with lib3.
+Report: task success, unsafe events entered (U), stage reached, mass-estimate error; compared with lib3 on the same tags.
+Expect: success near ours on the in-box sets; on overload either refuses the lift or enters U (no backup).
+Smoke: I03 lifted, success, no U, mass est 0.129 vs 0.112 kg (55 s).

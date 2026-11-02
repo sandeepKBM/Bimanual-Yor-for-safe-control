@@ -1,0 +1,21 @@
+hard worlds stage 1: /data/local/ss5772/pan_cert/hardworlds_stage4_2026-11-01
+worlds 32; tiers {'boundary': 32}; worlds with each failure mode {'slip_deg': 32, 'reach': 1}
+per-parameter mean, holding-plan share weighted (does a parameter push worlds toward failure?):
+  dx            corr(theta, share of plans held) = +0.02
+  dy            corr(theta, share of plans held) = +0.06
+  yaw_deg       corr(theta, share of plans held) = -0.02
+  mu_scale      corr(theta, share of plans held) = +0.14
+  mass          corr(theta, share of plans held) = -0.11
+  c_r           corr(theta, share of plans held) = -0.35
+  c_phi         corr(theta, share of plans held) = -0.03
+  lid_mu_scale  corr(theta, share of plans held) = +0.19
+  handle_len    corr(theta, share of plans held) = +0.56
+per plan: held / worlds
+  f45_F10_v1     0/32
+  f45_F10_v3     0/32
+  f45_F40_v1     25/32
+  f45_F40_v3     24/32
+  f85_F10_v1     1/32
+  f85_F10_v3     1/32
+  f85_F40_v1     30/32
+  f85_F40_v3     30/32

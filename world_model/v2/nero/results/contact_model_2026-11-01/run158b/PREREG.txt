@@ -1,0 +1,26 @@
+PREREG -- run158b: conservative contact model vs MuJoCo lift, the SAME 158 worlds as run158 (written 2026-11-01 before the run)
+Supersedes the scoring of run158 (results/contact_model_2026-10-30/run158), which is kept unchanged for comparison.
+
+What changed vs run158 (USER-approved 11-01; nothing else):
+1. New ASSUMED bound CLAW_REL = 2 mm / 2 deg: the two claws keep their relative pose (right claw in the left claw frame: jaw-point
+   offset and rotation) during the lift. The hold model treats both claws as one rigid fixture, so this was an implicit assumption;
+   it is now stated and checked from the sim every step. A lift that breaks it is "assumption violated", not a soundness test.
+   (Observable on the robot from joint encoders + FK, so a runtime monitor can enforce it later.)
+2. Lid metric: sim fail on the lid = lid motion RELATIVE TO THE PAN during the lift > 5 mm (lid_lift_mm, measured from the lid's pose
+   in the pan frame at the lift start). The clamp's earlier lid shove is recorded separately (lid_pre_mm) and reported, not scored as
+   a lift failure. The old absolute metric (lid_mm) is still stored. Rotation of the lid vs the pan (lid_lift_deg) is diagnostic only.
+3. Same worlds (segcert.worlds full 62 + iid 70 + overload 26), same chain (v1 start/pinch/push/clamp from the zed estimate), same
+   verdicts (belief / truth at tilt 3 and 11 deg), same other thresholds (slip 2 mm / 3 deg per claw, ASSUMED), same seeds.
+
+Primary metric: UNSOUND = admit & sim fail & every recorded assumption held (incl. CLAW_REL). Target 0.
+Expected from run158 (stated before running): the 2 v1 lid counterexamples should disappear (lid was shoved by the clamp, not the
+lift); the 21 v2 counterexamples should move to "assumption violated" (right claw rotates ~10 deg). If any truth_t11 counterexample
+remains with CLAW_REL held, the model is unsound at that theta and the row is reported with theta and t.
+Secondary: CLAW_REL break counts per lift version, lid_pre_mm distribution (p50/p95/max over n), admits among sim holds, clean rows.
+Guarantee type: sampled (n = 158 worlds, one seed each); the model check itself is proof-type only under its stated MODEL/ASSUMED terms.
+
+Code frozen during the run (sha256):
+  pan/cert/contact_model.py   e3ae76e7800771f99b4e7af65048ed41685b3f0c99a21c3c8279c21fffde5904
+  pan/cert/contact_falsify.py 3ad496b13a9b041280ac717c0c25d5bef3091eaa628644f6fe45c0e31f0b45a0
+Compute (USER 11-01): westeros CPU only, <= 12 procs, nice 19, 1 thread each, MUJOCO_GL=osmesa, CUDA_VISIBLE_DEVICES="";
+reduce procs if westeros load > 72. Raw output: westeros /data/local/ss5772/pan_cert/run158b (summary copied here).

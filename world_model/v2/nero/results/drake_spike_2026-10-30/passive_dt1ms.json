@@ -1,0 +1,30 @@
+{
+ "dt": 0.001,
+ "approx": "sap",
+ "with_robot": false,
+ "walls_hydro": true,
+ "sim_T": 5.0,
+ "wall_s": 65.58815097808838,
+ "wall_per_sim_s": 13.117630195617675,
+ "pan_drift_world_mm": [
+  2.098321516541546e-11,
+  -8.031036946576364e-08,
+  -0.1030290004294665
+ ],
+ "pan_drift_norm_xy_mm": 8.031037220697448e-08,
+ "pan_rot_deg": 0.0002522695257148248,
+ "lid_vs_pan_drift_mm": [
+  2.9607725314626237e-08,
+  -3.694159916055595e-05,
+  -0.0009238976235378948
+ ],
+ "lid_vs_pan_rot_deg": 0.0,
+ "puck_vs_pan_drift_mm": [
+  2.1716141311323519e-07,
+  -0.0006580159146105102,
+  -0.9052304864858862
+ ],
+ "pan_z_settle_mm": -0.1030290004294665,
+ "n_hydro_contacts_end": 26,
+ "n_point_contacts_end": 0
+}

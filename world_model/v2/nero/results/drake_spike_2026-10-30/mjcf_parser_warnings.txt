@@ -1,0 +1,107 @@
+      1 WARNING:drake:scene_obj.xml:8: warning: The attribute 'timestep' found in a 'option' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:8: warning: The attribute 'integrator' found in a 'option' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:8: warning: The attribute 'cone' found in a 'option' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:438: warning: The tag 'sensor' found as a child of 'mujoco' is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:420: warning: The tag 'general' found as a child of 'actuator' is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:415: warning: The tag 'joint' found as a child of 'equality' is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:345: warning: The tag 'site' found as a child of 'body' is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:301: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:301: warning: geom right_arm_finger2_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:299: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:295: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:295: warning: geom right_arm_finger1_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:293: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:289: warning: The tag 'site' found as a child of 'body' is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:288: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:288: warning: geom right_arm_gripper_base_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:284: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:284: warning: geom right_arm_flange_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:280: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:280: warning: geom right_arm_link7_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:278: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:275: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:275: warning: geom right_arm_link6_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:273: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:270: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:270: warning: geom right_arm_link5_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:268: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:265: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:265: warning: geom right_arm_link4_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:263: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:260: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:260: warning: geom right_arm_link3_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:258: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:255: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:255: warning: geom right_arm_link2_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:253: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:250: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:250: warning: geom right_arm_link1_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:248: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:245: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:245: warning: geom right_arm_link0_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:230: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:230: warning: geom left_arm_finger2_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:228: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:224: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:224: warning: geom left_arm_finger1_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:222: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:218: warning: The tag 'site' found as a child of 'body' is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:217: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:217: warning: geom left_arm_gripper_base_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:213: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:213: warning: geom left_arm_flange_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:209: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:209: warning: geom left_arm_link7_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:207: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:204: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:204: warning: geom left_arm_link6_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:202: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:199: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:199: warning: geom left_arm_link5_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:197: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:194: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:194: warning: geom left_arm_link4_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:192: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:189: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:189: warning: geom left_arm_link3_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:187: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:184: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:184: warning: geom left_arm_link2_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:182: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:179: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:179: warning: geom left_arm_link1_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:177: warning: The attribute 'frictionloss' found in a 'joint' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:174: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:174: warning: geom left_arm_link0_col specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:169: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:169: warning: geom Lift_Top_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:167: warning: The attribute 'gravcomp' found in a 'body' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:165: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:165: warning: geom Lift_Middle_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:163: warning: The attribute 'gravcomp' found in a 'body' tag is currently unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:159: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:159: warning: geom MK4_Colson_Hub_4_X_1.5_4_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:159: warning: geom MK4_Colson_Hub_4_X_1.5_4_collision specified condim=4, which is not supported. condim=3 will be used instead.
+      1 WARNING:drake:scene_obj.xml:155: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:155: warning: geom Part_2_4_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:149: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:149: warning: geom MK4_Colson_Hub_4_X_1.5_3_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:149: warning: geom MK4_Colson_Hub_4_X_1.5_3_collision specified condim=4, which is not supported. condim=3 will be used instead.
+      1 WARNING:drake:scene_obj.xml:145: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:145: warning: geom Part_2_3_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:139: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:139: warning: geom MK4_Colson_Hub_4_X_1.5_2_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:139: warning: geom MK4_Colson_Hub_4_X_1.5_2_collision specified condim=4, which is not supported. condim=3 will be used instead.
+      1 WARNING:drake:scene_obj.xml:135: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:135: warning: geom Part_2_2_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:129: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:129: warning: geom MK4_Colson_Hub_4_X_1.5_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:129: warning: geom MK4_Colson_Hub_4_X_1.5_collision specified condim=4, which is not supported. condim=3 will be used instead.
+      1 WARNING:drake:scene_obj.xml:125: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:125: warning: geom Part_2_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:121: warning: The torsional and rolling friction specified in the friction attribute of geom are unsupported and will be ignored.
+      1 WARNING:drake:scene_obj.xml:121: warning: geom base_profile_short_collision specified contype=0 and conaffinity=1; but collision filter groups are not yet implemented for the mujoco parser.
+      1 WARNING:drake:scene_obj.xml:118: warning: camera element ignored; to register cameras, you must pass a DiagramBuilder to the Parser and the plant must be registered with a scene graph.
+      1 WARNING:drake:scene_obj.xml:117: warning: camera element ignored; to register cameras, you must pass a DiagramBuilder to the Parser and the plant must be registered with a scene graph.
+      1 WARNING:drake:scene_obj.xml:116: warning: The tag 'site' found as a child of 'body' is currently unsupported and will be ignored.
+      1 LOADED 40 36

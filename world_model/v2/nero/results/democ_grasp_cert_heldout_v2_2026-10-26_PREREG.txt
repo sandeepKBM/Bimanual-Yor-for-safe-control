@@ -1,0 +1,16 @@
+PRE-REGISTRATION written 2026-10-26T12:29:14.282592 BEFORE any --arm-armature (truth-fixed) result was opened
+truth sim: grasp_cert_compliant_xcheck --arm-armature 1e4 (arm DoFs truly kinematic; fixes the a1 contact artifact found 10-26)
+training set: old36 + ext180 (216) under the fixed truth.  test set: heldout_v2 (256, fresh values; heldout256 was seen under the old harness and is reported only as a secondary set)
+config rule (no human choice): mode=compliant, tangential=creep, kn = 6.2e3 N/m per pad corner and kappa = 7.5 (identified by the MuJoCo probe, not fitted);
+  gap_tol = smallest value in {0,1,2,...,30}e-6 m with 0 FALSE_SAFE on the 216 training cases; if none, C3 is reported as failing on training.
+failure def (unchanged): box stays <=> max world disp < 5 mm AND max tilt < 3 deg AND end speed < 1 mm/s over 2 s after release
+pass criterion: 0 FALSE_SAFE on heldout_v2; report TP / false_unsafe too.  Scored once.
+grasp_cert.py 0c018e140b1f702f3fe9ce83388d775051d0a7ade9b3ad5daca9214ed45d0fc9
+grasp_cert_compliant_xcheck.py b14777c22b2b8876bfb094239838d6e44f11185b410e5cefedf0927d8a24302f
+grasp_cert_xcheck.py cfcc77b3f6035b219517c94e67d228b0e8e2695a144e946bf092d7bf4a44f814
+DEVIATION 1 (12:4x, after the first heldout_v2 run crashed at case A/left/mu0.25/comy0.02/comx0.045/m0.7, before any verdict was read):
+  contacts_from_scene raises ValueError when the box is >15 deg off the jaw axes at release (the two-hand hold already failed).
+  Harness change: such a scene is a certificate REJECT (cannot certify). This can only add TN/false_unsafe, never FALSE_SAFE.
+  heldout_v2 re-run from scratch with that change; nothing else changed.
+DEVIATION 2: the re-run finished all 256 sims but crashed in summarize() (rejected row has no grid entries) before writing; no verdict was
+  read (the log lines print stays + verdicts, not inspected). summarize() fixed to count a missing grid entry as reject; re-run from scratch.

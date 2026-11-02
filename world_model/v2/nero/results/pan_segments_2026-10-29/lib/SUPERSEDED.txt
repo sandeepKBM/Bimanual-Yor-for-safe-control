@@ -1,0 +1,2 @@
+10-29: stopped after 31 worlds. The two worlds that ran (V07, V11) used the fixed 6 cm pinch-backup retreat, which hit the near
+counter in V11 (a backup bug, now path-checked: segments.RETREATS). Refusals here are unchanged by the fix. Superseded by ../lib2.
