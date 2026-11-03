@@ -1,0 +1,13 @@
+{
+ "date": "2026-11-02",
+ "physics": "fric_comp (carry.FRIC_COMP, ASSUMED gains) + weld solref (0.004, 1.0)",
+ "grasp": "ASSUMED rigid weld",
+ "guarantee": "SAMPLED: corner worlds of each cell, nominal runs, no backups",
+ "budget": {
+  "obj_tilt_deg": "10.0 ASSUMED",
+  "cup_tilt_deg": "20.0 ASSUMED",
+  "spill": "ratio 1, MODEL quasi-static surface (mug tilt + acceleration); slosh NOT modelled"
+ },
+ "m_hat": "cell centre",
+ "plan": "carry.PLANS (ASSUMED, user-confirmed)"
+}

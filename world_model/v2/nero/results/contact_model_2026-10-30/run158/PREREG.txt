@@ -1,0 +1,13 @@
+PREREG -- conservative contact model vs MuJoCo lift, 158 worlds (written 2026-10-30 before the run)
+Question: does the conservative quasi-static hold model (cert/contact_model.py: point contacts, zero torsion, mu scale 0.6,
+Demo C compliant split, touching-only contacts, lid friction-only) ever admit a lift that fails in the MuJoCo lift?
+Worlds: segcert.worlds full (62) + iid (70) + overload (26; contents 0.8 kg, OUTSIDE the 0-0.4 kg prior -> belief rows out of box).
+Chain: v1 skills start/pinch/push/clamp from the zed estimate; v1 approach refusals are recorded, not lifted.
+Verdicts at the lift start: belief (prior contents polytope x 75 pose samples, consistent ones only) and truth (true contents, true
+pose residual, true mu, actual lid pose), each at tilt bounds 3 deg and 11 deg (ASSUMED; 11 = max seen in 8 smoke lifts).
+Sim: v1 lift phases and v2 MoveObject lift from the same snapshot.  Sim fail = slip > 2 mm or > 3 deg in either claw, or lid > 5 mm
+(ASSUMED thresholds, raw maxima stored).  A row is "in box" only if peak tilt <= the bound, peak accel <= 0.5 m/s^2 and the true
+pose residual is inside the sampled box.
+Primary metric: UNSOUND = admit & sim fail & in box (target 0).  Secondary: admits among sim holds (conservatism), clean-row count.
+Diagnostic: claw tilt / claw rotation vs pan tilt (arm vs slip share of the tilt).
+Constants frozen: contact_model.py and contact_falsify.py as of this file's time; no edits during the run.

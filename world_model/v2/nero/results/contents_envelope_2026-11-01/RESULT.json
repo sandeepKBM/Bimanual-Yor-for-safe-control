@@ -1,0 +1,1213 @@
+{
+ "assumptions": {
+  "grasp": "ASSUMED rigid weld once closed (user 11-01; wrist cameras + low-level control handle grasping)",
+  "quasi_static": "ASSUMED: joint-velocity (Coriolis) terms dropped; translation only, object level",
+  "tau_lim": "MEASURED-spec 16 Nm (MIT t_ff command range, fw>=1.11); urdf_effort 100 Nm = placeholder (sensitivity only)",
+  "payload": "MEASURED-spec 3.0 kg (NERO manual) minus gripper 0.500 kg (MJCF), vertical force",
+  "a_nom": "ASSUMED 0.5 m/s^2 per axis (box)",
+  "waypoints": "ASSUMED plan offsets {'W0_liftoff': (0, 0, 0.0), 'W1_lift5cm': (0, 0, 0.05), 'W2_carry10cm': (-0.1, 0, 0.05), 'W3_shelf25cm': (-0.1, 0, 0.25)}; IK miss > 0.001 m = unreachable",
+  "q": "MODEL: nominal placement, the robot's own pre-grasp IK (segments.Episode, grasp_frac 0.85) + continuation IK",
+  "guarantee": "proof under MODEL over the contents set x acceleration box at the listed waypoints; between waypoints and placement error NOT covered"
+ },
+ "objects": {
+  "pan": {
+   "empty_mass": 0.304845189535163,
+   "contents": {
+    "m": [
+     0.0,
+     1.5
+    ],
+    "labels": {
+     "m": "ASSUMED box 0..1.5 kg (hardworlds.THETA mass 0.02..1.5)",
+     "P": "MODEL: any contents COM lies inside the inner wall (r <= 0.09 m, circumscribed 16-gon), 0..wall height"
+    }
+   },
+   "open_limits": [
+    {
+     "name": "lid_slide",
+     "a_max": 4.905,
+     "formula": "a_max = mu_lid_min * g (Coulomb, quasi-static)",
+     "labels": {
+      "mu": "ASSUMED 0.5 (lower end of lid_mu_scale box x MJCF mu 1.0)"
+     }
+    }
+   ],
+   "sim_box": {
+    "m": [
+     0.02,
+     1.5
+    ],
+    "r_com": 0.06,
+    "note": "hardworlds.THETA (ASSUMED); c_r disc C_R = 0.06 m (MODEL puck)"
+   },
+   "plausible": {
+    "volume_L": 1.017876019763093,
+    "water_full_kg": 1.017876019763093,
+    "note": "MODEL: inner volume pi r^2 h; denser food (rho 1.2) -> 1.22 kg"
+   },
+   "presets": {
+    "mit_fw_ge_1.11": {
+     "u_empty": {
+      "one": [
+       0.40722039080247235,
+       {
+        "wp": "W0_liftoff",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": [
+         -5.686,
+         6.516,
+         -4.831,
+         -1.28,
+         -1.016,
+         0.904,
+         -0.0
+        ],
+        "Fz": 2.991,
+        "worst_joint": 2
+       }
+      ]
+     },
+     "m_max_one": {
+      "centre_static": 2.1951,
+      "worst_com_static": 2.0925,
+      "worst_com_a_nom": 1.8984,
+      "liftoff_worst_com_static": 2.0925,
+      "shelf_worst_com_static": 2.1951
+     },
+     "worst_one_full_box_a_nom": [
+      0.8576762240695577,
+      {
+       "wp": "W0_liftoff",
+       "m": 1.5,
+       "c": [
+        0.0763,
+        -0.051,
+        0.0425
+       ],
+       "a": [
+        -0.5,
+        -0.5,
+        0.5
+       ],
+       "tau": [
+        -11.569,
+        7.186,
+        -13.723,
+        -2.784,
+        -5.111,
+        6.027,
+        0.429
+       ],
+       "Fz": 18.608,
+       "worst_joint": 3
+      }
+     ],
+     "action_full_box": {
+      "action": "one arm",
+      "mode": "one",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 0.8576762240695577,
+        "carry_static": 0.8022759258112222,
+        "liftoff_static": 0.8022759258112222
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.312,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.625,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.938,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.25,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.562,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.875,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.188,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.5,
+       "action": "refuse",
+       "a_star": null
+      }
+     ]
+    },
+    "urdf_effort": {
+     "u_empty": {
+      "one": [
+       0.12193807581406518,
+       {
+        "wp": "W0_liftoff",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": [
+         -5.686,
+         6.516,
+         -4.831,
+         -1.28,
+         -1.016,
+         0.904,
+         -0.0
+        ],
+        "Fz": 2.991,
+        "worst_joint": 2
+       }
+      ]
+     },
+     "m_max_one": {
+      "centre_static": 2.1951,
+      "worst_com_static": 2.1951,
+      "worst_com_a_nom": 2.0735,
+      "liftoff_worst_com_static": 2.1951,
+      "shelf_worst_com_static": 2.1951
+     },
+     "worst_one_full_box_a_nom": [
+      0.7587341041430186,
+      {
+       "wp": "W0_liftoff",
+       "m": 1.5,
+       "c": [
+        -0.09,
+        -0.0179,
+        0.0025
+       ],
+       "a": [
+        -0.5,
+        -0.5,
+        0.5
+       ],
+       "tau": [
+        -9.623,
+        6.122,
+        -11.306,
+        -2.45,
+        -6.416,
+        3.731,
+        0.28
+       ],
+       "Fz": 18.608,
+       "worst_joint": 3
+      }
+     ],
+     "action_full_box": {
+      "action": "one arm",
+      "mode": "one",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 0.7587341041430186,
+        "carry_static": 0.7219380758140652,
+        "liftoff_static": 0.7219380758140652
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.312,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.625,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.938,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.25,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.562,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.875,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.188,
+       "action": "one arm, slow",
+       "a_star": 0.0281
+      },
+      {
+       "m_hi": 2.5,
+       "action": "refuse",
+       "a_star": null
+      }
+     ]
+    }
+   }
+  },
+  "pot": {
+   "empty_mass": 0.34234278953516295,
+   "contents": {
+    "m": [
+     0.0,
+     1.5
+    ],
+    "labels": {
+     "m": "ASSUMED box 0..1.5 kg (hardworlds.THETA mass 0.02..1.5)",
+     "P": "MODEL: any contents COM lies inside the inner wall (r <= 0.09 m, circumscribed 16-gon), 0..wall height"
+    }
+   },
+   "open_limits": [
+    {
+     "name": "lid_slide",
+     "a_max": 4.905,
+     "formula": "a_max = mu_lid_min * g (Coulomb, quasi-static)",
+     "labels": {
+      "mu": "ASSUMED 0.5 (lower end of lid_mu_scale box x MJCF mu 1.0)"
+     }
+    }
+   ],
+   "sim_box": {
+    "m": [
+     0.02,
+     1.5
+    ],
+    "r_com": 0.06,
+    "note": "hardworlds.THETA (ASSUMED); c_r disc C_R = 0.06 m (MODEL puck)"
+   },
+   "plausible": {
+    "volume_L": 1.017876019763093,
+    "water_full_kg": 1.017876019763093,
+    "note": "MODEL: inner volume pi r^2 h; denser food (rho 1.2) -> 1.22 kg"
+   },
+   "presets": {
+    "urdf_effort": {
+     "u_empty": {
+      "one": [
+       0.13693711581406517,
+       {
+        "wp": "W0_liftoff",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": [
+         -6.077,
+         6.497,
+         -5.123,
+         -0.93,
+         -1.086,
+         1.043,
+         0.0
+        ],
+        "Fz": 3.358,
+        "worst_joint": 2
+       }
+      ],
+      "two": [
+       0.06846855790703259,
+       {
+        "wp": "W0_liftoff",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": {
+         "left": [
+          -1.073,
+          6.306,
+          -3.342,
+          -6.847,
+          -2.022,
+          0.782,
+          -1.861
+         ],
+         "right": [
+          6.847,
+          6.847,
+          6.847,
+          4.431,
+          3.743,
+          -1.47,
+          6.847
+         ]
+        },
+        "Fz": {
+         "left": 1.679,
+         "right": 1.679
+        }
+       }
+      ]
+     },
+     "m_max_one": {
+      "centre_static": 2.157,
+      "worst_com_static": 2.157,
+      "worst_com_a_nom": 2.0361,
+      "liftoff_worst_com_static": 2.157,
+      "shelf_worst_com_static": 2.157
+     },
+     "worst_one_full_box_a_nom": [
+      0.7744976212072386,
+      {
+       "wp": "W0_liftoff",
+       "m": 1.5,
+       "c": [
+        -0.09,
+        -0.0179,
+        0.0025
+       ],
+       "a": [
+        -0.5,
+        -0.5,
+        0.5
+       ],
+       "tau": [
+        -10.057,
+        6.03,
+        -11.743,
+        -2.006,
+        -6.186,
+        3.896,
+        0.265
+       ],
+       "Fz": 18.995,
+       "worst_joint": 3
+      }
+     ],
+     "m_max_two": {
+      "centre_static": 4.6575,
+      "worst_com_static": 4.6575,
+      "worst_com_a_nom": 4.415,
+      "liftoff_worst_com_static": 4.6575,
+      "shelf_worst_com_static": 4.6575
+     },
+     "worst_two_full_box_a_nom": [
+      0.3872488106036193,
+      {
+       "wp": "W0_liftoff",
+       "m": 1.5,
+       "c": [
+        -0.09,
+        -0.0179,
+        0.0025
+       ],
+       "a": [
+        -0.5,
+        -0.5,
+        0.5
+       ],
+       "tau": {
+        "left": [
+         -38.725,
+         -17.756,
+         -38.725,
+         26.2,
+         -17.321,
+         29.469,
+         38.725
+        ],
+        "right": [
+         16.114,
+         -29.604,
+         4.029,
+         22.699,
+         38.725,
+         10.691,
+         38.725
+        ]
+       },
+       "Fz": {
+        "left": 9.497,
+        "right": 9.497
+       }
+      }
+     ],
+     "action_full_box": {
+      "action": "one arm",
+      "mode": "one",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 0.7744976212072386,
+        "carry_static": 0.7369371158140652,
+        "liftoff_static": 0.7369371158140652
+       },
+       "two": {
+        "carry_nom": 0.3872488106036193,
+        "carry_static": 0.3684685579070326,
+        "liftoff_static": 0.3684685579070326
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.312,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.625,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.938,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.25,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.562,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.875,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.188,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.5,
+       "action": "two arms",
+       "a_star": null
+      }
+     ]
+    },
+    "mit_fw_ge_1.11": {
+     "u_empty": {
+      "one": [
+       0.4107781577465991,
+       {
+        "wp": "W1_lift5cm",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": [
+         -6.096,
+         6.572,
+         -5.0,
+         -1.412,
+         -1.075,
+         1.028,
+         0.0
+        ],
+        "Fz": 3.358,
+        "worst_joint": 2
+       }
+      ],
+      "two": [
+       0.333700722320443,
+       {
+        "wp": "W1_lift5cm",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": {
+         "left": [
+          -5.339,
+          5.339,
+          -5.339,
+          -4.843,
+          -1.073,
+          4.036,
+          -5.339
+         ],
+         "right": [
+          5.339,
+          5.339,
+          5.339,
+          -2.746,
+          4.937,
+          0.102,
+          -4.04
+         ]
+        },
+        "Fz": {
+         "left": -1.206,
+         "right": 4.565
+        }
+       }
+      ]
+     },
+     "m_max_one": {
+      "centre_static": 2.157,
+      "worst_com_static": 1.9929,
+      "worst_com_a_nom": 1.8215,
+      "liftoff_worst_com_static": 1.9929,
+      "shelf_worst_com_static": 2.157
+     },
+     "worst_one_full_box_a_nom": [
+      0.8833980459557025,
+      {
+       "wp": "W0_liftoff",
+       "m": 1.5,
+       "c": [
+        0.0763,
+        -0.051,
+        0.0425
+       ],
+       "a": [
+        -0.5,
+        0.5,
+        0.5
+       ],
+       "tau": [
+        -10.952,
+        7.8,
+        -14.134,
+        -2.594,
+        -4.778,
+        6.12,
+        0.322
+       ],
+       "Fz": 18.995,
+       "worst_joint": 3
+      }
+     ],
+     "m_max_two": {
+      "centre_static": 4.6575,
+      "worst_com_static": 4.6575,
+      "worst_com_a_nom": 4.415,
+      "liftoff_worst_com_static": 4.6575,
+      "shelf_worst_com_static": 4.6575
+     },
+     "worst_two_full_box_a_nom": [
+      0.5241129660038537,
+      {
+       "wp": "W1_lift5cm",
+       "m": 1.5,
+       "c": [
+        0.0763,
+        -0.051,
+        0.0425
+       ],
+       "a": [
+        -0.5,
+        0.5,
+        0.5
+       ],
+       "tau": {
+        "left": [
+         -6.793,
+         8.386,
+         -8.386,
+         -1.492,
+         -0.988,
+         2.76,
+         4.841
+        ],
+        "right": [
+         8.386,
+         8.386,
+         8.386,
+         2.355,
+         5.96,
+         0.569,
+         8.386
+        ]
+       },
+       "Fz": {
+        "left": 6.141,
+        "right": 12.854
+       }
+      }
+     ],
+     "action_full_box": {
+      "action": "one arm",
+      "mode": "one",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 0.8833980459557025,
+        "carry_static": 0.8316789176649723,
+        "liftoff_static": 0.8316789176649723
+       },
+       "two": {
+        "carry_nom": 0.5241129660038537,
+        "carry_static": 0.4934373124264408,
+        "liftoff_static": 0.4934373124264408
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.312,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.625,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.938,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.25,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.562,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.875,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.188,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.5,
+       "action": "two arms",
+       "a_star": null
+      }
+     ]
+    }
+   }
+  },
+  "coffee_tray": {
+   "empty_mass": 0.3,
+   "contents": {
+    "m": [
+     0.6,
+     1.1
+    ],
+    "labels": {
+     "m": "ASSUMED: 2 mugs x (0.30 kg empty + 0..0.25 kg fill)",
+     "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+    }
+   },
+   "open_limits": [
+    {
+     "name": "cup_spill",
+     "a_max": 2.452,
+     "formula": "a_max = g 2 (H - h) / D at the fullest fill (1 cm freeboard)",
+     "labels": {
+      "geometry": "ASSUMED mug D 0.08 H 0.095; fill up to 1 cm below the lip"
+     }
+    }
+   ],
+   "sim_box": {
+    "note": "no NERO tray scene yet (step 2)"
+   },
+   "plausible": {
+    "note": "2 mugs: 0.60..1.10 kg"
+   },
+   "presets": {
+    "urdf_effort": {
+     "u_empty": {
+      "one": [
+       0.12,
+       {
+        "wp": "W0_liftoff",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": [
+         -5.966,
+         6.482,
+         -4.93,
+         -0.883,
+         -0.985,
+         0.945,
+         0.0
+        ],
+        "Fz": 2.943,
+        "worst_joint": 2
+       }
+      ],
+      "two": [
+       0.06,
+       {
+        "wp": "W0_liftoff",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": {
+         "left": [
+          -2.377,
+          6.0,
+          -4.751,
+          -6.0,
+          -2.042,
+          2.094,
+          -1.409
+         ],
+         "right": [
+          6.0,
+          5.688,
+          6.0,
+          3.569,
+          4.506,
+          -0.634,
+          6.0
+         ]
+        },
+        "Fz": {
+         "left": 1.472,
+         "right": 1.472
+        }
+       }
+      ]
+     },
+     "m_max_one": {
+      "centre_static": 2.1998,
+      "worst_com_static": 2.1998,
+      "worst_com_a_nom": 2.0785,
+      "liftoff_worst_com_static": 2.1998,
+      "shelf_worst_com_static": 2.1998
+     },
+     "worst_one_full_box_a_nom": [
+      0.5885423037716616,
+      {
+       "wp": "W0_liftoff",
+       "m": 1.1,
+       "c": [
+        -0.07,
+        -0.13,
+        0.028
+       ],
+       "a": [
+        -0.5,
+        -0.5,
+        0.5
+       ],
+       "tau": [
+        -9.231,
+        5.502,
+        -10.804,
+        -1.807,
+        -5.48,
+        4.085,
+        0.277
+       ],
+       "Fz": 14.434,
+       "worst_joint": 3
+      }
+     ],
+     "m_max_two": {
+      "centre_static": 4.6994,
+      "worst_com_static": 4.6994,
+      "worst_com_a_nom": 4.4569,
+      "liftoff_worst_com_static": 4.6994,
+      "shelf_worst_com_static": 4.6994
+     },
+     "worst_two_full_box_a_nom": [
+      0.2942711518858308,
+      {
+       "wp": "W0_liftoff",
+       "m": 1.1,
+       "c": [
+        -0.07,
+        -0.13,
+        0.028
+       ],
+       "a": [
+        -0.5,
+        -0.5,
+        0.5
+       ],
+       "tau": {
+        "left": [
+         -29.427,
+         -14.396,
+         -29.427,
+         19.626,
+         -15.956,
+         21.867,
+         29.427
+        ],
+        "right": [
+         15.419,
+         -19.878,
+         6.48,
+         17.539,
+         29.427,
+         5.467,
+         29.427
+        ]
+       },
+       "Fz": {
+        "left": 7.217,
+        "right": 7.217
+       }
+      }
+     ],
+     "action_full_box": {
+      "action": "one arm",
+      "mode": "one",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 0.5885423037716616,
+        "carry_static": 0.56,
+        "liftoff_static": 0.56
+       },
+       "two": {
+        "carry_nom": 0.2942711518858308,
+        "carry_static": 0.28,
+        "liftoff_static": 0.28
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.6,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.837,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.075,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.312,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.55,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.788,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.025,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.262,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.5,
+       "action": "two arms",
+       "a_star": null
+      }
+     ]
+    },
+    "mit_fw_ge_1.11": {
+     "u_empty": {
+      "one": [
+       0.40903768801148116,
+       {
+        "wp": "W1_lift5cm",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": [
+         -5.985,
+         6.545,
+         -4.809,
+         -1.34,
+         -0.975,
+         0.932,
+         0.0
+        ],
+        "Fz": 2.943,
+        "worst_joint": 2
+       }
+      ],
+      "two": [
+       0.3302059046986933,
+       {
+        "wp": "W1_lift5cm",
+        "m": 0.0,
+        "c": null,
+        "a": [
+         0.0,
+         0.0,
+         0.0
+        ],
+        "tau": {
+         "left": [
+          -5.283,
+          5.283,
+          -5.283,
+          -4.801,
+          -1.089,
+          4.008,
+          -5.283
+         ],
+         "right": [
+          5.283,
+          5.283,
+          5.283,
+          -2.724,
+          4.906,
+          0.09,
+          -3.998
+         ]
+        },
+        "Fz": {
+         "left": -1.374,
+         "right": 4.317
+        }
+       }
+      ]
+     },
+     "m_max_one": {
+      "centre_static": 2.1998,
+      "worst_com_static": 1.8861,
+      "worst_com_a_nom": 1.7213,
+      "liftoff_worst_com_static": 1.8861,
+      "shelf_worst_com_static": 2.1998
+     },
+     "worst_one_full_box_a_nom": [
+      0.7571435509671992,
+      {
+       "wp": "W0_liftoff",
+       "m": 1.1,
+       "c": [
+        0.07,
+        -0.13,
+        0.0555
+       ],
+       "a": [
+        -0.5,
+        0.5,
+        0.5
+       ],
+       "tau": [
+        -9.512,
+        6.964,
+        -12.114,
+        -2.261,
+        -4.406,
+        5.259,
+        0.297
+       ],
+       "Fz": 14.434,
+       "worst_joint": 3
+      }
+     ],
+     "m_max_two": {
+      "centre_static": 4.6994,
+      "worst_com_static": 4.6994,
+      "worst_com_a_nom": 4.4569,
+      "liftoff_worst_com_static": 4.6994,
+      "shelf_worst_com_static": 4.6994
+     },
+     "worst_two_full_box_a_nom": [
+      0.4779417217308256,
+      {
+       "wp": "W1_lift5cm",
+       "m": 1.1,
+       "c": [
+        0.07,
+        -0.13,
+        0.0555
+       ],
+       "a": [
+        -0.5,
+        0.5,
+        0.5
+       ],
+       "tau": {
+        "left": [
+         -5.913,
+         7.647,
+         -7.647,
+         -2.0,
+         -0.797,
+         3.18,
+         3.823
+        ],
+        "right": [
+         7.647,
+         7.647,
+         7.647,
+         2.084,
+         6.202,
+         1.112,
+         7.647
+        ]
+       },
+       "Fz": {
+        "left": 2.712,
+        "right": 11.722
+       }
+      }
+     ],
+     "action_full_box": {
+      "action": "one arm",
+      "mode": "one",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 0.7571435509671992,
+        "carry_static": 0.7116182923587286,
+        "liftoff_static": 0.7116182923587286
+       },
+       "two": {
+        "carry_nom": 0.4779417217308256,
+        "carry_static": 0.4499367367209019,
+        "liftoff_static": 0.4499367367209019
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.6,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.837,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.075,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.312,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.55,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.788,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.025,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.262,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.5,
+       "action": "two arms",
+       "a_star": null
+      }
+     ]
+    }
+   }
+  }
+ }
+}

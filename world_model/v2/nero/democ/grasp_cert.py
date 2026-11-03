@@ -56,6 +56,8 @@ L_SCALE = 0.1                  # m: torque scaling so forces [N] and torque/L [N
 TOL = 1e-7
 EPS_CAP = 1.0e3                # scaled units; eps beyond this is reported as the cap (unbounded direction, e.g. support cone)
 N_EDGES = 8
+GAP_TOL = 6.0e-6               # m; default unmodelled corner gap: smallest value in the sweep with 0 false-safe on all 216 sim releases (a FIT, not a validation)
+RANK_TOL = 5e-2                # creep model: relative singular-value cut for the normal-row rank (null(J_n) = creep DoFs)
 
 # --- gripper pad geometry / limits (see module docstring for the source) ---
 FINGER_Z_ROOT, FINGER_Z_TIP = 0.0615, 0.138      # finger span along the gripper approach axis z_g [m]
@@ -75,6 +77,8 @@ class Contact:
     hand: str = "support"          # 'left' | 'right' | 'support'
     active: bool = False           # actively commanded (hand pad) vs passive (support)
     pose_unc: bool = True          # subject to attachment-pose uncertainty delta
+    kn_scale: float = 1.0          # compliant mode: extra multiplier of this corner's normal stiffness
+    finger: int | None = None      # hand pad corners: 1 = the ACTUATED finger (joint1), 2 = the finger slaved through the soft equality (joint2)
 
     def __post_init__(self):
         self.p = np.asarray(self.p, float)
@@ -105,10 +109,11 @@ def _tangents(n):
 
 
 def pad_contacts(hand, R_gb, p_gb, box_half, mu_lo=0.4, mu_hi=None, f_limit=HAND_NORMAL_LIMIT, limit_mode="hand_total",
-                 pad_half_w=PAD_HALF_W, z_root=FINGER_Z_ROOT, z_tip=FINGER_Z_TIP, align_tol_deg=15.0, shrink=1.0):
+                 pad_half_w=PAD_HALF_W, z_root=FINGER_Z_ROOT, z_tip=FINGER_Z_TIP, align_tol_deg=15.0, shrink=1.0, finger1_pos=None):
     """The 8 corner contacts (2 pads x 4 corners) of one hand pinching the box with its jaw axis (y_g) along a box axis k and its
     approach (z_g) along a box axis j.  R_gb: columns = gripper axes (x_g,y_g,z_g) expressed in the BOX frame; p_gb: gripper_base
     origin in the box frame.  Box assumed axis-aligned to the jaw within align_tol_deg (small misalignment is ignored).
+    finger1_pos: position (box frame) of the actuated finger's body origin (on its pad plane); tags each corner with finger 1 / 2 for the compliant stiffness.
     shrink in (0,1]: HEURISTIC (not a proof) confinement of the centre of pressure to the central `shrink` fraction of the patch; the
     sim cross-check shows equilibria that need the CoP at the patch EDGE are not realised by compliant contacts.
     limit_mode: 'hand_total' (sum of both pad normals <= f_limit, default, see module docstring) | 'per_pad' (each pad <= f_limit)."""
@@ -140,7 +145,8 @@ def pad_contacts(hand, R_gb, p_gb, box_half, mu_lo=0.4, mu_hi=None, f_limit=HAND
         for a_ in ci:
             for b_ in cj:
                 p = np.zeros(3); p[k] = side * h[k]; p[i] = a_; p[j] = b_
-                out.append(Contact(p, nk, mu_lo, mu_hi, f_max=f_limit, group=grp, hand=hand, active=True, pose_unc=True))
+                fing = None if finger1_pos is None else (1 if np.sign(finger1_pos[k]) == side else 2)
+                out.append(Contact(p, nk, mu_lo, mu_hi, f_max=f_limit, group=grp, hand=hand, active=True, pose_unc=True, finger=fing))
     return out
 
 
@@ -349,8 +355,8 @@ def _pose_slack(contacts, P, caps, mu_edge_scale, m):
     return rho
 
 
-def certify_hold(contacts, params: Params, m_edges=N_EDGES, edge_scale="vertex", compute_margin=True, max_vertices=4096, min_margin=0.0):
-    """-> (ok, eps_star, detail).  See module docstring.  ok is a SOUND claim: the remaining contacts can balance the box for every
+def _certify_exists(contacts, params: Params, m_edges=N_EDGES, edge_scale="vertex", compute_margin=True, max_vertices=4096, min_margin=0.0):
+    """EXISTENCE-ONLY certificate (mode='exists').  -> (ok, eps_star, detail).  See module docstring.  ok is a SOUND claim: the remaining contacts can balance the box for every
     parameter value in the intervals (and every attachment shift, if pose_delta > 0), under the existence-of-forces model."""
     t0 = time.perf_counter()
     contacts = list(contacts)
@@ -423,6 +429,299 @@ def certify_hold(contacts, params: Params, m_edges=N_EDGES, edge_scale="vertex",
     return bool(ok), float(eps_star), detail
 
 
+# ------------------------------------------------------------------------------------------------ COMPLIANT (linear-elastic) mode
+@dataclass
+class Stiffness:
+    """Contact model constants.  The FORCE DISTRIBUTION depends only on the ratios (rho, kappa, rho_s, ct_s/ct); the absolute scale
+    (kn, ct) only sets displacement / creep speed.  Defaults = calibrated against the Demo-C MuJoCo scene (grasp_cert_calib.py).
+      spring mode (owner spec): every corner is a 3-D linear spring: normal kn_i, tangential kt_i = rho_i kn_i (two directions).
+      creep  mode (what MuJoCo does, see calib): normal = spring kn_i, tangential = VISCOUS (force = -ct_i * tangential velocity); the
+             steady state has zero normal rate at every contact, so the box moves with a twist v in null(J_n) (creep) plus an elastic u.
+      both: a hold must pass under BOTH tangential models."""
+    kn: float = 4.7e4              # normal stiffness of one PAD corner [N/m]
+    rho: float = 1.0               # pad kt/kn (spring mode)
+    kappa: float = 1.0             # support kn / pad kn
+    rho_s: float | None = None     # support kt/kn (None = rho)
+    kd: float | None = None        # differential jaw-mode stiffness [N/m] (restoring force per unit finger1-minus-finger2 offset a); None = rigid coupling (a = 0)
+    tangential: str = "creep"      # 'spring' | 'creep' | 'both'.  creep = what MuJoCo does (measured); spring = owner spec / real rubber pads; both = pass both
+    ct: float = 1.2e4              # pad tangential damping per corner [N s/m] (creep mode)
+    ct_s: float | None = None      # support damping per corner (None = ct)
+
+
+def _skew(p):
+    return np.array([[0, -p[2], p[1]], [p[2], 0, -p[0]], [-p[1], p[0], 0.0]])
+
+
+class CompliantModel:
+    """Linear statics of the box on N corner contacts (fixed ACTIVE SET: all in contact, all sticking).
+       corner i: rel. displacement  r_i = B_i (u - b_h(i)),  B_i = [I, -[p_i]x]  (u = box twist about the box origin, b_h = hand-base twist);
+       normal force   fn_i = kn_i (sigma_i s_h + tau_i a_h - g_i - n_i . r_i)    (sigma_i = 1 for the closing pads of hand h, 0 for support;
+                      s_h = symmetric jaw closing (force source F_h); a_h = DIFFERENTIAL jaw mode (finger1 +a, finger2 -a, tau_i = +-1) with the
+                      restoring spring k_diff = Stiffness.kd (the q2 = -q1 equality is soft in MuJoCo); g_i = unmodelled gap, 0 nominally)
+       tangential     ft_i = -kt_i P_t r_i   (spring)   |   -ct_i P_t B_i v   (creep; n_i . B_i v = 0 at every contact)
+       equations:  sum_i W_i = -w   (6),   sum_{i in pads(h)} fn_i = F_h   (jaw force source, 1 per hand),
+                   sum_{i in pads(h)} tau_i fn_i = kd a_h   (differential mode, 1 per hand with tagged fingers and finite kd),
+                   K_h (b_h - b0_h) + sum_{i in h} W_i = 0   (6, only for hands given an arm stiffness; spring mode).
+       Everything is affine in (w, F_h, g), so extreme values over a polytope of (w, F) sit at its vertices."""
+
+    def __init__(self, contacts, stiff: Stiffness, tangential="spring", arm=None):
+        self.contacts = list(contacts); self.stiff = stiff; self.tangential = tangential
+        nc = len(self.contacts); self.nc = nc
+        self.hands = sorted({c.hand for c in self.contacts if c.active})
+        nh = len(self.hands); self.nh = nh
+        arm = arm or {}
+        self.arm_hands = [h for h in self.hands if h in arm and tangential == "spring"]
+        self.a_hands = [h for h in self.hands if stiff.kd is not None and any(c.hand == h and c.active and c.finger in (1, 2) for c in self.contacts)]
+        na = len(self.a_hands); self.na = na
+        self.p = np.array([c.p for c in self.contacts]); self.n = np.array([c.n for c in self.contacts])
+        self.t1 = np.zeros((nc, 3)); self.t2 = np.zeros((nc, 3))
+        for i, c in enumerate(self.contacts):
+            self.t1[i], self.t2[i] = _tangents(c.n)
+        B = [np.hstack([np.eye(3), -_skew(p)]) for p in self.p]
+        self.an = np.array([self.n[i] @ B[i] for i in range(nc)])
+        self.at1 = np.array([self.t1[i] @ B[i] for i in range(nc)]); self.at2 = np.array([self.t2[i] @ B[i] for i in range(nc)])
+        sup = np.array([c.hand == "support" or not c.active for c in self.contacts])
+        self.kn = np.where(sup, stiff.kappa * stiff.kn, stiff.kn) * np.array([c.kn_scale for c in self.contacts])
+        rho_s = stiff.rho if stiff.rho_s is None else stiff.rho_s
+        self.kt = np.where(sup, rho_s * self.kn, stiff.rho * self.kn)
+        ct_s = stiff.ct if stiff.ct_s is None else stiff.ct_s
+        self.ct = np.where(sup, ct_s, stiff.ct)
+        self.hidx = np.array([self.hands.index(c.hand) if (c.active and c.hand in self.hands) else -1 for c in self.contacts])
+        self.tau = np.array([(1.0 if c.finger == 1 else -1.0 if c.finger == 2 else 0.0) if (c.hand in self.a_hands) else 0.0 for c in self.contacts])
+        self.aidx = np.array([self.a_hands.index(c.hand) if (c.hand in self.a_hands and c.active) else -1 for c in self.contacts])
+        # unknown layout:  [ u/z (nu) | s (nh) | a (na) | creep y | arm b (6 each) ]
+        if tangential == "spring":
+            self.nu = 6; self.R = np.eye(6); self.Nn = np.zeros((6, 0))
+        else:
+            U, S_, Vt = np.linalg.svd(self.an, full_matrices=True)
+            r = int(np.sum(S_ > RANK_TOL * max(S_[0], 1e-30))) if len(S_) else 0        # tolerance: a 0.02 deg tilt of a support normal must not add DoFs
+            self.R = Vt[:r].T; self.Nn = Vt[r:].T; self.nu = r
+        self.nv_ = self.Nn.shape[1]
+        o = self.nu
+        self.iu = slice(0, o); self.is_ = slice(o, o + nh); o += nh
+        self.ia = slice(o, o + na); o += na
+        self.ic = slice(o, o + self.nv_); o += self.nv_
+        self.ib = {h: slice(o + 6 * k, o + 6 * (k + 1)) for k, h in enumerate(self.arm_hands)}
+        nx = o + 6 * len(self.arm_hands); self.nx = nx
+        self.row_jaw, self.row_a, self.row_arm = 6, 6 + nh, 6 + nh + na
+        Fn = np.zeros((nc, nx)); Ft1 = np.zeros((nc, nx)); Ft2 = np.zeros((nc, nx))
+        for i in range(nc):
+            h = self.hands[self.hidx[i]] if self.hidx[i] >= 0 else None
+            rowu = np.zeros(nx); rowu[self.iu] = self.an[i] @ self.R
+            rowb = np.zeros(nx)
+            if h in self.ib:
+                rowb[self.ib[h]] = self.an[i]
+            Fn[i] = -self.kn[i] * (rowu - rowb)
+            if self.hidx[i] >= 0:
+                Fn[i, self.is_.start + self.hidx[i]] += self.kn[i]
+            if self.aidx[i] >= 0:
+                Fn[i, self.ia.start + self.aidx[i]] += self.kn[i] * self.tau[i]
+            for A_, Ft in ((self.at1, Ft1), (self.at2, Ft2)):
+                if tangential == "spring":
+                    ru = np.zeros(nx); ru[self.iu] = A_[i] @ self.R
+                    rb = np.zeros(nx)
+                    if h in self.ib:
+                        rb[self.ib[h]] = A_[i]
+                    Ft[i] = -self.kt[i] * (ru - rb)
+                else:
+                    ru = np.zeros(nx); ru[self.ic] = A_[i] @ self.Nn
+                    Ft[i] = -self.ct[i] * ru
+        self.Fn, self.Ft1, self.Ft2 = Fn, Ft1, Ft2
+        Wc = np.zeros((nc, 6, nx))
+        for i in range(nc):
+            for vec, Fm in ((self.n[i], Fn[i]), (self.t1[i], Ft1[i]), (self.t2[i], Ft2[i])):
+                Wc[i, :3] += np.outer(vec, Fm); Wc[i, 3:] += np.outer(np.cross(self.p[i], vec), Fm)
+        self.Wc = Wc
+        rows = [Wc.sum(0)]                                                          # 6 rows : = -w
+        for k in range(nh):                                                         # jaw rows : = F_h
+            rows.append(sum(Fn[i] for i in range(nc) if self.hidx[i] == k)[None, :] if np.any(self.hidx == k) else np.zeros((1, nx)))
+        for k, h in enumerate(self.a_hands):                                        # differential rows : sum tau fn - kd a = 0
+            r_ = sum(self.tau[i] * Fn[i] for i in range(nc) if self.aidx[i] == k)
+            r_ = np.array(r_, float); r_[self.ia.start + k] -= stiff.kd
+            rows.append(r_[None, :])
+        for h in self.arm_hands:                                                    # arm rows : K b + sum W_h = K b0
+            Kh = np.asarray(arm[h][0], float)
+            blk = sum(Wc[i] for i in range(nc) if self.hidx[i] >= 0 and self.hands[self.hidx[i]] == h)
+            blk = np.array(blk, float); blk[:, self.ib[h]] += Kh
+            rows.append(blk)
+        self.A = np.vstack(rows)
+        self.arm = {h: (np.asarray(arm[h][0], float), np.asarray(arm[h][1], float) if len(arm[h]) > 1 else np.zeros(6)) for h in self.arm_hands}
+        self.cond = float(np.linalg.cond(self.A)) if self.A.shape[0] == self.A.shape[1] else np.inf
+        self.singular = (self.A.shape[0] != self.A.shape[1]) or not np.isfinite(self.cond) or self.cond > 1e11
+
+    def _gap_rhs(self):
+        nc = self.nc
+        rg = np.zeros((self.A.shape[0], nc))
+        wn = np.array([np.concatenate([self.n[j], np.cross(self.p[j], self.n[j])]) for j in range(nc)])
+        for j in range(nc):
+            rg[:6, j] = self.kn[j] * wn[j]
+            if self.hidx[j] >= 0:
+                rg[self.row_jaw + self.hidx[j], j] = self.kn[j]
+                h = self.hands[self.hidx[j]]
+                if h in self.arm:
+                    k = self.arm_hands.index(h)
+                    rg[self.row_arm + 6 * k:self.row_arm + 6 * (k + 1), j] += self.kn[j] * wn[j]
+            if self.aidx[j] >= 0:
+                rg[self.row_a + self.aidx[j], j] = self.tau[j] * self.kn[j]
+        return rg
+
+    def gap_sensitivity(self):
+        """Sensitivity of the solution to an unmodelled initial gap g_j (m, + = open) at corner j (normal direction):  fn_j = kn_j (sigma s - g_j - n.r).
+        -> dict(dfn (nc,nc), dft (nc,2,nc), du (6,nc), dv (6,nc)).  Exact for the model (linear)."""
+        Xg = np.linalg.solve(self.A, self._gap_rhs())
+        return dict(dfn=self.Fn @ Xg - np.diag(self.kn), dft=np.stack([self.Ft1 @ Xg, self.Ft2 @ Xg], 1),
+                    du=self.R @ Xg[self.iu], dv=(self.Nn @ Xg[self.ic]) if self.nv_ else np.zeros((6, self.nc)))
+
+    def solve(self, W, F, gap=None):
+        """W (nv,6) wrenches the contacts must balance (= gravity wrench w; contacts produce -w), F (nv,nh) jaw forces, gap (nc,) optional initial gaps.
+        -> dict(fn (nv,nc), ft (nv,nc,2), u (nv,6), v (nv,6) creep twist, x)."""
+        W = np.atleast_2d(W); F = np.atleast_2d(F)
+        nv = W.shape[0]
+        rhs = [-W, F, np.zeros((nv, self.na))]
+        for h in self.arm_hands:
+            Kh, b0 = self.arm[h]
+            rhs.append(np.tile(Kh @ b0, (nv, 1)))
+        rhs = np.hstack(rhs).T
+        if gap is not None:
+            rhs = rhs + (self._gap_rhs() @ np.asarray(gap, float))[:, None]
+        x = np.linalg.solve(self.A, rhs).T
+        fn = x @ self.Fn.T; ft1 = x @ self.Ft1.T; ft2 = x @ self.Ft2.T
+        if gap is not None:
+            fn = fn - self.kn * np.asarray(gap, float)
+        u = x[:, self.iu] @ self.R.T
+        v = x[:, self.ic] @ self.Nn.T if self.nv_ else np.zeros((nv, 6))
+        return dict(fn=fn, ft=np.stack([ft1, ft2], -1), u=u, v=v, x=x)
+
+
+def cartesian_stiffness_from_jacobian(J, Kq, R_box=None, x_hand=None, origin=None):
+    """6x6 arm stiffness for CompliantModel(arm=...):  K_x = (J Kq^-1 J^T)^-1  (J 6 x n_dof world [lin; ang] at the hand base, Kq diag/matrix of joint
+    stiffness; valid for redundant arms when the joint spring is the only restoring torque).  If R_box, x_hand, origin (box origin, world) are given the result
+    is expressed for a twist [v; w] about the BOX ORIGIN in the BOX frame (the convention of CompliantModel):  v_o = v_h + w x (o - x_h)."""
+    J = np.asarray(J, float); Kq = np.asarray(Kq, float)
+    Kq = np.diag(Kq) if Kq.ndim == 1 else Kq
+    C = J @ np.linalg.solve(Kq, J.T)
+    if R_box is not None:
+        r = np.asarray(origin, float) - np.asarray(x_hand, float)
+        T = np.block([[np.eye(3), -_skew(r)], [np.zeros((3, 3)), np.eye(3)]])
+        Rb = np.kron(np.eye(2), np.asarray(R_box, float).T)
+        C = Rb @ (T @ C @ T.T) @ Rb.T
+    return np.linalg.inv(C)
+
+
+def _grip_intervals(contacts, grip_force, hands):
+    out = []
+    for h in hands:
+        if grip_force is not None and h in grip_force:
+            g = grip_force[h]; lo, hi = (g, g) if np.isscalar(g) else (g[0], g[1])
+        else:
+            lims = [c.f_max for c in contacts if c.hand == h and c.active and c.f_max is not None]
+            lo = hi = float(lims[0]) if lims else 0.0
+        out.append((float(lo), float(hi)))
+    return out
+
+
+def _certify_compliant(contacts, params: Params, stiffness: Stiffness | None = None, grip_force=None, n_min=0.05, theta_tol_deg=3.0,
+                       x_tol=5e-3, v_tol=1e-3, friction="cone", arm=None, gap_tol=GAP_TOL, check_exists=True, max_vertices=4096, **exists_kw):
+    """mode='compliant'.  Admission = (1) all corner normals >= n_min, (2) all tangential forces inside the friction cone (or the
+    inscribed pyramid) at mu_lo, (3) box rotation <= theta_tol, translation <= x_tol (spring) / creep surface speed <= v_tol (creep),
+    (4) the existence LP is feasible -- at EVERY vertex of (m, m r)-polytope x acceleration box x jaw-force box.  Exact for the model
+    because the corner forces and u are affine in (w, F) and the constraints are convex (|ft| <= mu fn is a convex function of f).
+    gap_tol [m] (default GAP_TOL): every corner has an UNMODELLED initial gap |g_j| <= gap_tol (pad/face misalignment, flatness, IK error; at kn ~ 5e4 N/m
+    12 um is already 0.6 N).  The forces are also affine in g, so the worst case over the g-box is bounded in closed form with the L1 row sums of the
+    sensitivity matrix (normal: fn_i - gap_tol sum_j|dfn_ij| >= n_min; friction: |ft_i| + gap_tol sum_j||dft_ij|| <= mu (fn_i - gap_tol sum_j|dfn_ij|); same for u, v).
+    gap_tol = 0 is the plain owner spec (perfect nominal geometry)."""
+    t0 = time.perf_counter()
+    stiff = stiffness or Stiffness()
+    contacts = list(contacts)
+    hands_active = sorted({c.hand for c in contacts if c.active})
+    detail = dict(mode="compliant", optimistic_internal_force=len(hands_active) >= 2, n_contacts=len(contacts), hands_active=hands_active, notes=[],
+                  stiffness=dict(stiff.__dict__), gap_tol=gap_tol, n_min=n_min, theta_tol_deg=theta_tol_deg, x_tol=x_tol, v_tol=v_tol, friction=friction)
+    if not contacts:
+        detail.update(worst_vertex=None, worst_direction=None, elapsed_s=time.perf_counter() - t0, margins={})
+        return False, -np.inf, detail
+    w0, base, cols, los, his, names = wrench_vertices(params)
+    nvv = cols.shape[1]
+    ints = _grip_intervals(contacts, grip_force, hands_active)
+    fvars = [k for k, (lo, hi) in enumerate(ints) if hi - lo > 1e-12]
+    if len(base) * 2 ** (nvv + len(fvars)) > max_vertices:
+        raise ValueError("too many parameter vertices")
+    Wv, Fv, labels = [], [], []
+    for (bl, wb), bits in itertools.product(base, itertools.product((0, 1), repeat=nvv)):
+        x = np.where(np.array(bits, bool), his, los) if nvv else np.zeros(0)
+        w = w0 + wb + (cols @ x if nvv else 0)
+        for fb in itertools.product((0, 1), repeat=len(fvars)):
+            F = np.array([lo for lo, hi in ints], float)
+            for q, kk in enumerate(fvars):
+                F[kk] = ints[kk][1] if fb[q] else ints[kk][0]
+            Wv.append(w); Fv.append(F); labels.append(dict(bl, **dict(zip(names, x.tolist())), F_g=F.tolist()))
+    Wv = np.array(Wv); Fv = np.array(Fv).reshape(len(Wv), len(hands_active))
+    detail["n_vertices"] = len(Wv)
+    models = ("spring", "creep") if stiff.tangential == "both" else (stiff.tangential,)
+    mu = np.array([c.mu_lo for c in contacts])
+    fscale = max(1e-9, float(np.max([lo for lo, hi in ints] + [params.m_hi * np.linalg.norm(params.g)])))
+    R_c = float(np.max(np.linalg.norm([c.p for c in contacts], axis=1)))
+    ok = True
+    rel_margin = np.inf; worst = (None, None)
+    allm = {}
+    for tm in models:
+        M = CompliantModel(contacts, stiff, tangential=tm, arm=arm)
+        if M.singular:
+            detail["notes"].append(f"{tm}: stiffness matrix singular (cond {M.cond:.2e}) -> reject (active set not determined)")
+            allm[tm] = dict(singular=True, cond=M.cond)
+            ok = False; rel_margin = -np.inf
+            continue
+        S_ = M.solve(Wv, Fv)
+        fn, ft = S_["fn"], S_["ft"]
+        if gap_tol > 0:
+            G = M.gap_sensitivity()
+            d_fn = gap_tol * np.abs(G["dfn"]).sum(1)                            # (nc,) worst-case normal-force loss
+            d_ft = gap_tol * np.linalg.norm(G["dft"], axis=1).sum(1)            # (nc,) worst-case tangential-force gain
+            d_ut = gap_tol * np.linalg.norm(G["du"][:3], axis=0).sum(); d_ur = gap_tol * np.linalg.norm(G["du"][3:], axis=0).sum()
+            d_sp = gap_tol * (np.linalg.norm(G["dv"][:3], axis=0) + R_c * np.linalg.norm(G["dv"][3:], axis=0)).sum()
+        else:
+            d_fn = d_ft = np.zeros(M.nc); d_ut = d_ur = d_sp = 0.0
+        fn_w = fn - d_fn                                                        # worst-case normal force per corner
+        nrm_m = fn_w.min(1) - n_min
+        ftn = (np.linalg.norm(ft, axis=-1) if friction == "cone" else np.max(np.abs(ft), -1) * np.sqrt(2.0)) + d_ft
+        fr_m = np.where(fn_w > 1e-9, 1.0 - ftn / np.maximum(mu * fn_w, 1e-12), -np.inf).min(1)
+        trans = np.linalg.norm(S_["u"][:, :3], axis=1) + d_ut; rot = np.degrees(np.linalg.norm(S_["u"][:, 3:], axis=1) + d_ur)
+        if tm == "spring":
+            dsp_m = np.minimum(1 - rot / theta_tol_deg, 1 - trans / x_tol)
+        else:
+            sp = np.linalg.norm(S_["v"][:, :3], axis=1) + R_c * np.linalg.norm(S_["v"][:, 3:], axis=1) + d_sp
+            dsp_m = np.minimum(1 - sp / v_tol, np.minimum(1 - rot / theta_tol_deg, 1 - trans / x_tol))
+        comp = np.minimum(np.minimum(nrm_m / fscale, fr_m), dsp_m)
+        k = int(np.argmin(comp))
+        allm[tm] = dict(normal_margin_N=float(nrm_m.min()), friction_margin=float(fr_m.min()), disp_margin=float(dsp_m.min()),
+                        min_fn_N=float(fn.min()), min_fn_worst_gap_N=float(fn_w.min()), max_ft_over_mu_fn=float(1 - fr_m.min()), max_rot_deg=float(rot.max()), max_trans_mm=float(1e3 * trans.max()),
+                        max_creep_surface_speed_mm_s=(float(1e3 * sp.max()) if tm == "creep" else None), cond=M.cond,
+                        worst_vertex=labels[k], worst_condition=["normal", "friction", "displacement"][int(np.argmin([nrm_m[k] / fscale, fr_m[k], dsp_m[k]]))])
+        if comp.min() < rel_margin:
+            rel_margin = float(comp.min()); worst = (labels[k], f"{tm}:{allm[tm]['worst_condition']}")
+        if comp.min() < 0:
+            ok = False
+    detail["compliant"] = allm
+    if check_exists:
+        kw = dict(exists_kw); kw.setdefault("compute_margin", False)
+        ok_e, eps_e, det_e = _certify_exists(contacts, params, **kw)
+        detail["exists_ok"] = bool(ok_e); detail["exists_eps"] = float(eps_e)
+        if not ok_e:
+            ok = False; rel_margin = min(rel_margin, -1.0); worst = (det_e.get("worst_vertex"), "exists")
+    detail.update(worst_vertex=worst[0], worst_direction=worst[1], elapsed_s=time.perf_counter() - t0)
+    return bool(ok), float(rel_margin), detail
+
+
+def certify_hold(contacts, params: Params, mode="compliant", **kw):
+    """-> (ok, eps, detail).  mode='compliant' (default): existence AND linear-elastic consistency (see _certify_compliant; eps = worst
+    DIMENSIONLESS margin of normal-force / friction / displacement, ok <=> >= 0).  mode='exists': force-existence LP only
+    (eps = wrench-space margin, N); keywords of that mode: m_edges, edge_scale, compute_margin, max_vertices, min_margin."""
+    if mode == "exists":
+        return _certify_exists(contacts, params, **kw)
+    if mode != "compliant":
+        raise ValueError(mode)
+    return _certify_compliant(contacts, params, **kw)
+
+
 # ------------------------------------------------------------------------------------------------ scene glue
 @dataclass
 class SceneContacts:
@@ -450,7 +749,8 @@ def contacts_from_scene(model, data, which=("left", "right", "support"), mu_lo=0
             continue
         gb = model.body(f"{hand}_arm_gripper_base").id
         Rg = data.xmat[gb].reshape(3, 3)
-        out += pad_contacts(hand, R_box.T @ Rg, R_box.T @ (data.xpos[gb] - p_box), h, mu_lo, mu_hi, f_limit, limit_mode, shrink=shrink)
+        f1 = R_box.T @ (data.xpos[model.body(f"{hand}_arm_finger1").id] - p_box)
+        out += pad_contacts(hand, R_box.T @ Rg, R_box.T @ (data.xpos[gb] - p_box), h, mu_lo, mu_hi, f_limit, limit_mode, shrink=shrink, finger1_pos=f1)
     return SceneContacts(out, R_box.T @ np.array([0, 0, -G]), R_box, p_box, h)
 
 

@@ -1,0 +1,21 @@
+{
+ "kn": 6200.0,
+ "kappa": 7.5,
+ "gaps": [
+  0.0
+ ],
+ "sets": {
+  "/common/home/ss5772/.tmp/claude-1905239669/-common-users-ss5772-bimanual/0fdf97c2-ab12-45ef-8d3a-31b6454afd0a/scratchpad/truthfix/heldout_v2.json": {
+   "n": 256,
+   "n_stays": 138,
+   "table": {
+    "0.0": {
+     "TP": 68,
+     "TN": 118,
+     "FALSE_SAFE": 0,
+     "false_unsafe": 70
+    }
+   }
+  }
+ }
+}

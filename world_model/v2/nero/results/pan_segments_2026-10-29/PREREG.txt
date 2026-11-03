@@ -1,0 +1,38 @@
+Segment-wise admission on the covered pan (user rule 10-29).  Written before the runs.  SIMULATION ONLY.
+
+Code: world_model/v2/nero/pan/segments.py, segcert.py (branch feat/pan-2026-10-29, on top of 85be2c0).
+Plan: push 0.07, pinch frac 0.65, grip 10 N, clamp geometry v2 (v1 = under_rim 10-28: right elbow on the table in every world).
+Policy: observe_pose built (zed noise, 3 images then refuse), claws re-aimed at the estimate; path-aware pre-grasps (clearance >= 5 mm,
+joint margin left 0.05 / right 0.01 rad, else refuse at B0); observable boundary checks after pinch/push/clamp; lift slip monitor.
+Bounds: segments.BOUNDS (U, R, ROA, MON) -- ASSUMED unless marked MODEL; copied into every raw record.
+
+Worlds (the same theta lists for every method):
+  full     = 32 vertices + 30 i.i.d. interior of the prior box (= results/pan_fair_box_2026-10-29), +-1.5 cm, +-8 deg, mu x0.6-1.2, 0-0.4 kg
+  iid      = 70 more i.i.d. draws from the same box (seed 29)            -> failure-rate bound uses the 100 i.i.d. draws only
+  overload = 0.8 kg far-centre puck (outside the prior): 16 corners of (dx, dy, yaw, mu) + 10 interior
+  falsify  = CMA-ES per placement (adversarial, not counted in the bound), candidates below margin 0.05 re-checked densely
+
+Per segment we report: reached, admissible here (no U entry, every backup safe and in R, boundary ROA ok), success (ground truth),
+failures, failures whose backup ends in R, silent failures (unsuccessful but the observable check passed).
+Guarantee type: sampled.  Admission over the box = every library theta that reaches the segment is admissible there.
+
+Expectations (to be checked, not assumed):
+  - refusals at B0 near yaw -8 / dx -1.5 corners (left joint margin) and where the right arm cannot reach with clearance;
+  - lid-unseating counterexamples in low-friction worlds (seen in the pilot: lid 5-7 mm after a push backup at mu x0.6);
+  - overload worlds: clamp misses or slips caught by the boundary check / monitor; every failure should end in R.
+Kill criterion for the rule as built: any failure whose backup does not end in R, or any nominal U entry, is a counterexample
+and is reported with its world and time; it is not tuned away after the fact.
+
+Amendment 10-29 (before lib2): pinch-backup retreat is now the longest of 6..1 cm whose kinematic path keeps >= 5 mm env clearance
+(fixed 6 cm hit the near counter in V11, lib/SUPERSEDED.txt). Selector sweep over the 62 full worlds: 33/62 have pre-grasps for both
+claws at the stated thresholds (best possible with any threshold tried: 37/62); refusals are geometric (left: no contact-free IK in 9;
+right: no forward-facing IK in 11; right wrist roll at its limit in a few). Thresholds unchanged.
+
+Amendment 10-29 (before lib3, no lib2 numbers used):
+- env clearance = hull vertices -> box (exact) + box-edge samples every 2 mm -> hull face planes (lower bound); conservative. Replaces the
+  vertex-only check (missed a box edge touching a hull face) and mj_geomDistance (returned 0.0 for separated mesh/box pairs).
+- pinch-backup retreat chosen at backup time from the arm's joint angles along the claw's current approach axis (the claw turns with
+  the pan in the push; wrist roll j7 lags its command by up to 0.1 rad).
+- R records the lid's sliding speed (diagnostic, not in R): an off-seat lid creeps 0.3-0.6 mm/s in MuJoCo with the pan level and
+  still, while an untouched lid does not move in 20 s. Lid counterexamples are reported with this speed; R and U are unchanged.
+- selector at the stated thresholds: 32/62 full worlds.

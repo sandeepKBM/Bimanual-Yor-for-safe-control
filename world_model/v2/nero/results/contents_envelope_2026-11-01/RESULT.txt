@@ -1,0 +1,35 @@
+Contents envelope, 2026-11-01 (step 1 of the hidden-contents scope).  SIMULATION / MODEL ONLY.  Code: nero/contents/{objects,envelope}.py
+Raw + capture: /data/local/ss5772/contents/envelope_2026-11-01 (copied here: RESULT.json, capture.json).  Wall 120 s, 6 procs.
+
+Guarantee: PROOF UNDER MODEL over the whole contents set (mass interval x COM polytope) x acceleration box, at the listed waypoints
+(exact corner check: the LP value u* is convex in (m, m*c) and in a; tests/test_envelope.py checks it on random interior points and
+checks tau = G + J^T w against MuJoCo inverse dynamics).  NOT covered: configurations between waypoints, object placement error
+(q is the nominal pre-grasp IK), joint friction, sensing error, dynamic slosh/impacts (sampled in sim later).
+Conditional on (ASSUMED unless noted):
+  grasp       rigid weld once closed (user 11-01: wrist cameras + low-level control handle grasping) -> NO grasp-wrench limit
+  torque      16 Nm all joints = MIT t_ff command range, fw >= 1.11 (MEASURED-spec, AgileX docs; a command range, not a rating)
+  payload     3.0 kg per arm (MEASURED-spec, NERO manual) minus the 0.50 kg gripper (MJCF) = 2.50 kg vertical load per arm
+  a_nom       0.5 m/s^2 per axis (cert/model_check.A_MAX); quasi-static (no Coriolis terms); object kept level
+  waypoints   lift-off, +5 cm, carry 10 cm TOWARD the robot at +5 cm, shelf -10 cm/+25 cm  (+x 10 cm: right arm IK miss 105 mm)
+  contents    pan/pot COM anywhere inside the inner wall (r 0.09 m, circumscribed 16-gon), 0..4 cm high (MODEL)
+              tray: 2 mugs (0.30 kg empty + 0..0.25 kg fill), cup centres anywhere inside the rim (conservative hull)
+
+Thresholds (largest contents mass for which the action holds for EVERY COM in the set; centred COM in brackets), 16 Nm preset:
+  object (empty)        plausible contents          one arm @0.5   one arm static   two arms @0.5   two arms static   open-content a_max
+  pan  (0.305 kg PLA)   0..1.02 kg water-full        1.90           2.09 (2.20)      n/a (1 handle)  n/a               lid slide 4.9 m/s^2
+  pot  (0.342 kg PLA)   0..1.02 kg (1.22 dense food) 1.82           1.99 (2.16)      4.42            4.66              lid slide 4.9
+  tray (0.300 kg)       2 mugs: 0.60..1.10 kg        1.72           1.89 (2.20)      4.46            4.70              cup spill 2.45 (1 cm freeboard)
+  Binding limit: the 2.5 kg per-arm payload when the COM is centred; joint 3 (16 Nm) at the worst COM.  The arm's own gravity
+  uses 41 % of 16 Nm at joint 2 before any load.  With the URDF 100 Nm placeholder the payload binds everywhere (thresholds ~2.1/4.4).
+Action bands (rule: one arm -> two arms -> slow -> set down -> refuse; first that holds for the whole set):
+  pan:  one arm <= 1.90 kg | one arm slow 1.90-2.09 | refuse > 2.09
+  pot:  one arm <= 1.82 kg | two arms 1.82-4.42 | two arms slow 4.42-4.66 | refuse > 4.66
+  tray: one arm <= 1.72 kg | two arms 1.72-4.46 | two arms slow 4.46-4.70 | refuse > 4.70
+  "set down" never arises: no listed carry waypoint is harder than lift-off.  Open-content limits (2.45 / 4.9 m/s^2) never bind at 0.5.
+Do the objects reach those ranges?  NO.  pan / pot (18 cm x 4 cm, 1.02 L) top out at ~1.0-1.2 kg of contents, below every
+threshold: one arm always suffices.  Our sim Theta box (to 1.5 kg) is already beyond what the pot can physically hold with water-density
+contents.  Tray with 2 mugs: 1.1 kg max, one arm.  Hidden contents change the action only for heavier loads: >= 4 mugs (2.2 kg),
+a deeper pot (e.g. 20 x 10 cm, ~3 L), or a box of cans/books (the shelf task).
+Caveat: the weld removes the grasp-wrench limit.  A one-arm carry by one side handle of a 0.34 m pot with 1.8 kg puts about
+m g L ~ 3.6 Nm about the jaw axis on a parallel claw; the earlier one-claw pan runs (contents 0 / 0.2 / 0.4 kg) twisted
+10-12 deg at 10 N and 1-2 deg at 40 N (results/contact_model_2026-11-01/claw40).  Under the weld this does not show, so the one-arm bands above are optimistic for real claws.

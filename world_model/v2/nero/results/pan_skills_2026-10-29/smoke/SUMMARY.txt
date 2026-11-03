@@ -1,0 +1,26 @@
+## group I*  n = 1  approach ok 1/1  errors 0
+    pinch                  post holds 1/1   fails {}
+    release_left@pinch     post holds 1/1   fails {}
+    push                   post holds 1/1   fails {}
+    release_left@push      post holds 1/1   fails {}
+    clamp                  post holds 0/1   fails {'pan_move': 1, 'lid': 1}
+    right_back@clamp       post holds 0/0   fails {'(pre not met)': 1}
+    release_left@clamp     post holds 0/0   fails {'(pre not met)': 1}
+    lift                   post holds 0/0   fails {'(pre not met)': 1}
+    lower@lift             post holds 0/0   fails {'(pre not met)': 1}
+    right_back@lift        post holds 0/0   fails {'(pre not met)': 1}
+    release_left@lift      post holds 0/0   fails {'(pre not met)': 1}
+## group V*  n = 1  approach ok 1/1  errors 0
+    pinch                  post holds 1/1   fails {}
+    release_left@pinch     post holds 1/1   fails {}
+    push                   post holds 1/1   fails {}
+    release_left@push      post holds 1/1   fails {}
+    clamp                  post holds 0/1   fails {'pan_move': 1}
+    right_back@clamp       post holds 0/0   fails {'(pre not met)': 1}
+    release_left@clamp     post holds 0/0   fails {'(pre not met)': 1}
+    lift                   post holds 0/0   fails {'(pre not met)': 1}
+    lower@lift             post holds 0/0   fails {'(pre not met)': 1}
+    right_back@lift        post holds 0/0   fails {'(pre not met)': 1}
+    release_left@lift      post holds 0/0   fails {'(pre not met)': 1}
+
+post contract (ASSUMED): {"pinch": {"pan_move_mm": 1.0, "lid_change_mm": 0.5}, "push": {"push_frac": [0.8, 1.2], "yaw_change_deg": 2.0, "tilt_max_deg": 1.0, "lid_change_mm": 2.0}, "clamp": {"pan_move_mm": 2.0, "lid_change_mm": 1.0}, "lift": {"rise_frac": 0.8, "rise_diff_mm": 5.0, "tilt_max_deg": 3.0, "lid_max_mm": 5.0}, "release_left": {"pan_move_mm": 1.0, "lid_change_mm": 0.5}, "right_back": {"pan_move_mm": 1.0, "lid_change_mm": 1.0}, "lower": {"tilt_end_deg": 1.0, "lid_change_mm": 1.0, "dz_end_mm": 3.0}}

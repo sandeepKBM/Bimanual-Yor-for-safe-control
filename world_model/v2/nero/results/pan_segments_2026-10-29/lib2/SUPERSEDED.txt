@@ -1,0 +1,2 @@
+10-29: stopped after 27 worlds. Its env-clearance check (vertex-to-box) missed box-edge contacts (read 3.3 mm at a contact), and the
+pinch-backup retreat was chosen at B0, not from the arm's state at backup time; at 0.6 kg the backup hit the near counter. Superseded by ../lib3.

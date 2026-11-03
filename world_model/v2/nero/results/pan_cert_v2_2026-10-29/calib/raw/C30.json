@@ -1,0 +1,1 @@
+{"tag": "C30", "world": {"placement": "none", "hidden_mass": null, "perturb": {"dx": 0.011574152392090663, "dy": 0.005230795473330961, "yaw_deg": 7.713626011393128, "mu_scale": 1.008920022630494}}, "pi": [0.0, -0.0, -0.0], "refused": "no pre-grasp for the right claw with >= 5 mm clearance and >= 0.01 rad joint margin along its path (best -9.00 of required)", "wall_s": 28.9}

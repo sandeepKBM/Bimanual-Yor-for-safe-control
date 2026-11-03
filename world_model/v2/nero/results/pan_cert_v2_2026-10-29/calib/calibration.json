@@ -1,0 +1,22 @@
+{
+ "n": 40,
+ "n_used": 22,
+ "refused": 18,
+ "errors": 0,
+ "eps_model_max": [
+  0.047688652834431244,
+  0.17649479153689657
+ ],
+ "eps_model_p95": [
+  0.035913087759083806,
+  0.1511357863405051
+ ],
+ "label": "MEASURED max over n (noise-free, model error only); not a bound",
+ "rows": [
+  "pitch M_w",
+  "roll M_u"
+ ],
+ "lid_mm_at_top_max": 0.008701521695312197,
+ "tilt_deg_max": 1.5451957676339023,
+ "U_entered": []
+}

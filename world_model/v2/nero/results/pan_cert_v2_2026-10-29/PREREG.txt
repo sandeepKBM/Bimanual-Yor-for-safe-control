@@ -1,0 +1,25 @@
+Certificate v2 (plan approved 2026-10-29), results folder.  SIMULATION ONLY.
+Step A1 -- pivot-probe calibration, written BEFORE the run.
+What: 40 random calibration worlds (seed 101; pose in the prior box, mu 0.6-1.2, contents 0-0.4 kg anywhere in the disc, 15 %
+empty), noise-free readings, rows from cert/probe.py (pitch about the far-rim pivot line, roll about the handle axis), in the
+robot's frame (arm FK grasp site + aimed yaw + claw rotation).  Residual = a . pi_true - y.
+Output: eps_model per row = max |residual| over n (MEASURED, not a bound); with the ASSUMED sensor noise bound (+-0.05 Nm per
+joint, propagated) it becomes the eps used by the set update.  Calibration worlds are separate from the evaluation sets.
+Expect: pitch residual << the contents signal (0.4 kg at the far centre ~ 0.17 Nm); roll weaker (yaw error of the arm frame).
+Kill: pitch residual max > 0.08 Nm -> the probe cannot narrow the mass usefully; report and redesign.
+
+Step B0 -- let-go backup smoke (gate B), written BEFORE the run.
+Worlds: full-set I03, V10, V11 (truth worlds, observe zed as before); overload OI03 (0.8 kg) run separately.  Stored backups
+cert/backups.py family d in {0.06, 0.03, 0.01} m, branch every 0.2 s / 0.5 s in holds / contact events, each branch also re-run
+with the lid shifted +-1 um (chaos check).  R_V2 (stable + reach replaces rim-on-stove).
+Gate: V10/V11 pinch backups clear the counter for some d; I03 push backups end with the lid < 5 mm at every branch including the
++-1 um variants.  Failing the gate stops Phase B and is reported.
+
+## B0b (2026-10-29, after smokeB failed): smokeB2
+smokeB result: pinch backups clear the counter on V10/V11 for d <= 0.03 (0 bad); push lid <= 1.4 mm at every branch incl +-1 um;
+but push/clamp/lift backups entered U at 27-57 branches per segment: left finger2 hit stove_pad when the claw opened fully after
+the push had moved the rim over the pad. Changes before smokeB2 (no change to U, controller, physics):
+  - backups: left release opens each finger RELEASE_OPEN = 6 mm (design) past its encoder reading, then retreat_fixed d.
+  - R_V2: yaw proxy dropped (user R_V2 = at rest, stable, reachable); reach = contact-free IK pre-grasp with fingers at
+    REGRASP_OPEN = handle_t/2 + 6 mm (MODEL kinematic; the re-grasp itself not yet run).
+smokeB2: same worlds I03, V10, V11 (full) + OI03 (overload), family 0.03,0.01, perturb_lid 1e-6. Same gate as B0.

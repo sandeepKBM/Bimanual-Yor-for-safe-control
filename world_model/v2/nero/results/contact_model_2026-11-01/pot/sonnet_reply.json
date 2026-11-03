@@ -1,0 +1,5 @@
+{"proposer": {"model": "claude sonnet (Agent model=sonnet, Claude Code subagent)", "role": "STAND-IN for the open-weight VLM proposer named in the claims", "input": "3 head-camera RGB images + text prompt; Read tool only", "caveats": "own system prompt (Claude Code subagent), temperature not settable, one sample, images rendered at TRUE pose", "date": "2026-11-01"},
+ "plans": {
+  "I03": {"best": {"grasp_frac": 0.65, "grip_force": 9.0, "lift_skill": "coupled"}, "alternative": {"grasp_frac": 0.55, "grip_force": 10.0, "lift_skill": "independent"}, "confidence": 0.6},
+  "V10": {"best": {"grasp_frac": 0.65, "grip_force": 9.0, "lift_skill": "coupled"}, "alternative": {"grasp_frac": 0.6, "grip_force": 10.0, "lift_skill": "independent"}, "confidence": 0.5},
+  "V12": {"best": {"grasp_frac": 0.7, "grip_force": 9.0, "lift_skill": "coupled"}, "alternative": {"grasp_frac": 0.6, "grip_force": 10.0, "lift_skill": "independent"}, "confidence": 0.5}}}

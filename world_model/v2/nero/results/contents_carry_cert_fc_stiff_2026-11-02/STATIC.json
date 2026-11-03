@@ -1,0 +1,3837 @@
+{
+ "date": "2026-11-02",
+ "n_per_cell": 20,
+ "assumptions": {
+  "grasp": "ASSUMED rigid weld (user 11-01)",
+  "T_cap": "ASSUMED 1.3 Nm",
+  "u_admit": "ASSUMED 0.9",
+  "a_nom": 0.5,
+  "a_backup": 0.25,
+  "a_min": 0.05,
+  "controller": "carry.LeverCtl (FL-MPC + lever-split payload ff), 16 Nm torque box",
+  "claw_rows_in_sim": "recorded, NOT in U (closed-chain internal stress under the weld; see carry.py doc)",
+  "spill_sim": "quasi-static proxy from sim mug acceleration; slosh NOT modelled",
+  "worlds": "theta ~ uniform on the cell (tray: scenes.sample_tray_world placement + uniform fills; box: uniform mass + xy)",
+  "proposer": "none (scripted plan; no LLM in this run)",
+  "fric_comp": "carry.FRIC_COMP {'f': 0.3, 'v_s': 0.02, 'ki': 8.0, 'i_max': 0.6, 'kp': 5.0} (wrapper after FL-MPC; ASSUMED gains)",
+  "weld": "solref (0.004, 1.0) (stiff; MODEL choice for the ASSUMED rigid grasp)"
+ },
+ "cells": {
+  "tray2|0.0-0.05": {
+   "static": {
+    "task": "tray2",
+    "cell": [
+     0.0,
+     0.05
+    ],
+    "contents_m": [
+     0.6,
+     0.7
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": 18.640903078098994,
+    "u_nom": 0.6457,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 0.7,
+     "c": [
+      0.07,
+      -0.125,
+      0.028
+     ],
+     "Fz": {
+      "left": 2.743,
+      "right": 7.567
+     },
+     "twist": {
+      "left": 0.254,
+      "right": 0.254
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.6457,
+       "u_best_split": 0.5794,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 0.7,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 2.743,
+         "right": 7.567
+        },
+        "twist": {
+         "left": 0.254,
+         "right": 0.254
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 18.6409,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.6457,
+       "u_best_split": 0.5794,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 0.7,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 2.743,
+         "right": 7.567
+        },
+        "twist": {
+         "left": 0.254,
+         "right": 0.254
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 18.6409,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.5315,
+       "u_best_split": 0.4186,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 0.7,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 2.743,
+         "right": 7.567
+        },
+        "twist": {
+         "left": 0.258,
+         "right": 0.258
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 18.6409,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.061,
+       "worst": {
+        "m": 0.7,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.061,
+       "worst": {
+        "m": 0.7,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "tray2|0.05-0.125": {
+   "static": {
+    "task": "tray2",
+    "cell": [
+     0.05,
+     0.125
+    ],
+    "contents_m": [
+     0.7,
+     0.85
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": 13.861382695247487,
+    "u_nom": 0.6658,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 0.85,
+     "c": [
+      0.07,
+      -0.125,
+      0.028
+     ],
+     "Fz": {
+      "left": 3.0,
+      "right": 8.857
+     },
+     "twist": {
+      "left": 0.309,
+      "right": 0.309
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.6658,
+       "u_best_split": 0.6,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 0.85,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.0,
+         "right": 8.857
+        },
+        "twist": {
+         "left": 0.309,
+         "right": 0.309
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 13.8614,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.6658,
+       "u_best_split": 0.6,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 0.85,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.0,
+         "right": 8.857
+        },
+        "twist": {
+         "left": 0.309,
+         "right": 0.309
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 13.8614,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.5417,
+       "u_best_split": 0.4251,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 0.85,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.0,
+         "right": 8.857
+        },
+        "twist": {
+         "left": 0.314,
+         "right": 0.314
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 13.8614,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0575,
+       "worst": {
+        "m": 0.85,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0575,
+       "worst": {
+        "m": 0.85,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "tray2|0.125-0.25": {
+   "static": {
+    "task": "tray2",
+    "cell": [
+     0.125,
+     0.25
+    ],
+    "contents_m": [
+     0.85,
+     1.1
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": 5.895515390494968,
+    "u_nom": 0.6992,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 1.1,
+     "c": [
+      0.07,
+      -0.125,
+      0.028
+     ],
+     "Fz": {
+      "left": 3.427,
+      "right": 11.007
+     },
+     "twist": {
+      "left": 0.4,
+      "right": 0.4
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.6992,
+       "u_best_split": 0.6347,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 1.1,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.427,
+         "right": 11.007
+        },
+        "twist": {
+         "left": 0.4,
+         "right": 0.4
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 5.8955,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.6992,
+       "u_best_split": 0.6347,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 1.1,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.427,
+         "right": 11.007
+        },
+        "twist": {
+         "left": 0.4,
+         "right": 0.4
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 5.8955,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.5586,
+       "u_best_split": 0.4384,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 1.1,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.427,
+         "right": 11.007
+        },
+        "twist": {
+         "left": 0.407,
+         "right": 0.407
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 5.8955,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0517,
+       "worst": {
+        "m": 1.1,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0517,
+       "worst": {
+        "m": 1.1,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "tray4|0.0-0.05": {
+   "static": {
+    "task": "tray4",
+    "cell": [
+     0.0,
+     0.05
+    ],
+    "contents_m": [
+     1.2,
+     1.4
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": 18.640903078098994,
+    "u_nom": 0.7394,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 1.4,
+     "c": [
+      0.07,
+      -0.125,
+      0.028
+     ],
+     "Fz": {
+      "left": 3.94,
+      "right": 13.587
+     },
+     "twist": {
+      "left": 0.51,
+      "right": 0.51
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.7394,
+       "u_best_split": 0.6764,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 1.4,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.94,
+         "right": 13.587
+        },
+        "twist": {
+         "left": 0.51,
+         "right": 0.51
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 18.6409,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.7394,
+       "u_best_split": 0.6764,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 1.4,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.94,
+         "right": 13.587
+        },
+        "twist": {
+         "left": 0.51,
+         "right": 0.51
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 18.6409,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.5789,
+       "u_best_split": 0.4913,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 1.4,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.94,
+         "right": 13.587
+        },
+        "twist": {
+         "left": 0.519,
+         "right": 0.519
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 18.6409,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.047,
+       "worst": {
+        "m": 1.4,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.047,
+       "worst": {
+        "m": 1.4,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "tray4|0.05-0.125": {
+   "static": {
+    "task": "tray4",
+    "cell": [
+     0.05,
+     0.125
+    ],
+    "contents_m": [
+     1.4,
+     1.7
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": 13.861382695247487,
+    "u_nom": 0.7796,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 1.7,
+     "c": [
+      0.07,
+      -0.125,
+      0.028
+     ],
+     "Fz": {
+      "left": 4.453,
+      "right": 16.167
+     },
+     "twist": {
+      "left": 0.619,
+      "right": 0.619
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.7796,
+       "u_best_split": 0.718,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 1.7,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 4.453,
+         "right": 16.167
+        },
+        "twist": {
+         "left": 0.619,
+         "right": 0.619
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 13.8614,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.7796,
+       "u_best_split": 0.718,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 1.7,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 4.453,
+         "right": 16.167
+        },
+        "twist": {
+         "left": 0.619,
+         "right": 0.619
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 13.8614,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.6618,
+       "u_best_split": 0.5887,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 1.7,
+        "c": [
+         0.07,
+         0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 16.231,
+         "right": 4.389
+        },
+        "twist": {
+         "left": 0.61,
+         "right": 0.61
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 13.8614,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0437,
+       "worst": {
+        "m": 1.7,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0437,
+       "worst": {
+        "m": 1.7,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "tray4|0.125-0.25": {
+   "static": {
+    "task": "tray4",
+    "cell": [
+     0.125,
+     0.25
+    ],
+    "contents_m": [
+     1.7,
+     2.2
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": 5.895515390494968,
+    "u_nom": 0.8466,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 2.2,
+     "c": [
+      0.07,
+      -0.125,
+      0.028
+     ],
+     "Fz": {
+      "left": 5.308,
+      "right": 20.467
+     },
+     "twist": {
+      "left": 0.802,
+      "right": 0.802
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.8466,
+       "u_best_split": 0.7891,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 2.2,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.308,
+         "right": 20.467
+        },
+        "twist": {
+         "left": 0.802,
+         "right": 0.802
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 5.8955,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.8466,
+       "u_best_split": 0.7891,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 2.2,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.308,
+         "right": 20.467
+        },
+        "twist": {
+         "left": 0.802,
+         "right": 0.802
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 5.8955,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.8379,
+       "u_best_split": 0.7513,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 2.2,
+        "c": [
+         0.07,
+         0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 20.55,
+         "right": 5.225
+        },
+        "twist": {
+         "left": 0.79,
+         "right": 0.79
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 5.8955,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0399,
+       "worst": {
+        "m": 2.2,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0399,
+       "worst": {
+        "m": 2.2,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "tray6|0.0-0.05": {
+   "static": {
+    "task": "tray6",
+    "cell": [
+     0.0,
+     0.05
+    ],
+    "contents_m": [
+     1.7999999999999998,
+     2.0999999999999996
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": 18.640903078098994,
+    "u_nom": 0.8332,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 2.1,
+     "c": [
+      0.07,
+      -0.125,
+      0.028
+     ],
+     "Fz": {
+      "left": 5.137,
+      "right": 19.607
+     },
+     "twist": {
+      "left": 0.766,
+      "right": 0.766
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.8332,
+       "u_best_split": 0.7746,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 2.1,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.137,
+         "right": 19.607
+        },
+        "twist": {
+         "left": 0.766,
+         "right": 0.766
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 18.6409,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.8332,
+       "u_best_split": 0.7746,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 2.1,
+        "c": [
+         0.07,
+         -0.125,
+         0.028
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.137,
+         "right": 19.607
+        },
+        "twist": {
+         "left": 0.766,
+         "right": 0.766
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 18.6409,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.8027,
+       "u_best_split": 0.7188,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 2.1,
+        "c": [
+         0.07,
+         0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 19.687,
+         "right": 5.057
+        },
+        "twist": {
+         "left": 0.754,
+         "right": 0.754
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 18.6409,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0405,
+       "worst": {
+        "m": 2.1,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0405,
+       "worst": {
+        "m": 2.1,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "tray6|0.05-0.125": {
+   "static": {
+    "task": "tray6",
+    "cell": [
+     0.05,
+     0.125
+    ],
+    "contents_m": [
+     2.0999999999999996,
+     2.55
+    ],
+    "action": "refuse",
+    "a_admit": null,
+    "a_open": 13.861382695247487,
+    "u_nom": 0.9612,
+    "worst_nom": {
+     "wp": "p12",
+     "m": 2.55,
+     "c": [
+      0.07,
+      0.125,
+      0.0555
+     ],
+     "Fz": {
+      "left": 23.574,
+      "right": 5.81
+     },
+     "twist": {
+      "left": 0.916,
+      "right": 0.916
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 0.9612,
+       "u_best_split": 0.8651,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p0",
+        "m": 2.55,
+        "c": [
+         0.07,
+         0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 23.574,
+         "right": 5.81
+        },
+        "twist": {
+         "left": 0.916,
+         "right": 0.916
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 13.8614,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 0.9612,
+       "u_best_split": 0.8651,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 2.55,
+        "c": [
+         0.07,
+         0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 23.574,
+         "right": 5.81
+        },
+        "twist": {
+         "left": 0.916,
+         "right": 0.916
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 13.8614,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 0.9612,
+       "u_best_split": 0.8651,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 2.55,
+        "c": [
+         0.07,
+         0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 23.574,
+         "right": 5.81
+        },
+        "twist": {
+         "left": 0.916,
+         "right": 0.916
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 13.8614,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0381,
+       "worst": {
+        "m": 2.55,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0381,
+       "worst": {
+        "m": 2.55,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "tray6|0.125-0.25": {
+   "static": {
+    "task": "tray6",
+    "cell": [
+     0.125,
+     0.25
+    ],
+    "contents_m": [
+     2.55,
+     3.3000000000000003
+    ],
+    "action": "refuse",
+    "a_admit": null,
+    "a_open": 5.895515390494968,
+    "u_nom": 1.2254,
+    "worst_nom": {
+     "wp": "p12",
+     "m": 3.3,
+     "c": [
+      0.07,
+      0.125,
+      0.0555
+     ],
+     "Fz": {
+      "left": 30.052,
+      "right": 7.064
+     },
+     "twist": {
+      "left": 1.186,
+      "right": 1.186
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.2254,
+       "u_best_split": 1.109,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p0",
+        "m": 3.3,
+        "c": [
+         0.07,
+         0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 30.052,
+         "right": 7.064
+        },
+        "twist": {
+         "left": 1.186,
+         "right": 1.186
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 5.8955,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.2254,
+       "u_best_split": 1.109,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 3.3,
+        "c": [
+         0.07,
+         0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 30.052,
+         "right": 7.064
+        },
+        "twist": {
+         "left": 1.186,
+         "right": 1.186
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 5.8955,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.2254,
+       "u_best_split": 1.109,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 3.3,
+        "c": [
+         0.07,
+         0.125,
+         0.0555
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 30.052,
+         "right": 7.064
+        },
+        "twist": {
+         "left": 1.186,
+         "right": 1.186
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "open_content": {
+       "ok": true,
+       "a_plan": 0.5,
+       "a_open": 5.8955,
+       "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0353,
+       "worst": {
+        "m": 3.3,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0353,
+       "worst": {
+        "m": 3.3,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ]
+       },
+       "support": {
+        "top": 0.8200000000000001,
+        "x": [
+         0.13,
+         0.53
+        ],
+        "y": [
+         -0.44999999999999996,
+         -0.15
+        ]
+       },
+       "region": [
+        [
+         0.16965203337930357,
+         0.38965203337930354
+        ],
+        [
+         -0.44999999999999996,
+         -0.15
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "box|0.5-1.0": {
+   "static": {
+    "task": "box",
+    "cell": [
+     0.5,
+     1.0
+    ],
+    "contents_m": [
+     0.5,
+     1.0
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": Infinity,
+    "u_nom": 0.7059,
+    "worst_nom": {
+     "wp": "p5",
+     "m": 1.0,
+     "c": [
+      0.095,
+      -0.145,
+      0.005
+     ],
+     "Fz": {
+      "left": 2.451,
+      "right": 10.437
+     },
+     "twist": {
+      "left": 0.493,
+      "right": 0.493
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.7059,
+       "u_best_split": 0.6429,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p5",
+        "m": 1.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 2.451,
+         "right": 10.437
+        },
+        "twist": {
+         "left": 0.493,
+         "right": 0.493
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.7006,
+       "u_best_split": 0.6342,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 1.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 2.451,
+         "right": 10.437
+        },
+        "twist": {
+         "left": 0.528,
+         "right": 0.528
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.5473,
+       "u_best_split": 0.4217,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p12",
+        "m": 1.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 2.451,
+         "right": 10.437
+        },
+        "twist": {
+         "left": 0.469,
+         "right": 0.469
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0143,
+       "worst": {
+        "m": 1.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0143,
+       "worst": {
+        "m": 1.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "box|1.0-1.5": {
+   "static": {
+    "task": "box",
+    "cell": [
+     1.0,
+     1.5
+    ],
+    "contents_m": [
+     1.0,
+     1.5
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": Infinity,
+    "u_nom": 0.7921,
+    "worst_nom": {
+     "wp": "p5",
+     "m": 1.5,
+     "c": [
+      0.095,
+      -0.145,
+      0.005
+     ],
+     "Fz": {
+      "left": 3.032,
+      "right": 15.011
+     },
+     "twist": {
+      "left": 0.738,
+      "right": 0.738
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.7921,
+       "u_best_split": 0.729,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p5",
+        "m": 1.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.032,
+         "right": 15.011
+        },
+        "twist": {
+         "left": 0.738,
+         "right": 0.738
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.7911,
+       "u_best_split": 0.7212,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 1.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.032,
+         "right": 15.011
+        },
+        "twist": {
+         "left": 0.791,
+         "right": 0.791
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.6152,
+       "u_best_split": 0.6166,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p18",
+        "m": 1.5,
+        "c": [
+         0.095,
+         0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 15.087,
+         "right": 2.955
+        },
+        "twist": {
+         "left": 0.769,
+         "right": 0.769
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0089,
+       "worst": {
+        "m": 1.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0089,
+       "worst": {
+        "m": 1.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "box|1.5-2.0": {
+   "static": {
+    "task": "box",
+    "cell": [
+     1.5,
+     2.0
+    ],
+    "contents_m": [
+     1.5,
+     2.0
+    ],
+    "action": "two arms",
+    "a_admit": 0.5,
+    "a_open": Infinity,
+    "u_nom": 0.8817,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 2.0,
+     "c": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "Fz": {
+      "left": 3.613,
+      "right": 19.584
+     },
+     "twist": {
+      "left": 1.053,
+      "right": 1.053
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.8817,
+       "u_best_split": 0.8331,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 2.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.613,
+         "right": 19.584
+        },
+        "twist": {
+         "left": 1.053,
+         "right": 1.053
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.8817,
+       "u_best_split": 0.8262,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 2.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         -0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.613,
+         "right": 19.584
+        },
+        "twist": {
+         "left": 1.053,
+         "right": 1.053
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": true,
+       "u_max": 0.811,
+       "u_best_split": 0.8115,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p18",
+        "m": 2.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 3.613,
+         "right": 19.584
+        },
+        "twist": {
+         "left": 1.054,
+         "right": 1.054
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0059,
+       "worst": {
+        "m": 2.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0059,
+       "worst": {
+        "m": 2.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "box|2.0-2.5": {
+   "static": {
+    "task": "box",
+    "cell": [
+     2.0,
+     2.5
+    ],
+    "contents_m": [
+     2.0,
+     2.5
+    ],
+    "action": "refuse",
+    "a_admit": null,
+    "a_open": Infinity,
+    "u_nom": 1.0133,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 2.5,
+     "c": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "Fz": {
+      "left": 4.194,
+      "right": 24.158
+     },
+     "twist": {
+      "left": 1.317,
+      "right": 1.317
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.0133,
+       "u_best_split": 1.0109,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 2.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 4.194,
+         "right": 24.158
+        },
+        "twist": {
+         "left": 1.317,
+         "right": 1.317
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.0133,
+       "u_best_split": 1.0109,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 2.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 4.194,
+         "right": 24.158
+        },
+        "twist": {
+         "left": 1.317,
+         "right": 1.317
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.0133,
+       "u_best_split": 1.0109,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p18",
+        "m": 2.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 4.194,
+         "right": 24.158
+        },
+        "twist": {
+         "left": 1.317,
+         "right": 1.317
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.004,
+       "worst": {
+        "m": 2.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.004,
+       "worst": {
+        "m": 2.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "box|2.5-3.0": {
+   "static": {
+    "task": "box",
+    "cell": [
+     2.5,
+     3.0
+    ],
+    "contents_m": [
+     2.5,
+     3.0
+    ],
+    "action": "refuse",
+    "a_admit": null,
+    "a_open": Infinity,
+    "u_nom": 1.2155,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 3.0,
+     "c": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "Fz": {
+      "left": 4.775,
+      "right": 28.732
+     },
+     "twist": {
+      "left": 1.58,
+      "right": 1.58
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.2155,
+       "u_best_split": 1.2126,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 3.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 4.775,
+         "right": 28.732
+        },
+        "twist": {
+         "left": 1.58,
+         "right": 1.58
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.2155,
+       "u_best_split": 1.2126,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 3.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 4.775,
+         "right": 28.732
+        },
+        "twist": {
+         "left": 1.58,
+         "right": 1.58
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.2155,
+       "u_best_split": 1.2126,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p18",
+        "m": 3.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 4.775,
+         "right": 28.732
+        },
+        "twist": {
+         "left": 1.58,
+         "right": 1.58
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0027,
+       "worst": {
+        "m": 3.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0027,
+       "worst": {
+        "m": 3.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "box|3.0-3.5": {
+   "static": {
+    "task": "box",
+    "cell": [
+     3.0,
+     3.5
+    ],
+    "contents_m": [
+     3.0,
+     3.5
+    ],
+    "action": "refuse",
+    "a_admit": null,
+    "a_open": Infinity,
+    "u_nom": 1.4178,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 3.5,
+     "c": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "Fz": {
+      "left": 5.356,
+      "right": 33.306
+     },
+     "twist": {
+      "left": 1.843,
+      "right": 1.843
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.4178,
+       "u_best_split": 1.4144,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 3.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.356,
+         "right": 33.306
+        },
+        "twist": {
+         "left": 1.843,
+         "right": 1.843
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.4178,
+       "u_best_split": 1.4144,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 3.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.356,
+         "right": 33.306
+        },
+        "twist": {
+         "left": 1.843,
+         "right": 1.843
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.4178,
+       "u_best_split": 1.4144,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p18",
+        "m": 3.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.356,
+         "right": 33.306
+        },
+        "twist": {
+         "left": 1.843,
+         "right": 1.843
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0017,
+       "worst": {
+        "m": 3.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0017,
+       "worst": {
+        "m": 3.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "box|3.5-4.0": {
+   "static": {
+    "task": "box",
+    "cell": [
+     3.5,
+     4.0
+    ],
+    "contents_m": [
+     3.5,
+     4.0
+    ],
+    "action": "refuse",
+    "a_admit": null,
+    "a_open": Infinity,
+    "u_nom": 1.6201,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 4.0,
+     "c": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "Fz": {
+      "left": 5.937,
+      "right": 37.88
+     },
+     "twist": {
+      "left": 2.106,
+      "right": 2.106
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.6201,
+       "u_best_split": 1.6162,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 4.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.937,
+         "right": 37.88
+        },
+        "twist": {
+         "left": 2.106,
+         "right": 2.106
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.6201,
+       "u_best_split": 1.6162,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 4.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.937,
+         "right": 37.88
+        },
+        "twist": {
+         "left": 2.106,
+         "right": 2.106
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.6201,
+       "u_best_split": 1.6162,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p18",
+        "m": 4.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 5.937,
+         "right": 37.88
+        },
+        "twist": {
+         "left": 2.106,
+         "right": 2.106
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0009,
+       "worst": {
+        "m": 4.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0009,
+       "worst": {
+        "m": 4.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "box|4.0-4.5": {
+   "static": {
+    "task": "box",
+    "cell": [
+     4.0,
+     4.5
+    ],
+    "contents_m": [
+     4.0,
+     4.5
+    ],
+    "action": "refuse",
+    "a_admit": null,
+    "a_open": Infinity,
+    "u_nom": 1.8223,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 4.5,
+     "c": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "Fz": {
+      "left": 6.518,
+      "right": 42.454
+     },
+     "twist": {
+      "left": 2.369,
+      "right": 2.369
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.8223,
+       "u_best_split": 1.818,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 4.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 6.518,
+         "right": 42.454
+        },
+        "twist": {
+         "left": 2.369,
+         "right": 2.369
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.8223,
+       "u_best_split": 1.818,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 4.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 6.518,
+         "right": 42.454
+        },
+        "twist": {
+         "left": 2.369,
+         "right": 2.369
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 1.8223,
+       "u_best_split": 1.818,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p18",
+        "m": 4.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 6.518,
+         "right": 42.454
+        },
+        "twist": {
+         "left": 2.369,
+         "right": 2.369
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0003,
+       "worst": {
+        "m": 4.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": true,
+       "margin_m": 0.0003,
+       "worst": {
+        "m": 4.5,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  },
+  "box|4.5-5.0": {
+   "static": {
+    "task": "box",
+    "cell": [
+     4.5,
+     5.0
+    ],
+    "contents_m": [
+     4.5,
+     5.0
+    ],
+    "action": "refuse",
+    "a_admit": null,
+    "a_open": Infinity,
+    "u_nom": 2.0246,
+    "worst_nom": {
+     "wp": "p6",
+     "m": 5.0,
+     "c": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "Fz": {
+      "left": 7.1,
+      "right": 47.028
+     },
+     "twist": {
+      "left": 2.632,
+      "right": 2.632
+     }
+    },
+    "rows": {
+     "lift": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 2.0246,
+       "u_best_split": 2.0198,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 5.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 7.1,
+         "right": 47.028
+        },
+        "twist": {
+         "left": 2.632,
+         "right": 2.632
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "carry": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 2.0246,
+       "u_best_split": 2.0198,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p6",
+        "m": 5.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 7.1,
+         "right": 47.028
+        },
+        "twist": {
+         "left": 2.632,
+         "right": 2.632
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      }
+     },
+     "place": {
+      "torque_payload_twist": {
+       "ok": false,
+       "u_max": 2.0246,
+       "u_best_split": 2.0198,
+       "a": 0.5,
+       "n_samples": 7,
+       "worst": {
+        "wp": "p18",
+        "m": 5.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "a": [
+         -0.5,
+         0.5,
+         0.5
+        ],
+        "Fz": {
+         "left": 7.1,
+         "right": 47.028
+        },
+        "twist": {
+         "left": 2.632,
+         "right": 2.632
+        }
+       },
+       "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm, 3 kg payload, claw twist 1.3 Nm ASSUMED, admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+      },
+      "support_dest": {
+       "ok": false,
+       "margin_m": -0.0001,
+       "worst": {
+        "m": 5.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     },
+     "release": {
+      "support_dest": {
+       "ok": false,
+       "margin_m": -0.0001,
+       "worst": {
+        "m": 5.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "support": {
+        "top": 0.97,
+        "x": [
+         0.06,
+         0.27
+        ],
+        "y": [
+         -0.44,
+         -0.15999999999999998
+        ]
+       },
+       "region": [
+        [
+         0.07965203337930352,
+         0.27
+        ],
+        [
+         -0.44,
+         -0.15999999999999998
+        ]
+       ],
+       "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle; placement at the nominal destination, placement error NOT covered)"
+      }
+     }
+    }
+   },
+   "records": []
+  }
+ }
+}

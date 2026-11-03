@@ -1,0 +1,6 @@
+full     n=62  v1 refused 25  v2 refused 0  {}  variants used {'right variant': 15, 'left variant': 10}  v1-ok-but-v2-refused []  errors []
+    still refused: []
+iid      n=70  v1 refused 20  v2 refused 0  {}  variants used {'left variant': 6, 'right variant': 14}  v1-ok-but-v2-refused []  errors []
+    still refused: []
+overload n=26  v1 refused 15  v2 refused 0  {}  variants used {'right variant': 9, 'left variant': 6}  v1-ok-but-v2-refused []  errors []
+    still refused: []

@@ -1,0 +1,19 @@
+box    (0.5, 1.0)   interior n=20 tilt  2.58 spill 0.00 | corners n= 8 tilt  2.99 spill 0.00
+box    (1.0, 1.5)   interior n=20 tilt  2.26 spill 0.00 | corners n= 8 tilt  3.81 spill 0.00
+box    (1.5, 2.0)   interior n=20 tilt  3.70 spill 0.00 | corners n= 8 tilt  4.92 spill 0.00
+box    (2.0, 2.5)   interior n=20 tilt  4.42 spill 0.00 | corners n= 8 tilt  5.92 spill 0.00
+box    (2.5, 3.0)   interior n=20 tilt  6.17 spill 0.00 | corners n= 8 tilt  6.89 spill 0.00
+box    (3.0, 3.5)   interior n=20 tilt  5.86 spill 0.00 | corners n= 8 tilt  7.84 spill 0.00
+box    (3.5, 4.0)   interior n=20 tilt  7.56 spill 0.00 | corners n= 8 tilt  8.77 spill 0.00
+box    (4.0, 4.5)   interior n=20 tilt  7.90 spill 0.00 | corners n= 8 tilt  9.58 spill 0.00
+box    (4.5, 5.0)   interior n=20 tilt  8.92 spill 0.00 | corners n= 8 tilt 11.24 spill 0.00
+tray2  (0.0, 0.05)  interior n=20 tilt  1.20 spill 0.04 | corners n=12 tilt  1.92 spill 0.06
+tray2  (0.05, 0.125) interior n=20 tilt  1.59 spill 0.08 | corners n=12 tilt  2.32 spill 0.08
+tray2  (0.125, 0.25) interior n=20 tilt  1.65 spill 0.14 | corners n=12 tilt  3.00 spill 0.21
+tray4  (0.0, 0.05)  interior n=20 tilt  1.40 spill 0.06 | corners n=12 tilt  1.61 spill 0.08
+tray4  (0.05, 0.125) interior n=20 tilt  1.75 spill 0.08 | corners n=12 tilt  1.87 spill 0.11
+tray4  (0.125, 0.25) interior n=20 tilt  2.50 spill 0.19 | corners n=12 tilt  2.36 spill 0.23  <-- interior exceeds corners
+tray6  (0.0, 0.05)  interior n=20 tilt  1.46 spill 0.04 | corners n=12 tilt  1.94 spill 0.11
+tray6  (0.05, 0.125) interior n=20 tilt  1.14 spill 0.09 | corners n=12 tilt  2.39 spill 0.16
+tray6  (0.125, 0.25) interior n=20 tilt  1.87 spill 0.08 | corners n=12 tilt  3.19 spill 0.26
+cells where interior exceeds corners: 1

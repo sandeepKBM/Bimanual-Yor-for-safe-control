@@ -1,0 +1,19 @@
+run158b RESULT (2026-11-01 16:40; PREREG.txt in this folder; raw on westeros /data/local/ss5772/pan_cert/run158b/raw)
+158 worlds: 89 lifted, 69 v1-approach refusals, 0 errors. The sim is identical to run158 in 89/89 lifts (deterministic), so the
+only differences are the scoring changes in PREREG.
+Predictions held:
+- v1: the 2 run158 counterexamples are gone (the lid had been shoved by the clamp, not the lift). With the lid scored during the
+  lift only, v1 holds 62/89 (run158 metric 56/89). truth@11deg admits 21 v1 lifts; all 21 hold (sampled, n = 21).
+- v2: all 21 truth@11 admits still fail. Every one breaks CLAW_REL (min drift among them 10.2 mm / 10.8 deg), so all are
+  assumption-violated rows, not counterexamples.
+Not a soundness test: CLAW_REL (2 mm / 2 deg, ASSUMED) is broken in 89/89 v1 and 89/89 v2 lifts, so there are 0 clean rows and
+UNSOUND = 0 is vacuous.
+MEASURED (sim, n = 89, one seed per world; claw-to-claw = right claw pose in the left claw frame, max over the lift):
+  v1 drift mm  p50 10.5  p95 34.8  max 41.4 | deg p50 3.9  p95 6.7  max 7.7
+  v2 drift mm  p50 15.1  p95 39.6  max 44.6 | deg p50 13.3 p95 14.8 max 15.7
+  lid shove by the clamp before the lift (lid_pre) mm   p50 1.5  p95 5.1  max 15.5
+  lid vs pan during the lift  v1 p50 0.4 p95 6.1 max 140.2 | v2 p50 0.6 p95 3.2 max 29.8
+  fail reasons  v1: slip_right 27, slip_left 22, lid 5 | v2: slip_right 89, slip_left 73, lid 2
+Reading: the hold model's rigid two-claw assumption is false for both lift skills. The translation drift is mostly relative
+rotation times the ~0.3 m claw-to-claw lever. Next: a coupled lift (mink RelativeFrameTask) to bring the drift under the bound,
+then rerun the same 158 worlds.

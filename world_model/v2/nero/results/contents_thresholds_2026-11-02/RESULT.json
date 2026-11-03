@@ -1,0 +1,2051 @@
+{
+ "date": "2026-11-02",
+ "assumptions": {
+  "grasp": "ASSUMED rigid weld once closed (user 11-01)",
+  "T_cap": "v2: ASSUMED 1.3 Nm per claw (2-norm; LP uses the inscribed box) = vizcoast claw_capacity fit extrapolated to 40 N",
+  "u_admit": "v2: ASSUMED admit at MODEL u <= 0.9 (controller feedback margin; to be sized from sim)",
+  "tau_lim": "MEASURED-spec 16 Nm MIT command range (fw >= 1.11)",
+  "payload": "MEASURED-spec 3.0 kg (NERO manual) minus gripper 0.5 kg (MJCF), vertical",
+  "a_nom": "ASSUMED 0.5 m/s^2 per axis",
+  "quasi_static": "ASSUMED (Coriolis dropped, object level, translation only)",
+  "waypoints": {
+   "pan_pot": {
+    "W0_liftoff": [
+     0,
+     0,
+     0.0
+    ],
+    "W1_lift5cm": [
+     0,
+     0,
+     0.05
+    ],
+    "W2_carry10cm": [
+     -0.1,
+     0,
+     0.05
+    ],
+    "W3_shelf25cm": [
+     -0.1,
+     0,
+     0.25
+    ]
+   },
+   "tray": {
+    "W0_liftoff": [
+     0,
+     0,
+     0
+    ],
+    "T1_lift5cm": [
+     0,
+     0,
+     0.05
+    ],
+    "T2_carry10cm": [
+     -0.1,
+     0,
+     0.05
+    ],
+    "T3_place": [
+     -0.1,
+     0,
+     0.0
+    ]
+   },
+   "box": {
+    "W0_liftoff": [
+     0,
+     0,
+     0
+    ],
+    "B1_lift18cm": [
+     0,
+     0,
+     0.18
+    ],
+    "B2_over_shelf": [
+     -0.2,
+     0,
+     0.18
+    ],
+    "B3_on_shelf": [
+     -0.2,
+     0,
+     0.15
+    ]
+   }
+  },
+  "mugs": "ASSUMED count visible; 0.30 kg empty, fill 0..0.25 kg, >= 1 cm freeboard; placement anywhere inside the rim",
+  "box": "ASSUMED 0.25 kg crate, contents 0.5..5 kg, COM anywhere in the interior",
+  "guarantee": "proof under MODEL over contents set x acceleration box at the listed waypoints; between waypoints, placement error, slosh, contents sliding NOT covered"
+ },
+ "objects": {
+  "pan": {
+   "empty_mass": 0.3048,
+   "contents_m": [
+    0.0,
+    1.5
+   ],
+   "open_limits": {
+    "lid_slide": 4.905
+   },
+   "labels": {
+    "m": "ASSUMED box 0..1.5 kg (hardworlds.THETA mass 0.02..1.5)",
+    "P": "MODEL: any contents COM lies inside the inner wall (r <= 0.09 m, circumscribed 16-gon), 0..wall height"
+   },
+   "plausible": {
+    "volume_L": 1.017876019763093,
+    "water_full_kg": 1.017876019763093,
+    "note": "MODEL: inner volume pi r^2 h; denser food (rho 1.2) -> 1.22 kg"
+   },
+   "settings": {
+    "v2": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "W1_lift5cm": {},
+      "W2_carry10cm": {},
+      "W3_shelf25cm": {}
+     },
+     "m_max_one": {
+      "centre_static": 0.3245,
+      "worst_com_static": 0.2241,
+      "worst_com_a_nom": 0.2021,
+      "liftoff_worst_com_static": 0.2241
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 3.9418,
+      "wp": "W0_liftoff",
+      "m": 1.5,
+      "c": [
+       0.0179,
+       -0.09,
+       0.0025
+      ],
+      "Fz": 18.608,
+      "twist": 5.124,
+      "binding": "twist"
+     },
+     "action_full_set": {
+      "action": "refuse",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 3.9418,
+        "carry_static": 3.7264,
+        "liftoff_static": 3.7264
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.167,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.333,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.5,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.667,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.833,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.0,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.167,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.333,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.5,
+       "action": "refuse",
+       "a_star": null
+      }
+     ]
+    },
+    "v1": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "W1_lift5cm": {},
+      "W2_carry10cm": {},
+      "W3_shelf25cm": {}
+     },
+     "m_max_one": {
+      "centre_static": 2.1951,
+      "worst_com_static": 2.0925,
+      "worst_com_a_nom": 1.8984,
+      "liftoff_worst_com_static": 2.0925
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 0.8577,
+      "wp": "W0_liftoff",
+      "m": 1.5,
+      "c": [
+       0.0763,
+       -0.051,
+       0.0425
+      ],
+      "Fz": 18.608,
+      "twist": 4.652,
+      "binding": "torque"
+     },
+     "action_full_set": {
+      "action": "one arm",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 0.8577,
+        "carry_static": 0.8023,
+        "liftoff_static": 0.8023
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.167,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.333,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.5,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.667,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.833,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.167,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.333,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.5,
+       "action": "one arm",
+       "a_star": null
+      }
+     ]
+    }
+   }
+  },
+  "pot": {
+   "empty_mass": 0.3423,
+   "contents_m": [
+    0.0,
+    1.5
+   ],
+   "open_limits": {
+    "lid_slide": 4.905
+   },
+   "labels": {
+    "m": "ASSUMED box 0..1.5 kg (hardworlds.THETA mass 0.02..1.5)",
+    "P": "MODEL: any contents COM lies inside the inner wall (r <= 0.09 m, circumscribed 16-gon), 0..wall height"
+   },
+   "plausible": {
+    "volume_L": 1.017876019763093,
+    "water_full_kg": 1.017876019763093,
+    "note": "MODEL: inner volume pi r^2 h; denser food (rho 1.2) -> 1.22 kg"
+   },
+   "settings": {
+    "v1": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "W1_lift5cm": {},
+      "W2_carry10cm": {},
+      "W3_shelf25cm": {}
+     },
+     "m_max_one": {
+      "centre_static": 2.157,
+      "worst_com_static": 1.9929,
+      "worst_com_a_nom": 1.8215,
+      "liftoff_worst_com_static": 1.9929
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 0.8834,
+      "wp": "W0_liftoff",
+      "m": 1.5,
+      "c": [
+       0.0763,
+       -0.051,
+       0.0425
+      ],
+      "Fz": 18.995,
+      "twist": 4.478,
+      "binding": "torque"
+     },
+     "m_max_two": {
+      "centre_static": 4.6575,
+      "worst_com_static": 4.6575,
+      "worst_com_a_nom": 4.415,
+      "liftoff_worst_com_static": 4.6575
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 0.5241,
+      "wp": "W1_lift5cm",
+      "m": 1.5,
+      "c": [
+       0.0763,
+       -0.051,
+       0.0425
+      ],
+      "Fz": {
+       "left": 6.141,
+       "right": 12.854
+      },
+      "twist": {
+       "left": 6.012,
+       "right": 7.606
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.6545,
+      "worst_com_static": 3.1355,
+      "worst_com_a_nom": 2.9722,
+      "liftoff_worst_com_static": 3.1355
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 0.7244,
+      "wp": "W1_lift5cm",
+      "m": 1.5,
+      "c": [
+       0.0179,
+       -0.09,
+       0.0025
+      ],
+      "Fz": {
+       "left": 5.768,
+       "right": 13.226
+      },
+      "twist": {
+       "left": 0.136,
+       "right": 0.136
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": 4.6575,
+      "worst_com_static": 4.2729,
+      "worst_com_a_nom": 3.9302,
+      "liftoff_worst_com_static": 4.2729
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 0.6165,
+      "wp": "W1_lift5cm",
+      "m": 1.5,
+      "c": [
+       0.051,
+       -0.0763,
+       0.0025
+      ],
+      "Fz": {
+       "left": 9.497,
+       "right": 9.497
+      },
+      "twist": {
+       "left": 2.401,
+       "right": 1.232
+      }
+     },
+     "action_full_set": {
+      "action": "one arm",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 0.8834,
+        "carry_static": 0.8317,
+        "liftoff_static": 0.8317
+       },
+       "two_lever": {
+        "carry_nom": 0.7244,
+        "carry_static": 0.6759,
+        "liftoff_static": 0.6759
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.167,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.333,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.5,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.667,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.833,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.167,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.333,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.5,
+       "action": "one arm",
+       "a_star": null
+      }
+     ]
+    },
+    "v2": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "W1_lift5cm": {},
+      "W2_carry10cm": {},
+      "W3_shelf25cm": {}
+     },
+     "m_max_one": {
+      "centre_static": 0.2988,
+      "worst_com_static": 0.2007,
+      "worst_com_a_nom": 0.178,
+      "liftoff_worst_com_static": 0.2007
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 3.8194,
+      "wp": "W0_liftoff",
+      "m": 1.5,
+      "c": [
+       -0.0179,
+       -0.09,
+       0.0025
+      ],
+      "Fz": 18.995,
+      "twist": 4.965,
+      "binding": "twist"
+     },
+     "m_max_two": {
+      "centre_static": 4.1572,
+      "worst_com_static": 2.6331,
+      "worst_com_a_nom": 2.4602,
+      "liftoff_worst_com_static": 2.6331
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 0.6573,
+      "wp": "W1_lift5cm",
+      "m": 1.5,
+      "c": [
+       0.0763,
+       -0.051,
+       0.0425
+      ],
+      "Fz": {
+       "left": 7.421,
+       "right": 11.573
+      },
+      "twist": {
+       "left": 0.855,
+       "right": 0.841
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.155,
+      "worst_com_static": 2.6338,
+      "worst_com_a_nom": 2.4573,
+      "liftoff_worst_com_static": 2.6338
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 0.7244,
+      "wp": "W1_lift5cm",
+      "m": 1.5,
+      "c": [
+       0.0179,
+       -0.09,
+       0.0025
+      ],
+      "Fz": {
+       "left": 5.768,
+       "right": 13.226
+      },
+      "twist": {
+       "left": 0.136,
+       "right": 0.136
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": 0.939,
+      "worst_com_static": 0.6313,
+      "worst_com_a_nom": 0.5845,
+      "liftoff_worst_com_static": 0.6313
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 1.9114,
+      "wp": "W2_carry10cm",
+      "m": 1.5,
+      "c": [
+       0.0179,
+       0.09,
+       0.0025
+      ],
+      "Fz": {
+       "left": 9.497,
+       "right": 9.497
+      },
+      "twist": {
+       "left": 1.067,
+       "right": 2.485
+      }
+     },
+     "action_full_set": {
+      "action": "two arms",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 3.8194,
+        "carry_static": 3.6101,
+        "liftoff_static": 3.6101
+       },
+       "two_lever": {
+        "carry_nom": 0.7244,
+        "carry_static": 0.6759,
+        "liftoff_static": 0.6759
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.167,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.333,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.5,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.667,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.833,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.0,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.167,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.333,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.5,
+       "action": "two arms",
+       "a_star": null
+      }
+     ]
+    }
+   }
+  },
+  "tray2": {
+   "empty_mass": 0.3,
+   "contents_m": [
+    0.6,
+    1.1
+   ],
+   "open_limits": {
+    "cup_spill": 2.452
+   },
+   "labels": {
+    "m": "ASSUMED: 2 mugs x (0.30 kg empty + 0..0.25 kg fill)",
+    "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+   },
+   "plausible": {
+    "note": "2 mugs: 0.60..1.10 kg"
+   },
+   "settings": {
+    "v1": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "T1_lift5cm": {},
+      "T2_carry10cm": {},
+      "T3_place": {}
+     },
+     "m_max_one": {
+      "centre_static": 2.1998,
+      "worst_com_static": 1.8861,
+      "worst_com_a_nom": 1.7246,
+      "liftoff_worst_com_static": 1.8861
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 0.7563,
+      "wp": "W0_liftoff",
+      "m": 1.1,
+      "c": [
+       0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": 14.434,
+      "twist": 4.24,
+      "binding": "torque"
+     },
+     "m_max_two": {
+      "centre_static": 4.6994,
+      "worst_com_static": 4.6994,
+      "worst_com_a_nom": 4.4569,
+      "liftoff_worst_com_static": 4.6994
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 0.4777,
+      "wp": "T1_lift5cm",
+      "m": 1.1,
+      "c": [
+       0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 2.719,
+       "right": 11.715
+      },
+      "twist": {
+       "left": 5.397,
+       "right": 7.037
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.6994,
+      "worst_com_static": 2.7601,
+      "worst_com_a_nom": 2.6177,
+      "liftoff_worst_com_static": 2.7601
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 0.7014,
+      "wp": "T1_lift5cm",
+      "m": 1.1,
+      "c": [
+       0.07,
+       -0.13,
+       0.028
+      ],
+      "Fz": {
+       "left": 3.275,
+       "right": 11.159
+      },
+      "twist": {
+       "left": 0.4,
+       "right": 0.4
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": 4.6994,
+      "worst_com_static": 4.0053,
+      "worst_com_a_nom": 3.681,
+      "liftoff_worst_com_static": 4.0053
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 0.6132,
+      "wp": "T1_lift5cm",
+      "m": 1.1,
+      "c": [
+       0.07,
+       -0.13,
+       0.028
+      ],
+      "Fz": {
+       "left": 7.217,
+       "right": 7.217
+      },
+      "twist": {
+       "left": 2.122,
+       "right": 0.725
+      }
+     },
+     "action_full_set": {
+      "action": "one arm",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 0.7563,
+        "carry_static": 0.7116,
+        "liftoff_static": 0.7116
+       },
+       "two_lever": {
+        "carry_nom": 0.7014,
+        "carry_static": 0.6548,
+        "liftoff_static": 0.6548
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.6,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.656,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.711,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.767,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.822,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.878,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.933,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.989,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.044,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.1,
+       "action": "one arm",
+       "a_star": null
+      }
+     ]
+    },
+    "v2": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "T1_lift5cm": {},
+      "T2_carry10cm": {},
+      "T3_place": {}
+     },
+     "m_max_one": {
+      "centre_static": null,
+      "worst_com_static": null,
+      "worst_com_a_nom": null,
+      "liftoff_worst_com_static": null
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 3.2714,
+      "wp": "T3_place",
+      "m": 1.1,
+      "c": [
+       -0.07,
+       -0.13,
+       0.028
+      ],
+      "Fz": 14.434,
+      "twist": 4.253,
+      "binding": "twist"
+     },
+     "m_max_two": {
+      "centre_static": 4.1998,
+      "worst_com_static": 2.7852,
+      "worst_com_a_nom": 2.6296,
+      "liftoff_worst_com_static": 2.7852
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 0.6368,
+      "wp": "T1_lift5cm",
+      "m": 1.1,
+      "c": [
+       0.07,
+       -0.13,
+       0.028
+      ],
+      "Fz": {
+       "left": 3.001,
+       "right": 11.433
+      },
+      "twist": {
+       "left": 0.828,
+       "right": 0.736
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.1998,
+      "worst_com_static": 2.4668,
+      "worst_com_a_nom": 2.3383,
+      "liftoff_worst_com_static": 2.4668
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 0.7014,
+      "wp": "T1_lift5cm",
+      "m": 1.1,
+      "c": [
+       0.07,
+       -0.13,
+       0.028
+      ],
+      "Fz": {
+       "left": 3.275,
+       "right": 11.159
+      },
+      "twist": {
+       "left": 0.4,
+       "right": 0.4
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": 0.9823,
+      "worst_com_static": null,
+      "worst_com_a_nom": null,
+      "liftoff_worst_com_static": null
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 1.6357,
+      "wp": "T3_place",
+      "m": 1.1,
+      "c": [
+       -0.07,
+       -0.13,
+       0.028
+      ],
+      "Fz": {
+       "left": 7.217,
+       "right": 7.217
+      },
+      "twist": {
+       "left": 2.126,
+       "right": 0.711
+      }
+     },
+     "action_full_set": {
+      "action": "two arms",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 3.2714,
+        "carry_static": 3.1026,
+        "liftoff_static": 3.1026
+       },
+       "two_lever": {
+        "carry_nom": 0.7014,
+        "carry_static": 0.6548,
+        "liftoff_static": 0.6548
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.6,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.656,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.711,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.767,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.822,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.878,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.933,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 0.989,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.044,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.1,
+       "action": "two arms",
+       "a_star": null
+      }
+     ]
+    }
+   }
+  },
+  "tray4": {
+   "empty_mass": 0.3,
+   "contents_m": [
+    1.2,
+    2.2
+   ],
+   "open_limits": {
+    "cup_spill": 2.452
+   },
+   "labels": {
+    "m": "ASSUMED: 4 mugs x (0.30 kg empty + 0..0.25 kg fill)",
+    "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+   },
+   "plausible": {
+    "note": "4 mugs: 1.20..2.20 kg"
+   },
+   "settings": {
+    "v1": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "T1_lift5cm": {},
+      "T2_carry10cm": {},
+      "T3_place": {}
+     },
+     "m_max_one": {
+      "centre_static": 2.1996,
+      "worst_com_static": 1.8855,
+      "worst_com_a_nom": 1.7244,
+      "liftoff_worst_com_static": 1.8855
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 1.1853,
+      "wp": "W0_liftoff",
+      "m": 2.2,
+      "c": [
+       0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": 25.775,
+      "twist": 7.92,
+      "binding": "torque"
+     },
+     "m_max_two": {
+      "centre_static": 4.6998,
+      "worst_com_static": 4.6998,
+      "worst_com_a_nom": 4.4572,
+      "liftoff_worst_com_static": 4.6998
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 0.6195,
+      "wp": "W0_liftoff",
+      "m": 2.2,
+      "c": [
+       0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 10.582,
+       "right": 15.193
+      },
+      "twist": {
+       "left": 3.776,
+       "right": 7.079
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.6998,
+      "worst_com_static": 2.7604,
+      "worst_com_a_nom": 2.618,
+      "liftoff_worst_com_static": 2.7604
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 0.851,
+      "wp": "T1_lift5cm",
+      "m": 2.2,
+      "c": [
+       0.07,
+       -0.13,
+       0.028
+      ],
+      "Fz": {
+       "left": 5.003,
+       "right": 20.772
+      },
+      "twist": {
+       "left": 0.803,
+       "right": 0.803
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": 4.6998,
+      "worst_com_static": 4.0049,
+      "worst_com_a_nom": 3.6814,
+      "liftoff_worst_com_static": 4.0049
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 0.7111,
+      "wp": "W0_liftoff",
+      "m": 2.2,
+      "c": [
+       0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 12.888,
+       "right": 12.888
+      },
+      "twist": {
+       "left": 3.96,
+       "right": 1.235
+      }
+     },
+     "action_full_set": {
+      "action": "two arms",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 1.1853,
+        "carry_static": 1.1151,
+        "liftoff_static": 1.1151
+       },
+       "two_lever": {
+        "carry_nom": 0.851,
+        "carry_static": 0.8091,
+        "liftoff_static": 0.8091
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 1.2,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.311,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.422,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.533,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.644,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.756,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.867,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.978,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.089,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.2,
+       "action": "two arms",
+       "a_star": null
+      }
+     ]
+    },
+    "v2": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "T1_lift5cm": {},
+      "T2_carry10cm": {},
+      "T3_place": {}
+     },
+     "m_max_one": {
+      "centre_static": null,
+      "worst_com_static": null,
+      "worst_com_a_nom": null,
+      "liftoff_worst_com_static": null
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 6.1074,
+      "wp": "T3_place",
+      "m": 2.2,
+      "c": [
+       -0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": 25.775,
+      "twist": 7.94,
+      "binding": "twist"
+     },
+     "m_max_two": {
+      "centre_static": 4.2,
+      "worst_com_static": 2.785,
+      "worst_com_a_nom": 2.6297,
+      "liftoff_worst_com_static": 2.785
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 0.7934,
+      "wp": "T1_lift5cm",
+      "m": 2.2,
+      "c": [
+       0.07,
+       -0.13,
+       0.028
+      ],
+      "Fz": {
+       "left": 6.317,
+       "right": 19.458
+      },
+      "twist": {
+       "left": 1.031,
+       "right": 0.924
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.1994,
+      "worst_com_static": 2.4668,
+      "worst_com_a_nom": 2.3385,
+      "liftoff_worst_com_static": 2.4668
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 0.851,
+      "wp": "T1_lift5cm",
+      "m": 2.2,
+      "c": [
+       0.07,
+       -0.13,
+       0.028
+      ],
+      "Fz": {
+       "left": 5.003,
+       "right": 20.772
+      },
+      "twist": {
+       "left": 0.803,
+       "right": 0.803
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": null,
+      "worst_com_static": null,
+      "worst_com_a_nom": null,
+      "liftoff_worst_com_static": null
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 3.0537,
+      "wp": "W0_liftoff",
+      "m": 2.2,
+      "c": [
+       0.07,
+       0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 12.888,
+       "right": 12.888
+      },
+      "twist": {
+       "left": 1.19,
+       "right": 3.97
+      }
+     },
+     "action_full_set": {
+      "action": "two arms",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 6.1074,
+        "carry_static": 5.7919,
+        "liftoff_static": 5.7919
+       },
+       "two_lever": {
+        "carry_nom": 0.851,
+        "carry_static": 0.8091,
+        "liftoff_static": 0.8091
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 1.2,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.311,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.422,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.533,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.644,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.756,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.867,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.978,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.089,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.2,
+       "action": "two arms",
+       "a_star": null
+      }
+     ]
+    }
+   }
+  },
+  "tray6": {
+   "empty_mass": 0.3,
+   "contents_m": [
+    1.7999999999999998,
+    3.3000000000000003
+   ],
+   "open_limits": {
+    "cup_spill": 2.452
+   },
+   "labels": {
+    "m": "ASSUMED: 6 mugs x (0.30 kg empty + 0..0.25 kg fill)",
+    "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+   },
+   "plausible": {
+    "note": "6 mugs: 1.80..3.30 kg"
+   },
+   "settings": {
+    "v1": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "T1_lift5cm": {},
+      "T2_carry10cm": {},
+      "T3_place": {}
+     },
+     "m_max_one": {
+      "centre_static": 2.1999,
+      "worst_com_static": 1.8856,
+      "worst_com_a_nom": null,
+      "liftoff_worst_com_static": 1.8856
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 1.6144,
+      "wp": "W0_liftoff",
+      "m": 3.3,
+      "c": [
+       0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": 37.116,
+      "twist": 11.602,
+      "binding": "torque"
+     },
+     "m_max_two": {
+      "centre_static": 4.6998,
+      "worst_com_static": 4.6998,
+      "worst_com_a_nom": 4.4573,
+      "liftoff_worst_com_static": 4.6998
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 0.7698,
+      "wp": "W0_liftoff",
+      "m": 3.3,
+      "c": [
+       0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 18.237,
+       "right": 18.879
+      },
+      "twist": {
+       "left": 4.099,
+       "right": 8.786
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.6998,
+      "worst_com_static": 2.7603,
+      "worst_com_a_nom": 2.6177,
+      "liftoff_worst_com_static": 2.7603
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 1.244,
+      "wp": "T2_carry10cm",
+      "m": 3.3,
+      "c": [
+       0.07,
+       0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 30.51,
+       "right": 6.606
+      },
+      "twist": {
+       "left": 1.185,
+       "right": 1.185
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": 4.6998,
+      "worst_com_static": 4.0051,
+      "worst_com_a_nom": 3.6811,
+      "liftoff_worst_com_static": 4.0051
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 0.9256,
+      "wp": "W0_liftoff",
+      "m": 3.3,
+      "c": [
+       0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 18.558,
+       "right": 18.558
+      },
+      "twist": {
+       "left": 5.801,
+       "right": 1.747
+      }
+     },
+     "action_full_set": {
+      "action": "refuse",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 1.6144,
+        "carry_static": 1.5187,
+        "liftoff_static": 1.5187
+       },
+       "two_lever": {
+        "carry_nom": 1.244,
+        "carry_static": 1.1837,
+        "liftoff_static": 1.1837
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 1.8,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.967,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.133,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.3,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.467,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.633,
+       "action": "two arms, slow",
+       "a_star": 0.4449
+      },
+      {
+       "m_hi": 2.8,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.967,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 3.133,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 3.3,
+       "action": "refuse",
+       "a_star": null
+      }
+     ]
+    },
+    "v2": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "T1_lift5cm": {},
+      "T2_carry10cm": {},
+      "T3_place": {}
+     },
+     "m_max_one": {
+      "centre_static": null,
+      "worst_com_static": null,
+      "worst_com_a_nom": null,
+      "liftoff_worst_com_static": null
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 8.9458,
+      "wp": "T3_place",
+      "m": 3.3,
+      "c": [
+       -0.07,
+       -0.13,
+       0.0555
+      ],
+      "Fz": 37.116,
+      "twist": 11.63,
+      "binding": "twist"
+     },
+     "m_max_two": {
+      "centre_static": 4.1999,
+      "worst_com_static": 2.7849,
+      "worst_com_a_nom": 2.6295,
+      "liftoff_worst_com_static": 2.7849
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 1.1202,
+      "wp": "W0_liftoff",
+      "m": 3.3,
+      "c": [
+       -0.07,
+       0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 27.472,
+       "right": 9.644
+      },
+      "twist": {
+       "left": 1.416,
+       "right": 1.456
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.1999,
+      "worst_com_static": 2.4665,
+      "worst_com_a_nom": 2.3383,
+      "liftoff_worst_com_static": 2.4665
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 1.244,
+      "wp": "T2_carry10cm",
+      "m": 3.3,
+      "c": [
+       0.07,
+       0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 30.51,
+       "right": 6.606
+      },
+      "twist": {
+       "left": 1.185,
+       "right": 1.185
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": null,
+      "worst_com_static": null,
+      "worst_com_a_nom": null,
+      "liftoff_worst_com_static": null
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 4.4729,
+      "wp": "W0_liftoff",
+      "m": 3.3,
+      "c": [
+       0.07,
+       0.13,
+       0.0555
+      ],
+      "Fz": {
+       "left": 18.558,
+       "right": 18.558
+      },
+      "twist": {
+       "left": 1.7,
+       "right": 5.815
+      }
+     },
+     "action_full_set": {
+      "action": "refuse",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 8.9458,
+        "carry_static": 8.4815,
+        "liftoff_static": 8.4815
+       },
+       "two_lever": {
+        "carry_nom": 1.244,
+        "carry_static": 1.1837,
+        "liftoff_static": 1.1837
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 1.8,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.967,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.133,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.3,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.467,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.633,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.8,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.967,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 3.133,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 3.3,
+       "action": "refuse",
+       "a_star": null
+      }
+     ]
+    }
+   }
+  },
+  "box": {
+   "empty_mass": 0.25,
+   "contents_m": [
+    0.5,
+    5.0
+   ],
+   "open_limits": {},
+   "labels": {
+    "m": "ASSUMED 0.5..5.0 kg (user-approved 11-02)",
+    "P": "MODEL (conservative): the contents COM lies anywhere inside the box interior (the sim block is a subset)"
+   },
+   "plausible": {
+    "note": "box of cans / jars: 0.5..5 kg"
+   },
+   "settings": {
+    "v1": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "B1_lift18cm": {},
+      "B2_over_shelf": {},
+      "B3_on_shelf": {}
+     },
+     "m_max_one": {
+      "centre_static": 2.2496,
+      "worst_com_static": 1.8361,
+      "worst_com_a_nom": 1.6655,
+      "liftoff_worst_com_static": 1.8361
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 2.3751,
+      "wp": "W0_liftoff",
+      "m": 5.0,
+      "c": [
+       0.095,
+       -0.145,
+       0.145
+      ],
+      "Fz": 54.128,
+      "twist": 18.54,
+      "binding": "torque"
+     },
+     "m_max_two": {
+      "centre_static": 4.7499,
+      "worst_com_static": 4.7499,
+      "worst_com_a_nom": 4.5075,
+      "liftoff_worst_com_static": 4.7499
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 1.1035,
+      "wp": "W0_liftoff",
+      "m": 5.0,
+      "c": [
+       -0.095,
+       -0.145,
+       0.005
+      ],
+      "Fz": {
+       "left": 27.064,
+       "right": 27.064
+      },
+      "twist": {
+       "left": 21.014,
+       "right": 19.434
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.7499,
+      "worst_com_static": 2.6612,
+      "worst_com_a_nom": 2.5256,
+      "liftoff_worst_com_static": 2.6612
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 1.928,
+      "wp": "B3_on_shelf",
+      "m": 5.0,
+      "c": [
+       0.095,
+       0.145,
+       0.145
+      ],
+      "Fz": {
+       "left": 47.284,
+       "right": 6.843
+      },
+      "twist": {
+       "left": 2.557,
+       "right": 2.557
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": 4.7499,
+      "worst_com_static": 3.8583,
+      "worst_com_a_nom": 3.5159,
+      "liftoff_worst_com_static": 3.8583
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 1.306,
+      "wp": "W0_liftoff",
+      "m": 5.0,
+      "c": [
+       0.095,
+       -0.145,
+       0.145
+      ],
+      "Fz": {
+       "left": 27.064,
+       "right": 27.064
+      },
+      "twist": {
+       "left": 9.27,
+       "right": 2.885
+      }
+     },
+     "action_full_set": {
+      "action": "refuse",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 2.3751,
+        "carry_static": 2.2163,
+        "liftoff_static": 2.2163
+       },
+       "two_lever": {
+        "carry_nom": 1.928,
+        "carry_static": 1.8345,
+        "liftoff_static": 1.8345
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.5,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.0,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.5,
+       "action": "one arm",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.0,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.5,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 3.0,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 3.5,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 4.0,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 4.5,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 5.0,
+       "action": "refuse",
+       "a_star": null
+      }
+     ]
+    },
+    "v2": {
+     "ik_err": {
+      "W0_liftoff": {},
+      "B1_lift18cm": {},
+      "B2_over_shelf": {},
+      "B3_on_shelf": {}
+     },
+     "m_max_one": {
+      "centre_static": null,
+      "worst_com_static": null,
+      "worst_com_a_nom": null,
+      "liftoff_worst_com_static": null
+     },
+     "worst_one_full_set_a_nom": {
+      "u": 14.3036,
+      "wp": "W0_liftoff",
+      "m": 5.0,
+      "c": [
+       -0.095,
+       -0.145,
+       0.145
+      ],
+      "Fz": 54.128,
+      "twist": 18.595,
+      "binding": "twist"
+     },
+     "m_max_two": {
+      "centre_static": 4.2497,
+      "worst_com_static": 2.4235,
+      "worst_com_a_nom": 2.2248,
+      "liftoff_worst_com_static": 2.4235
+     },
+     "worst_two_full_set_a_nom": {
+      "u": 2.0198,
+      "wp": "B1_lift18cm",
+      "m": 5.0,
+      "c": [
+       0.095,
+       -0.145,
+       0.145
+      ],
+      "Fz": {
+       "left": 6.22,
+       "right": 47.907
+      },
+      "twist": {
+       "left": 2.626,
+       "right": 2.626
+      }
+     },
+     "m_max_two_lever": {
+      "centre_static": 4.2497,
+      "worst_com_static": 2.3812,
+      "worst_com_a_nom": 2.1006,
+      "liftoff_worst_com_static": 2.3812
+     },
+     "worst_two_lever_full_set_a_nom": {
+      "u": 2.0246,
+      "wp": "B1_lift18cm",
+      "m": 5.0,
+      "c": [
+       0.095,
+       -0.145,
+       0.145
+      ],
+      "Fz": {
+       "left": 7.1,
+       "right": 47.028
+      },
+      "twist": {
+       "left": 2.632,
+       "right": 2.632
+      }
+     },
+     "m_max_two_share": {
+      "centre_static": 1.0324,
+      "worst_com_static": 0.5604,
+      "worst_com_a_nom": 0.5154,
+      "liftoff_worst_com_static": 0.5604
+     },
+     "worst_two_share_full_set_a_nom": {
+      "u": 7.1518,
+      "wp": "W0_liftoff",
+      "m": 5.0,
+      "c": [
+       0.095,
+       0.145,
+       0.145
+      ],
+      "Fz": {
+       "left": 27.064,
+       "right": 27.064
+      },
+      "twist": {
+       "left": 2.796,
+       "right": 9.297
+      }
+     },
+     "action_full_set": {
+      "action": "refuse",
+      "a_star": null,
+      "rows": {
+       "one": {
+        "carry_nom": 14.3036,
+        "carry_static": 13.3499,
+        "liftoff_static": 13.3499
+       },
+       "two_lever": {
+        "carry_nom": 2.0246,
+        "carry_static": 1.8345,
+        "liftoff_static": 1.8345
+       }
+      }
+     },
+     "action_map": [
+      {
+       "m_hi": 0.5,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.0,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 1.5,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.0,
+       "action": "two arms",
+       "a_star": null
+      },
+      {
+       "m_hi": 2.5,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 3.0,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 3.5,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 4.0,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 4.5,
+       "action": "refuse",
+       "a_star": null
+      },
+      {
+       "m_hi": 5.0,
+       "action": "refuse",
+       "a_star": null
+      }
+     ]
+    }
+   }
+  }
+ }
+}

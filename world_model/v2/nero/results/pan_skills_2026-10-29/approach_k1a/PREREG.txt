@@ -1,0 +1,7 @@
+K1a approach coverage (2026-10-30), kinematic only (IK + exact path clearance, segments.find_pregrasp_clear), no dynamics.
+Aim = TRUE pose (est = world perturb; zero aim error) for BOTH v1 and v2, so the comparison isolates the grasp set.
+v1 = the one grasp (left handle frac 0.65 along-handle approach, jaw vertical; right one point at the stove edge, horizontal).
+v2 = skills/grasp.py candidate sets (LEFT_FRAC x LEFT_YAW x LEFT_ROLL; RIGHT_DX x RIGHT_YAW x RIGHT_PITCH; ASSUMED ranges),
+     v1 grasp tried first with v1's IK budget, variants with 8 sol / 48 seeds; best = max min(clear/5mm, joint margin/jm).
+Clearance 5 mm, joint margins left 0.05 / right 0.01 rad (segments.CLAMP v2, unchanged).  Worlds: full 62, iid 70, overload 26.
+Gate: report v1 vs v2 refused counts per set; no claim about task success (dynamics not run).

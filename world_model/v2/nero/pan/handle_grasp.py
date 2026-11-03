@@ -57,6 +57,47 @@ class PanCtl(Ctl):
         return te, ti
 
 
+class AdaptivePanCtl(Ctl):
+    """11-01 payload-aware lift: FL-MPC whose payload bias hook is the LIVE load estimate (payload_obs.LoadObserver, robot-side
+    signals only) instead of the nominal empty-pan weight.  M_extra stays the nominal empty-pan inertia.  sides = the arms holding
+    the pan (left, or left + right); with two arms each arm cancels its OWN measured load (no share assumption needed)."""
+
+    def __init__(self, m, hold_q, tau_vec, pan_id, grips, mass, sides, dt, share=0.5, tau_f=None, sigma_tau=None, **kw):
+        from . import payload_obs as PO
+        super().__init__(m, hold_q, tau_vec, **kw)
+        self.pan, self.grips, self.mass, self.sides, self.share, self.on = pan_id, grips, mass, tuple(sides), share, False
+        dofs = dict(left=self.ld, right=self.rd)
+        rng = np.random.default_rng(0)
+        self.obs = {s: PO.LoadObserver(m, dofs[s], dt, tau_f=PO.TAU_F if tau_f is None else tau_f,
+                                       sigma_tau=PO.SIGMA_TAU if sigma_tau is None else sigma_tau, rng=rng) for s in C.SIDES}
+        self.prev = {s: np.zeros(C.N_ARM) for s in C.SIDES}
+
+    def tau(self, d):
+        mujoco.mj_forward(self.m, d)
+        for s in C.SIDES:
+            self.obs[s].update(self.m, d, self.prev[s])
+        if not self.on:
+            te, ti, ok = self.fl.step(self.m, d, self.lq, self.ld, self.rq, self.rd, self.qe_ref, self.z, self.qi_ref, self.z,
+                                      self.pairs(d))
+        else:
+            ex = {}
+            for s in self.sides:
+                sh = 1.0 if len(self.sides) == 1 else (self.share if s == "left" else 1.0 - self.share)
+                Mx, _ = PL.arm_payload_terms(self.m, d, self.pan, self.grips[s], self.ld if s == "left" else self.rd, sh, self.mass)
+                ex[s] = (Mx, -self.obs[s].est)
+            kw = {}
+            if "left" in ex:
+                kw.update(M_ego_extra=ex["left"][0], bias_ego_extra=ex["left"][1])
+            if "right" in ex:
+                kw.update(M_int_extra=ex["right"][0], bias_int_extra=ex["right"][1])
+            te, ti, ok = self.fl.step(self.m, d, self.lq, self.ld, self.rq, self.rd, self.qe_ref, self.z, self.qi_ref, self.z,
+                                      self.pairs(d), **kw)
+        self.n_infeasible += int(not ok)
+        self.n_fallback += int(bool(self.fl.last_fallback))
+        self.prev = dict(left=np.asarray(te, float).copy(), right=np.asarray(ti, float).copy())
+        return te, ti
+
+
 def _arm_contacts(m, d, side, allow=("pan",)):
     worst = 0.0
     for c in d.contact[:d.ncon]:
@@ -92,21 +133,32 @@ def handle_point(m, d, p, frac):
     return d.xpos[pan] + d.xmat[pan].reshape(3, 3) @ loc
 
 
-def find_pregrasp(m, d0, side, target, approach, jaw, n_sol=10, seeds=60):
-    """IK at `target`, fingers open; keep solutions where nothing touches the arm (pan, table, the other arm); best joint margin."""
+def find_pregrasp(m, d0, side, target, approach, jaw, n_sol=10, seeds=60, open_w=FINGER_OPEN):
+    """IK at `target`, fingers open (open_w per finger); keep solutions where nothing touches the arm (pan, table, the other arm);
+    best joint margin."""
     ik = ArmIK(m, side)
     best = None
     for q, e in ik.collect(target, approach, jaw, n_sol=n_sol, seeds=seeds):
         d = mujoco.MjData(m)
         d.qpos[:] = d0.qpos
         d.qpos[ik.qa] = q
-        _set_fingers(m, d, side, FINGER_OPEN)
+        _set_fingers(m, d, side, open_w)
         mujoco.mj_forward(m, d)
         if _arm_contacts(m, d, side, allow=()) > -1e-3 and (best is None or ik.margin(q) > best[1]):
             best = (q, ik.margin(q), e)
     if best is None:
         raise RuntimeError(f"no contact-free pre-grasp for the {side} claw")
     return dict(q=best[0], margin=best[1], ik_err=[float(x) for x in best[2]], target=target)
+
+
+def set_claw_limit(m, acts, claw_N):
+    """11-01: raise (or lower) the claw actuators' force limit to claw_N [N] in memory (config.CLAW_PRESETS; the MJCF stays at
+    GRIPPER_EFFORT).  None = leave the value set at compose (config.claw_default(): 40 N since 11-01).  -> the limit in force."""
+    if claw_N is None:
+        return float(m.actuator_forcerange[acts[0], 1])
+    for a in acts:
+        m.actuator_forcerange[a] = (-float(claw_N), float(claw_N))
+    return float(claw_N)
 
 
 def _grip_force_mode(m, act, force):
@@ -138,7 +190,8 @@ class TwoCtl(Ctl):
 
 
 def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=None, grip="servo", grip_force=10.0,
-        grasp_frac=None, second_frac=None, second_grip="tilt", snap=None, second_depth=None, condim=None, left_grasp=None):
+        grasp_frac=None, second_frac=None, second_grip="tilt", snap=None, second_depth=None, condim=None, left_grasp=None,
+        claw_N=None, obs_tau_f=None, obs_sigma=None, nsub=None):
     """grasp_frac: left pinch point along the handle (default scene 0.6).  second_frac: if set, the RIGHT claw also grips the
     handle there (top-down, jaw across the handle width) and both arms lift together (two-claw lift)."""
     cp = CV.CoveredParams(placement=placement)
@@ -182,12 +235,17 @@ def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=
     gb = {s: m.body(f"{s}_arm_gripper_base").id for s in C.SIDES}
     m_nom = float(m.body_mass[pan] + m.body_mass[m.body("lid").id])
     hold = dict(left=q0["left"].tolist(), right=q0["right"].tolist())
-    if payload == "nominal":
+    if payload == "adaptive":
+        ctl = AdaptivePanCtl(m, hold, tau, pan, gb, m_nom, sides, DT, share=0.5, tau_f=obs_tau_f, sigma_tau=obs_sigma)
+    elif payload == "nominal":
         ctl = TwoCtl(m, hold, tau, pan, gb, m_nom, share=0.5) if two else PanCtl(m, hold, tau, pan, gb["left"], m_nom)
     else:
         ctl = Ctl(m, hold, tau)
     NP, FDT = ctl.fl.NP, ctl.fl.DT
+    nsub = C.substeps_default() if nsub is None else int(nsub)   # 11-01 default 5 (1 ms); BIMANUAL_LEGACY_CLAW=1 -> 1
+    m.opt.timestep = DT / nsub                   # after settle + pre-grasp (settle substeps via scene.step); nsub=1 = 5 ms
     act_g = {s: m.actuator(f"{s}_arm_gripper_pos").id for s in sides}
+    set_claw_limit(m, list(act_g.values()), claw_N)            # 11-01: None = MJCF 10 N; config.CLAW_PRESETS
     fing = {m.geom(f"{s}_arm_finger{i}_col").id: (s, f"f{i}") for s in sides for i in (1, 2)}
     handle = m.geom("pan_handle").id
     t_close0, t_close1 = T_SETTLE, T_SETTLE + T_CLOSE
@@ -236,7 +294,7 @@ def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=
             if grip == "force" and abs(t - t_close0) < DT / 2:
                 _grip_force_mode(m, act_g[s], grip_force)
             d.ctrl[act_g[s]] = FINGER_OPEN if t < t_close0 else (-grip_force if grip == "force" else 0.0)
-        if payload == "nominal" and t >= t_close1:
+        if payload in ("nominal", "adaptive") and t >= t_close1:
             ctl.on = True
         t0 = time.perf_counter()
         te, ti = ctl.tau(d)
@@ -245,7 +303,8 @@ def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=
         d.qfrc_applied[:] = 0.0
         d.qfrc_applied[ctl.ld] = te
         d.qfrc_applied[ctl.rd] = ti
-        mujoco.mj_step(m, d)
+        for _ in range(nsub):                    # 11-01: nsub physics substeps of DT/nsub per control step (torque held)
+            mujoco.mj_step(m, d)
         if snap is not None:
             snap(t, m, d)
         fn = {k_: 0.0 for k_ in fing.values()}
@@ -299,7 +358,7 @@ def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=
         assumed=dict(finger_mu=float(m.geom_friction[m.geom("left_arm_finger1_col").id][0]), handle_mu=float(m.geom_friction[handle][0]),
                      finger_force_limit_N=float(m.actuator_forcerange[act_g["left"]][1]), condim=int(m.geom_condim[handle]),
                      twist_friction_m=float(max(m.geom_friction[handle][1], m.geom_friction[m.geom("left_arm_finger1_col").id][1])),
-                     cone="elliptic" if m.opt.cone == 1 else "pyramidal", finger_open=FINGER_OPEN, dt=DT),
+                     cone="elliptic" if m.opt.cone == 1 else "pyramidal", finger_open=FINGER_OPEN, dt=DT, physics_dt=DT / nsub),
         statics=statics, pregrasp={s: dict(margin=pre[s]["margin"], ik_err=pre[s]["ik_err"]) for s in sides},
         lift_achieved_m=lift, dropped=bool(lift < -0.02), final_tilt_deg=tilt[-1], max_tilt_deg_after_lift=float(max(tilt[int(t_lift0 / DT):])),
         slip_final_mm=1e3 * sl[-1][0], slip_final_deg=sl[-1][1], slip_max_deg=max(x[1] for x in sl),
@@ -318,6 +377,12 @@ def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=
     )
     # HELD (smoke criterion, not a safety claim): not dropped, lifted >= 80% of LIFT, pan clear of every support, every claw's droop < 6 deg
     # and slip < 15 mm.
+    if payload == "adaptive":
+        from . import payload_obs as PO
+        res["payload_obs"] = dict(m_hat_end_kg={s: round(ctl.obs[s].mass_hat(m, d, gb[s]), 4) for s in sides},
+                                  m_true_total_kg=statics.get("mass_total_kg"),
+                                  tau_f_s=PO.TAU_F if obs_tau_f is None else obs_tau_f, sigma_tau_Nm=PO.SIGMA_TAU if obs_sigma is None else obs_sigma,
+                                  labels="TAU_F, SIGMA_TAU, exact arm model, exact torque command: ASSUMED")
     res["held"] = bool(not res["dropped"] and lift >= 0.8 * LIFT and not res["far_rim_still_supported"]
                        and all(v["deg"] < 6.0 and v["mm"] < 15.0 for v in res["slip_by_claw"].values()))
     return res
@@ -327,17 +392,20 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--placement", default="far_centre", choices=list(CV.ASSUMED_COVERED["placements"]))
     ap.add_argument("--hidden-mass", type=float, default=None)
-    ap.add_argument("--payload", default="nominal", choices=["nominal", "off"])
+    ap.add_argument("--payload", default="nominal", choices=["nominal", "off", "adaptive"])
+    ap.add_argument("--obs-sigma", type=float, default=None, help="adaptive: ASSUMED joint-torque noise [Nm]")
     ap.add_argument("--grip", default="servo", choices=["servo", "force"])
     ap.add_argument("--grip-force", type=float, default=10.0)
     ap.add_argument("--grasp-frac", type=float, default=None)
     ap.add_argument("--second-frac", type=float, default=None, help="two-claw lift: right claw on the handle at this fraction")
     ap.add_argument("--second-grip", default="tilt", choices=["tilt", "side"])
     ap.add_argument("--condim", type=int, default=None, choices=[3, 4, 6])
+    ap.add_argument("--nsub", type=int, default=None, help="physics substeps per 5 ms control step (default config: 5 -> 1 ms)")
+    ap.add_argument("--claw-N", type=float, default=None, help="claw force limit [N] (config.CLAW_PRESETS; default = config.claw_default(), 40 N)")
     ap.add_argument("--out", default=None)
     a = ap.parse_args(argv)
     r = run(a.placement, a.hidden_mass, a.payload, grip=a.grip, grip_force=a.grip_force, grasp_frac=a.grasp_frac, second_frac=a.second_frac,
-          second_grip=a.second_grip, condim=a.condim)
+          second_grip=a.second_grip, condim=a.condim, claw_N=a.claw_N, obs_sigma=a.obs_sigma, nsub=a.nsub)
     s = json.dumps(r, indent=1, default=float)
     if a.out:
         open(a.out, "w").write(s)

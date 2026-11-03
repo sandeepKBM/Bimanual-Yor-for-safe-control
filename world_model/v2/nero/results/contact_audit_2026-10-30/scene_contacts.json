@@ -1,0 +1,38 @@
+{
+ "I03": {
+  "left_finger1": {
+   "n": 4,
+   "spread_mm": 24.83
+  },
+  "left_finger2": {
+   "n": 4,
+   "spread_mm": 24.83
+  },
+  "right_finger1": {
+   "n": 5,
+   "spread_mm": 14.33
+  },
+  "right_finger2": {
+   "n": 2,
+   "spread_mm": 14.43
+  }
+ },
+ "V10": {
+  "left_finger1": {
+   "n": 4,
+   "spread_mm": 24.83
+  },
+  "left_finger2": {
+   "n": 4,
+   "spread_mm": 24.83
+  },
+  "right_finger1": {
+   "n": 1,
+   "spread_mm": 0.0
+  },
+  "right_finger2": {
+   "n": 1,
+   "spread_mm": 0.0
+  }
+ }
+}

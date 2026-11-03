@@ -1,0 +1,17 @@
+{
+ "A_SetTimeStateAndParametersFrom": {
+  "max_abs_dq": 0.0,
+  "max_abs_dv": 0.0,
+  "bitwise_equal": true
+ },
+ "B_clone_new_simulator": {
+  "max_abs_dq": 0.0,
+  "max_abs_dv": 0.0,
+  "bitwise_equal": true
+ },
+ "C_new_context_q_v_only": {
+  "max_abs_dq": 0.0,
+  "max_abs_dv": 0.0,
+  "bitwise_equal": true
+ }
+}

@@ -1,0 +1,36 @@
+contact-model falsification: 4 worlds  (world_model/v2/nero/results/contact_model_2026-10-30/smoke5)
+thresholds (ASSUMED): slip 2.0 mm / 3.0 deg per claw, lid 5.0 mm; model assumptions: {'MU_SCALE_LO': (0.6, 'ASSUMED prior min; friction fixed interval, worst end'), 'FLUSH_H_m': (0.0001, 'ASSUMED'), 'A_BOX': (0.5, 'ASSUMED'), 'TILT_MAX_DEG': (3.0, 'ASSUMED'), 'TILT_WIDE_DEG': (11.0, 'ASSUMED, max seen n=8'), 'PUSH_SLIP': ((0.003, 3.0), 'ASSUMED'), 'AIM': ((0.0034, 9.42), 'ASSUMED from MEASURED max over n=200'), 'A_int': 'ASSUMED: internal force split', 'tabs': 'ignored (conservative)', 'torsion': 'zero (conservative)', 'squeeze': 'sum of pad normals = |actuator force|; [0, F] when a finger joint is at its limit (MODEL)', 'split': 'Demo C compliant model (creep, kd rigid) -- STIFF/GAP_TOL ASSUMED (Demo C fit, not refit)', 'touch': ('GAP_MAX 0.1 mm / PEN_MAX 2 mm', 'ASSUMED'), 'compliant_tols': {'N_MIN': 0.05, 'THETA_TOL': 3.0, 'X_TOL': 0.005, 'V_TOL': 0.001}}
+
+     I03 v1: belief reject truth ADMIT (k_exist=3.74 c=0.052 normal) slip L/R 0.46/0.15 mm 2.1/1.3 deg lid 3.94 tilt 5.0 (claw tilt L/R 0.0/0.0) truth11 reject acc 0.10 rise 49.77 -> hold  [ASSUMPTION VIOLATED]
+     I03 v2: belief reject truth ADMIT (k_exist=3.74 c=0.052 normal) slip L/R 2.38/1.05 mm 3.2/10.4 deg lid 3.94 tilt 5.2 (claw tilt L/R 0.0/0.0) truth11 reject acc 0.18 rise 55.81 -> ['slip_left', 'slip_right']  [ASSUMPTION VIOLATED]
+    OI03 v1: belief reject truth reject (k_exist=0.02 c=-inf friction) slip L/R 1.23/5.04 mm 7.3/12.6 deg lid 2.75 tilt 7.8 (claw tilt L/R 0.0/0.0) truth11 reject acc 0.27 rise 21.6 -> ['slip_left', 'slip_right']  [ASSUMPTION VIOLATED]
+    OI03 v2: belief reject truth reject (k_exist=0.02 c=-inf friction) slip L/R 0.29/7.45 mm 4.8/14.7 deg lid 2.74 tilt 4.2 (claw tilt L/R 0.0/0.0) truth11 reject acc 0.11 rise 29.26 -> ['slip_left', 'slip_right']  [ASSUMPTION VIOLATED]
+     V10 v1: belief reject truth reject (k_exist=6.23 c=-inf friction) slip L/R 2.48/66.04 mm 9.4/5.5 deg lid 1.13 tilt 10.6 (claw tilt L/R 0.0/0.0) truth11 reject acc 3.26 rise 15.54 -> ['slip_left', 'slip_right']  [ASSUMPTION VIOLATED]
+     V10 v2: belief reject truth reject (k_exist=6.23 c=-inf friction) slip L/R 2.30/4.71 mm 1.9/13.8 deg lid 0.82 tilt 5.3 (claw tilt L/R 0.0/0.0) truth11 reject acc 0.22 rise 55.57 -> ['slip_left', 'slip_right']  [ASSUMPTION VIOLATED]
+     V11 v1: belief reject truth reject (k_exist=0.06 c=-451.274 friction) slip L/R 2.62/68.10 mm 8.2/7.9 deg lid 1.41 tilt 8.9 (claw tilt L/R 0.0/0.0) truth11 reject acc 0.24 rise 12.84 -> ['slip_left', 'slip_right']  [ASSUMPTION VIOLATED]
+     V11 v2: belief reject truth reject (k_exist=0.06 c=-451.274 friction) slip L/R 2.14/70.79 mm 9.7/13.9 deg lid 3.16 tilt 10.6 (claw tilt L/R 0.0/0.0) truth11 reject acc 4.39 rise 13.57 -> ['slip_left', 'slip_right']  [ASSUMPTION VIOLATED]
+
+worlds run 4, approach refused 0, errors 0
+
+lift  verdict  model   sim   box        count
+  v1  belief  reject  fail  assump_viol  3
+  v1  belief  reject  hold  assump_viol  1
+  v1  belief_t11  reject  fail  assump_viol  1
+  v1  belief_t11  reject  fail       in_box  2
+  v1  belief_t11  reject  hold       in_box  1
+  v1   truth   admit  hold  assump_viol  1
+  v1   truth  reject  fail  assump_viol  3
+  v1  truth_t11  reject  fail  assump_viol  1
+  v1  truth_t11  reject  fail       in_box  2
+  v1  truth_t11  reject  hold       in_box  1
+  v2  belief  reject  fail  assump_viol  4
+  v2  belief_t11  reject  fail  assump_viol  1
+  v2  belief_t11  reject  fail       in_box  3
+  v2   truth   admit  fail  assump_viol  1
+  v2   truth  reject  fail  assump_viol  3
+  v2  truth_t11  reject  fail  assump_viol  1
+  v2  truth_t11  reject  fail       in_box  3
+     belief: UNSOUND (admit, sim fails, assumptions held) 0   clean rows 0
+      truth: UNSOUND (admit, sim fails, assumptions held) 0   clean rows 0
+ belief_t11: UNSOUND (admit, sim fails, assumptions held) 0   clean rows 6
+  truth_t11: UNSOUND (admit, sim fails, assumptions held) 0   clean rows 6

@@ -1,0 +1,21 @@
+CLAW 40 N (NERO gripper, reseller rating; USER 11-01 approved the 40 N variant) vs the MJCF 10 N.  SIMULATION ONLY, westeros CPU,
+nice 19, 1 thread, <= 10 procs.  Code: Episode(claw_N=) / handle_grasp.run(claw_N=) raise the gripper actuator forcerange IN MEMORY
+(config.CLAW_PRESETS); default None = 10 N, MJCF not edited.  Raw: /data/local/ss5772/pan_cert/{pot_claw40,pot_claw40_ts,
+pot_ts1_side,onecaw_sizing}_2026-11-01.
+
+1. Pot, 9 worlds (I00-I04, V08, V10-V12), grasp_frac 0.65, lifts v1 / v3.  Sampled, n = 9 per row; thresholds as contact_falsify.
+   step  claw  lift  held  max slip in a claw   lid (pot frame)  tilt
+   5 ms  10 N  v1/v3  9/9   0.9 mm  2.2 deg      0.0 mm           5.5   (pot/RESULT.txt)
+   5 ms  40 N  v1      4/9   1.7 mm  3.05 deg     up to 11.5 mm    5.8
+   5 ms  40 N  v3      3/9   1.5 mm  3.05 deg     up to 38.7 mm    5.7
+   1 ms  10 N  v1/v3  9/9   0.5 mm  2.2 deg      0.0 mm           5.4
+   1 ms  40 N  v1/v3  9/9   1.6 mm  2.25 deg     0.5 mm           5.2
+   -> the 40 N lid failures at 5 ms are a CONTACT ARTEFACT (stiffer squeeze at the 5 ms step; the contact time constant solref 0.005
+      equals the step).  1 ms costs ~+20 % wall time (controller-dominated).  Any run above 10 N must use the 1 ms step.
+   -> 4x grip does not shrink the ~2 deg in-claw rotation: it is contact/finger compliance, not friction slip.
+
+2. One-claw pan hold (D3 sizing), handle_grasp, force grip, placements x contents 0.2 / 0.4 kg (none = empty), 5 ms step.
+   10 N: 0/9 held; in-claw rotation 10-12 deg in every case (the twist limit).
+   40 N: rotation 1.1-2.1 deg (twist solved), but held only 1/9 (empty pan): the lift reaches 1.4-2.9 cm instead of ~5 cm with
+         contents, because the arm sags under the hidden load (FL-MPC knows only the empty pan); no torque saturation (100 Nm).
+   NOT yet re-run at 1 ms.  Next for D3: payload-aware lift (probe -> load estimate) or stiffer tracking, at 1 ms.

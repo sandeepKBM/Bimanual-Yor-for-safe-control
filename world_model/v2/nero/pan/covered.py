@@ -99,7 +99,8 @@ def build_spec(cp: CoveredParams | None = None):
         kr, kh = a["lid_knob"]
         lid.add_geom(name="lid_knob", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[kr, kh / 2, 0], density=p.pla_density,
                      pos=[0, 0, a["lid_t"] / 2 + kh / 2], rgba=[0.15, 0.3, 0.6, 1])
-    uw = a["placements"][cp.placement]
+    # a placement is a name from the table, or an explicit (u, w) puck centre in the pan frame [m] (cert/ belief vertices)
+    uw = tuple(cp.placement) if isinstance(cp.placement, (tuple, list)) else a["placements"][cp.placement]
     if uw is not None:
         mass = cp.overload_mass if cp.placement == "overload" else cp.hidden_mass
         c = np.array([px, py]) + uw[0] * u[:2] + uw[1] * w[:2]
@@ -111,7 +112,7 @@ def build_spec(cp: CoveredParams | None = None):
 
 
 def compose(cp: CoveredParams | None = None):
-    return build_spec(cp).compile()
+    return S.apply_sim_defaults(build_spec(cp).compile())     # 11-01: 40 N claws (config.claw_default)
 
 
 def write_mjcf(cp: CoveredParams | None = None, path=SCENE_OUT):
