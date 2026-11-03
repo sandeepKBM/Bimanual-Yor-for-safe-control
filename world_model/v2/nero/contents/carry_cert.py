@@ -98,9 +98,10 @@ def support_row(task, spec, contents, world):
                           "rectangle; placement at the nominal destination, placement error NOT covered)")
 
 
-def static_cell(task, cell, world, T_cap=None):
-    """T_cap=None (default, user 11-02 pm): arm-side rows only.  T_cap=E.T_CAP reproduces the morning rule (claw twist row)."""
-    spec = cell_spec(task, cell)
+def static_cell(task, cell, world, T_cap=None, spec=None):
+    """T_cap=None (default, user 11-02 pm): arm-side rows only.  T_cap=E.T_CAP reproduces the morning rule (claw twist row).
+    spec: an ObjectSpec for an arbitrary contents set (11-03, probe.py: the interval a probe measured); default = the cell's."""
+    spec = cell_spec(task, cell) if spec is None else spec
     caps = json.loads(TH.CAP_FILE.read_text())
     offs, per_seg = path_offsets(task)
     cap = TH.capture_path(caps["pot"], offs)

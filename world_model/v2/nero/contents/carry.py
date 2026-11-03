@@ -524,6 +524,17 @@ class CarryEpisode:
     def store(self, seg):
         self.stored[f"start_{seg}"] = {s: self.tcp(s) for s in SIDES}
 
+    def set_belief(self, m_hat, a_plan=None):
+        """11-02 (probe.py): new nominal contents mass after a probe narrowed the belief; the payload feedforward follows it."""
+        self.m_hat = float(m_hat)
+        self.m_nom = float(self.truth0["empty_mass"] + self.m_hat)
+        if a_plan is not None:
+            self.a_plan = float(a_plan)
+        self.ctl.mass = self.m_nom
+        if isinstance(self.ctl, LeverCtl):
+            c_c = self.spec_obj.contents.P.mean(0)
+            self.ctl.c_rel_nom = (self.truth0["empty_mass"] * np.asarray(self.truth0["empty_com"]) + self.m_hat * c_c) / self.m_nom
+
 
 # ---------------------------------------------------------------------------------------------------------------------------
 def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl="lever", strict_claw=False, m_hat=None,
@@ -537,6 +548,12 @@ def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl
     rec = dict(tag=tag, task=ep.task, theta=_theta(world), truth=_jsonable(ep.truth0), a_plan=a_plan, m_nom=ep.m_nom, ctl=ctl,
                strict_claw=strict_claw, fric_comp=ep.fc, coop=ep.coop, weld_solref=ep.weld_solref,
                segments=[])
+    return run_segments(ep, rec, branch_backups, t0)
+
+
+def run_segments(ep, rec, branch_backups=True, t0=None):
+    """the segment loop of world_trial on an existing episode (11-02: probe.py runs it after the probe, same episode)."""
+    t0 = time.time() if t0 is None else t0
     hold_viol = ep.track["viol"]
     for seg in SEGS:
         ep.store(seg)
