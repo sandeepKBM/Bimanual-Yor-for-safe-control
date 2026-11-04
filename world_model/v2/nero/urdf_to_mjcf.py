@@ -1,4 +1,6 @@
-"""urdf_to_mjcf.py -- official NERO URDF (+flange +agx_gripper) -> MJCF fragments / a standalone arm file.
+"""urdf_to_mjcf.py -- official NERO URDF (+flange +URDF gripper) -> MJCF fragments / a standalone arm file.
+
+11-03: this is the BASE of the NYU build: nyu_gripper.py reuses the arm links and replaces the URDF gripper_base/fingers (the URDF gripper is not used in any scene).
 
 Kinematic tree, inertials (mass, COM, FULL tensor), joint limits, collision-mesh poses come from the URDF; everything
 the URDF lacks (armature, damping, friction loss, servo gains, torque limits, contact params) comes from config.ASSUMED /

@@ -90,6 +90,8 @@ def _job(job):
     except Exception:
         r = dict(tag=tag, world=w, error=traceback.format_exc()[-1500:])
     r["wall_s"] = round(time.time() - t0, 1)
+    from ... import gripper as GR
+    r.update(GR.provenance())
     return r
 
 

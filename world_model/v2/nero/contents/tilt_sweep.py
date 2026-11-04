@@ -26,6 +26,7 @@ import time
 
 import numpy as np
 
+from .. import gripper as GR
 from . import carry as CR
 from . import carry_cert as CC
 from . import scenes as SC
@@ -81,14 +82,20 @@ def corners(task, cell):
 
 
 def _job(args):
-    task, cell, name, world, a, m_hat = args
+    task, cell, name, world, a, m_hat = args[:6]
+    ctl = args[6] if len(args) > 6 else "lever"          # 11-03 opt-in: "coopimp" = contents/coop_imp.py
     t0 = time.time()
     try:
         r = CR.world_trial(world, f"{task}_{cell[0]}_{name}_a{a}", a_plan=a, branch_backups=False, m_hat=m_hat,
-                           fric_comp=True, weld_solref=CC.WELD_STIFF)
+                           fric_comp=True, weld_solref=CC.WELD_STIFF, ctl=ctl)   # == config.carry_physics() unless BIMANUAL_LEGACY_CARRY_PHYS=1 (kept explicit: the 11-02 sweep physics)
         segs = {s["seg"]: {k: s["nominal"].get(k) for k in ("obj_tilt_max", "cup_tilt_max", "spill_ratio", "tau_ratio", "e_obj_deg",
-                                                             "e_obj_mm", "viol", "end_in_R")} for s in r["segments"]}
-        out = dict(task=task, cell=list(cell), corner=name, a=a, theta=r["theta"], segments=segs,
+                                                             "e_obj_mm", "viol", "end_in_R", "F_int_max", "twist_max") + FLK
+                         + (("ci_F_int", "ci_T_int", "ci_e_p_mm", "ci_e_R_deg", "ci_tau_cmd") if ctl != "lever" else ())}
+                for s in r["segments"]}
+        for s_ in r["segments"]:                              # 11-03 item 10: the acceleration actually commanded (T_MIN clamps the move time)
+            segs[s_["seg"]]["a_cmd_peak"] = (s_.get("accel") or {}).get("a_cmd_peak")
+            segs[s_["seg"]]["t_min_clamped"] = (s_.get("accel") or {}).get("clamped")
+        out = dict(task=task, cell=list(cell), corner=name, a=a, theta=r["theta"], segments=segs, physics=r.get("physics"),
                    end_in_R=r["end_in_R"][0], pre_hold_viol=r["pre_hold_viol"])
     except Exception as e:                                   # reported, never dropped
         out = dict(task=task, cell=list(cell), corner=name, a=a, error=repr(e))
@@ -96,7 +103,7 @@ def _job(args):
     return out
 
 
-def jobs_for(tasks, acc):
+def jobs_for(tasks, acc, ctl="lever"):
     jobs = []
     for task in tasks:
         for (cell,) in CC.cells(task):
@@ -104,8 +111,13 @@ def jobs_for(tasks, acc):
             m_hat = 0.5 * (sp.contents.m_lo + sp.contents.m_hi)     # the robot's nominal contents = cell centre (as carry_cert)
             for name, w in corners(task, cell):
                 for a in acc:
-                    jobs.append((task, cell, name, w, float(a), m_hat))
+                    jobs.append((task, cell, name, w, float(a), m_hat) + ((ctl,) if ctl != "lever" else ()))
     return jobs
+
+
+FLK = ("fl_steps", "fl_n_infeasible", "fl_n_relaxed", "fl_n_zero", "fl_n_scale_called", "fl_n_scale_shrunk", "fl_n_taumax_relaxed",
+       "fl_res_armarm_min_m", "fl_res_static_min_m", "fl_res_n_armarm_pen", "fl_res_n_static_pen", "fl_res_tau_ratio_max", "fl_res_tau_joint",
+       "fl_res_n_tau_over")     # 11-03 F2: FL-MPC fallback counters + true residuals per segment (nero/fl_log.py)
 
 
 def summarise(recs):
@@ -128,6 +140,9 @@ def summarise(recs):
         g["spill"] = max(g["spill"], max(s["spill_ratio"] for s in segs))
         g["tau"] = max(g["tau"], max(s["tau_ratio"] for s in segs))
         g["e_deg"] = max(g["e_deg"], max(s["e_obj_deg"] for s in segs))
+        from world_model.v2.nero import fl_log as FLL
+        g.setdefault("fl_all", []).extend(segs)
+        g["fl"] = FLL.aggregate(g["fl_all"])               # 11-03 F2: over all corners of this (cell, a)
     return agg
 
 
@@ -138,7 +153,12 @@ def summary_text(recs):
     for (task, cell, a), g in sorted(agg.items()):
         L.append(f"{task:6s} {str(cell):12s} a={a:<5} n={g['n']:2d} U={g['U']:2d} err={g['err']}  tilt {g['tilt']:5.2f} deg "
                  f"({g['tilt'] / CR.U_TILT_OBJ:4.2f})  mug {g['cup']:5.2f} ({g['cup'] / CR.U_TILT_CUP:4.2f})  spill {g['spill']:4.2f}  "
-                 f"tau {g['tau']:4.2f}  e_obj {g['e_deg']:4.2f} deg  worst={g['worst']}")
+                 f"tau {g['tau']:4.2f}  e_obj {g['e_deg']:4.2f} deg  a_cmd_peak {g.get('a_cmd', 0.0):5.3f}"
+                 + ("  [T_MIN clamps a segment: commanded < a]" if g.get("clamped") else "")
+                 + f"  worst={g['worst']}"
+                 + (f"  FL: infeas {g['fl']['n_infeasible']}/{g['fl']['steps']} (relaxed {g['fl']['n_relaxed']}, zero {g['fl']['n_zero']}, "
+                    f"scale-shrunk {g['fl']['n_scale_shrunk']}), true min arm-arm {g['fl']['armarm_min_m']:.3f} m, static {g['fl']['static_min_m']:.3f} m, "
+                    f"tau/16 {g['fl']['tau_ratio_max']:.2f}" if g.get("fl", {}).get("n_with") else ""))
     return "\n".join(L)
 
 
@@ -149,18 +169,23 @@ def main(argv=None):
     ap.add_argument("--acc", default=",".join(map(str, ACC_LADDER)))
     ap.add_argument("--procs", type=int, default=6)
     ap.add_argument("--out", default="/data/local/ss5772/contents/tilt_sweep_2026-11-02")
+    ap.add_argument("--ctl", choices=("lever", "coopimp"), default="lever", help="carry controller (coopimp = object-level impedance, opt-in)")
     ap.add_argument("--dry", action="store_true", help="list the jobs only")
+    ap.add_argument("--cells", default="", help="keep only cells whose lower bound is in this list, e.g. 3.5,4.0,4.5 (default: all)")
     a = ap.parse_args(argv)
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    jobs = jobs_for(a.tasks.split(","), [float(x) for x in a.acc.split(",")])
+    jobs = jobs_for(a.tasks.split(","), [float(x) for x in a.acc.split(",")], a.ctl)
+    if a.cells:
+        keep = {float(x) for x in a.cells.split(",")}
+        jobs = [j for j in jobs if float(j[1][0]) in keep]
     print(f"{len(jobs)} runs", flush=True)
     if a.dry:
         for j in jobs[:30]:
             print(j[0], j[1], j[2], j[4], CR._theta(j[3]))
         return
     meta = dict(date=time.strftime("%Y-%m-%d"), physics="fric_comp (carry.FRIC_COMP, ASSUMED gains) + weld solref " + str(CC.WELD_STIFF),
-                grasp="ASSUMED rigid weld", guarantee="SAMPLED: corner worlds of each cell, nominal runs, no backups",
+                grasp="ASSUMED rigid weld", **GR.provenance("rigid weld"), guarantee="SAMPLED: corner worlds of each cell, nominal runs, no backups",
                 budget=dict(obj_tilt_deg=f"{CR.U_TILT_OBJ} ASSUMED", cup_tilt_deg=f"{CR.U_TILT_CUP} ASSUMED",
                             spill="ratio 1, MODEL quasi-static surface (mug tilt + acceleration); slosh NOT modelled"),
                 m_hat="cell centre", plan="carry.PLANS (ASSUMED, user-confirmed)")

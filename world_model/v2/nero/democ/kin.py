@@ -12,11 +12,12 @@ import mujoco
 
 from .. import config as C
 from .. import adapters as A
+from .. import gripper as G
 from .. import ik as IK
 from ..nullspace import rotvec_err
 from . import scene as S
 
-FINGER_OPEN = 0.04          # per-finger travel at pre-grasp: gap 0.08 m vs 0.06 m box thickness (1 cm clearance per side)
+FINGER_OPEN = 0.8           # opening fraction at pre-grasp (earlier form: 40 mm of 50 mm per-finger travel)
 INSET = 0.02                # ee_grasp site sits 2 cm inside the box end face (pad overlap ~3.8 cm along approach)
 NAMES_OK = ("democ_box_geom", "democ_table_top", "democ_table_pedestal", "floor")
 
@@ -104,12 +105,11 @@ def set_state(m, d, p: S.DemoCParams, ql, qr, finger=FINGER_OPEN, box_pose=None)
     qa_l, _ = A.arm_addrs(m, "left"); qa_r, _ = A.arm_addrs(m, "right")
     d.qpos[qa_l] = ql; d.qpos[qa_r] = qr
     for side in C.SIDES:
-        d.qpos[m.jnt_qposadr[m.joint(f"{side}_arm_gripper_joint1").id]] = finger
-        d.qpos[m.jnt_qposadr[m.joint(f"{side}_arm_gripper_joint2").id]] = -finger
+        G.set_opening(m, d, side, finger)
         q = ql if side == "left" else qr
         for i in range(7):
             d.ctrl[m.actuator(f"{side}_arm_joint{i+1}_pos").id] = q[i]
-        d.ctrl[m.actuator(f"{side}_arm_gripper_pos").id] = finger
+        d.ctrl[m.actuator(f"{side}_arm_gripper_pos").id] = G.open_frac_to_ctrl(finger)
     ba = m.jnt_qposadr[m.joint("democ_box_free").id]
     d.qpos[ba:ba + 3] = p.box_centre
     d.qpos[ba + 3:ba + 7] = [1, 0, 0, 0]

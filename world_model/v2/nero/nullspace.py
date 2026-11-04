@@ -151,8 +151,8 @@ def run_dynamic(side="left", shift_cm=4.0, t_ramp=2.0, t_hold=1.0, sign=+1, t_se
     """Closed-loop: tray welded, FL-MPC (NV=7) tracks a joint reference that ramps the `side` arm along the self-motion path to
     an elbow shift of `shift_cm` while the other arm keeps its hold pose.  Reports tray pose deviation from the (settled) hold pose."""
     from . import hold_test as H
-    tau = C.tau_limits()
-    m = A.compose_scene(tau=tau)
+    tau = C.tau_limit()                 # F3 11-03: FL-MPC limit; MJCF forcerange keeps tau_limits()
+    m = A.compose_scene(tau=C.tau_limits())
     d = mujoco.MjData(m)
     info = IK.set_hold_state(m, d)
     A.disable_arm_servos(m)

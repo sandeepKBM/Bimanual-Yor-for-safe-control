@@ -29,7 +29,7 @@ _KEEP = []          # sim_common.all_pair_barriers caches by model identity: kee
 def check_tau(h, n_states=6, seed=0):
     """FL-MPC torque, M and c on the lift-enabled composed model at lift h vs the canonical robot-only scene, same arm states."""
     import sim_common as sc
-    import mpc_fl
+    from world_model.v2.flmpc import mpc_fl  # 2026-11-03: package (was sys.path `import mpc_fl`)
     canon = sc.load_model()
     _KEEP.append(canon)
     dc = mujoco.MjData(canon)

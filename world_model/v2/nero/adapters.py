@@ -60,7 +60,7 @@ def compose_scene(with_tray: bool = True, lift: bool = False, gravcomp: bool = F
                   gravity=(0.0, 0.0, -9.81), floor: bool = True):
     """YOR-NERO + floor + tray + ball (free bodies), tray welded to both gripper_base bodies (weld INACTIVE until
     set_hold_state captures the relpose).  Returns MjModel (collision bits patched)."""
-    spec = mujoco.MjSpec.from_string(BV.variant_xml(lift=lift, gravcomp=gravcomp, tau=tau))
+    spec = mujoco.MjSpec.from_string(BV.variant_xml(lift=lift, gravcomp=gravcomp, tau=tau, arm_arm_collide=False))   # patch_collision below does arm-arm itself
     if floor:
         spec.worldbody.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[0, 0, 0.05], contype=1, conaffinity=1)
     if with_tray:
@@ -178,4 +178,4 @@ def true_min_dist(m, d, gl, gr, dmax=0.5):
 
 def arm_geoms(m, side):
     """collidable geoms of an arm (hull collision meshes)."""
-    return [g for g in range(m.ngeom) if m.body(m.geom_bodyid[g]).name.startswith(f"{side}_arm_") and m.geom_contype[g]]
+    return [g for g in range(m.ngeom) if m.body(m.geom_bodyid[g]).name.startswith(f"{side}_arm_") and (m.geom_contype[g] or m.geom_conaffinity[g])]   # 11-03 item 5: contents/pan scenes have right-arm geoms with contype 0 / conaffinity 65

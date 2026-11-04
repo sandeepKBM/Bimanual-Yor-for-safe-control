@@ -42,7 +42,7 @@ def make_flmpc(model, impl: str | None = None, **kw):
         import rt_flmpc
         fl = rt_flmpc.RTFLMPC(model, **kw)
     else:
-        import mpc_fl
+        from world_model.v2.flmpc import mpc_fl  # 2026-11-03: package (was sys.path `import mpc_fl`)
         fl = mpc_fl.FLMPC(model, **kw)
     fl.impl = impl
     return fl

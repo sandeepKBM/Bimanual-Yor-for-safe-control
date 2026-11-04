@@ -108,7 +108,8 @@ class QPRecorder:
         if sc is None:
             from .impl import _paths
             _paths()
-            import sim_common as sc
+            from world_model.v2.flmpc import mpc_fl
+            sc = mpc_fl.sc                 # 2026-11-03: FL-MPC's QP now lives in flmpc._sc (was sim_common)
         if getattr(sc.solve_constrained_box_qp, "_qp_recorder", False):
             return cls
         cls._orig = sc.solve_constrained_box_qp

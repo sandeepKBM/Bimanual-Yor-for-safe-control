@@ -24,6 +24,7 @@ import mujoco
 
 from .. import config as C
 from .. import adapters as A
+from .. import gripper as G
 from ..hold_test import Ctl
 from ..ik import ArmIK
 from ..democ import kin as K
@@ -34,7 +35,7 @@ from . import scene as S
 DT = 0.005
 T_SETTLE, T_CLOSE, T_SETTLE2, T_LIFT, T_HOLD = 0.5, 0.7, 0.3, 1.5, 2.0
 LIFT = 0.05
-FINGER_OPEN = 0.03          # per finger: 6 cm gap around the 1.4 cm handle
+FINGER_OPEN = G.approach_open_frac()   # opening fraction: parallel-pad opening (gripper.APPROACH_THETA_RAD)
 
 
 class PanCtl(Ctl):
@@ -112,10 +113,7 @@ def _arm_contacts(m, d, side, allow=("pan",)):
 
 
 def _set_fingers(m, d, side, v):
-    for j in range(m.njnt):
-        nm = m.joint(j).name
-        if nm.startswith(f"{side}_arm_gripper_joint"):
-            d.qpos[m.jnt_qposadr[j]] = v if m.jnt_range[j][1] > 0 else -v     # joint2 range is [-0.05, 0]
+    G.set_opening(m, d, side, v)     # v = opening fraction (1 = open)
 
 
 RIGHT_GRIPS = {   # (approach, jaw) for the right claw on the handle; straight top-down hits the table with the wrist (checked 10-28)
@@ -152,13 +150,9 @@ def find_pregrasp(m, d0, side, target, approach, jaw, n_sol=10, seeds=60, open_w
 
 
 def set_claw_limit(m, acts, claw_N):
-    """11-01: raise (or lower) the claw actuators' force limit to claw_N [N] in memory (config.CLAW_PRESETS; the MJCF stays at
+    """11-01: raise (or lower) the claw actuators' force limit to claw_N [N] in memory (the MJCF stays at
     GRIPPER_EFFORT).  None = leave the value set at compose (config.claw_default(): 40 N since 11-01).  -> the limit in force."""
-    if claw_N is None:
-        return float(m.actuator_forcerange[acts[0], 1])
-    for a in acts:
-        m.actuator_forcerange[a] = (-float(claw_N), float(claw_N))
-    return float(claw_N)
+    return G.set_claw_limit(m, acts, claw_N)
 
 
 def _grip_force_mode(m, act, force):
@@ -205,7 +199,7 @@ def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=
     m.opt.timestep = DT
     if condim is not None:   # sensitivity: 4 adds torsional (twist) friction, 6 also rolling; coefficients = geom friction[1:], max-combined
         m.geom_condim[m.geom("pan_handle").id] = condim
-    tau = C.tau_limits(tau_preset)
+    tau = C.tau_limit(tau_preset)       # F3 11-03: FL-MPC torque limit, one source (config.tau_limit)
     d = mujoco.MjData(m)
     S.settle(m, d, 1.0)                                    # pan, lid and puck at rest on the stove (arms at their initial pose)
     statics = CV.probe_statics(m, d, cp.pan)
@@ -242,10 +236,10 @@ def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=
     else:
         ctl = Ctl(m, hold, tau)
     NP, FDT = ctl.fl.NP, ctl.fl.DT
-    nsub = C.substeps_default() if nsub is None else int(nsub)   # 11-01 default 5 (1 ms); BIMANUAL_LEGACY_CLAW=1 -> 1
+    nsub = C.substeps_default() if nsub is None else int(nsub)   # 11-01 default 5 (1 ms)
     m.opt.timestep = DT / nsub                   # after settle + pre-grasp (settle substeps via scene.step); nsub=1 = 5 ms
     act_g = {s: m.actuator(f"{s}_arm_gripper_pos").id for s in sides}
-    set_claw_limit(m, list(act_g.values()), claw_N)            # 11-01: None = MJCF 10 N; config.CLAW_PRESETS
+    set_claw_limit(m, list(act_g.values()), claw_N)            # None = the compose default (config.claw_default)
     fing = {m.geom(f"{s}_arm_finger{i}_col").id: (s, f"f{i}") for s in sides for i in (1, 2)}
     handle = m.geom("pan_handle").id
     t_close0, t_close1 = T_SETTLE, T_SETTLE + T_CLOSE
@@ -293,7 +287,7 @@ def run(placement="far_centre", hidden_mass=None, payload="nominal", tau_preset=
         for s in sides:
             if grip == "force" and abs(t - t_close0) < DT / 2:
                 _grip_force_mode(m, act_g[s], grip_force)
-            d.ctrl[act_g[s]] = FINGER_OPEN if t < t_close0 else (-grip_force if grip == "force" else 0.0)
+            d.ctrl[act_g[s]] = G.open_frac_to_ctrl(FINGER_OPEN) if t < t_close0 else (G.force_ctrl(grip_force) if grip == "force" else G.closed_ctrl())
         if payload in ("nominal", "adaptive") and t >= t_close1:
             ctl.on = True
         t0 = time.perf_counter()
@@ -401,7 +395,7 @@ def main(argv=None):
     ap.add_argument("--second-grip", default="tilt", choices=["tilt", "side"])
     ap.add_argument("--condim", type=int, default=None, choices=[3, 4, 6])
     ap.add_argument("--nsub", type=int, default=None, help="physics substeps per 5 ms control step (default config: 5 -> 1 ms)")
-    ap.add_argument("--claw-N", type=float, default=None, help="claw force limit [N] (config.CLAW_PRESETS; default = config.claw_default(), 40 N)")
+    ap.add_argument("--claw-N", type=float, default=None, help="claw force limit [N] (default = config.claw_default() = NUT_FORCE_N)")
     ap.add_argument("--out", default=None)
     a = ap.parse_args(argv)
     r = run(a.placement, a.hidden_mass, a.payload, grip=a.grip, grip_force=a.grip_force, grasp_frac=a.grasp_frac, second_frac=a.second_frac,

@@ -100,3 +100,7 @@ from_viam5/
 # DOCS / markdown: tracked on the local branch, STRIPPED from the pushed
 # (public) branch — do NOT ignore here, or they'd leave local version control.
 # ─────────────────────────────────────────────────────────────────────────
+
+# ─── Source packages whose names match the data/ and skills/ rules above (they were never committed until 2026-11-03) ───
+!world_model/v2/data/
+!world_model/v2/nero/pan/skills/

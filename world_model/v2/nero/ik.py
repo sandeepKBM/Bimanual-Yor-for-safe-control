@@ -11,12 +11,13 @@ import mujoco
 
 from . import config as C
 from . import adapters as A
+from . import gripper as G
 
 # ---- tray hold geometry: SAME numbers as world_model/v2/house/build.py (robot-local frame)
 TRAY_LOCAL = (0.45, -0.21, 0.85)          # tray centre: ~0.45 m ahead, 0.85 m high (house/phase1 hold pose)
 TRAY_HX, TRAY_HY = 0.15, 0.10
 INSET = 0.012
-FINGER_OPEN = 0.0175                      # per-finger travel at hold (Piper hold used 0.0175 of 0.035); NERO: 17.5 mm each = 35 mm gap
+FINGER_OPEN = 0.35                        # opening fraction at hold (earlier form: 17.5 mm of 50 mm per-finger travel)
 HOLD_MODES = {"side": ((0.0, -1.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))}   # left approach, right approach, jaw axis
 
 
@@ -162,8 +163,7 @@ def set_hold_state(m, d, tray_local=TRAY_LOCAL, finger=FINGER_OPEN, q_post=None,
     d.qpos[ikL.qa] = ql
     d.qpos[ikR.qa] = qr
     for side in C.SIDES:
-        d.qpos[m.jnt_qposadr[m.joint(f"{side}_arm_gripper_joint1").id]] = finger
-        d.qpos[m.jnt_qposadr[m.joint(f"{side}_arm_gripper_joint2").id]] = -finger
+        G.set_opening(m, d, side, finger)     # finger = opening fraction (1 = open)
     ta = m.jnt_qposadr[m.joint("tray_free").id]
     d.qpos[ta:ta + 3] = c
     d.qpos[ta + 3:ta + 7] = [np.cos(np.pi / 4), 0, 0, np.sin(np.pi / 4)]          # yaw +90 deg: long axis across the robot
@@ -177,7 +177,7 @@ def set_hold_state(m, d, tray_local=TRAY_LOCAL, finger=FINGER_OPEN, q_post=None,
         q = ql if side == "left" else qr
         for i in range(7):
             d.ctrl[m.actuator(f"{side}_arm_joint{i+1}_pos").id] = q[i]
-        d.ctrl[m.actuator(f"{side}_arm_gripper_pos").id] = finger
+        d.ctrl[m.actuator(f"{side}_arm_gripper_pos").id] = G.open_frac_to_ctrl(finger)
     mujoco.mj_forward(m, d)
     for side in C.SIDES:
         capture_weld(m, d, f"hold_{side}", f"{side}_arm_gripper_base", "tray")

@@ -15,6 +15,7 @@ import mujoco
 
 from . import config as C
 from . import adapters as A
+from . import gripper as G
 from . import ik as IK
 from . import hold_test as H
 
@@ -23,19 +24,19 @@ true_min_dist = A.true_min_dist
 
 
 def run(overlap=0.03, t_ramp=1.5, t_total=3.0, tau_preset=None, **fl_kw):
-    tau = C.tau_limits(tau_preset)
-    m = A.compose_scene(with_tray=False, tau=tau)
+    tau = C.tau_limit(tau_preset)       # F3 11-03: FL-MPC limit; MJCF forcerange keeps tau_limits()
+    tau_mj = C.tau_limits(tau_preset)
+    m = A.compose_scene(with_tray=False, tau=tau_mj)
     d = mujoco.MjData(m)
     # hold pose without tray: reuse IK pair (tray present only for the weld; here a tray-less model, so use a tray model for IK then copy q)
-    mt = A.compose_scene(with_tray=True, tau=tau)
+    mt = A.compose_scene(with_tray=True, tau=tau_mj)
     dt_ = mujoco.MjData(mt)
     info = IK.set_hold_state(mt, dt_)
     hq = info["hold_q"]
     qa_l, _ = A.arm_addrs(m, "left"); qa_r, _ = A.arm_addrs(m, "right")
     d.qpos[qa_l] = hq["left"]; d.qpos[qa_r] = hq["right"]
     for side in C.SIDES:
-        d.qpos[m.jnt_qposadr[m.joint(f"{side}_arm_gripper_joint1").id]] = info["finger"]
-        d.qpos[m.jnt_qposadr[m.joint(f"{side}_arm_gripper_joint2").id]] = -info["finger"]
+        G.set_opening(m, d, side, info["finger"])
     mujoco.mj_forward(m, d)
     A.disable_arm_servos(m)
     ikL, ikR = IK.ArmIK(m, "left"), IK.ArmIK(m, "right")

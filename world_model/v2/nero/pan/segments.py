@@ -36,13 +36,15 @@ import mujoco
 
 from .. import config as C
 from .. import adapters as A
+from .. import gripper as G
+from .. import weldcontact as WC
 from ..ik import ArmIK
 from ..democ import kin as K
 from . import covered as CV
 from . import scene as S
 from .handle_grasp import (DT, LIFT, FINGER_OPEN, LEFT_APPROACH, LEFT_JAW, TwoCtl, find_pregrasp, _set_fingers, handle_point,
                           _arm_contacts)
-from .under_rim import RIGHT_APPROACH, RIGHT_JAW, APPROACH_IN, EDGE_CLEAR, _perturb_pose
+from .rim_geometry import RIGHT_APPROACH, RIGHT_JAW, APPROACH_IN, EDGE_CLEAR, _perturb_pose
 
 SIDES = C.SIDES
 SEGMENTS = ("pinch", "push", "clamp", "lift")
@@ -76,7 +78,7 @@ STABLE_MARGIN = 0.005  # ASSUMED (= cert/model_check.SUPPORT_MARGIN)
 # R_V2 reach: a contact-free pre-grasp at the handle with the fingers at the RE-GRASP opening (handle half-thickness + the release
 # opening of cert/backups, the way the claw let go), not fully open: a full open puts the lower finger into the stove pad once the
 # push has moved the handle over it (smokeB 10-29).  MODEL (kinematic IK + contact check); the re-grasp itself is not yet run.
-REGRASP_OPEN = 0.014 / 2 + 0.006   # MODEL handle_t/2 (scene ASSUMED 14 mm) + design RELEASE_OPEN
+REGRASP_OPEN = 0.26   # opening fraction (1 = open): ASSUMED design value from the earlier metre form 0.014/2 + 0.006 (handle_t/2 + RELEASE_OPEN) / 0.05
 #   contents in: as U. No part of the pan body over the stove edge: MODEL (rim circle inside the stove top; the handle is excluded,
 #   it overhangs the stove by design). Handle in the left arm's reach: contact-free IK pre-grasp exists at the TRUE handle pose.
 #   Claws released: no robot contact with pan or lid.
@@ -90,7 +92,7 @@ CLAMP = dict(
     v1=dict(tip=0.0, dz=0.0, open_R=FINGER_OPEN, clear=None, jm=None),
     v2=dict(tip=0.018,      # MODEL: fingertip 18 mm past the IK hand point along the approach (finger mesh at the pre-grasp, 10-29)
             dz=0.010,       # design: claw 10 mm higher -> gripper base ~10 mm above the table (base mesh spans 164 mm along the jaw)
-            open_R=0.035,   # design: right fingers 35 mm each (MODEL limit 50 mm) so both still clear the 45 mm pan stack
+            open_R=0.7,   # design: right opening fraction 0.7 (earlier form: 35 mm per finger of 50 mm) so both still clear the 45 mm pan stack
             clear=0.005,    # ASSUMED: min arm-to-table/stove/counter clearance along the approach + 5 cm lift (kinematic check)
             jm=dict(left=0.05, right=0.01)),   # ASSUMED: min distance [rad] to every joint limit along the push/approach + lift path.
                             # The right arm reaches the far rim near its joint range: best path margin 0.016-0.023 rad in the nominal world
@@ -204,11 +206,16 @@ def _fold_c2(est):
     return dict(est, yaw_deg=y, yaw_folded=bool(abs(y - float(est["yaw_deg"])) > 1e-9))
 
 
+def _handle_grip(p):
+    """opening fraction on a leg where the claw is CLOSED on the handle: jaws posed so the inner gap at the TCP = handle_t + 2 x 2 mm (gripper.opening_for_width)."""
+    return G.opening_for_width(p.handle_t)["frac"]
+
+
 def _pot_pregrasp(m, d, side, p, pos0, R0, aim, Rz, approach0, jaw0, sgn, frac0, cl):
     """pot handle pinch for one claw: the nominal candidate first, then frac x yaw x roll variants in a FIXED order; first one whose
     pre-grasp + 5 cm lift path keeps the clearance / joint-margin bounds (find_pregrasp_clear) wins.  sgn +1 = handle, -1 = handle2.
     Handle points are taken in the NOMINAL pan pose and moved by the robot's aim (estimate), like v1's aim(handle_nom)."""
-    from .skills.grasp import _rot
+    from .rim_geometry import _rot
     ax = p.handle_axis()
     length = p.handle_len if sgn > 0 else p.handle2_len
     clear = cl["clear"] or 0.005
@@ -223,7 +230,7 @@ def _pot_pregrasp(m, d, side, p, pos0, R0, aim, Rz, approach0, jaw0, sgn, frac0,
         jaw = _rot(app, roll) @ jaw
         budget = dict(n_sol=16, seeds=120) if k == 0 else dict(n_sol=6, seeds=40)
         try:
-            r = find_pregrasp_clear(m, d, side, tgt, app, jaw, [(np.array([0, 0, LIFT]), p.handle_t / 2)], clear, FINGER_OPEN, jm=jm,
+            r = find_pregrasp_clear(m, d, side, tgt, app, jaw, [(np.array([0, 0, LIFT]), _handle_grip(p))], clear, FINGER_OPEN, jm=jm,
                                     **budget)
             r["cand"] = dict(frac=round(frac, 3), yaw=yaw, roll=roll, k=k)
             return r
@@ -306,11 +313,13 @@ class Episode:
     """One world theta, one plan, with the robot's policy (observe_pose re-aim). Snapshot/restore for branching backups."""
 
     def __init__(self, world, push=0.07, grasp_frac=0.65, grip_force=10.0, observe="zed", obs_seed=0, retries=3,
-                 payload_mass=None, clamp="v2", est=None, obj="pan", claw_N=None, lift_ctl="nominal", grasp="friction"):
+                 payload_mass=None, clamp="v2", est=None, obj="pan", claw_N=None, lift_ctl="nominal", grasp=None):
         """est: a GIVEN pose estimate dict(dx, dy, yaw_deg) used instead of running observe_pose (cert/ reconstruction: the
         robot aimed there; this world is one theta it must cover).  None = run observe_pose at noise `observe`."""
         from . import observe_pose as O
         self.obj = obj                                  # 11-01: "pan" (one handle: push + rim clamp) | "pot" (two side handles: pinch both)
+        if grasp is None:      # 11-03 USER: "we use the rigid weld for everything"
+            grasp = G.default_grasp()
         assert grasp in ("friction", "weld"), grasp
         self.grasp = grasp                              # 11-01 USER scope: "weld" = rigid weld once the claw closes (ASSUMED grasp)
         if obj == "pot":
@@ -340,6 +349,9 @@ class Episode:
             m = self.m = CV.compose(cp)
         m.opt.timestep = DT
         self.weld_id = {s_: m.equality(f"weld_{s_}").id for s_ in SIDES} if grasp == "weld" else {}
+        self.wc = WC.WeldContacts(m, "pan", self.weld_id, SIDES, active=(grasp == "weld"))   # 11-03: gripper<->pan contacts off while welded
+        for s_ in SIDES:     # nyu weld grasp: the pre-grasp pose has the jaws / palm around (and through) the handle; the jaws only pose, so gripper<->pan contacts are off from the start
+            self.wc.set(s_, True)        # (until the first release; weld(s, False) then restores them once the gripper is clear of the pan)
         if perturb.get("mu_scale"):
             m.geom_friction[:, 0] *= perturb["mu_scale"]
         if perturb.get("lid_mu_scale"):        # 11-01 hard worlds: lid friction.  MuJoCo combines a pair by MAX friction unless the
@@ -347,7 +359,7 @@ class Episode:
             sel = m.geom_bodyid == lid_b
             m.geom_friction[sel, 0] *= perturb["lid_mu_scale"]
             m.geom_priority[sel] = 1
-        self.tau_max = C.tau_limits(None)
+        self.tau_max = C.tau_limit()      # F3 11-03: one source (config.tau_limit; 16 Nm ASSUMED, BIMANUAL_LEGACY_TAU=1 -> 100)
         d = self.d = mujoco.MjData(m)
         S.settle(m, d, 1.0)
         self.pan, self.lid = m.body("pan").id, m.body("lid").id
@@ -406,8 +418,8 @@ class Episode:
                 preL = find_pregrasp(m, d, "left", left_target, left_app, left_jaw)
             else:
                 preL = find_pregrasp_clear(m, d, "left", left_target, left_app, left_jaw,
-                                           ([(np.array([0, 0, LIFT]), p.handle_t / 2)] if obj == "pot" else
-                                            [(-push * u, p.handle_t / 2), (-push * u + np.array([0, 0, LIFT]), p.handle_t / 2)]),
+                                           ([(np.array([0, 0, LIFT]), _handle_grip(p))] if obj == "pot" else
+                                            [(-push * u, _handle_grip(p)), (-push * u + np.array([0, 0, LIFT]), _handle_grip(p))]),
                                            cl["clear"], FINGER_OPEN, jm=cl["jm"]["left"])
             d.qpos[ArmIK(m, "left").qa] = preL["q"]
             _set_fingers(m, d, "left", FINGER_OPEN)
@@ -473,8 +485,8 @@ class Episode:
         self.plan["grasp"] = grasp
         self.act_pos = {s: (m.actuator_gainprm[self.act[s], :3].copy(), m.actuator_biasprm[self.act[s], :3].copy(),
                             m.actuator_ctrlrange[self.act[s]].copy()) for s in SIDES}
-        self.fing = {m.geom(f"{s}_arm_finger{i}_col").id: (s, i) for s in SIDES for i in (1, 2)}
-        self.grip_geoms = {m.geom(f"{s}_arm_{n}_col").id: s for s in SIDES for n in ("gripper_base", "finger1", "finger2")}
+        self.fing = {g: (s, i) for s in SIDES for i in (1, 2) for g in G.col_geoms(m, s, f"finger{i}")}
+        self.grip_geoms = {g: s for s in SIDES for n in ("gripper_base", "finger1", "finger2") for g in G.col_geoms(m, s, n)}
         self.robot_geoms = {g for g in range(m.ngeom) if (m.body(m.geom_bodyid[g]).name or "").startswith(("left_arm", "right_arm"))}
         self.obj_body = {self.pan: "pan", self.lid: "lid"} | ({self.hid: "hidden"} if self.hid else {})
         # the puck sinks through the 2.5 mm pan bottom in contact (thin-shell artefact, 10-29): its contacts with the stove count as
@@ -529,6 +541,7 @@ class Episode:
             m.eq_data[i, 6:10] = q
             m.eq_data[i, 10] = 1.0
         d.eq_active[i] = 1 if on else 0
+        self.wc.set(s, bool(on), d)
 
     def snapshot(self, label=None):
         st = np.zeros(mujoco.mj_stateSize(self.m, self._SPEC))
@@ -536,12 +549,13 @@ class Episode:
         weld = {s: self.m.eq_data[i].copy() for s, i in self.weld_id.items()}   # relpose lives in the model, not the state
         return dict(st=st, weld=weld, ctl=copy.deepcopy(self.ctl, {id(self.m): self.m}), k=self.k,
                     paths={s: list(v) for s, v in self.paths.items()}, gmode=dict(self.gmode), gcmd=dict(self.gcmd),
-                    mem=copy.deepcopy(self.mem), sense=copy.deepcopy(self.sense), label=label, t=self.k * DT)
+                    mem=copy.deepcopy(self.mem), sense=copy.deepcopy(self.sense), label=label, t=self.k * DT, wc=self.wc.state())
 
     def restore(self, sn):
         for s, i in self.weld_id.items():
             self.m.eq_data[i] = sn["weld"][s]
         mujoco.mj_setState(self.m, self.d, sn["st"], self._SPEC)   # INTEGRATION state includes eq_active
+        self.wc.sync(self.d, sn.get("wc"))
         self.ctl = copy.deepcopy(sn["ctl"], {id(self.m): self.m})
         self.k, self.paths = sn["k"], {s: list(v) for s, v in sn["paths"].items()}
         self.gmode, self.gcmd = dict(sn["gmode"]), dict(sn["gcmd"])
@@ -554,21 +568,19 @@ class Episode:
 
     def reset_track(self):
         self.track = dict(viol=None, margin=1.0, worst={}, tau_ratio=0.0, n_sat=0, events=[])
+        if getattr(self, "ctl", None) is not None:          # 11-03 F2: FL-MPC fallback counters + true residuals (nero/fl_log.py), same window as the track
+            self.ctl.rec.reset()
 
     # ---------------- low level ----------------
     def tcp(self, s):
         return self.d.xpos[self.gb[s]].copy()
 
-    def gap(self, s):                                    # observable: finger joint encoders [m] (sum of both finger travels)
-        a = self.fjoint[s]
-        return float(abs(self.d.qpos[a[0]]) + abs(self.d.qpos[a[1]]))
+    def gap(self, s):                                    # observable: opening fraction from the nut encoder (1 = open); gap(s) = finger_q(s)
+        return G.opening_frac(self.m, self.d, s)
 
     def finger_q(self, s):
-        """finger opening [m per finger] from the gripper joint encoder (the joint with a positive range)."""
-        for j in range(self.m.njnt):
-            if self.m.joint(j).name.startswith(f"{s}_arm_gripper_joint") and self.m.jnt_range[j][1] > 0:
-                return float(self.d.qpos[self.m.jnt_qposadr[j]])
-        raise KeyError(s)
+        """opening fraction (1 = open) from the nut encoder."""
+        return G.opening_frac(self.m, self.d, s)
 
     def _apply_grip(self, s):
         a = self.act[s]
@@ -580,7 +592,8 @@ class Episode:
         else:
             g, b, r = self.act_pos[s]
             self.m.actuator_gainprm[a, :3], self.m.actuator_biasprm[a, :3], self.m.actuator_ctrlrange[a] = g, b, r
-        self.d.ctrl[a] = self.gcmd[s]
+        # gcmd: force mode = closing force [N]; position mode = opening fraction
+        self.d.ctrl[a] = G.force_ctrl(self.gcmd[s]) if self.gmode[s] == "force" else G.open_frac_to_ctrl(self.gcmd[s])
 
     def _add_path(self, s, t0, t1, delta):
         m, d = self.m, self.d
@@ -613,6 +626,7 @@ class Episode:
         d.qfrc_applied[:] = 0.0
         d.qfrc_applied[ctl.ld] = te
         d.qfrc_applied[ctl.rd] = ti
+        self.wc.tick(d)
         CV.S.step(m, d)                                  # 11-01: 1 ms physics substeps (config.substeps_default)
         self.k += 1
         r = max(float(np.max(np.abs(te) / self.tau_max)), float(np.max(np.abs(ti) / self.tau_max)))
@@ -712,7 +726,7 @@ class Episode:
         if self.logging and self.k % 10 == 0:
             self.log.append(dict(t=round(t, 3), z=round(float(self.d.xpos[self.pan][2]), 4), tilt=round(ps["tilt"], 2),
                                  sup=round(cs["support"], 3), sq={s: round(v, 2) for s, v in cs["squeeze"].items()},
-                                 gap={s: round(self.gap(s) * 1e3, 2) for s in SIDES}))
+                                 open_frac={s: round(self.gap(s), 4) for s in SIDES}))
 
     # ---------------- observable signals ----------------
     def claw_wrench(self, s, sigma_tau=0.0, rng=None):
@@ -797,7 +811,10 @@ class Episode:
             elif kind in ("close", "open"):
                 s, dur = ph[1], ph[2]
                 self.gmode[s] = "force" if kind == "close" else "pos"
-                self.gcmd[s] = -self.plan["grip_force"] if kind == "close" else self.open_cmd[s]
+                self.gcmd[s] = self.plan["grip_force"] if kind == "close" else self.open_cmd[s]
+                if kind == "close" and self.grasp == "weld":   # 11-03: weld grasp under nyu = jaws POSED so the inner gap at the TCP = handle + 2 x 2 mm (no squeeze)
+                    self.gmode[s] = "pos"
+                    self.gcmd[s] = G.opening_for_width(self.p.handle_t)["frac"]
                 if kind == "open" and len(ph) > 3:    # cert/ v2 release: open each finger by a FIXED amount past its encoder reading
                     self.gcmd[s] = min(self.open_cmd[s], self.finger_q(s) + float(ph[3]))
                 if kind == "open":
@@ -970,7 +987,7 @@ class Episode:
 
     def observe_boundary(self, seg):
         """robot-observable signals at a boundary (encoders + joint torques)."""
-        o = dict(gap_mm={s: round(self.gap(s) * 1e3, 2) for s in SIDES})
+        o = dict(open_frac={s: round(self.gap(s), 4) for s in SIDES})
         if seg in ("pinch", "push"):          # yaw read from the arm: aimed yaw + rotation of the left claw since its pre-grasp (FK)
             Rr = self.d.xmat[self.gb["left"]].reshape(3, 3) @ self.Rg0.T
             o["yaw_arm_deg"] = round(self.aim_yaw + float(np.degrees(np.arctan2(Rr[1, 0], Rr[0, 0]))), 3)
@@ -1010,7 +1027,7 @@ def check_segment(ep, seg, dense=True, branch_dt=BRANCH_DT, roa=True, reach=True
     rule = _branch_rule(branch_dt, max(branch_dt, BRANCH_DT_HOLD)) if dense else _branch_rule(branch_dt, branch_dt)
     status, info = ep.run_phases(ep.segment_phases(seg), branch=rule, monitor=monitor)
     nominal = dict(status=status, viol=ep.track["viol"], margin=round(ep.track["margin"], 4), worst=ep.track["worst"],
-                   tau_ratio=round(ep.track["tau_ratio"], 4), n_sat=ep.track["n_sat"], events=ep.track["events"],
+                   tau_ratio=round(ep.track["tau_ratio"], 4), n_sat=ep.track["n_sat"], events=ep.track["events"], fl=ep.ctl.rec.summary(),
                    abort=info.get("t") and dict(t=info["t"], why=info["why"]))
     if status == "done":
         nominal["success"] = ep.success(seg)
@@ -1026,7 +1043,7 @@ def check_segment(ep, seg, dense=True, branch_dt=BRANCH_DT, roa=True, reach=True
         ok_R, mg, st = ep.in_R(reach=reach)
         backups.append(dict(t=round(sn["t"], 3), label=sn["label"], lid_mm_at_branch=lid0, safe=ep.track["viol"] is None, viol=ep.track["viol"],
                             margin=round(ep.track["margin"], 4), inR=ok_R, R_margin=mg, state=st,
-                            tau_ratio=round(ep.track["tau_ratio"], 4)))
+                            tau_ratio=round(ep.track["tau_ratio"], 4), fl=ep.ctl.rec.summary()))
     ep.restore(end)
     rec = dict(seg=seg, t0=round(pre_k * DT, 3), t1=round(ep.k * DT, 3), nominal=nominal, n_backups=len(backups),
                backups=backups)
@@ -1053,11 +1070,11 @@ def boundary_ok(ep, seg, rec):
     if rec["nominal"]["status"] != "done" or o is None:
         return False
     if seg == "pinch":
-        return 6.0 <= o["gap_mm"]["left"] <= 30.0
+        return 0.06 <= o["open_frac"]["left"] <= 0.30
     if seg == "push":
-        return o["tcp_push_m"] >= 0.8 * ep.plan["push"] and 6.0 <= o["gap_mm"]["left"] <= 30.0
+        return o["tcp_push_m"] >= 0.8 * ep.plan["push"] and 0.06 <= o["open_frac"]["left"] <= 0.30
     if seg == "clamp":
-        return 20.0 <= o["gap_mm"]["right"] <= 70.0
+        return 0.20 <= o["open_frac"]["right"] <= 0.70
     return True
 
 
@@ -1065,7 +1082,8 @@ def boundary_ok(ep, seg, rec):
 # ASSUMED thresholds, set from 5 calibration lifts (10-29: empty, 0.4 kg x2, 0.8 kg x2; contact-torque estimate): in the good lifts
 # the left gap moved <= 0.6 mm and the right claw carried 0.44-0.72 of the load; in the overload slips the left gap opened 5-7 mm, the
 # right share fell to 0.08-0.12 and the right gap collapsed 41 -> 1 mm.
-MON = dict(gap_L_mm=3.0, gap_R_mm=4.0, share_R=0.2, t_share=0.4)
+MON = dict(open_L=0.03, open_R=0.04,   # opening-fraction changes (earlier form: 3 / 4 mm of gap sum = fraction x 100 mm)
+            share_R=0.2, t_share=0.4)
 
 
 def default_monitor(seg):
@@ -1077,9 +1095,9 @@ def default_monitor(seg):
         if not st:
             st.update(k0=ep.k, gL=ep.gap("left"), gR=ep.gap("right"))
             return None
-        if (ep.gap("left") - st["gL"]) * 1e3 > MON["gap_L_mm"]:
+        if ep.gap("left") - st["gL"] > MON["open_L"]:
             return "left claw opening (handle twisting in the claw)"
-        if abs(ep.gap("right") - st["gR"]) * 1e3 > MON["gap_R_mm"]:
+        if abs(ep.gap("right") - st["gR"]) > MON["open_R"]:
             return "right claw gap changed"
         if (ep.k - st["k0"]) * DT > MON["t_share"]:
             fl, fr = ep.claw_wrench("left")[2], ep.claw_wrench("right")[2]

@@ -58,13 +58,14 @@ IK_TOL = 1e-3                                     # m: a waypoint whose IK misse
 LIFTOFF = ("W0_liftoff", "W1_lift5cm")
 CARRY = ("W0_liftoff", "W1_lift5cm", "W2_carry10cm")
 RESULTS = pathlib.Path(__file__).resolve().parents[1] / "results" / "contents_envelope_2026-11-01"
+CAP_FILE = pathlib.Path(__file__).resolve().parent / "capture_nyu.json"   # 11-03: nyu hold poses cached separately (nyu_hold.py)
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
 def capture(obj="pot", grasp_frac=0.85):
     """nominal grasp configuration(s) from the pan Episode (the robot's own pre-grasp IK), then waypoint IK (orientation held).
     -> dict(q={wp: {side: q}}, tcp={wp: {side: p}}, o0, R0, empty_mass, empty_com, gripper_mass, ...)"""
-    from ..pan import hardworlds as HW, segments as SG
+    from ..pan import theta as HW, segments as SG
     th = {k: (v[0] + v[1]) / 2 for k, v in HW.THETA.items()}
     th.update(mass=0.02, c_r=0.0)
     ep = SG.Episode(HW.world_from_theta(th), grasp_frac=grasp_frac, obj=obj)

@@ -29,6 +29,8 @@ import time
 
 import numpy as np
 
+from .. import config as C
+from .. import gripper as GR
 from . import carry as CR
 from . import envelope as E
 from . import objects as OB
@@ -174,7 +176,7 @@ def _trial(args):
     return task, tuple(cell), r
 
 
-WELD_STIFF = (0.004, 1.0)    # weld solref [s, dampratio]: 4 ms (>= 2 x the 1 ms physics step); MuJoCo default 0.02 s bends 2-3 deg
+WELD_STIFF = C.WELD_STIFF    # weld solref [s, dampratio]: 4 ms (>= 2 x the 1 ms physics step); MuJoCo default 0.02 s bends 2-3 deg (11-03: one source, config)
 
 
 TASK_ID = {"tray2": 2, "tray4": 4, "tray6": 6, "box": 9}
@@ -185,14 +187,17 @@ def cell_seed(task, cell, i):
     return int(np.random.SeedSequence([TASK_ID[task], int(round(1000 * cell[0])), int(round(1000 * cell[1])), i]).generate_state(1)[0])
 
 
-def run(tasks, n, procs, out, fric_comp=False, weld_stiff=False, T_cap=None, only=None):
+def run(tasks, n, procs, out, fric_comp=None, weld_stiff=None, T_cap=None, only=None):
     """only: set of cell keys "task|lo-hi" to simulate (the rest get the static rows only); None = every admitted cell."""
     import multiprocessing as mp
     from ..pan.cert import admit as AD
     out = pathlib.Path(out)
     out.mkdir(parents=True, exist_ok=True)
+    cp = C.carry_physics()                                  # 11-03 item 6: None = the shared default (fric_comp + stiff weld; legacy pair under BIMANUAL_LEGACY_CARRY_PHYS=1)
+    fric_comp = bool(cp["fric_comp"]) if fric_comp is None else fric_comp
+    weld_stiff = (cp["weld_solref"] is not None) if weld_stiff is None else weld_stiff
     res = dict(date=time.strftime("%Y-%m-%d"), n_per_cell=n, assumptions=dict(
-        grasp="ASSUMED rigid weld (user 11-01)",
+        grasp="ASSUMED rigid weld (user 11-01)", **GR.provenance("rigid weld"),
         T_cap=("none: no claw rows (user 11-02 pm, arm-side rows only)" if T_cap is None else f"ASSUMED {T_cap} Nm (old 11-02 am rule)"),
         seeds="carry_cert.cell_seed(task, cell, i)", u_admit=f"ASSUMED {E.U_ADMIT}", a_nom=E.A_NOM,
         a_backup=CR.A_BACKUP, a_min=A_MIN, controller="carry.LeverCtl (FL-MPC + lever-split payload ff), 16 Nm torque box",
@@ -209,7 +214,7 @@ def run(tasks, n, procs, out, fric_comp=False, weld_stiff=False, T_cap=None, onl
         for (cell,) in cells(task):
             st = static_cell(task, cell, world0, T_cap=T_cap)
             key = f"{task}|{cell[0]}-{cell[1]}"
-            res["cells"][key] = dict(static=st, records=[])
+            res["cells"][key] = dict(static=st, records=[], accel=cell_accel(task, st["a_admit"]))
             print(f"static {key}: {st['action']} a={st['a_admit']} u_nom={st['u_nom']} u_one={st['u_one_nom']}", flush=True)
             if st["a_admit"] is not None and (only is None or key in only):
                 for i in range(n):
@@ -225,6 +230,8 @@ def run(tasks, n, procs, out, fric_comp=False, weld_stiff=False, T_cap=None, onl
     for key, c in res["cells"].items():
         recs = [r for r in c["records"] if "error" not in r]
         c["n_errors"] = len(c["records"]) - len(recs)
+        from world_model.v2.nero import fl_log as FLL
+        c["fl"] = FLL.aggregate([s["nominal"] for r in recs for s in r.get("segments", [])])   # 11-03 F2: nominal runs of all sampled worlds
         c["cert"] = {}
         if not recs:
             continue
@@ -232,9 +239,39 @@ def run(tasks, n, procs, out, fric_comp=False, weld_stiff=False, T_cap=None, onl
             stat = {k: v for k, v in c["static"]["rows"].get(seg, {}).items()}
             static = dict(ok=all(v["ok"] for v in stat.values()), rows=stat)
             c["cert"][seg] = AD.certify(recs, seg, family=(0.0,), static=static)
+            _count_pre_hold(c["cert"][seg], recs)
+        c["n_no_world_segments"] = sum(1 for ce in c["cert"].values() if ce.get("no_world"))   # 11-03 item 12a: counted apart from passes
+        res["n_no_world_segments"] = res.get("n_no_world_segments", 0) + c["n_no_world_segments"]
     (out / "RESULT.json").write_text(json.dumps(res, indent=1, default=float))
     (out / "RESULT.txt").write_text(summary(res))
     return res
+
+
+def cell_accel(task, a):
+    """11-03 item 10: per segment, the acceleration the admitted plan actually commands (carry.commanded_accel: T_MIN clamps the move time, so
+    a_cmd_peak <= a when the move is short).  None when the cell is refused."""
+    if a is None:
+        return None
+    return {seg: CR.commanded_accel(float(np.linalg.norm(dl)), a) for seg, dl in CR.PLANS["tray" if task.startswith("tray") else "box"]}
+
+
+def _count_pre_hold(ce, recs):
+    """11-03 item 12c: a U entry during the 0.4 s load-transfer hold (record 'pre_hold_viol') is a failure of every segment of that world; the
+    certificate counts it (before, only tilt_sweep did).  Adds n_pre_hold_viol, turns ok False, appends counterexamples, refreshes eps_upper."""
+    bad = [r for r in recs if r.get("pre_hold_viol")]
+    ce["n_pre_hold_viol"] = len(bad)
+    if not bad:
+        return ce
+    from ..pan.segcert import cp_upper
+    ce["ok"] = False
+    ce.setdefault("counterexamples", [])
+    for r in bad:
+        ce["counterexamples"].append(dict(tag=r.get("tag"), theta=r.get("theta"), where="pre_hold", t=r["pre_hold_viol"].get("t"),
+                                          why=r["pre_hold_viol"].get("kind")))
+    k = len({x.get("tag") for x in ce["counterexamples"]})
+    n = ce.get("n_worlds", 0)
+    ce["eps_upper"] = round(cp_upper(k, n, ce.get("eps_conf", 0.95)), 4) if n else 1.0
+    return ce
 
 
 def summary(res):
@@ -243,11 +280,18 @@ def summary(res):
         st = c["static"]
         L.append(f"{key}: contents {st['contents_m'][0]:.2f}..{st['contents_m'][1]:.2f} kg -> {st['action']}"
                  + (f" (a = {st['a_admit']:.3f} m/s^2)" if st["a_admit"] else "") + f"  u_nom(a_nom) = {st['u_nom']}")
+        if c.get("accel"):
+            L.append("    commanded peak a per segment: " + ", ".join(f"{sg} {v['a_cmd_peak']:.3f}" + (" (T_MIN clamp)" if v["clamped"] else "") for sg, v in c["accel"].items()))
         sup = st["rows"]["release"]["support_dest"]
         L.append(f"    support at destination: margin {sup['margin_m'] * 1e3:.1f} mm (proof under MODEL)")
         for seg, ce in c.get("cert", {}).items():
             cx = ce.get("counterexamples", [])
-            L.append(f"    {seg:8s} ok={ce['ok']}  n={ce['n_worlds']}  eps<={ce.get('eps_upper')}  {('cx: ' + ', '.join(str(x.get('why') or x.get('row')) for x in cx[:4])) if cx else ''}")
+            L.append(f"    {seg:8s} ok={ce['ok']}{'  [no world qualified]' if ce.get('no_world') else ''}{('  pre_hold_viol=' + str(ce['n_pre_hold_viol'])) if ce.get('n_pre_hold_viol') else ''}  n={ce['n_worlds']}  eps<={ce.get('eps_upper')}  {('cx: ' + ', '.join(str(x.get('why') or x.get('row')) for x in cx[:4])) if cx else ''}")
+        f_ = c.get("fl") or {}
+        if f_.get("n_with"):
+            L.append(f"    FL-MPC (nominal runs): infeasible {f_['n_infeasible']}/{f_['steps']} steps (relaxed {f_['n_relaxed']}, zero {f_['n_zero']}, "
+                     f"scale-shrunk {f_['n_scale_shrunk']}); TRUE min arm-arm {f_['armarm_min_m']:.3f} m, min static {f_['static_min_m']:.3f} m, "
+                     f"pen steps {f_['n_armarm_pen']}/{f_['n_static_pen']}, max |tau|/limit {f_['tau_ratio_max']:.2f}")
         if c.get("n_errors"):
             L.append(f"    ERRORS: {c['n_errors']} trials crashed (see trials.jsonl)")
     return "\n".join(L)
@@ -260,8 +304,10 @@ def main(argv=None):
     ap.add_argument("--procs", type=int, default=10)
     ap.add_argument("--out", default="/data/local/ss5772/contents/carry_cert_2026-11-02")
     ap.add_argument("--static-only", action="store_true")
-    ap.add_argument("--fric-comp", action="store_true", help="joint friction compensation + integral wrapper (carry.FRIC_COMP)")
-    ap.add_argument("--weld-stiff", action="store_true", help=f"weld solref {WELD_STIFF} instead of the MuJoCo default")
+    ap.add_argument("--fric-comp", action=argparse.BooleanOptionalAction, default=None,
+                    help="joint friction compensation + integral wrapper (carry.FRIC_COMP); default = config.carry_physics()")
+    ap.add_argument("--weld-stiff", action=argparse.BooleanOptionalAction, default=None,
+                    help=f"weld solref {WELD_STIFF} instead of the MuJoCo default; default = config.carry_physics()")
     ap.add_argument("--twist-cap", action="store_true", help=f"old 11-02 am rule: claw twist row at {E.T_CAP} Nm (default: arm-side only)")
     ap.add_argument("--only", default=None, help="comma list of cell keys task|lo-hi to simulate (default: every admitted cell)")
     a = ap.parse_args(argv)

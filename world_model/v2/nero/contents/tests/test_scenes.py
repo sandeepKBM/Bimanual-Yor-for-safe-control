@@ -1,7 +1,8 @@
 import numpy as np, mujoco, pytest
 from world_model.v2.nero.contents import scenes as S
 
-REF_L, REF_R = np.array([0.3815, -0.1141, 0.8554]), np.array([0.3778, -0.4861, 0.8554])
+REF_L, REF_R = np.array([0.3815, -0.1141, 0.8554]), np.array([0.3778, -0.4861, 0.8554])   # pre-11-03 scene position
+REF_L, REF_R = REF_L + [0.0, S.SCENE_DY, 0.0], REF_R + [0.0, S.SCENE_DY, 0.0]                  # 11-03: scene shifted by SCENE_DY (ASSUMED) in y
 
 
 def _worlds():
