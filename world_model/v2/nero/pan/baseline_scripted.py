@@ -102,7 +102,7 @@ def run(world, tag, plan=None):
         out["stage"] = "push aborted"
         return _finish(ep, out)
     ep.run_phases(ep.segment_phases("clamp"))
-    out["clamp"] = dict(success=ep.success("clamp"), gap_R_mm=round(ep.gap("right") * 1e3, 1))
+    out["clamp"] = dict(success=ep.success("clamp"), open_frac_R=round(ep.gap("right"), 3))
     if max(m_hat, 0.0) > REFUSE_KG:
         out["stage"] = "refused lift (estimated overload)"
         return _finish(ep, out)

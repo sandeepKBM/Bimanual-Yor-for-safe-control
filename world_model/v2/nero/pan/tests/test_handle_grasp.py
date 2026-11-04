@@ -1,6 +1,7 @@
 import numpy as np
 import mujoco
 
+from world_model.v2.nero import gripper as G
 from world_model.v2.nero import config as C
 from world_model.v2.nero.pan import covered as CV, handle_grasp as H, scene as S
 
@@ -16,9 +17,9 @@ def test_set_fingers_opens_symmetrically():
     mujoco.mj_forward(m, d)
     q1 = d.qpos[m.jnt_qposadr[m.joint("left_arm_gripper_joint1").id]]
     q2 = d.qpos[m.jnt_qposadr[m.joint("left_arm_gripper_joint2").id]]
-    assert np.isclose(q1, H.FINGER_OPEN) and np.isclose(q2, -H.FINGER_OPEN)   # joint2 range is [-0.05, 0]
-    f1 = d.geom_xpos[m.geom("left_arm_finger1_col").id]
-    f2 = d.geom_xpos[m.geom("left_arm_finger2_col").id]
+    assert np.isclose(q1, q2) and np.isclose(G.opening_frac(m, d, "left"), H.FINGER_OPEN)   # the 2 jaw hinges open together (same sign); encoder = opening fraction
+    f1 = d.geom_xpos[G.col_geom(m, "left", "finger1")]
+    f2 = d.geom_xpos[G.col_geom(m, "left", "finger2")]
     assert np.linalg.norm(f1 - f2) > 0.05                                     # fingers apart, not moved together
 
 
@@ -36,7 +37,7 @@ def test_sim_defaults_claw_and_substeps():
     m = _m()
     for s in C.SIDES:
         assert m.actuator_forcerange[m.actuator(f"{s}_arm_gripper_pos").id][1] == C.claw_default()
-    assert C.claw_default() == (C.GRIPPER_EFFORT if C.LEGACY_CLAW else 40.0)
+    assert C.claw_default() == C.NUT_FORCE_N
     n = C.substeps_default()
     d1, d2 = mujoco.MjData(m), mujoco.MjData(m)
     dt = m.opt.timestep

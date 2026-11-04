@@ -104,6 +104,9 @@ def _certify_sampled(records, seg, family=BK.FAMILY):
     A world where the robot refuses at B0 is not a sample of this segment; a world whose earlier segment failed is not either."""
     worlds = [(r, next((s for s in r["segments"] if s["seg"] == seg), None)) for r in records if not r.get("refused")]
     worlds = [(r, s) for r, s in worlds if s is not None]
+    if not worlds:      # 11-03 item 12a: no world reached this segment (earlier segment failed / every world refused / no records) = NO evidence, not a pass
+        return dict(ok=False, seg=seg, n_worlds=0, reason="no world qualified", no_world=True, counterexamples=[],
+                    guarantee="none (no world qualified: nothing was sampled for this segment)")
     nominal_bad = [(r, s) for r, s in worlds if s["nominal"]["viol"]]
     for d in family:
         bad = [(r, s) for r, s in worlds if s["family"][_key(s["family"], d)]["n_bad"]]

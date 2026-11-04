@@ -18,13 +18,13 @@ from pathlib import Path
 import numpy as np
 import mujoco
 
-from .. import config as C
-from .. import adapters as A
-from .. import ik as IK
-from ..hold_test import Ctl
-from . import scene as S
-from . import kin as K
-from . import payload as PL
+from world_model.v2.nero import config as C
+from world_model.v2.nero import adapters as A
+from world_model.v2.nero import ik as IK
+from world_model.v2.nero.hold_test import Ctl
+from world_model.v2.nero.democ import scene as S
+from world_model.v2.nero.democ import kin as K
+from world_model.v2.nero.democ import payload as PL
 
 
 class PayloadCtl(Ctl):
@@ -77,7 +77,7 @@ def run(p: S.DemoCParams, weld=False, tau_preset=None, verbose=False, payload_ff
     #             'internal' (FL-MPC payload hooks: half the box's mass/inertia/weight per arm inside tau = M a + c and the torque box)
     payload_ff = {False: 'off', True: 'external', None: 'off'}.get(payload_ff, payload_ff)
     assert payload_ff in ('off', 'external', 'internal'), payload_ff
-    tau = C.tau_limits(tau_preset)
+    tau = C.tau_limit(tau_preset)       # F3 11-03: FL-MPC torque limit, one source (config.tau_limit)
     m = S.compose(p, dt=DT)
     if finger_kp is not None:                       # DIAGNOSTIC override of the ASSUMED finger servo gain (reported in JSON)
         for s_ in C.SIDES:

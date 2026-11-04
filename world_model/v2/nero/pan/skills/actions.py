@@ -344,7 +344,7 @@ class Executor:
         ep = self.ep
         s = act.arm
         if isinstance(act, Close):
-            ep.gmode[s], ep.gcmd[s] = "force", -ep.plan["grip_force"]
+            ep.gmode[s], ep.gcmd[s] = "force", ep.plan["grip_force"]
         else:
             ep.gmode[s] = "pos"
             ep.gcmd[s] = ep.open_cmd[s] if act.width is None else min(ep.open_cmd[s], ep.finger_q(s) + float(act.width))

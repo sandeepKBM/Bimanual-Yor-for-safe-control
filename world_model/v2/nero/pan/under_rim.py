@@ -24,6 +24,7 @@ import mujoco
 
 from .. import config as C
 from .. import adapters as A
+from .. import gripper as G
 from ..hold_test import Ctl
 from ..ik import ArmIK
 from ..democ import kin as K
@@ -31,9 +32,7 @@ from . import covered as CV
 from . import scene as S
 from .handle_grasp import (DT, LIFT, FINGER_OPEN, LEFT_APPROACH, LEFT_JAW, TwoCtl, find_pregrasp, _set_fingers, _grip_force_mode)
 
-RIGHT_APPROACH, RIGHT_JAW = np.array([0.0, 1.0, 0.0]), np.array([0.0, 0.0, 1.0])   # from the far side towards the pan, fingers above/below
-APPROACH_IN = 0.08            # design: stand-off distance the right claw travels in [m]
-EDGE_CLEAR = 0.006            # design: right fingertips stop this far short of the stove edge [m]
+from .rim_geometry import RIGHT_APPROACH, RIGHT_JAW, APPROACH_IN, EDGE_CLEAR, _perturb_pose   # moved 2026-11-03 (single source)
 SEG = [("settle", 0.5), ("close_L", 0.7), ("settle", 0.3), ("push", 1.5), ("settle", 0.3), ("approach_R", 1.0),
        ("close_R", 0.7), ("settle", 0.3), ("lift", 1.5), ("hold", 2.0)]
 
@@ -44,24 +43,6 @@ def _segments():
         out.append((name, t, t + dur))
         t += dur
     return out
-
-
-def _perturb_pose(m, d, centre_xy, dx, dy, yaw_deg):
-    """Move pan + lid + hidden puck rigidly: rotate yaw about the pan's nominal centre (z axis), then shift (dx, dy)."""
-    c, s_ = np.cos(np.radians(yaw_deg)), np.sin(np.radians(yaw_deg))
-    Rz = np.array([[c, -s_, 0], [s_, c, 0], [0, 0, 1]])
-    qz = np.array([np.cos(np.radians(yaw_deg) / 2), 0, 0, np.sin(np.radians(yaw_deg) / 2)])
-    for name in ("pan", "lid", "hidden"):
-        if mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, name) < 0:
-            continue
-        a = m.jnt_qposadr[m.body(name).jntadr[0]]
-        pos = d.qpos[a:a + 3].copy()
-        rel = pos - np.array([centre_xy[0], centre_xy[1], 0.0])
-        d.qpos[a:a + 3] = Rz @ rel + np.array([centre_xy[0] + dx, centre_xy[1] + dy, 0.0])
-        q = np.zeros(4)
-        mujoco.mju_mulQuat(q, qz, d.qpos[a + 3:a + 7].copy())
-        d.qpos[a + 3:a + 7] = q
-    mujoco.mj_forward(m, d)
 
 
 def run(placement="far_centre", hidden_mass=None, push=0.07, grasp_frac=0.6, grip_force=10.0, condim=None, snap=None,
@@ -83,7 +64,7 @@ def run(placement="far_centre", hidden_mass=None, push=0.07, grasp_frac=0.6, gri
         m.geom_condim[m.geom("pan_handle").id] = condim
     if perturb.get("mu_scale"):
         m.geom_friction[:, 0] *= perturb["mu_scale"]
-    tau = C.tau_limits(None)
+    tau = C.tau_limit()      # F3 11-03: FL-MPC torque limit, one source (config.tau_limit)
     d = mujoco.MjData(m)
     S.settle(m, d, 1.0)
     handle_site_nominal = d.site_xpos[m.site("pan_handle_grasp").id].copy()     # BELIEF: planning uses the nominal pose
@@ -211,7 +192,7 @@ def run(placement="far_centre", hidden_mass=None, push=0.07, grasp_frac=0.6, gri
             t_c = seg_t[close_seg][0]
             if abs(t - t_c) < DT / 2:
                 _grip_force_mode(m, act[s], grip_force)
-            d.ctrl[act[s]] = FINGER_OPEN if t < t_c else -grip_force
+            d.ctrl[act[s]] = G.open_frac_to_ctrl(FINGER_OPEN) if t < t_c else G.force_ctrl(grip_force)
         ctl.on = t >= seg_t["lift"][0]                       # nominal empty-pan payload split 50/50 once both claws hold
         t0 = time.perf_counter()
         te, ti = ctl.tau(d)

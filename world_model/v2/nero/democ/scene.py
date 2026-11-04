@@ -24,7 +24,7 @@ from .. import config as C
 from .. import adapters as A
 from .. import build_variant as BV
 
-SCENE_OUT = C.REPO / "scenes" / "yor_nero_democ.mjcf"
+SCENE_OUT = C.scene_path("yor_nero_democ")
 
 ASSUMED = dict(                       # EVERYTHING here is an assumption (no real spec); change only here / via CLI
     box_half=(0.10, 0.15, 0.03),      # box half extents x,y,z [m]  (20 x 30 x 6 cm slab)
@@ -66,7 +66,7 @@ def build_spec(p: DemoCParams | None = None):
     """-> MjSpec (not yet compiled)."""
     p = p or DemoCParams()
     tau = C.tau_limits(p.tau_preset)
-    spec = mujoco.MjSpec.from_string(BV.variant_xml(lift=False, gravcomp=p.gravcomp, tau=tau))
+    spec = mujoco.MjSpec.from_string(BV.variant_xml(lift=False, gravcomp=p.gravcomp, tau=tau, arm_arm_collide=False))   # A.patch_collision below does arm-arm itself
     W = spec.worldbody
     W.add_geom(name="floor", type=mujoco.mjtGeom.mjGEOM_PLANE, size=[0, 0, 0.05], contype=1, conaffinity=1)
     ztop = p.table_top_z()

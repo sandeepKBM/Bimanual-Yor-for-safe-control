@@ -26,12 +26,12 @@ from pathlib import Path
 import numpy as np
 import mujoco
 
-from .. import config as C
-from .. import adapters as A
-from . import scene as S
-from . import kin as K
-from .grasp_smoke import PayloadCtl, DT, quat_angle_deg
-from ..hold_test import Ctl
+from world_model.v2.nero import config as C
+from world_model.v2.nero import adapters as A
+from world_model.v2.nero.democ import scene as S
+from world_model.v2.nero.democ import kin as K
+from world_model.v2.nero.archive.democ.grasp_smoke import PayloadCtl, DT, quat_angle_deg
+from world_model.v2.nero.hold_test import Ctl
 
 LIFT = 0.05
 ROT_DEG = 40.0
@@ -60,7 +60,7 @@ def _smooth(u):
 
 def run(p: S.DemoCParams, fix: HoldFix | None = None, payload_ff="internal", rot_deg=ROT_DEG, tau_preset=None, pad_mu=None):
     fix = fix or HoldFix()
-    tau = C.tau_limits(tau_preset)
+    tau = C.tau_limit(tau_preset)       # F3 11-03: FL-MPC torque limit, one source (config.tau_limit)
     if fix.grip_force_N is not None:
         assert 0 < fix.grip_force_N <= GRIP_F_MAX + 1e-9, "gripper force exceeds URDF effort"
     sch = dict(SCHED)

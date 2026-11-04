@@ -39,8 +39,8 @@ import numpy as np
 from scipy.optimize import linprog
 from scipy.spatial import ConvexHull
 
-from . import belief as B
-from ...democ import grasp_cert as GC
+from world_model.v2.nero.pan.cert import belief as B
+from world_model.v2.nero.archive.democ import grasp_cert as GC
 
 G = 9.81
 MU_SCALE_LO = B.PRIOR_MU[0]   # ASSUMED (prior): worst friction scale for holding; friction is a fixed interval, not narrowed
@@ -85,7 +85,7 @@ class PanModel:
         self.centre = m.site_pos[m.site("pan_centre").id].copy()
         self.u = ep.R0.T @ p.handle_axis()                            # handle axis in the pan frame
         self.w = np.cross([0, 0, 1.0], self.u)
-        from .. import covered as CV
+        from world_model.v2.nero.pan import covered as CV
         self.z_puck = p.pan_bottom_t + CV.ASSUMED_COVERED["puck_h"] / 2
         self.base_mu = {}                                            # sliding friction per geom BEFORE the world's mu_scale
         sc = float((ep.world.get("perturb") or {}).get("mu_scale") or 1.0)

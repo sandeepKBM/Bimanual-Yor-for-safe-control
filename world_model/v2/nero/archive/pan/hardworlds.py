@@ -26,7 +26,7 @@ import time
 
 import numpy as np
 
-from .. import config as C
+from world_model.v2.nero import config as C
 
 # ---- Theta: (lo, hi, label).  Raised to the user 11-01 (demos_2026-11-01.md sec. 3); USER said "get that running" 11-01.
 THETA = {
@@ -47,7 +47,7 @@ CORNER_FORCES = (10.0, 40.0)
 LIFTS = ("v1", "v3")
 CLAW_N = C.CLAW_N_DEFAULT   # 40 N, MEASURED vendor rating (user-confirmed 11-01; see config)
 NSUB = 5              # 1 ms physics step
-TAU_MIT = 16.0        # Nm, NERO MIT feed-forward command range fw >= 1.11 (pyAgxArm firmware_reference) -- ASSUMED as the limit
+TAU_MIT = C.TAU_MIT_NM   # Nm, = config.TAU_MIT_NM (ASSUMED: NERO MIT t_ff command range fw >= 1.11); FL-MPC now enforces it (config.tau_limit), report margin vs it
 RISE_MIN_MM = 40.0    # = handle_grasp 'held' rule (0.8 x LIFT)
 
 
@@ -72,7 +72,7 @@ def world_from_theta(th):
 def _patch_substeps(nsub):
     """mujoco proxy for the pan modules: each mj_step = nsub substeps of dt/nsub, applied torque held (as claw40 / physics_ab)."""
     import mujoco
-    from . import segments as S, handle_grasp as HG, scene as SC, under_rim as UR
+    from world_model.v2.nero.pan import segments as S, handle_grasp as HG, scene as SC, under_rim as UR
 
     class _Sub:
         def __getattr__(self, name):
@@ -110,8 +110,8 @@ def run_job(job):
     if os.path.exists(path):
         return key, "cached"
     _patch_substeps(NSUB // C.substeps_default())   # 11-01: the scene now substeps by default -> no extra proxy (legacy: x5)
-    from . import segments as S
-    from .cert import contact_falsify as F
+    from world_model.v2.nero.pan import segments as S
+    from world_model.v2.nero.archive.pan.cert import contact_falsify as F
     t0 = time.time()
     rec = dict(tag=tag, theta=th, frac=frac, force=force, claw_N=CLAW_N, nsub=NSUB, lift_ctl="adaptive", contact=contact)
     try:
@@ -227,7 +227,7 @@ def apply_contact(m, contact):
 
 def norm_margin(mg):
     """one number per lift: the most-violated limit, each margin divided by its limit (< 0 = failed)."""
-    from .cert import contact_falsify as F
+    from world_model.v2.nero.archive.pan.cert import contact_falsify as F
     return min(mg["slip_mm"] / F.SLIP_MM, mg["slip_deg"] / F.SLIP_DEG, mg["lid"] / F.LID_MM, mg["rise"] / RISE_MIN_MM)
 
 

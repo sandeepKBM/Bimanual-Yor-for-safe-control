@@ -25,14 +25,14 @@ import mujoco
 from .. import config as C
 from .. import build_variant as BV
 
-SCENE_OUT = C.REPO / "scenes" / "yor_nero_pan.mjcf"
+SCENE_OUT = C.scene_path("yor_nero_pan")
 G = 9.81
 
 ASSUMED = dict(                        # EVERYTHING here is an assumption (no real spec); change only here / via the dataclass
     pla_density=1240.0,                # kg/m^3, solid PLA (100% infill); a real print with infill is lighter
     pan_radius=0.09,                   # m, inner radius of the wall (18 cm pan)
     pan_wall_h=0.04, pan_wall_t=0.0025, pan_bottom_t=0.0025, pan_wall_segments=24,
-    handle_len=0.13, handle_w=0.024, handle_t=0.014,   # m; cross-section 24 x 14 mm (claw stroke 100 mm, so fits)
+    handle_len=0.13, handle_w=0.024, handle_t=C.HANDLE_T,   # m; cross-section 24 x 14 mm (claw stroke 100 mm, so fits)
     handle_dir_deg=90.0,               # handle points along +y (towards the left arm, which approaches along -y)
     handle_grasp_frac=0.6,             # pinch point at 60% of the handle length from the wall
     pan_mu=0.6,                        # PLA vs pad/table sliding friction (MuJoCo uses max(geom1, geom2))

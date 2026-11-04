@@ -20,11 +20,11 @@ from pathlib import Path
 import numpy as np
 import mujoco
 
-from .. import config as C
-from .. import adapters as A
-from . import scene as S
-from . import kin as K
-from . import grasp_cert as GC
+from world_model.v2.nero import config as C
+from world_model.v2.nero import adapters as A
+from world_model.v2.nero.democ import scene as S
+from world_model.v2.nero.democ import kin as K
+from world_model.v2.nero.archive.democ import grasp_cert as GC
 
 DT = 0.005
 T_SETTLE, T_CLOSE, T_HOLD2, T_WATCH = 0.3, 0.6, 0.4, 2.0

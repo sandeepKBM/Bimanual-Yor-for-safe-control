@@ -24,7 +24,7 @@ from .. import segments as S
 FAMILY = (0.06, 0.04, 0.03, 0.02, 0.01)   # design: candidate retreat distances [m], longest first
 STOP_T = 0.3      # design: smooth stop before any backup [s]
 OPEN_T = 0.5      # design: claw opening [s]
-RELEASE_OPEN = 0.006  # design: left release opening past the closed reading [m per finger]; lower finger drops this much
+RELEASE_OPEN = 0.12  # design: left release opening past the closed reading [opening fraction; earlier form 0.006 m per finger of 0.05 m]
 SETTLE_T = 0.5    # design: hold at the end, so R is judged at rest [s]
 LOWER_T = 3.0     # design: lowering duration for the full LIFT (5 cm): peak commanded acceleration 6*0.05/9 = 0.033 m/s^2
 RIGHT_BACK_T = 2.0  # design: right claw back to clamp_start over APPROACH_IN (8 cm): peak 6*0.08/4 = 0.12 m/s^2

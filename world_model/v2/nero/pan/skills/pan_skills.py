@@ -25,7 +25,7 @@ LIFT_DEFAULT = "v2"   # "v2": MoveObject from the arms' reference (10-30); "v3" 
 def run(ep, seg, monitor=None, lift=None):
     """run skill `seg` on episode ep.  -> (status, info) like Episode.run_phases ("done" | "abort" | "plan_fail")."""
     from .. import segments as S
-    from ..under_rim import APPROACH_IN, RIGHT_APPROACH
+    from ..rim_geometry import APPROACH_IN, RIGHT_APPROACH
     ex = A.Executor(ep, monitor=monitor)
     if seg == "start":
         ok = ex.run(both=[A.Hold(dur=0.5)])

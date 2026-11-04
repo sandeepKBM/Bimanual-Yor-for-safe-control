@@ -33,7 +33,7 @@ import mujoco
 from . import scene as S
 from .. import config as C
 
-SCENE_OUT = C.REPO / "scenes" / "yor_nero_pan_covered.mjcf"
+SCENE_OUT = C.scene_path("yor_nero_pan_covered")
 
 ASSUMED_COVERED = dict(                   # every value is an assumption (no real spec yet)
     lid_t=0.0025, lid_tab=(0.008, 0.004, 0.006), lid_knob=(0.012, 0.015),   # m; tab (half x, half y, height), knob (r, h)

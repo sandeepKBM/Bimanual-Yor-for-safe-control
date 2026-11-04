@@ -4,8 +4,8 @@ import pytest
 
 from functools import partial
 
-from world_model.v2.nero.democ import grasp_cert as GC
-from world_model.v2.nero.democ.grasp_cert import Contact, Params
+from world_model.v2.nero.archive.democ import grasp_cert as GC
+from world_model.v2.nero.archive.democ.grasp_cert import Contact, Params
 
 certify_hold = partial(GC.certify_hold, mode="exists")      # the original existence-only tests below run in mode='exists'
 

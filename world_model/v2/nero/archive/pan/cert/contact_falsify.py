@@ -48,7 +48,7 @@ def _pose(d, bid):
 
 def _estimate_pose(ep):
     """the pan body pose the robot believes at the start: nominal pose re-aimed at the zed estimate."""
-    from .. import observe_pose as O
+    from world_model.v2.nero.pan import observe_pose as O
     aim, Rz = O.aim_transform(ep.obs["est"], ep.p.pan_centre_xy)
     return Rz @ ep.R0, aim(ep.pos0)
 
@@ -99,7 +99,7 @@ def _mj_contacts(ep):
 
 def _lift(ep, version):
     """run the lift (v1 phases, or the v2 / v3 skill) recording the per-step maxima."""
-    from .. import segments as S
+    from world_model.v2.nero.pan import segments as S
     jp = {s: ep.m.site(f"{s}_arm_ee_grasp").id for s in ("left", "right")}
     R0p, p0p = _pose(ep.d, ep.pan)
     rel0 = {}
@@ -159,7 +159,7 @@ def _lift(ep, version):
     if version == "v1":
         status, _ = ep.run_phases(ep.segment_phases("lift"), branch=hook)
     else:
-        from ..skills import pan_skills as PS
+        from world_model.v2.nero.pan.skills import pan_skills as PS
         orig = ep.run_phases
         ep.run_phases = lambda ph, branch=None, monitor=None: orig(ph, branch=hook if branch is None else branch, monitor=monitor)
         try:
@@ -177,9 +177,9 @@ def _lift(ep, version):
 
 
 def run_world(tag, world, lifts=("v1", "v2")):
-    from .. import segments as S
-    from . import belief as B
-    from . import contact_model as CM
+    from world_model.v2.nero.pan import segments as S
+    from world_model.v2.nero.pan.cert import belief as B
+    from world_model.v2.nero.archive.pan.cert import contact_model as CM
     ep = S.Episode(world, observe="zed", obs_seed=S.world_seed(tag), **PLAN)
     out = dict(tag=tag, world=world, obs=ep.obs, assumptions=CM.assumptions(), thresholds=dict(SLIP_MM=SLIP_MM, SLIP_DEG=SLIP_DEG, LID_MM=LID_MM))
     if ep.refused:
@@ -265,12 +265,12 @@ def failed(lf, slip_mm=SLIP_MM, slip_deg=SLIP_DEG, lid_mm=LID_MM):
 
 def claw_rel_viol(lf):
     """the CLAW_REL assumption (ASSUMED, USER 11-01) is broken; rows from before 11-01 lack the field and count as not checked."""
-    from . import contact_model as CM
+    from world_model.v2.nero.archive.pan.cert import contact_model as CM
     return lf.get("claw_rel_mm", 0.0) > CM.CLAW_REL_MM or lf.get("claw_rel_deg", 0.0) > CM.CLAW_REL_DEG
 
 
 def report(out):
-    from . import contact_model as CM
+    from world_model.v2.nero.archive.pan.cert import contact_model as CM
     rows = [json.loads(p.read_text()) for p in sorted((Path(out) / "raw").glob("*.json"))]
     lines = [f"contact-model falsification: {len(rows)} worlds  ({out})",
              f"thresholds (ASSUMED): slip {SLIP_MM} mm / {SLIP_DEG} deg per claw, lid {LID_MM} mm vs the pan DURING the lift (11-01; clamp shove = lid_pre, reported apart); model assumptions: {CM.assumptions()}", ""]
@@ -326,7 +326,7 @@ def report(out):
 
 
 def main(argv=None):
-    from ..segcert import worlds
+    from world_model.v2.nero.pan.segcert import worlds
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--set", default="full", choices=["full", "iid", "overload"])

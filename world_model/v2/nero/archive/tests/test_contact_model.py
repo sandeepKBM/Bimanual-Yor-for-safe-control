@@ -2,7 +2,7 @@
 and its admission is exact at the load vertices (convexity)."""
 import numpy as np
 
-from world_model.v2.nero.pan.cert import contact_model as CM
+from world_model.v2.nero.archive.pan.cert import contact_model as CM
 
 O = np.zeros(3)
 

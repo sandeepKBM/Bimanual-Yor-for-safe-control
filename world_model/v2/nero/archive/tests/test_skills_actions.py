@@ -1,3 +1,5 @@
+"""ARCHIVED 11-03 (AgileX removal): pan push/clamp-flow action tests; all were skipped under the NYU gripper (flow dropped 11-01) and ran only under the removed AgileX build.
+Moved unchanged except the skipif markers; not collected (archive/conftest.py)."""
 """skills/actions.py + skills/kin.py: the v2 action DSL plans what it says, refuses unsafe paths, and moves arms in lockstep."""
 import mujoco
 import numpy as np

@@ -3,7 +3,7 @@ usage: python score.py KN KAPPA GAPS(comma) OUT.json IN1.json [IN2.json ...]
 Truth label recomputed from raw sim metrics (disp < 5 mm, tilt < 3 deg, end speed < 1 mm/s) and checked against the stored label."""
 import json, sys
 from multiprocessing import Pool
-from world_model.v2.nero.democ import grasp_cert as GC, grasp_cert_compliant_xcheck as XC
+from world_model.v2.nero.archive.democ import grasp_cert as GC, grasp_cert_compliant_xcheck as XC
 
 
 def stays(r):

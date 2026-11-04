@@ -19,10 +19,10 @@ from pathlib import Path
 import numpy as np
 import mujoco
 
-from .. import config as C
-from .. import adapters as A
-from . import kin as K
-from . import grasp_cert_xcheck as X
+from world_model.v2.nero import config as C
+from world_model.v2.nero import adapters as A
+from world_model.v2.nero.democ import kin as K
+from world_model.v2.nero.archive.democ import grasp_cert_xcheck as X
 
 
 def support_probe(mu=0.4):
