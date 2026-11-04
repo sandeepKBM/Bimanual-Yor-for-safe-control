@@ -83,22 +83,25 @@ def states(kind):
 
 
 def extract_json(text: str):
-    """first balanced {...} in text (after stripping <think> blocks and ``` fences); None if absent / unparsable."""
+    """LAST top-level JSON object in text (after stripping <think> blocks; repo rule 'parsers take the LAST JSON object': reasoning models
+    emit drafts first; 11-03 item 12d, was the first); None if absent / unparsable.  Same scan as contents_eval.parse_last_json."""
+    if not text:
+        return None
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S)
-    i = text.find("{")
-    while i != -1:
-        depth, j = 0, i
-        while j < len(text):
-            depth += text[j] == "{"
-            depth -= text[j] == "}"
-            if depth == 0:
-                try:
-                    return json.loads(text[i:j + 1])
-                except Exception:
-                    break
-            j += 1
-        i = text.find("{", i + 1)
-    return None
+    text = text.rsplit("</think>", 1)[-1]
+    dec, best, i = json.JSONDecoder(), None, 0
+    while True:
+        j = text.find("{", i)
+        if j < 0:
+            break
+        try:
+            o, k = dec.raw_decode(text, j)
+            if isinstance(o, dict):
+                best = o
+            i = k
+        except ValueError:
+            i = j + 1
+    return best
 
 
 def atoms(d, out=None):

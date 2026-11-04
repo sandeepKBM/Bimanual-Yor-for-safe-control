@@ -39,7 +39,7 @@ cleanup() { [ -n "$MPID" ] && kill $MPID 2>/dev/null; [ -n "$VPID" ] && kill $VP
 trap cleanup EXIT
 hostname; nvidia-smi --query-gpu=index,name,memory.used --format=csv,noheader
 case $NAME in cosmos3-nano) EXTRA=(--mm-encoder-tp-mode data) ;; *) EXTRA=() ;; esac
-singularity exec "${NV[@]}" --bind /filer/tmp1,/common/users,/var/tmp $SIF vllm serve $MID "${EXTRA[@]}" --host 127.0.0.1 --port $PORT \
+singularity exec "${NV[@]}" --bind /filer/tmp1,/common/users,/var/tmp${BIND_EXTRA:+,$BIND_EXTRA} $SIF vllm serve $MID "${EXTRA[@]}" --host 127.0.0.1 --port $PORT \
   --tensor-parallel-size $TP --max-model-len $MAXLEN --gpu-memory-utilization $GPU_UTIL --max-num-seqs $MAXSEQ \
   --limit-mm-per-prompt '{"image":1}' --allowed-local-media-path / ${VLLM_EXTRA:-} > $LOGS/vllm_${NAME}_run.log 2>&1 &
 VPID=$!
