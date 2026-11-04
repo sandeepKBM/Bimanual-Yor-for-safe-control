@@ -4,7 +4,7 @@ Bimanual YOR (simulation in this repo; a hardware experiment is planned as claim
 (set-valued beliefs), autonomous AND shared-autonomy modes. The learned world-model / latent-HJ thesis was DROPPED
 2026-10-15. Novelty = the checkers + theorems; VLM, planners, FL-MPC, perception are borrowed components.
 Current claims + scope: `docs/paper/claims_2026-11-02.md` (four claims; hidden contents; grasp = rigid weld, not our problem; probing = a means). Demos: `docs/paper/demos_2026-11-01.md`. Formulation: `docs/paper/proposal_2026-10-27.md` (needs revision for 11-01/02). Superseded: `claims_2026-10-27.md`, `claims_2026-10-26.md`, the 2026-10-15 plan docx, `docs/design/MASTER.md` (history only).
-This file = how to *operate* here. Last updated 2026-10-29 (bounds and assumptions rule).
+This file = how to *operate* here. Last updated 2026-11-03 (replies rule).
 
 ## Environment / running
 - Python env: `/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python`.
@@ -103,6 +103,14 @@ This file = how to *operate* here. Last updated 2026-10-29 (bounds and assumptio
 - Route noisy output via `cdx-agent --compress-output <cmd>`, large logs via
   `--summarize-log <file>`, broad exploration via `--context-budget`.
 - Don't `cat`/`head` large files or read subagent transcript JSONL; grep the specific lines.
+
+## Replies (user rule 2026-11-03)
+- Do what was asked. Then report only: what it does, what it can show for the question asked, and your open questions and
+  uncertainties.
+- No unasked opinions or statements about claims, novelty, contribution or positioning ("this fits our claim", "a real
+  contribution", "exactly our problem", literature "gaps" pitched as ours). The user owns the claims; say these only when asked.
+- Probing, belief shrinking and active learning are mechanisms adopted from others' work, not our claim.
+- Applies to subagent reports relayed to the user too.
 
 ## Honesty
 - Report proven vs aspirational plainly; if tests fail or a step was skipped, say so
