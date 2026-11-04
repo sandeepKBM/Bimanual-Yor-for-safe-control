@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 from . import config as C
-from . import urdf_to_mjcf as X
+from . import nyu_gripper as X      # 11-03 USER: the NYU gripper is the only build (nyu_gripper reuses the NERO arm fragments of urdf_to_mjcf)
 
 SRC = C.REPO / "scenes" / "yor_robot_derived.mjcf"
 PIPER_MESHES = {"link0", "link1", "link2", "link3", "link4", "link5", "link6", "gripper_base", "gripper_body", "iphone",
@@ -34,7 +34,32 @@ def _el(s: str) -> ET.Element:
     return ET.fromstring(s)
 
 
-def variant_xml(lift: bool = False, gravcomp: bool = False, tau=None) -> str:
+def _arm_arm_collision(lt) -> int:
+    """11-03 item 5: make the LEFT arm's collision geoms collide with the RIGHT arm's (and nothing else new).  The 'nero_collision' class ships
+    contype 0 / conaffinity 1, so no arm-arm pair existed (0 collidable pairs in the contents / pan scenes).  Collide rule: (ct1 & ca2) | (ct2 & ca1).
+    LEFT geoms get contype = ARM_ARM_BIT (conaffinity stays 1), RIGHT geoms get conaffinity = 1 | ARM_ARM_BIT (contype stays 0):
+      L-R: ct_L & ca_R = ARM_ARM_BIT -> collide;  L-L, R-R: 0 (same-arm self-collision unchanged: none);  arm-world/object: unchanged (bit 1).
+    Adjacent-link excludes of the same arm are untouched.  Returns the number of geoms patched."""
+    n = 0
+    for b in lt.iter("body"):
+        nm = b.get("name") or ""
+        side = "left" if nm.startswith("left_arm_") else "right" if nm.startswith("right_arm_") else None
+        if side is None:
+            continue
+        for g in b.findall("geom"):
+            if g.get("class") != "nero_collision":
+                continue
+            if side == "left":
+                g.set("contype", str(C.ARM_ARM_BIT))
+            else:
+                g.set("conaffinity", str(1 | C.ARM_ARM_BIT))
+            n += 1
+    return n
+
+
+def variant_xml(lift: bool = False, gravcomp: bool = False, tau=None, arm_arm_collide: bool | None = None) -> str:
+    """arm_arm_collide: None = on unless BIMANUAL_LEGACY_ARMCOL=1; adapters.compose_scene / democ.scene pass False (they patch the
+    bits themselves with adapters.patch_collision, which already gives arm-arm + self collision)."""
     # the source's header comment contains '--' (invalid XML, MuJoCo tolerates it): strip all comments first
     txt = re.sub(r"<!--.*?-->", "", SRC.read_text(), flags=re.S)
     root = ET.fromstring(txt)
@@ -56,6 +81,8 @@ def variant_xml(lift: bool = False, gravcomp: bool = False, tau=None) -> str:
             lt.remove(b)
     for side in C.SIDES:
         lt.append(_el(X.body_xml(f"{side}_arm_", C.ASSUMED[f"mount_{side}"], gravcomp)))
+    if (not C.LEGACY_ARMCOL) if arm_arm_collide is None else arm_arm_collide:
+        _arm_arm_collision(lt)
     # --- actuators
     act = root.find("actuator")
     for a in list(act):
@@ -100,7 +127,7 @@ def variant_xml(lift: bool = False, gravcomp: bool = False, tau=None) -> str:
 
 
 def write_variant(path=None, **kw) -> Path:
-    p = Path(path or C.SCENE_OUT)
+    p = Path(path or C.scene_path("yor_nero_derived"))
     p.write_text(variant_xml(**kw))
     return p
 

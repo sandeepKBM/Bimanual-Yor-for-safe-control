@@ -97,7 +97,7 @@ class Ctl:
     """Thin driver around the unmodified FLMPC: holds q_hold for both arms, applies qfrc_applied."""
 
     def __init__(self, C, dt_ctrl=None):
-        import mpc_fl
+        from world_model.v2.flmpc import mpc_fl  # 2026-11-03: package (was sys.path `import mpc_fl`)
         import sim_common as sc
         self.sc, self.m = sc, C.m
         self.lj, self.lq, self.ld = sc.joint_addrs(C.m, sc.LEFT_ARM_JOINTS)
@@ -111,7 +111,7 @@ class Ctl:
         self.fl = make_flmpc(C.m, **kw)
         self.qpmon = StepMonitor.attach(self.fl)
         if self.fl.impl == "py":
-            QPRecorder.install(sc)
+            QPRecorder.install(mpc_fl.sc)          # the module FL-MPC resolves its QP from (flmpc._sc)
         NP = self.fl.NP
         self.qe_ref = np.tile(np.array(C.info["hold_q"]["left"]), (NP + 1, 1))
         self.qi_ref = np.tile(np.array(C.info["hold_q"]["right"]), (NP + 1, 1))
@@ -248,7 +248,7 @@ def acc2(C_house_kw, n_states=6, seed=0):
         "composed_tray_weld_g981": dict(with_tray=True, gravity=B.CANON_GRAVITY),
         "composed_notray_house_g98": dict(with_tray=False, gravity=None),
     }
-    import mpc_fl
+    from world_model.v2.flmpc import mpc_fl  # 2026-11-03: package (was sys.path `import mpc_fl`)
     rng = np.random.default_rng(seed)
     _, clq, cld = sc.joint_addrs(canon, sc.LEFT_ARM_JOINTS)
     _, crq, crd = sc.joint_addrs(canon, sc.RIGHT_ARM_JOINTS)

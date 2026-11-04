@@ -26,13 +26,14 @@ class Ctl:
     """Driver around the unmodified FLMPC (NV=7): holds q_hold for both arms."""
 
     def __init__(self, m, hold_q, tau_vec, **kw):
-        import mpc_fl
+        from world_model.v2.flmpc import mpc_fl  # 2026-11-03: package (was sys.path `import mpc_fl`)
         self.m = m
         self.lq, self.ld = A.arm_addrs(m, "left")
         self.rq, self.rd = A.arm_addrs(m, "right")
         k = dict(FL_KW)
         k.update(kw)
-        self.fl = mpc_fl.FLMPC(m, NV=C.N_ARM, tau_max_vec=tau_vec, **k)
+        from . import fl_log as FLL
+        self.fl = FLL.recording_class(mpc_fl.FLMPC)(m, NV=C.N_ARM, tau_max_vec=tau_vec, **k)   # 11-03 F2: logging subclass, step() logic unchanged
         NP = self.fl.NP
         self.qe_ref = np.tile(np.array(hold_q["left"]), (NP + 1, 1))
         self.qi_ref = np.tile(np.array(hold_q["right"]), (NP + 1, 1))
@@ -40,6 +41,7 @@ class Ctl:
         self.pairs = A.PairBarriers(m)
         self.n_infeasible = 0
         self.n_fallback = 0
+        self.rec = self.fl._rec = FLL.FLRecorder(m, self.fl, tau_vec)   # 11-03 F2: fallback counters + true residuals (logging only)
 
     def tau(self, d):
         mujoco.mj_forward(self.m, d)           # qM / qfrc_bias / xpos are stale after mj_step otherwise
@@ -63,8 +65,8 @@ def contact_classes(m):
 
 
 def run(seconds=5.0, tau_preset=None, gravcomp=False, lift=False, hold_cache=None, **fl_kw):
-    tau = C.tau_limits(tau_preset)
-    m = A.compose_scene(lift=lift, gravcomp=gravcomp, tau=tau)
+    tau = C.tau_limit(tau_preset)       # F3 11-03: FL-MPC torque limit (config.tau_limit); the MJCF forcerange below keeps tau_limits()
+    m = A.compose_scene(lift=lift, gravcomp=gravcomp, tau=C.tau_limits(tau_preset))
     d = mujoco.MjData(m)
     info = IK.set_hold_state(m, d)
     A.disable_arm_servos(m)

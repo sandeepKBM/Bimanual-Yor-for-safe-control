@@ -24,8 +24,8 @@ def compile_checks():
         mujoco.mj_forward(m, d)
         out[name] = dict(compile_s=round(time.time() - t, 2), nbody=m.nbody, njnt=m.njnt, nq=m.nq, nv=m.nv, nu=m.nu, neq=m.neq,
                          ngeom=m.ngeom, ncon_at_zero_pose=int(d.ncon))
-    m0 = mujoco.MjModel.from_xml_path(str(C.SCENE_OUT))      # the on-disk generated scene file compiles stand-alone
-    out["scene_file_standalone"] = dict(path=str(C.SCENE_OUT), nbody=m0.nbody, nv=m0.nv)
+    m0 = mujoco.MjModel.from_xml_path(str(C.scene_path("yor_nero_derived")))      # the on-disk generated scene file compiles stand-alone
+    out["scene_file_standalone"] = dict(path=str(C.scene_path("yor_nero_derived")), nbody=m0.nbody, nv=m0.nv)
     return out
 
 

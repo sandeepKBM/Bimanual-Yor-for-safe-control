@@ -58,8 +58,10 @@ def test_proxy_covers_collision_mesh_vertices():
     links, _ = __import__("world_model.v2.nero.urdf_fk", fromlist=["x"]).parse()
     from world_model.v2.nero import urdf_fk as U
     for un, body in P.BODY.items():
+        if body in P.FIT_NYU:      # 11-03: the gripper spheres are fitted to the NYU meshes (checked in test_nyu_gripper / test_adapters), not to the URDF gripper STLs
+            continue
         L = links[un]
-        V_ = P.load_stl(C.MESH_DIR["agx_gripper" if "agx_gripper" in L.coll_mesh else "nero"] / (L.coll_mesh.split("/")[-1]))
+        V_ = P.load_stl(C.MESH_DIR["nero"] / (L.coll_mesh.split("/")[-1]))
         V_ = V_ @ U.rpy_to_R(*L.coll_rpy).T + L.coll_xyz
         c, r = np.array(spec[body]["centers"]), np.array(spec[body]["radii"])
         inside = (np.linalg.norm(V_[:, None, :] - c[None], axis=-1) <= r[None] + 1e-9).any(1)
