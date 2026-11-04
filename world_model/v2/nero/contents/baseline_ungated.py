@@ -86,10 +86,13 @@ def main(argv=None):
     ap.add_argument("--procs", type=int, default=10)
     ap.add_argument("--static", default="/data/local/ss5772/contents/carry_cert_2026-11-02/STATIC.json")
     ap.add_argument("--out", default="/data/local/ss5772/contents/baseline_ungated_2026-11-02")
-    ap.add_argument("--fric-comp", action="store_true")
-    ap.add_argument("--weld-stiff", action="store_true", help=f"weld solref {CC.WELD_STIFF} (as carry_cert --weld-stiff)")
+    ap.add_argument("--fric-comp", action=argparse.BooleanOptionalAction, default=None, help="default = config.carry_physics()")
+    ap.add_argument("--weld-stiff", action=argparse.BooleanOptionalAction, default=None,
+                    help=f"weld solref {CC.WELD_STIFF} (as carry_cert --weld-stiff); default = config.carry_physics()")
     a = ap.parse_args(argv)
-    ws = CC.WELD_STIFF if a.weld_stiff else None
+    cp = CC.C.carry_physics()                                # 11-03 item 6: one source for the physics defaults
+    a.fric_comp = bool(cp["fric_comp"]) if a.fric_comp is None else a.fric_comp
+    ws = (cp["weld_solref"] if a.weld_stiff is None else (CC.WELD_STIFF if a.weld_stiff else None))
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     st = json.loads(pathlib.Path(a.static).read_text())["cells"]

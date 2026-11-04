@@ -30,7 +30,7 @@ from ..democ import kin as K
 from . import envelope as E
 from . import objects as OB
 
-CAP_FILE = E.RESULTS / "capture.json"
+CAP_FILE = E.CAP_FILE
 RESULTS = E.RESULTS.parent / "contents_thresholds_2026-11-02"
 GRASP_DZ = 0.0355                                   # MODEL (scenes.py): grasp points above the object's base centre
 # ASSUMED plans (user-confirmed 11-02), offsets of the object from its start pose [m], in order (continuation IK follows them)

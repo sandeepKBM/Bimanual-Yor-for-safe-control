@@ -32,8 +32,12 @@ _P = PS.PanParams()                                    # table pose / height def
 FRIC = 0.005, 0.0001                                   # torsional, rolling (ASSUMED, as in pan/scene)
 
 GRASP_Y = 0.186        # MODEL: |y| of the grasp sites in the obj frame (matches the pot grasp points the arms reach)
+# (11-03 nyu: tried 0.220 so the closed jaw tips (66 mm past the TCP) stop at the tray base edge: the right arm cannot reach it, 0 of 4 IK solutions clear; kept 0.186)
+# 11-03 nyu jaw/body fix: the ee_grasp site sits nyu_hold.SHIFT_M (0.055 ASSUMED) outside the tab so the closed jaw tips stop short of the body.  The right arm
+# (far tab) cannot reach |y| = 0.186 + 0.055 at the old position; the whole contents scene (object, counter, shelf) moves +y by this (ASSUMED).  Scan 11-03: 0.06 -> 3/3 IK solutions, joint margin 0.04; 0.08 -> 5/5, 0.088.
+SCENE_DY = 0.08
 GRASP_Z = 0.0355       # MODEL: tab centre height above the support top (pot handle centre height)
-TAB_X, TAB_Z = 0.024, 0.014   # MODEL: tab cross-section (x, z), pot handle section
+TAB_X, TAB_Z = 0.024, C.HANDLE_T   # MODEL: tab cross-section (x, z) = pot handle section (20 mm ASSUMED, config.HANDLE_T)
 WATER = 1000.0         # kg/m^3, MODEL
 CUP_RIN = 0.035        # ASSUMED: mug inner radius (wall 5 mm)
 CUP_BOT = 0.006        # ASSUMED: mug inner bottom 6 mm above the base
@@ -41,9 +45,9 @@ CUP_BOT = 0.006        # ASSUMED: mug inner bottom 6 mm above the base
 
 @dataclass
 class Common:
-    obj_xy: tuple = (0.38, -0.30)                      # MODEL: pot start centre (pan_centre_xy)
+    obj_xy: tuple = (0.38, -0.30 + SCENE_DY)                      # MODEL: pot start centre (pan_centre_xy)
     counter_half: tuple = (0.20, 0.15, 0.03)           # ASSUMED (11-02: y half 0.12 -> 0.15 so the tray COM set fits; claws at 0.186 still clear)
-    counter_centre: tuple = (0.33, -0.30, 0.79)        # ASSUMED; top z = 0.82
+    counter_centre: tuple = (0.33, -0.30 + SCENE_DY, 0.79)        # ASSUMED; top z = 0.82
     counter_mu: float = 0.8                            # ASSUMED (= table_mu of pan scene)
     table_top_z: float = _P.table_top_z                # MODEL pan scene
     table_half: tuple = _P.table_half                  # MODEL pan scene
@@ -103,7 +107,7 @@ class BoxWorld(Common):
     tab_outer_y: float = 0.21
     shelf: bool = True
     shelf_x: tuple = (0.06, 0.27)     # ASSUMED, wall-mounted (no post modelled)
-    shelf_yc: float = -0.30           # ASSUMED
+    shelf_yc: float = -0.30 + SCENE_DY   # ASSUMED
     shelf_yhalf: float = 0.14         # ASSUMED (11-02: 0.09 -> 0.14; < box y half 0.15, claws at |dy| = 0.186 clear it)
     shelf_top: float = 0.97           # ASSUMED (11-02: counter top + 0.15; a 20 cm lift misses the right arm by 18 mm, 18 cm reaches)
     shelf_t: float = 0.02             # ASSUMED

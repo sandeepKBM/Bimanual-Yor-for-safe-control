@@ -41,17 +41,26 @@ import numpy as np
 
 from .. import adapters as A
 from .. import config as C
+from .. import gripper as G
+from .. import weldcontact as WC
 from ..democ import kin as K
 from ..pan import scene as PS
-from ..pan.handle_grasp import TwoCtl, FINGER_OPEN, _set_fingers
+from ..pan.handle_grasp import TwoCtl, _set_fingers
 from . import envelope as E
 from . import objects as OB
 from . import scenes as SC
+from . import rules as RU
+def _hold_finger():
+    from .nyu_hold import hold_finger_frac       # nyu 11-03: V-jaw opening over the whole tab depth (nyu_hold.hold_opening, theta 0.662 rad ASSUMED clearance 2 mm/side)
+    return hold_finger_frac()
+
+
+HOLD_FINGER = _hold_finger()
 
 SIDES = ("left", "right")
 DT = 0.005
 TAU_PRESET = "mit_fw_ge_1.11"
-CAP_FILE = E.RESULTS / "capture.json"
+CAP_FILE = E.CAP_FILE
 PLANS = {   # ASSUMED (user-confirmed 11-02); (segment, common TCP delta [m])
     "tray": [("lift", (0, 0, 0.05)), ("carry", (-0.10, 0, 0)), ("place", (0, 0, -0.05))],
     "box": [("lift", (0, 0, 0.18)), ("carry", (-0.20, 0, 0)), ("place", (0, 0, -0.03))],
@@ -60,9 +69,15 @@ SEGS = ("lift", "carry", "place", "release")
 A_BACKUP = 0.25            # ASSUMED backup peak acceleration [m/s^2] (half the nominal)
 T_MIN = 0.6                # s, shortest move
 RETREAT = 0.05             # m, release retreat
+PATH_IK_TOL = 1e-4         # ASSUMED (11-03): pose-IK miss [m; rad norm] above which a commanded path counts as unreachable
+PATH_MARGIN_MIN = 0.05     # ASSUMED (11-03): wanted joint-limit distance [rad] at every path waypoint (used by nyu_hold's path check)
+PATH_NO_MARGIN = 9.0       # sentinel: no path planned in this window
 U_TILT_OBJ, U_TILT_CUP, R_TILT_OBJ, R_TILT_CUP = 10.0, 20.0, 3.0, 5.0      # deg, ASSUMED thresholds
 R_SPEED = 0.005            # m/s
 SPILL_TAU = 0.025          # s, low-pass on the mug acceleration (spill proxy)
+
+
+PHYS_DEFAULT = "config.carry_physics"      # sentinel: take fric_comp / weld_solref from config.carry_physics() (item 6)
 
 
 class LeverCtl(TwoCtl):
@@ -79,6 +94,7 @@ class LeverCtl(TwoCtl):
         self.c_rel_nom = np.asarray(c_rel_nom, float)            # nominal total COM in the obj frame, about obj_ref
         self.sites = sites
         self.ref = m.site("obj_ref").id
+        self.rules = None                                        # 11-03 opt-in rules.Rules (table + joint limit rows); None = today's rows only
 
     def terms(self, d):
         m = self.m
@@ -99,12 +115,23 @@ class LeverCtl(TwoCtl):
 
     def tau(self, d):
         if not self.on:
-            return super().tau(d)
+            if self.rules is None:
+                return super().tau(d)
+            mujoco.mj_forward(self.m, d)           # 11-03 rules='full': the release phase goes through the same rule set (no payload terms)
+            return self._fl(d, {s: (np.zeros((7, 7)), np.zeros(7)) for s in SIDES})
         mujoco.mj_forward(self.m, d)
-        t = self.terms(d)
+        return self._fl(d, self.terms(d))
+
+    def _fl(self, d, t):
+        """FL-MPC step with the payload terms t[side] = (M_extra, bias_extra); self.rules (opt-in) adds table + joint-limit rows."""
+        kw = {}
+        if self.rules is not None:
+            Me, ce = RU.arm_dyn(self.m, d, self.ld, t["left"][0], t["left"][1])
+            Mi, ci = RU.arm_dyn(self.m, d, self.rd, t["right"][0], t["right"][1])
+            kw = self.rules.fl_kwargs(d, Me, ce, Mi, ci, fl=self.fl)
         te, ti, ok = self.fl.step(self.m, d, self.lq, self.ld, self.rq, self.rd, self.qe_ref, self.z, self.qi_ref, self.z,
                                   self.pairs(d), M_ego_extra=t["left"][0], bias_ego_extra=t["left"][1],
-                                  M_int_extra=t["right"][0], bias_int_extra=t["right"][1])
+                                  M_int_extra=t["right"][0], bias_int_extra=t["right"][1], **kw)
         self.n_infeasible += int(not ok)
         self.n_fallback += int(bool(self.fl.last_fallback))
         return te, ti
@@ -137,13 +164,26 @@ def move_time(dist, a):
     return max(T_MIN, float(np.sqrt(6.0 * max(dist, 1e-9) / a)))
 
 
+def commanded_accel(dist, a_plan):
+    """11-03 item 10.  The move time is max(T_MIN, sqrt(6 d / a_plan)); the smoothstep TCP path has peak acceleration 6 d / T^2 (MODEL, exact for the
+    straight-line smoothstep), which equals a_plan only when T_MIN does not bind.  -> dict(T, a_plan, a_cmd_peak, clamped)."""
+    T = move_time(dist, a_plan)
+    a_cmd = 6.0 * float(dist) / (T * T)
+    return dict(T=round(T, 4), a_plan=float(a_plan), a_cmd_peak=round(a_cmd, 5), clamped=bool(T > np.sqrt(6.0 * max(dist, 1e-9) / a_plan) + 1e-12))
+
+
 def _tilt_deg(R):
     return float(np.degrees(np.arccos(np.clip(R[2, 2], -1.0, 1.0))))
 
 
 class CarryEpisode:
     def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=None, ctl="lever", strict_claw=False,
-                 fric_comp=None, coop=None, weld_solref=None):
+                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None):
+        # 11-03 item 6: PHYS_DEFAULT -> config.carry_physics() (fric_comp=True + stiff weld; legacy pair None/None under BIMANUAL_LEGACY_CARRY_PHYS=1);
+        # an explicit None / False / value is honoured as before.
+        cp = C.carry_physics()
+        fric_comp = cp["fric_comp"] if isinstance(fric_comp, str) and fric_comp == PHYS_DEFAULT else fric_comp
+        weld_solref = cp["weld_solref"] if isinstance(weld_solref, str) and weld_solref == PHYS_DEFAULT else weld_solref
         self.world, self.task = world, ("tray" if isinstance(world, SC.TrayWorld) else "box")
         self.a_plan, self.T_cap, self.strict_claw = float(a_plan), T_cap, bool(strict_claw)
         spec = SC.build_spec(world)
@@ -163,17 +203,18 @@ class CarryEpisode:
         self.dofs = {s: A.arm_addrs(m, s)[1] for s in SIDES}
         for s in SIDES:
             d.qpos[self.addr[s]] = cap["q"]["W0_liftoff"][s]
-            _set_fingers(m, d, s, FINGER_OPEN)
+            _set_fingers(m, d, s, HOLD_FINGER)
         d.qvel[:] = 0.0
         mujoco.mj_forward(m, d)
         A.disable_arm_servos(m)
         for s in SIDES:                                        # fingers stay open (the weld carries the load)
             a = m.actuator(f"{s}_arm_gripper_pos").id
-            d.ctrl[a] = FINGER_OPEN
+            d.ctrl[a] = G.open_frac_to_ctrl(HOLD_FINGER)
         self.obj = m.body("obj").id
         self.gb = {s: m.body(f"{s}_arm_gripper_base").id for s in SIDES}
         self.site = {s: m.site(f"{s}_arm_ee_grasp").id for s in SIDES}
         self.weld_id = {s: m.equality(f"weld_{s}").id for s in SIDES}
+        self.wc = WC.WeldContacts(m, "obj", self.weld_id, SIDES)      # 11-03: gripper<->object contacts off while that gripper is welded (nyu only)
         for s in SIDES:
             self.weld(s, True)
         self.truth0 = SC.object_truth(m, d)
@@ -186,14 +227,29 @@ class CarryEpisode:
         q0 = {s: d.qpos[self.addr[s]].copy() for s in SIDES}
         hold = {s: q0[s].tolist() for s in SIDES}
         self.ctl_kind = ctl
-        if ctl == "lever":
+        if ctl in ("lever", "coopimp", "coopimp_safe"):
             P = cont.P
             c_c = P.mean(0)                                        # belief contents centre (obj frame)
             c_nom = (self.truth0["empty_mass"] * np.asarray(self.truth0["empty_com"]) + self.m_hat * c_c) / self.m_nom
-            self.ctl = LeverCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, c_nom, self.site)
+            if ctl == "coopimp":                                   # 11-03 opt-in: object-level impedance (coop_imp.py)
+                from .coop_imp import CoopImpCtl
+                self.ctl = CoopImpCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, c_nom, self.site)
+            elif ctl == "coopimp_safe":                            # 11-03 opt-in: coopimp wrench as FL-MPC payload feedforward (rules in the QP)
+                from .coop_imp import CoopImpSafeCtl
+                self.ctl = CoopImpSafeCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, c_nom, self.site)
+            else:
+                self.ctl = LeverCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, c_nom, self.site)
         else:                                                      # "share": pan/handle_grasp.TwoCtl, half the load at the COM
             self.ctl = TwoCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, share=share)
         self.ctl.on = True
+        self.rules_mode = rules if rules is not None else ("full" if ctl == "coopimp_safe" else "base")
+        if self.rules_mode not in ("base", "full"):
+            raise ValueError(f"rules must be 'base' or 'full', got {rules!r}")
+        if self.rules_mode == "full":                          # 11-03: table-top + joint position/speed rows inside the FL-MPC QP (rules.py)
+            if ctl not in ("lever", "coopimp_safe"):
+                raise ValueError("rules='full' needs an FL-MPC controller (ctl='lever' or 'coopimp_safe')")
+            self.ctl.rules = RU.Rules(m)
+            self.ctl.fl._rules = self.ctl.rules               # for fl_log (row / past-limit counters)
         self.NP, self.FDT = self.ctl.fl.NP, self.ctl.fl.DT
         self.q0 = q0
         self.F_cap = (E.PAYLOAD_KG - float(m.body_subtreemass[self.gb["left"]])) * OB.G
@@ -205,14 +261,27 @@ class CarryEpisode:
         self.freeboard = [world.cup_H - (SC.CUP_BOT + f / (SC.WATER * np.pi * SC.CUP_RIN ** 2)) for f in fills]
         self.carried = {self.obj} | set(self.cups) | ({m.body("contents").id} if self.task == "box" else set())
         self.fc = dict(FRIC_COMP, **fric_comp) if isinstance(fric_comp, dict) else (dict(FRIC_COMP) if fric_comp else None)
+        if self.fc is not None and ctl in ("coopimp", "coopimp_safe") and not C.LEGACY_COOP_FC:
+            # USER 11-03: under coopimp drop the wrapper's joint-level kp/ki terms (they fight the object-level impedance);
+            # the Coulomb term f*tanh(v/v_s) stays.  BIMANUAL_LEGACY_COOP_FC=1 = the pre-11-03 wrapper (kp/ki on).
+            self.fc = dict(self.fc, kp=0.0, ki=0.0)
         self.e_int = {s: np.zeros(7) for s in SIDES}
         self.coop = dict(COOP, **coop) if isinstance(coop, dict) else (dict(COOP) if coop else None)
         self.k = 0
         self.paths = {s: [] for s in SIDES}
+        self.path_log = []                                     # every _add_path: side, t0, IK miss (last / max over waypoints), min joint margin [rad]
         self.stored = {}                                       # stored TCP poses (admission-time), per segment start
         self.reset_track()
         self._acc = {b: np.zeros(3) for b in self.cups}
         self._vprev = {b: np.zeros(3) for b in self.cups}
+
+    def physics_flags(self):
+        """the physics switches this episode ran with (carried by every record, 11-03 items 5, 6, 8, 9)."""
+        return dict(fric_comp=self.fc is not None, weld_solref=self.weld_solref, legacy_carry_phys=C.LEGACY_CARRY_PHYS,
+                    arm_arm_collide=not C.LEGACY_ARMCOL, coop_sensor=("legacy_constraint_wrench" if C.LEGACY_COOP_SENSOR else "joint_torque_estimate"),
+                    coop_fric=("legacy" if C.LEGACY_COOP_FRIC else "fixed"), gripper=C.GRIPPER,
+                    fc_kp_ki=(None if self.fc is None else (self.fc["kp"], self.fc["ki"])), rules=self.rules_mode,
+                    coop_f_sq=(C.coop_f_sq() if self.ctl_kind in ("coopimp", "coopimp_safe") else None))
 
     # ---------------- weld / state ----------------
     def weld(self, s, on):
@@ -228,6 +297,7 @@ class CarryEpisode:
             m.eq_data[i, 6:10] = q
             m.eq_data[i, 10] = 1.0
         d.eq_active[i] = 1 if on else 0
+        self.wc.set(s, bool(on), d)
 
     _SPEC = mujoco.mjtState.mjSTATE_INTEGRATION
 
@@ -237,12 +307,13 @@ class CarryEpisode:
         return dict(st=st, weld={s: self.m.eq_data[i].copy() for s, i in self.weld_id.items()},
                     ctl=copy.deepcopy(self.ctl, {id(self.m): self.m}), k=self.k, paths={s: list(v) for s, v in self.paths.items()},
                     track=copy.deepcopy(self.track), acc=copy.deepcopy(self._acc), vprev=copy.deepcopy(self._vprev),
-                    e_int=copy.deepcopy(self.e_int))
+                    e_int=copy.deepcopy(self.e_int), wc=self.wc.state())
 
     def restore(self, sn):
         for s, i in self.weld_id.items():
             self.m.eq_data[i] = sn["weld"][s]
         mujoco.mj_setState(self.m, self.d, sn["st"], self._SPEC)
+        self.wc.sync(self.d, sn.get("wc"))
         self.ctl = copy.deepcopy(sn["ctl"], {id(self.m): self.m})
         self.k, self.paths = sn["k"], {s: list(v) for s, v in sn["paths"].items()}
         self.track = copy.deepcopy(sn["track"])
@@ -252,7 +323,11 @@ class CarryEpisode:
 
     def reset_track(self):
         self.track = dict(viol=None, tau_ratio=0.0, n_sat=0, Fz_max=0.0, twist_max=0.0, F_int_max=0.0, spill_ratio=0.0,
-                          cup_tilt_max=0.0, obj_tilt_max=0.0, e_obj_mm=0.0, e_obj_deg=0.0, e_int_mm=0.0, e_int_deg=0.0)
+                          cup_tilt_max=0.0, obj_tilt_max=0.0, e_obj_mm=0.0, e_obj_deg=0.0, e_int_mm=0.0, e_int_deg=0.0,
+                          path_ik_err_max=0.0, path_q_margin_min=PATH_NO_MARGIN, path_unreachable=0)
+        if getattr(self, "ctl", None) is not None:          # 11-03 F2: FL-MPC fallback counters + true residuals (fl_log.py), same window as the track
+            self.ctl.rec.reset()
+            self.track.update(self.ctl.rec.scalars())
 
     # ---------------- motion ----------------
     def tcp(self, s):
@@ -265,11 +340,21 @@ class CarryEpisode:
         p0, R0 = pik.ik.pose(q)
         delta = np.asarray(to, float) - p0 if to is not None else np.asarray(delta, float)
         wp, err = [q.copy()], 0.0
+        e_max, mg_min = 0.0, pik.margin(q)[0]
         for i in range(1, 61):
             a = i / 60
             q, err = pik.solve(p0 + delta * a * a * (3 - 2 * a), R0, q, q_post=wp[0], k_post=0.1, iters=60, tol=1e-9)
             wp.append(q.copy())
+            e_max, mg_min = max(e_max, float(err)), min(mg_min, pik.margin(q)[0])
         self.paths[s].append((t0, t1, wp))
+        # 11-03 visibility: pose-IK miss of EVERY waypoint (not only the last) and the smallest joint-limit distance; a miss > PATH_IK_TOL is a counted event
+        # in track["path_unreachable"] (NOT in U / viol: the reference is parked at a limit, the pose is not what the plan says).
+        tr = self.track
+        tr["path_ik_err_max"] = max(tr.get("path_ik_err_max", 0.0), e_max)
+        tr["path_q_margin_min"] = min(tr.get("path_q_margin_min", PATH_NO_MARGIN), mg_min)
+        if e_max > PATH_IK_TOL:
+            tr["path_unreachable"] = tr.get("path_unreachable", 0) + 1
+        self.path_log.append(dict(side=s, t0=round(float(t0), 3), err_last=float(err), err_max=e_max, margin_min=mg_min))
         return float(err)
 
     def _cmd(self, s, t):
@@ -321,12 +406,31 @@ class CarryEpisode:
                 dq = {s: self.coop["gain"] * dq_c[s] for s in SIDES}
         ctl.qe_ref = np.stack([self._cmd("left", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["left"]
         ctl.qi_ref = np.stack([self._cmd("right", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["right"]
-        te, ti = ctl.tau(d)
-        if self.fc is not None:
+        safe = self.ctl_kind == "coopimp_safe"
+        if self.ctl_kind in ("coopimp", "coopimp_safe") and ctl.on:
+            ctl.ref_in = dict(qr={s: np.stack([self._cmd(s, t + j * 0.05) - dq[s] for j in (-1, 0, 1)]) for s in SIDES},
+                              h_meas=np.concatenate([np.concatenate(self.claw_wrench(s)) for s in SIDES]),           # sim truth (weld constraint wrench)
+                              tau_prev={"left": d.qfrc_applied[ctl.ld].copy(), "right": d.qfrc_applied[ctl.rd].copy()})   # joint torque of the last step (11-03 item 8)
+            if safe:        # Coulomb term of the friction wrapper goes INTO the QP's bias (inside the torque box); no kp/ki, no wrapper afterwards
+                ctl.ref_in["fric"] = {s_: (self.fc["f"] * np.tanh(((self._cmd(s_, t + DT) - self._cmd(s_, t)) / DT) / self.fc["v_s"])
+                                           if self.fc is not None else np.zeros(7)) for s_ in SIDES}
+            te, ti = ctl.tau(d)
+            te0, ti0 = te, ti
+            te, ti = np.clip(te, -self.tau_lim, self.tau_lim), np.clip(ti, -self.tau_lim, self.tau_lim)
+            if safe:        # guard only: the QP output already respects the box; count steps where the clip changed anything (> 1e-6 Nm)
+                self.track["ci_postclip_steps"] = self.track.get("ci_postclip_steps", 0) + int(
+                    max(float(np.max(np.abs(te - te0))), float(np.max(np.abs(ti - ti0)))) > 1e-6)
+            for k, v in ctl.log.items():
+                self.track[k] = max(self.track.get(k, 0.0), float(v))
+        else:
+            te, ti = ctl.tau(d)
+        if self.fc is not None and not (safe and ctl.on):
             fc, out = self.fc, []
             for s, tau in (("left", te), ("right", ti)):
                 qc = self._cmd(s, t) - dq[s]
-                vc = (self._cmd(s, t + DT) - qc) / DT
+                # 11-03 item 9: qc carries the coop shift dq, _cmd(t + DT) did not -> the old difference was v_ref + dq / DT (rad / s of a rad shift
+                # over one 5 ms step: ~0.2 rad/s for dq = 1 mrad, 10 x v_s = 0.02), saturating tanh = a spurious +-f sign torque.  Commanded velocity = d/dt _cmd.
+                vc = ((self._cmd(s, t + DT) - self._cmd(s, t)) / DT) if not C.LEGACY_COOP_FRIC else ((self._cmd(s, t + DT) - qc) / DT)
                 e = qc - d.qpos[self.addr[s]]
                 self.e_int[s] = np.clip(self.e_int[s] + e * DT, -fc["i_max"] / max(fc["ki"], 1e-9), fc["i_max"] / max(fc["ki"], 1e-9))
                 add = fc["f"] * np.tanh(vc / fc["v_s"]) + fc["ki"] * self.e_int[s] + fc["kp"] * e
@@ -335,11 +439,13 @@ class CarryEpisode:
         d.qfrc_applied[:] = 0.0
         d.qfrc_applied[ctl.ld] = te
         d.qfrc_applied[ctl.rd] = ti
+        self.wc.tick(d)
         PS.step(m, d)
         self.k += 1
         r = max(float(np.max(np.abs(te) / self.tau_lim)), float(np.max(np.abs(ti) / self.tau_lim)))
         self.track["tau_ratio"] = max(self.track["tau_ratio"], r)
         self.track["n_sat"] += int(r >= 1.0 - 1e-6)
+        self.track.update(ctl.rec.scalars())               # 11-03 F2 (logging only)
         self._check(t, r)
 
     # ---------------- truth: claw wrench, U, R ----------------
@@ -428,6 +534,10 @@ class CarryEpisode:
                 continue
             g1, g2 = int(c.geom1), int(c.geom2)
             a1, a2 = g1 in self.arm_g, g2 in self.arm_g
+            if a1 and a2:                                                      # 11-03 item 5: left<->right arm contact is a collision (it exists now)
+                if (m.body(m.geom_bodyid[g1]).name or "")[:4] != (m.body(m.geom_bodyid[g2]).name or "")[:4]:
+                    self._viol("collision", t, arm=m.geom(g1).name, other=m.geom(g2).name)
+                continue
             if a1 == a2:
                 continue
             ga, go = (g1, g2) if a1 else (g2, g1)
@@ -510,6 +620,7 @@ class CarryEpisode:
         if seg == "release":
             return [("hold", 0.2), ("weld", False), ("retreat", RETREAT, 0.8), ("hold", 0.5)]
         dl = np.asarray(plan[seg], float)
+        self.last_accel = commanded_accel(float(np.linalg.norm(dl)), self.a_plan)           # 11-03 item 10: recorded next to a_plan
         return [("move", tuple(dl), move_time(float(np.linalg.norm(dl)), self.a_plan)), ("hold", 0.3)]
 
     def backup_phases(self, seg):
@@ -538,16 +649,16 @@ class CarryEpisode:
 
 # ---------------------------------------------------------------------------------------------------------------------------
 def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl="lever", strict_claw=False, m_hat=None,
-                fric_comp=None, coop=None, weld_solref=None):
+                fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None):
     """m_hat: the robot's nominal contents mass (belief cell centre; None = the prior's centre)."""
     """nominal run of all segments in one world + the stored backup from branch points of each segment.  -> record for admit."""
     t0 = time.time()
     ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp,
-                      coop=coop, weld_solref=weld_solref)
+                      coop=coop, weld_solref=weld_solref, rules=rules)
     ep.run_phases([("hold", 0.4)])                            # load transfer, object still on the counter
     rec = dict(tag=tag, task=ep.task, theta=_theta(world), truth=_jsonable(ep.truth0), a_plan=a_plan, m_nom=ep.m_nom, ctl=ctl,
                strict_claw=strict_claw, fric_comp=ep.fc, coop=ep.coop, weld_solref=ep.weld_solref,
-               segments=[])
+               physics=ep.physics_flags(), segments=[])
     return run_segments(ep, rec, branch_backups, t0)
 
 
@@ -563,6 +674,7 @@ def run_segments(ep, rec, branch_backups=True, t0=None):
         bfun = (lambda e, tr: branches.append((tr, e.snapshot()))) if branch_backups and seg != "release" else None
         ep.run_phases(ep.segment_phases(seg), branch=bfun)
         nominal = dict(viol=ep.track["viol"], **{k: round(float(v), 4) for k, v in ep.track.items() if k not in ("viol",)})
+        fl_nom = ep.ctl.rec.summary()          # 11-03 F2: nominal run of this segment (incl. the per-joint torque ratios); backups: nominal-run keys only
         okR, whyR = ep.in_R()
         nominal["end_in_R"], nominal["R_fail"] = okR, whyR
         fam = dict(n_bad=0, first_bad=None, n=0)
@@ -580,7 +692,8 @@ def run_segments(ep, rec, branch_backups=True, t0=None):
                     if fam["first_bad"] is None:
                         fam["first_bad"] = dict(t=tr, viol=ep.track["viol"], R_fail=why)
             ep.restore(end)
-        rec["segments"].append(dict(seg=seg, nominal=nominal, family={0.0: fam}))
+        rec["segments"].append(dict(seg=seg, nominal=nominal, family={0.0: fam}, fl=fl_nom,
+                                    accel=(dict(ep.last_accel) if seg != "release" and getattr(ep, "last_accel", None) else None)))
         if nominal["viol"]:
             break
     rec["pre_hold_viol"] = hold_viol
