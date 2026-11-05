@@ -82,11 +82,11 @@ PAN_R, PAN_WALL_H, PAN_BOTTOM_T = 0.09, 0.04, 0.0025          # MODEL (pan/scene
 LID_MU = (0.5, 1.0)        # ASSUMED: lid friction scale box of hardworlds.THETA (lid_mu_scale) x MJCF friction 1.0 -> mu 0.5..1.0
 
 
-def pan_like(name, empty_mass, empty_com, m_hi_sim=1.5):
+def pan_like(name, empty_mass, empty_com, m_hi_sim=1.5, m_lo_sim=0.0):
     vol = np.pi * PAN_R ** 2 * PAN_WALL_H
     P = prism(circ_polygon(PAN_R), PAN_BOTTOM_T, PAN_BOTTOM_T + PAN_WALL_H)
-    c = Contents(0.0, m_hi_sim, P, labels=dict(
-        m="ASSUMED box 0..1.5 kg (hardworlds.THETA mass 0.02..1.5)",
+    c = Contents(m_lo_sim, m_hi_sim, P, labels=dict(
+        m=f"ASSUMED box {m_lo_sim}..{m_hi_sim} kg (hardworlds.THETA mass 0.02..1.5)",
         P="MODEL: any contents COM lies inside the inner wall (r <= 0.09 m, circumscribed 16-gon), 0..wall height"))
     lid = OpenLimit("lid_slide", LID_MU[0] * G, "a_max = mu_lid_min * g (Coulomb, quasi-static)",
                     labels=dict(mu="ASSUMED 0.5 (lower end of lid_mu_scale box x MJCF mu 1.0)"))

@@ -6,7 +6,7 @@ Tasks (scenes.py geometry; grasp points = the pot's, so the arms' pot grasp q is
   box   closed box with hidden contents (0.5..5 kg block, anywhere on the floor): lift 18 cm, carry 20 cm toward the robot over the
         shelf, lower 3 cm onto the shelf (top 15 cm above the counter).
 Grasp: rigid weld of both claws to the object from t = 0 (ASSUMED, user 11-01: wrist cameras + low-level control handle grasping).
-Controller: FL-MPC with the payload model on both arms (pan/handle_grasp.TwoCtl, share 0.5), torque box 16 Nm (MIT command range,
+Controller: FL-MPC with the payload model on both arms (pan/handle_grasp.TwoCtl, share 0.5), torque box = config.tau_limit() (MJCF 100 Nm since USER 11-05; was 16 Nm MIT command range,
 MEASURED-spec), payload mass = empty object + the belief's contents centre (the robot does not know the contents).
 
 Segments and their STORED backups (phases fixed at admission; the only state used at trigger time is the claws' own pose, to
@@ -16,7 +16,7 @@ retrace to poses stored when the segment was admitted):
   place    backup: stop, retrace place -> carry -> lift (back to the counter), let go in place
   release  weld off, open, claws retreat 5 cm outward.  No backup (letting go is not undoable): admitted by the static support row
            (proof under MODEL) plus the sampled worlds.
-Unsafe set U (truth, checked every control step): torque saturation (|tau| >= 16 Nm), object tilt > 10 deg or drop, a mug tipped (> 20 deg) or off the tray, spill
+Unsafe set U (truth, checked every control step): torque saturation (|tau| >= config.tau_limit()), object tilt > 10 deg or drop, a mug tipped (> 20 deg) or off the tray, spill
 (quasi-static surface-tilt proxy from the sim mug acceleration: (D/2) tan(phi) > freeboard; slosh NOT modelled), arm contact with the
 environment or the object (gripper-tab contact allowed).
 Claw load (vertical force vs (3 kg - gripper) g, twist vs T_cap) is RECORDED from the weld constraint wrench but is NOT in U by
@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import os
 import pathlib
 import time
 
@@ -59,12 +60,20 @@ HOLD_FINGER = _hold_finger()
 
 SIDES = ("left", "right")
 DT = 0.005
-TAU_PRESET = "mit_fw_ge_1.11"
+TAU_PRESET = None      # None = config.tau_limit() (MJCF 100 Nm since USER 11-05; BIMANUAL_TAU_MIT16=1 -> 16 Nm)
 CAP_FILE = E.CAP_FILE
 PLANS = {   # ASSUMED (user-confirmed 11-02); (segment, common TCP delta [m])
     "tray": [("lift", (0, 0, 0.05)), ("carry", (-0.10, 0, 0)), ("place", (0, 0, -0.05))],
     "box": [("lift", (0, 0, 0.18)), ("carry", (-0.20, 0, 0)), ("place", (0, 0, -0.03))],
 }
+PLANS_EXTRA = {   # 11-05, not in PLANS (the 11-02 user-confirmed legacy set stays {tray, box}); use plan_moves(task)
+    "pot": [("lift", (0, 0, 0.05)), ("carry", (-0.10, 0, 0)), ("place", (0, 0, -0.05))],   # ASSUMED: the tray's plan; destination = counter, 10 cm toward the robot (open user item, demos 11-01 sec. 4 item 4)
+}
+
+
+def plan_moves(task):
+    """the scripted (legacy) segment list of a task: PLANS, or PLANS_EXTRA for the pot."""
+    return PLANS[task] if task in PLANS else PLANS_EXTRA[task]
 SEGS = ("lift", "carry", "place", "release")
 A_BACKUP = 0.25            # ASSUMED backup peak acceleration [m/s^2] (half the nominal)
 T_MIN = 0.6                # s, shortest move
@@ -73,8 +82,23 @@ PATH_IK_TOL = 1e-4         # ASSUMED (11-03): pose-IK miss [m; rad norm] above w
 PATH_MARGIN_MIN = 0.05     # ASSUMED (11-03): wanted joint-limit distance [rad] at every path waypoint (used by nyu_hold's path check)
 PATH_NO_MARGIN = 9.0       # sentinel: no path planned in this window
 U_TILT_OBJ, U_TILT_CUP, R_TILT_OBJ, R_TILT_CUP = 10.0, 20.0, 3.0, 5.0      # deg, ASSUMED thresholds
+LID_SLIDE_M = 0.005        # ASSUMED (11-05, pot): lid xy shift relative to the pot beyond its rest position that counts as "lid slid" (U).  MODEL context: the 4 locating tabs leave ~1 mm of play
+LID_OFF_Z = 0.01           # ASSUMED (11-05, pot): lid height above its rest height relative to the pot that counts as "lid off" (U)
+LID_TILT_DEG = U_TILT_OBJ  # ASSUMED (11-05, pot): lid tilt relative to the pot that counts as "lid off" (U), = the object tilt threshold
 R_SPEED = 0.005            # m/s
 SPILL_TAU = 0.025          # s, low-pass on the mug acceleration (spill proxy)
+
+
+PLANNERS = ("scripted", "closed_chain")
+
+
+def resolve_planner(planner=None):
+    """11-05 opt-in: which plan the contents carry executes / is admitted on.  None -> env BIMANUAL_PLANNER (default "scripted" = the legacy PLANS +
+    continuation IK, byte-identical); "closed_chain" = stack/planners/closed_chain.py (SRS IK + TOPP-RA, planned joint references)."""
+    p = (os.environ.get("BIMANUAL_PLANNER") or "scripted") if planner is None else planner
+    if p not in PLANNERS:
+        raise ValueError(f"planner must be one of {PLANNERS}, got {p!r}")
+    return p
 
 
 PHYS_DEFAULT = "config.carry_physics"      # sentinel: take fric_comp / weld_solref from config.carry_physics() (item 6)
@@ -178,13 +202,15 @@ def _tilt_deg(R):
 
 class CarryEpisode:
     def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=None, ctl="lever", strict_claw=False,
-                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None):
+                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None, planner=None):
+        self.planner = resolve_planner(planner)               # 11-05: "scripted" (default) | "closed_chain"
+        self.cc = None                                          # closed_chain plan being executed (set by the planner / executor)
         # 11-03 item 6: PHYS_DEFAULT -> config.carry_physics() (fric_comp=True + stiff weld; legacy pair None/None under BIMANUAL_LEGACY_CARRY_PHYS=1);
         # an explicit None / False / value is honoured as before.
         cp = C.carry_physics()
         fric_comp = cp["fric_comp"] if isinstance(fric_comp, str) and fric_comp == PHYS_DEFAULT else fric_comp
         weld_solref = cp["weld_solref"] if isinstance(weld_solref, str) and weld_solref == PHYS_DEFAULT else weld_solref
-        self.world, self.task = world, ("tray" if isinstance(world, SC.TrayWorld) else "box")
+        self.world, self.task = world, ("tray" if isinstance(world, SC.TrayWorld) else ("pot" if isinstance(world, SC.PotWorld) else "box"))
         self.a_plan, self.T_cap, self.strict_claw = float(a_plan), T_cap, bool(strict_claw)
         spec = SC.build_spec(world)
         for s in SIDES:
@@ -219,11 +245,11 @@ class CarryEpisode:
             self.weld(s, True)
         self.truth0 = SC.object_truth(m, d)
         self.z0 = float(d.xpos[self.obj][2])                   # resting height on the counter
-        self.spec_obj = OB.coffee_tray(world.n_cups) if self.task == "tray" else OB.boxed()
+        self.spec_obj = OB.coffee_tray(world.n_cups) if self.task == "tray" else (SC.pot_spec(world=world) if self.task == "pot" else OB.boxed())
         cont = self.spec_obj.contents
         self.m_hat = 0.5 * (cont.m_lo + cont.m_hi) if m_hat is None else float(m_hat)
         self.m_nom = float(self.truth0["empty_mass"] + self.m_hat)
-        self.tau_lim = C.tau_limits(TAU_PRESET)
+        self.tau_lim = C.tau_limit(TAU_PRESET)
         q0 = {s: d.qpos[self.addr[s]].copy() for s in SIDES}
         hold = {s: q0[s].tolist() for s in SIDES}
         self.ctl_kind = ctl
@@ -259,7 +285,10 @@ class CarryEpisode:
         self.cups = [m.body(f"cup{i}").id for i in range(world.n_cups)] if self.task == "tray" else []
         xy, fills = world.layout() if self.task == "tray" else ([], [])
         self.freeboard = [world.cup_H - (SC.CUP_BOT + f / (SC.WATER * np.pi * SC.CUP_RIN ** 2)) for f in fills]
-        self.carried = {self.obj} | set(self.cups) | ({m.body("contents").id} if self.task == "box" else set())
+        self.carried = {self.obj} | set(self.cups) | ({m.body("contents").id} if self.task in ("box", "pot") else set()) \
+            | ({m.body("lid").id} if self.task == "pot" and world.lid else set())
+        self.lid = m.body("lid").id if (self.task == "pot" and world.lid) else None
+        self.lid_rest = self._lid_rel() if self.lid is not None else None          # (xy shift ref, z ref) of the lid in the obj frame at rest
         self.fc = dict(FRIC_COMP, **fric_comp) if isinstance(fric_comp, dict) else (dict(FRIC_COMP) if fric_comp else None)
         if self.fc is not None and ctl in ("coopimp", "coopimp_safe") and not C.LEGACY_COOP_FC:
             # USER 11-03: under coopimp drop the wrapper's joint-level kp/ki terms (they fight the object-level impedance);
@@ -274,6 +303,13 @@ class CarryEpisode:
         self.reset_track()
         self._acc = {b: np.zeros(3) for b in self.cups}
         self._vprev = {b: np.zeros(3) for b in self.cups}
+
+    def _lid_rel(self):
+        """lid position in the obj frame (m) and its tilt relative to the pot (deg)."""
+        d = self.d
+        Ro = d.xmat[self.obj].reshape(3, 3)
+        rel = Ro.T @ (d.xpos[self.lid] - d.xpos[self.obj])
+        return rel, _tilt_deg(Ro.T @ d.xmat[self.lid].reshape(3, 3))
 
     def physics_flags(self):
         """the physics switches this episode ran with (carried by every record, 11-03 items 5, 6, 8, 9)."""
@@ -325,6 +361,8 @@ class CarryEpisode:
         self.track = dict(viol=None, tau_ratio=0.0, n_sat=0, Fz_max=0.0, twist_max=0.0, F_int_max=0.0, spill_ratio=0.0,
                           cup_tilt_max=0.0, obj_tilt_max=0.0, e_obj_mm=0.0, e_obj_deg=0.0, e_int_mm=0.0, e_int_deg=0.0,
                           path_ik_err_max=0.0, path_q_margin_min=PATH_NO_MARGIN, path_unreachable=0)
+        if getattr(self, "task", None) == "pot" and getattr(self, "lid", None) is not None:      # pot only: tray / box records keep their keys
+            self.track.update(lid_slide_mm=0.0, lid_dz_mm=0.0, lid_tilt_deg=0.0)
         if getattr(self, "ctl", None) is not None:          # 11-03 F2: FL-MPC fallback counters + true residuals (fl_log.py), same window as the track
             self.ctl.rec.reset()
             self.track.update(self.ctl.rec.scalars())
@@ -356,6 +394,17 @@ class CarryEpisode:
             tr["path_unreachable"] = tr.get("path_unreachable", 0) + 1
         self.path_log.append(dict(side=s, t0=round(float(t0), 3), err_last=float(err), err_max=e_max, margin_min=mg_min))
         return float(err)
+
+    def _add_joint_path(self, s, t0, t1, wp, margin=None, err=0.0):
+        """11-05 (closed_chain): append PLANNED joint references wp ((n+1), 7) at the control period over [t0, t1]; no IK.  `margin` / `err` = the plan's smallest
+        joint-limit distance [rad] and FK miss [m] over this move (recorded like _add_path's)."""
+        self.paths[s].append((t0, t1, wp))
+        tr = self.track
+        if margin is not None:
+            tr["path_q_margin_min"] = min(tr.get("path_q_margin_min", PATH_NO_MARGIN), float(margin))
+            tr["path_ik_err_max"] = max(tr.get("path_ik_err_max", 0.0), float(err))
+        self.path_log.append(dict(side=s, t0=round(float(t0), 3), err_last=float(err), err_max=float(err),
+                                  margin_min=(float(margin) if margin is not None else PATH_NO_MARGIN), planned=True))
 
     def _cmd(self, s, t):
         q = self.q0[s]
@@ -529,6 +578,17 @@ class CarryEpisode:
             rel = d.xmat[self.obj].reshape(3, 3).T @ (d.xpos[b] - d.site_xpos[m.site("obj_ref").id])
             if abs(rel[0]) > self.world.tray_lx / 2 or abs(rel[1]) > self.world.tray_ly / 2 or rel[2] < -0.005:
                 self._viol("cup_off_tray", t, cup=j)
+        if self.lid is not None:                                                # pot: the loose lid must stay put on the pot
+            rel, ltilt = self._lid_rel()
+            r0, t0_ = self.lid_rest
+            slide, dz = float(np.linalg.norm(rel[:2] - r0[:2])), float(rel[2] - r0[2])
+            tr["lid_slide_mm"] = max(tr["lid_slide_mm"], 1e3 * slide)
+            tr["lid_dz_mm"] = max(tr["lid_dz_mm"], 1e3 * dz)
+            tr["lid_tilt_deg"] = max(tr["lid_tilt_deg"], ltilt)
+            if dz > LID_OFF_Z or ltilt > LID_TILT_DEG:
+                self._viol("lid_off", t, dz=dz, tilt=ltilt)
+            elif slide > LID_SLIDE_M:
+                self._viol("lid_slide", t, slide=slide)
         for c in d.contact[:d.ncon]:
             if c.dist > -1e-3:
                 continue
@@ -561,6 +621,10 @@ class CarryEpisode:
         for b in self.cups:
             if _tilt_deg(d.xmat[b].reshape(3, 3)) > R_TILT_CUP:
                 why.append("cup_tilt")
+        if self.lid is not None:
+            rel, ltilt = self._lid_rel()
+            if float(np.linalg.norm(rel[:2] - self.lid_rest[0][:2])) > LID_SLIDE_M or rel[2] - self.lid_rest[0][2] > LID_OFF_Z or ltilt > LID_TILT_DEG:
+                why.append("lid")
         if self.track["viol"]:
             why.append("U:" + self.track["viol"]["kind"])
         return not why, why
@@ -569,45 +633,8 @@ class CarryEpisode:
     def run_phases(self, phases, branch=None):
         """phases: ("move", delta, T) both claws | ("to", key, T) both claws back to stored pose `key` | ("hold", T) | ("stop", T)
         | ("weld", on) | ("retreat", r, T).  branch(ep, t_rel) -> called every 0.25 s inside a move (snapshot hooks)."""
-        for ph in phases:
-            t = self.k * DT
-            if ph[0] == "weld":
-                for s in SIDES:
-                    self.weld(s, ph[1])
-                self.ctl.on = bool(ph[1])                      # payload model off once the object is let go
-                continue
-            if ph[0] == "move":
-                dur = ph[2]
-                for s in SIDES:
-                    self._add_path(s, t, t + dur, np.asarray(ph[1], float))
-            elif ph[0] == "to":
-                tgt = self.stored[ph[1]]
-                dist = max(float(np.linalg.norm(tgt[s] - self.tcp(s))) for s in SIDES)
-                dur = move_time(dist, A_BACKUP) if ph[2] is None else ph[2]
-                for s in SIDES:
-                    self._trim(s, t)
-                    self._add_path(s, t, t + dur, to=tgt[s])
-            elif ph[0] == "retreat":
-                dur = ph[2]
-                for s in SIDES:
-                    self._add_path(s, t, t + dur, np.array([0, ph[1] if s == "left" else -ph[1], 0]))
-            elif ph[0] == "stop":
-                dur = ph[1]
-                for s in SIDES:                           # decelerate the COMMANDED reference (11-02: starting from the measured
-                    q = self._cmd(s, t)                   # q baked the wrist sag into the reference; repeated -> 10 deg box tilt)
-                    v = (self._cmd(s, t + 1e-3) - q) / 1e-3 * dur
-                    self._trim(s, t)
-                    q1 = q + 0.5 * v
-                    wp = [(2 * a ** 3 - 3 * a ** 2 + 1) * q + (a ** 3 - 2 * a ** 2 + a) * v + (-2 * a ** 3 + 3 * a ** 2) * q1
-                          for a in np.linspace(0, 1, 31)]
-                    self.paths[s].append((t, t + dur, wp))
-            else:
-                dur = ph[1]
-            n = int(round(dur / DT))
-            for i in range(n):
-                if branch is not None and ph[0] == "move" and i > 0 and i % int(0.25 / DT) == 0:
-                    branch(self, i * DT)
-                self._step()
+        from world_model.v2.stack import executor as EX      # the loop lives in stack/executor.py (11-03, one copy)
+        EX.run_phases(self, phases, branch)
 
     def _trim(self, s, t):
         """cut the planned path at time t (a stop / backup replaces the rest of the plan): keep finished moves, freeze the
@@ -615,22 +642,38 @@ class CarryEpisode:
         q = self._cmd(s, t)
         self.paths[s] = [p for p in self.paths[s] if p[1] <= t] + [(t - 1e-9, t, [q.copy(), q.copy()])]
 
+    def retreat_phase(self):
+        """the let-go retreat phase of the claws at the START pose (probe refuse path): legacy ("retreat", r, T) or, under closed_chain, the planned one."""
+        if self.planner == "closed_chain":
+            self.closed_chain()
+            return ("jretreat", "start")
+        return ("retreat", RETREAT, 0.8)
+
+    def closed_chain(self):
+        """the closed_chain plan for this episode's world / hold pose / a_plan (cached per process and on disk); raises PlanRefused if unreachable."""
+        from world_model.v2.stack.planners import closed_chain as CCP
+        self.cc = CCP.plan_for_episode(self)
+        return self.cc
+
     def segment_phases(self, seg):
-        plan = dict(PLANS[self.task])
-        if seg == "release":
-            return [("hold", 0.2), ("weld", False), ("retreat", RETREAT, 0.8), ("hold", 0.5)]
-        dl = np.asarray(plan[seg], float)
-        self.last_accel = commanded_accel(float(np.linalg.norm(dl)), self.a_plan)           # 11-03 item 10: recorded next to a_plan
-        return [("move", tuple(dl), move_time(float(np.linalg.norm(dl)), self.a_plan)), ("hold", 0.3)]
+        if self.planner == "closed_chain":
+            from world_model.v2.stack.planners import closed_chain as CCP
+            cc = self.closed_chain()
+            if seg != "release":
+                self.last_accel = cc.accel_record(seg)
+            return CCP.phases_for(seg)
+        from world_model.v2.stack.planners import scripted as SP      # the legacy plan lives in stack/planners/scripted.py (11-03)
+        ph, acc = SP.segment_phases(self.task, seg, self.a_plan)
+        if seg != "release":
+            self.last_accel = acc                                       # 11-03 item 10: recorded next to a_plan
+        return ph
 
     def backup_phases(self, seg):
-        back = {"lift": ["lift"], "carry": ["carry", "lift"], "place": ["place", "carry", "lift"]}.get(seg)
-        if back is None:
-            return None
-        # let go in place (11-02): back on the counter, release the weld and retreat, so the object settles flat on its own
-        # (held welded, wrist sag of up to ~4 deg under load left it resting on one edge: smoke box 2 kg, 14/16 backups not in R)
-        return ([("stop", 0.3)] + [("to", f"start_{s}", None) for s in back]
-                + [("hold", 0.3), ("weld", False), ("retreat", RETREAT, 0.8), ("hold", 0.6)])
+        if self.planner == "closed_chain":
+            from world_model.v2.stack.planners import closed_chain as CCP
+            return CCP.backup_phases_for(seg)
+        from world_model.v2.stack.planners import scripted as SP
+        return SP.backup_phases(seg)
 
     def store(self, seg):
         self.stored[f"start_{seg}"] = {s: self.tcp(s) for s in SIDES}
@@ -649,12 +692,12 @@ class CarryEpisode:
 
 # ---------------------------------------------------------------------------------------------------------------------------
 def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl="lever", strict_claw=False, m_hat=None,
-                fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None):
+                fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None, planner=None):
     """m_hat: the robot's nominal contents mass (belief cell centre; None = the prior's centre)."""
     """nominal run of all segments in one world + the stored backup from branch points of each segment.  -> record for admit."""
     t0 = time.time()
     ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp,
-                      coop=coop, weld_solref=weld_solref, rules=rules)
+                      coop=coop, weld_solref=weld_solref, rules=rules, planner=planner)
     ep.run_phases([("hold", 0.4)])                            # load transfer, object still on the counter
     rec = dict(tag=tag, task=ep.task, theta=_theta(world), truth=_jsonable(ep.truth0), a_plan=a_plan, m_nom=ep.m_nom, ctl=ctl,
                strict_claw=strict_claw, fric_comp=ep.fc, coop=ep.coop, weld_solref=ep.weld_solref,
@@ -664,49 +707,25 @@ def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl
 
 def run_segments(ep, rec, branch_backups=True, t0=None):
     """the segment loop of world_trial on an existing episode (11-02: probe.py runs it after the probe, same episode)."""
-    t0 = time.time() if t0 is None else t0
-    hold_viol = ep.track["viol"]
-    for seg in SEGS:
-        ep.store(seg)
-        ep.reset_track()
-        sn0 = ep.snapshot()
-        branches = [(0.0, sn0)]
-        bfun = (lambda e, tr: branches.append((tr, e.snapshot()))) if branch_backups and seg != "release" else None
-        ep.run_phases(ep.segment_phases(seg), branch=bfun)
-        nominal = dict(viol=ep.track["viol"], **{k: round(float(v), 4) for k, v in ep.track.items() if k not in ("viol",)})
-        fl_nom = ep.ctl.rec.summary()          # 11-03 F2: nominal run of this segment (incl. the per-joint torque ratios); backups: nominal-run keys only
-        okR, whyR = ep.in_R()
-        nominal["end_in_R"], nominal["R_fail"] = okR, whyR
-        fam = dict(n_bad=0, first_bad=None, n=0)
-        bk = ep.backup_phases(seg)
-        if bk is not None and branch_backups:
-            end = ep.snapshot()
-            for tr, sn in branches[1:] + [(None, end)]:
-                ep.restore(sn)
-                ep.reset_track()
-                ep.run_phases(bk)
-                ok, why = ep.in_R()
-                fam["n"] += 1
-                if not ok:
-                    fam["n_bad"] += 1
-                    if fam["first_bad"] is None:
-                        fam["first_bad"] = dict(t=tr, viol=ep.track["viol"], R_fail=why)
-            ep.restore(end)
-        rec["segments"].append(dict(seg=seg, nominal=nominal, family={0.0: fam}, fl=fl_nom,
-                                    accel=(dict(ep.last_accel) if seg != "release" and getattr(ep, "last_accel", None) else None)))
-        if nominal["viol"]:
-            break
-    rec["pre_hold_viol"] = hold_viol
-    rec["truth_end"] = _jsonable(SC.object_truth(ep.m, ep.d))
-    rec["end_in_R"] = ep.in_R()
-    rec["wall_s"] = round(time.time() - t0, 1)
-    return rec
+    from world_model.v2.stack import executor as EX
+    from world_model.v2.stack.planners.scripted import ScriptedPlanner
+    from world_model.v2.stack.types import SkillCall
+    if getattr(ep, "planner", "scripted") == "closed_chain":
+        from types import SimpleNamespace
+        from world_model.v2.stack.planners.closed_chain import ClosedChainPlanner
+        plan = ClosedChainPlanner().plan(None, SkillCall("carry_task", dict(task=ep.task, a_plan=ep.a_plan)), SimpleNamespace(episode=ep))
+        rec.setdefault("planner", dict(name="closed_chain", **{k: plan.provenance[k] for k in ("key", "summary")}))
+    else:
+        plan = ScriptedPlanner().plan(None, SkillCall("carry_task", dict(task=ep.task, a_plan=ep.a_plan)), None)
+    return EX.run_segments(ep, plan, rec, branch_backups, t0)
 
 
 def _theta(world):
     if isinstance(world, SC.TrayWorld):
         xy, f = world.layout()
         return dict(n_cups=world.n_cups, cup_xy=[list(map(float, q)) for q in xy], fills_kg=[float(x) for x in f], cup_mu=world.cup_mu)
+    if isinstance(world, SC.PotWorld):
+        return dict(puck_kg=world.puck_kg, puck_uw=list(map(float, world.puck_uw)), lid_mu_scale=world.lid_mu_scale, mu_scale=world.mu_scale, handle_len=world.handle_len)
     return dict(contents_kg=world.contents_kg, contents_xy=list(world.contents_xy), contents_mu=world.contents_mu)
 
 
@@ -722,7 +741,7 @@ def _jsonable(x):
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("--task", choices=("tray", "box"), default="tray")
+    ap.add_argument("--task", choices=("tray", "box", "pot"), default="tray")
     ap.add_argument("--n-cups", type=int, default=2)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--contents-kg", type=float, default=1.0)
@@ -731,6 +750,8 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.task == "tray":
         w = SC.sample_tray_world(a.n_cups, np.random.default_rng(a.seed))
+    elif a.task == "pot":
+        w = SC.PotWorld(puck_kg=a.contents_kg)
     else:
         w = SC.BoxWorld(contents_kg=a.contents_kg)
     r = world_trial(w, f"{a.task}_s{a.seed}", branch_backups=not a.no_branch, ctl=a.ctl)

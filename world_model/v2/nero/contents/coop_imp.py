@@ -162,7 +162,7 @@ class CoopImpCtl(CR.LeverCtl):
         Jb = np.zeros((14, 12))
         Jb[:7, :6], Jb[7:, 6:] = Js["left"].T, Js["right"].T
         b = np.concatenate([arm["left"], arm["right"]])
-        lim = np.concatenate([CR.E.TAU_LIM, CR.E.TAU_LIM])      # MODEL: 16 Nm per joint (MIT command range)
+        lim = np.concatenate([CR.E.TAU_LIM, CR.E.TAU_LIM])      # config.tau_limit() per joint (MJCF 100 Nm by default)
         A0, r0 = Jb @ N, b + Jb @ hp
         zsq = N.T @ h_sq
         z = zsq.copy()

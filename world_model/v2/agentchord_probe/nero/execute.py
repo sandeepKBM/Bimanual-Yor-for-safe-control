@@ -103,7 +103,7 @@ def run_world(args):
             from world_model.v2.nero.contents import objects as OB
             n = int(task[4:]) if task.startswith("tray") else 0
             m_hat = n * (OB.CUP["empty"] + 0.5 * (cell[0] + cell[1])) if n else 0.5 * (cell[0] + cell[1])
-        ep = CR.CarryEpisode(w, a_plan=E.A_NOM, m_hat=m_hat)       # physics defaults = config.carry_physics() (item 6)
+        ep = CR.CarryEpisode(w, a_plan=E.A_NOM, m_hat=m_hat, planner="scripted")       # physics defaults = config.carry_physics() (item 6); AgentChord runs its own plans (11-05: immune to BIMANUAL_PLANNER)
         ep.run_phases([("hold", 0.4)])
         rec["pre_hold_viol"] = ep.track["viol"]                    # 11-03 item 12c: a U entry during the load-transfer hold counts
         rec["physics"] = ep.physics_flags()

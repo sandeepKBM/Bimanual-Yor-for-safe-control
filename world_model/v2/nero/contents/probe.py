@@ -55,7 +55,8 @@ T_HOLD = 0.4         # design: hold before reading [s]
 N_READ = 40          # design: readings averaged over the last N_READ control steps of the hold (0.2 s)
 FREE_RATIO = 0.2     # ASSUMED: "free" when the read grows by less than FREE_RATIO x the push step (one rung; calibrated)
 TAU_NOISE = 0.05     # ASSUMED: joint-torque reading noise, uniform +-TAU_NOISE per joint [Nm] (real NERO value unknown)
-PRIOR = {"box": (0.5, 5.0), "tray6": (0.0, 0.25), "tray4": (0.0, 0.25), "tray2": (0.0, 0.25)}   # sample_world cells = full prior
+PRIOR = {"box": (0.5, 5.0), "tray6": (0.0, 0.25), "tray4": (0.0, 0.25), "tray2": (0.0, 0.25),
+         "pot": SC.POT_CONTENTS_KG}   # sample_world cells = full prior (pot: pan/theta.py THETA "mass" 0.02..1.5 kg, ASSUMED)
 
 
 # ------------------------------------------------------------------------------------------------- specs and static verdicts
@@ -64,11 +65,15 @@ def n_cups(task):
 
 
 def empty_mass(task):
+    if task == "pot":
+        return SC.pot_empty_props()[0]                      # MODEL: pot + lid (geom volume x PLA density)
     return OB.TRAY["mass"] if task.startswith("tray") else OB.BOX["mass"]
 
 
 def prior_contents(task):
     """contents mass interval of the full prior (tray: mugs + fill; box: the block)."""
+    if task == "pot":
+        return SC.POT_CONTENTS_KG
     if task.startswith("tray"):
         n = n_cups(task)
         return n * OB.CUP["empty"], n * (OB.CUP["empty"] + OB.CUP["fill_max_kg"])
@@ -78,6 +83,8 @@ def prior_contents(task):
 def interval_spec(task, c_lo, c_hi):
     """ObjectSpec for contents mass in [c_lo, c_hi].  Tray: the total fill is known only as a total, so one mug may hold all of
     it: per-mug fill <= min(fill_max, total fill hi) sets the spill limit (MODEL, conservative)."""
+    if task == "pot":
+        return SC.pot_spec(c_lo, c_hi)                       # solid puck: no spill row; the loose-lid slide limit (mu_lid_min g) is the open-content row
     if not task.startswith("tray"):
         return OB.boxed(c_lo, c_hi)
     n = n_cups(task)
@@ -90,33 +97,47 @@ def interval_spec(task, c_lo, c_hi):
     return sp
 
 
-def static_interval(task, c_lo, c_hi, world=None):
-    world = world if world is not None else (SC.TrayWorld(n_cups=n_cups(task)) if task.startswith("tray") else SC.BoxWorld())
-    return CC.static_cell(task, (round(c_lo, 4), round(c_hi, 4)), world, spec=interval_spec(task, c_lo, c_hi))
+def static_interval(task, c_lo, c_hi, world=None, planner=None):
+    """planner (11-05): None -> carry.resolve_planner() (env BIMANUAL_PLANNER, default "scripted")."""
+    world = world if world is not None else CC.world_default(task)
+    return CC.static_cell(task, (round(c_lo, 4), round(c_hi, 4)), world, spec=interval_spec(task, c_lo, c_hi), planner=planner)
+
+
+def c_admit_max(task, tol=0.01, planner=None):
+    """largest contents mass c with the point interval [c, c] admitted, on the plan of `planner` (None = the process default, CR.resolve_planner)."""
+    return _c_admit_max(task, tol, CR.resolve_planner(planner))
 
 
 @functools.lru_cache(maxsize=None)
-def c_admit_max(task, tol=0.01):
+def _c_admit_max(task, tol, planner):
     """largest contents mass c with the point interval [c, c] admitted (bisection; admission is monotone in the mass: MODEL --
     torque rows grow with m, the spill limit tightens with the fill).  None if even the lightest prior member is refused."""
     lo, hi = prior_contents(task)
-    if static_interval(task, lo, lo)["action"].startswith("refuse"):
+    if static_interval(task, lo, lo, planner=planner)["action"].startswith("refuse"):
         return None
-    if not static_interval(task, hi, hi)["action"].startswith("refuse"):
+    if not static_interval(task, hi, hi, planner=planner)["action"].startswith("refuse"):
         return hi
     a, b = lo, hi
     while b - a > tol:
         c = 0.5 * (a + b)
-        a, b = (c, b) if not static_interval(task, c, c)["action"].startswith("refuse") else (a, c)
+        a, b = (c, b) if not static_interval(task, c, c, planner=planner)["action"].startswith("refuse") else (a, c)
     return a
 
 
+def _rest_envelope(task, planner=None):
+    return _rest_envelope_c(task, CR.resolve_planner(planner))
+
+
 @functools.lru_cache(maxsize=None)
-def _rest_envelope(task):
+def _rest_envelope_c(task, planner):
     spec = interval_spec(task, *prior_contents(task))
     caps = json.loads(TH.CAP_FILE.read_text())
-    offs, _ = CC.path_offsets(task)
-    cap = TH.capture_path(caps["pot"], offs)
+    if planner == "closed_chain":
+        from ...stack.planners import closed_chain as CCP
+        offs, _, cap = CCP.static_path(task)
+    else:
+        offs, _ = CC.path_offsets(task)
+        cap = TH.capture_path(caps["pot"], offs)
     tl, tr = np.asarray(caps["pot"]["tcp"]["W0_liftoff"]["left"]), np.asarray(caps["pot"]["tcp"]["W0_liftoff"]["right"])
     o_ref = 0.5 * (tl + tr) - np.array([0, 0, TH.GRASP_DZ])
     return E.Envelope(spec, E.Arms(cap), o_ref, np.eye(3), ["left", "right"], grip_mass=caps["pot"]["gripper_mass"], offsets=offs)
@@ -333,7 +354,7 @@ def _e2e_job(args):
             rec["outcome"] = "carried" if (carry["end_in_R"][0] and not any(s["nominal"]["viol"] for s in carry["segments"])) else "carry_failed"
         else:
             pr._ramp(0.0, 0.5)
-            ep.run_phases([("hold", 0.3), ("weld", False), ("retreat", CR.RETREAT, 0.8), ("hold", 0.5)])
+            ep.run_phases([("hold", 0.3), ("weld", False), ep.retreat_phase(), ("hold", 0.5)])
             okR, whyR = ep.in_R()
             rec["refuse_end_in_R"] = [okR, whyR]
             rec["outcome"] = "refused_in_R" if okR and not ep.track["viol"] else "refused_bad"
@@ -410,7 +431,12 @@ def main(argv=None):
     ap.add_argument("--procs", type=int, default=4)
     ap.add_argument("--calib")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--planner", choices=CR.PLANNERS, default=None,
+                    help="plan the static admission uses and the carry executes (default: env BIMANUAL_PLANNER, else scripted = legacy PLANS)")
     a = ap.parse_args(argv)
+    if a.planner is not None:
+        import os
+        os.environ["BIMANUAL_PLANNER"] = a.planner                  # inherited by the spawned workers
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     tasks = a.tasks.split(",")

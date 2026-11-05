@@ -151,7 +151,7 @@ def run(out_dir=RESULTS, procs=8):
         T_cap=f"v2 only: ASSUMED {E.T_CAP} Nm per claw (2-norm; LP uses the inscribed box) = vizcoast claw_capacity fit extrapolated "
               f"to 40 N.  v1 and v3 (current): no claw rows",
         u_admit=f"v2, v3: ASSUMED admit at MODEL u <= {E.U_ADMIT} (controller feedback margin; to be sized from sim)",
-        tau_lim="MEASURED-spec 16 Nm MIT command range (fw >= 1.11)",
+        tau_lim=f"{float(C.tau_limit()[0])} Nm (config.tau_limit; MJCF by default, USER 11-05)",
         payload=f"MEASURED-spec {E.PAYLOAD_KG} kg (NERO manual) minus gripper 0.5 kg (MJCF), vertical",
         a_nom=f"ASSUMED {E.A_NOM} m/s^2 per axis", quasi_static="ASSUMED (Coriolis dropped, object level, translation only)",
         waypoints=dict(pan_pot=E.WAYPOINTS, tray=TRAY_WPS, box=BOX_WPS),

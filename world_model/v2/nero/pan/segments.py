@@ -239,6 +239,53 @@ def _pot_pregrasp(m, d, side, p, pos0, R0, aim, Rz, approach0, jaw0, sgn, frac0,
     raise RuntimeError(f"pot: no {side} handle candidate ({last})")
 
 
+def _skill_pregrasp(m, d, p, pos0, R0, aim, Rz, sides, cl, wc=None, which="handles", push_shift=None):
+    """11-04: the pan/pot pre-grasps come from the stack PreGrasp SEARCH skill (the fixed handle / rim targets were laid out for the old gripper and
+    have no feasible pose with the NYU hinged jaws).  Object pose = the ESTIMATE (aim of the nominal settled pose); handle / rim geometry = the
+    scene's PanParams (as the legacy _pot_pregrasp).  which="handles": pinch the handle(s) of `sides`; which="rim": the right claw's rim clamp,
+    evaluated with the pan at its planned post-push pose (pos shifted by `push_shift`, the lid rides along).  -> {side: dict(q, margin, cand, ...)};
+    raises RuntimeError (like find_pregrasp) when nothing passes."""
+    from world_model.v2.stack.skills import pregrasp as PG
+    from world_model.v2.stack.types import Sim, SkillCall, WorldState, RobotState, ObjectState, Kind, Source, WorldSpec
+    from world_model.v2.tray_rep.sets.ir import BoxShape, Pose as IPose
+    if which == "rim":
+        feats = PG.rim_features(p, STACK_H, APPROACH_IN, CV.ASSUMED_COVERED["lid_t"])
+    else:
+        feats = PG.handle_features(p)         # free-end face of each handle (frac 1.0); the search inset slides the TCP towards the wall
+    use = {f.side: f for f in feats.values() if f.side in sides}
+    ws = WorldState(0.0, RobotState(base=IPose(np.eye(3), np.zeros(3)), q={s: d.qpos[A.arm_addrs(m, s)[0]].copy() for s in SIDES}))
+    half = np.array([p.pan_radius + p.pan_wall_t, p.pan_radius + p.pan_wall_t + p.handle_len, 0.5 * (p.pan_bottom_t + p.pan_wall_h)])
+    pc = np.asarray(aim(pos0), float) + (0.0 if push_shift is None else np.asarray(push_shift, float))
+    ws.objects = {"pan": ObjectState("pan", Kind.MOVABLE, BoxShape(half), IPose(Rz @ R0, pc), name="pan",
+                                     name_source=Source.PRIOR, source=Source.PRIOR, affordances=("graspable",))}
+    sim = Sim(m, d, WorldSpec("pan", "episode", {}, 0), handles=dict(obj_geoms={"pan": "pan_handle"}, obj_joint={"pan": "pan_free"},
+                                                                    obj_attached_joints={"pan": ("lid_free",)}, benign_non_robot="base"))
+    if which == "rim":    # ASSUMED search range: TCP 0-3 cm past the rim outer surface; the opening is the legacy right opening cl["open_R"]
+        cons = dict(opens=[cl["open_R"]], lim=dict(inset=(-0.01, 0.05)),
+                    grid=dict(inset=(0.01, 0.015, 0.02), tilt_deg=(0.0,), roll_deg=(-5.0, 0.0), dz=(-0.01, 0.0)))   # right arm at its reach edge: IK exists only for inset >= 1.5 cm, roll -5 (11-04)
+    else:             # ASSUMED search range: handle is 90-130 mm long; the NYU palm needs the TCP within ~5 cm of the tip
+        cons = dict(opens=[FINGER_OPEN], lim=dict(inset=(0.0, 0.05)), grid=dict(inset=(0.0, 0.01, 0.02, 0.03, 0.04), tilt_deg=(0.0, 10.0)))
+    cons["procs"] = int(os.environ.get("PREGRASP_PROCS", "4"))     # search pool size (cells are independent)
+    sk = PG.PreGrasp()
+    wc_state = wc.state() if wc is not None else None
+    if wc is not None:               # the search needs the gripper<->pan contacts ON (it tests "jaws touch the handle"); the Episode keeps them off (weld rule)
+        for s in SIDES:
+            wc.set(s, False)
+    try:
+        res = sk.search(ws, SkillCall("pregrasp", dict(obj="pan", features=use, constraints=cons), tuple(sides)), sim)
+    finally:
+        if wc is not None:
+            wc.sync(d, wc_state)     # restore the exact pre-search bits / pending releases / toggle count
+    if not res.ok:
+        raise RuntimeError(f"no pre-grasp from the PreGrasp skill ({which}) for {tuple(sides)}: {res.reason}")
+    out = {}
+    for s in sides:
+        q = np.asarray(res.best["q"][s], float)
+        out[s] = dict(q=q, margin=ArmIK(m, s).margin(q), ik_err=res.best["ik_res"][s], cand=dict(res.ranked[0]["cell"], jaw_sign=res.best["jaw_sign"][s],
+                      skill_margin=res.best["margin"]), clear_mm=None, path_joint_margin=None)
+    return out
+
+
 def find_pregrasp_clear(m, d0, side, target, approach, jaw, deltas, clear, finger_open, jm=0.0, n_sol=16, seeds=120):
     """like handle_grasp.find_pregrasp, but each IK solution is also followed (kinematically, PoseIK, orientation held) through
     the Cartesian waypoints `deltas` from the pre-grasp; keep solutions whose arm stays >= `clear` from the table, stove, counter
@@ -377,6 +424,7 @@ class Episode:
         self.u_true = d.xmat[self.pan].reshape(3, 3) @ self.R0.T @ p.handle_axis()
         u = p.handle_axis()
         left_target, left_app, left_jaw = handle_nom, LEFT_APPROACH, LEFT_JAW
+        aim, Rz = (lambda q: np.asarray(q, float)), np.eye(3)          # no pose estimate (observe=None): aim at the nominal pose
         centre_aim = np.array([p.pan_centre_xy[0], p.pan_centre_xy[1], 0.0])
         self.obs = None
         self.refused = None
@@ -413,14 +461,12 @@ class Episode:
                 ok_est = self.obs is not None and est.get("fit_ok")
                 aim_p = aim if ok_est else (lambda q: np.asarray(q, float))
                 Rz_p = Rz if ok_est else np.eye(3)
-                preL = _pot_pregrasp(m, d, "left", p, self.pos0, self.R0, aim_p, Rz_p, LEFT_APPROACH, LEFT_JAW, +1, grasp_frac, cl)
+                pre = _skill_pregrasp(m, d, p, self.pos0, self.R0, aim_p, Rz_p, SIDES, cl, self.wc)
+                preL = pre["left"]
             elif cl["jm"] is None:
                 preL = find_pregrasp(m, d, "left", left_target, left_app, left_jaw)
             else:
-                preL = find_pregrasp_clear(m, d, "left", left_target, left_app, left_jaw,
-                                           ([(np.array([0, 0, LIFT]), _handle_grip(p))] if obj == "pot" else
-                                            [(-push * u, _handle_grip(p)), (-push * u + np.array([0, 0, LIFT]), _handle_grip(p))]),
-                                           cl["clear"], FINGER_OPEN, jm=cl["jm"]["left"])
+                preL = _skill_pregrasp(m, d, p, self.pos0, self.R0, aim, Rz, ("left",), cl, self.wc)["left"]
             d.qpos[ArmIK(m, "left").qa] = preL["q"]
             _set_fingers(m, d, "left", FINGER_OPEN)
             mujoco.mj_forward(m, d)
@@ -437,16 +483,19 @@ class Episode:
             target_R = np.array([x_R, stove_edge - EDGE_CLEAR - cl["tip"], z_mid + cl["dz"]])
             if obj == "pot":                         # right claw pinches handle2 (approach +y towards the pot, jaw z), like the left
                 self.overhang_planned = None
-                preR = _pot_pregrasp(m, d, "right", p, self.pos0, self.R0, aim_p, Rz_p, RIGHT_APPROACH, RIGHT_JAW, -1, grasp_frac, cl)
+                preR = pre["right"]
             elif cl["clear"] is None:
                 preR = find_pregrasp(m, d, "right", target_R - APPROACH_IN * RIGHT_APPROACH, RIGHT_APPROACH, RIGHT_JAW)
-            else:
-                preR = find_pregrasp_clear(m, d, "right", target_R - APPROACH_IN * RIGHT_APPROACH, RIGHT_APPROACH, RIGHT_JAW,
-                                           [(APPROACH_IN * RIGHT_APPROACH, cl["open_R"]),
-                                            (APPROACH_IN * RIGHT_APPROACH + np.array([0, 0, LIFT]), 0.5 * STACK_H)],
-                                           cl["clear"], cl["open_R"], jm=cl["jm"]["right"])
+            else:       # rim clamp: the pan is at its planned post-push pose when the right claw closes
+                preR = _skill_pregrasp(m, d, p, self.pos0, self.R0, aim, Rz, ("right",), cl, self.wc, which="rim", push_shift=-push * u)["right"]
             d.qpos[ArmIK(m, "right").qa] = preR["q"]
             _set_fingers(m, d, "right", FINGER_OPEN if obj == "pot" else cl["open_R"])
+            if obj != "pot":     # pan: the two claws were searched separately -> check arm-arm clearance of the combined pre-grasp (pot: checked inside the joint search)
+                from world_model.v2.stack.skills.pregrasp import H_MIN as _HMIN
+                mujoco.mj_forward(m, d)
+                h_aa = float(A.PairBarriers(m).min_h(d))
+                if h_aa < _HMIN:
+                    raise RuntimeError(f"pan pre-grasp: arm-arm barrier h = {h_aa:.3f} < {_HMIN} for the combined left/right pre-grasp")
             self.retreat = 0.06
             if cl["clear"] is not None:
                 self.retreat = next((r for r in RETREATS

@@ -73,6 +73,8 @@ def _trial(args):
                  end_in_R=ep.in_R(), dz_end=round(float(dest), 4), any_U=any(s["viol"] for s in segs),
                  first_U=next((dict(seg=s["seg"], **s["viol"]) for s in segs if s["viol"]), None),
                  truth_total_kg=round(float(tr["total_mass"]), 3), wall_s=round(time.time() - t0, 1))
+        if ep.planner != "scripted":
+            r["planner"] = ep.planner
     except Exception as e:
         r = dict(task=task, cell=list(cell), i=i, seed=seed, error=repr(e))
     return r
@@ -89,7 +91,12 @@ def main(argv=None):
     ap.add_argument("--fric-comp", action=argparse.BooleanOptionalAction, default=None, help="default = config.carry_physics()")
     ap.add_argument("--weld-stiff", action=argparse.BooleanOptionalAction, default=None,
                     help=f"weld solref {CC.WELD_STIFF} (as carry_cert --weld-stiff); default = config.carry_physics()")
+    ap.add_argument("--planner", choices=CR.PLANNERS, default=None,
+                    help="plan executed (default: env BIMANUAL_PLANNER, else scripted = legacy PLANS)")
     a = ap.parse_args(argv)
+    if a.planner is not None:
+        import os
+        os.environ["BIMANUAL_PLANNER"] = a.planner                  # inherited by the spawned workers
     cp = CC.C.carry_physics()                                # 11-03 item 6: one source for the physics defaults
     a.fric_comp = bool(cp["fric_comp"]) if a.fric_comp is None else a.fric_comp
     ws = (cp["weld_solref"] if a.weld_stiff is None else (CC.WELD_STIFF if a.weld_stiff else None))

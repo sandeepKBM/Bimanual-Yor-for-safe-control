@@ -104,3 +104,6 @@ from_viam5/
 # ─── Source packages whose names match the data/ and skills/ rules above (they were never committed until 2026-11-03) ───
 !world_model/v2/data/
 !world_model/v2/nero/pan/skills/
+
+# ClosedChainPlanner geometry cache (regenerated on demand)
+world_model/v2/stack/planners/plan_cache/

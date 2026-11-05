@@ -32,12 +32,14 @@ def two_arm(task):
     box = task == "box"
     obj = "box" if box else "tray"
     lift, carry_dx = (0.18, -0.20) if box else (0.05, -0.10)
-    x_t, pre = (0.18, 0.03) if box else (0.28, 0.05)
+    pre = 0.03 if box else 0.05
+    from . import tasks   # place target from the scene (obj_xy + PLANS deltas), not literals: the scene moved +y by SCENE_DY on 11-03
+    x_t, y_t = tasks.goal_xy(task, tasks.rep_world(task))
     mk = lambda fn, **kw: (lambda b: (b["left_arm_action"], b["right_arm_action"]))(_both(fn, **kw))
     e = [("grasp", *mk("grasp", obj_name=obj, pre_grasp_dis=0.1)),
          ("lift", *mk("move_by_relative_offset", dx=0.0, dy=0.0, dz=lift, mode="extrinsic")),
          ("carry", *mk("move_by_relative_offset", dx=carry_dx, dy=0.0, dz=0.0, mode="extrinsic")),
-         ("place", *mk("place_on_table", obj_name=obj, x=x_t, y=-0.30, pre_place_dis=pre))]
+         ("place", *mk("place_on_table", obj_name=obj, x=x_t, y=y_t, pre_place_dis=pre))]
     return graph(f"carry_{obj}", e)
 
 
