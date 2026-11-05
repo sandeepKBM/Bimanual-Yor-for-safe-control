@@ -1,5 +1,7 @@
 # Smooth, Grasp-Aware Counter-Planning for Bimanual Manipulation
 
+> Status (2026-11-05): SUPERSEDED (Sept 2026 Piper-era method; superseded by MASTER.md, itself superseded by docs/paper/claims_2026-11-02.md). HISTORY only.
+
 > **EMPIRICAL ARC (the paper spine, as of 2026-09-06, on the faithful proper-YOR 0.185 m geometry):**
 > 1. **Naive single-arm avoidance under an adversarial intruder → ALL fail.** On the real tight geometry, bang-bang, myopic HOCBF-QP, and geometric fabric *all* either collide or shed the grasp (v3, verified with a 0%-false-safe collision proxy). The collision-vs-grasp-retention trade-off is real and unsolved by reactive single-arm control.
 > 2. **Exploiting the cooperative structure dissolves it.** Because we control *both* arms, the free (non-grasping) arm can also yield. With **ego priority**, condition C reaches the collision-free + grasp-retained + smooth quadrant nothing hit before (min_h +0.016, box drift 1.6 cm, ego jerk 25, intruder still 70% goal progress) (v4).

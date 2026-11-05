@@ -1,5 +1,7 @@
 # State & Observation Spaces
 
+> Status (2026-11-05): SUPERSEDED: Sept 2026 draft for the HJ / learned-world-model layers (dropped 2026-10-15). HISTORY only.
+
 **Status:** design draft · 2026-09-06 · defines the state each layer operates on, why, and its use.
 
 The system has **three safety/planning layers, each on its own state representation** — plus a set of **privileged sim labels** that are used for supervision/eval but are NOT runtime inputs. Keeping these separate is what prevents a world model that "cheats" in sim and fails on hardware.

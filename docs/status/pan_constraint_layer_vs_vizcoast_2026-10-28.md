@@ -1,5 +1,7 @@
 # Covered pan: our constraint layer vs a faithful VIZ-COAST (2026-10-28, updated 10-29)
 
+> Status (2026-11-05): HISTORY: record of 2026-10-28/29 (see the 10-29 note inside: the 10-28 headline is superseded). The pan demo is no longer primary (docs/paper/demos_2026-11-01.md).
+
 All simulation. Code:
 - `world_model/v2/nero/pan/vizcoast/` (ours);
 - `world_model/v2/nero/pan/vizcoast_faithful/` (baseline);

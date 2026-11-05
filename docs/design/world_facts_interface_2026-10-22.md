@@ -1,5 +1,7 @@
 # One world-facts interface for every decision component (proposal, 2026-10-22)
 
+> Status (2026-11-05): SUPERSEDED: proposal of 2026-10-22 for the gatekeeper/shield/tamp people-avoidance stack (dropped 11-04); never approved as written. The WorldState + producers idea is used by world_model/v2/stack/ (types.py, producers.py). HISTORY.
+
 Status: PROPOSAL, awaiting user approval. No code moved yet.
 
 ## Why

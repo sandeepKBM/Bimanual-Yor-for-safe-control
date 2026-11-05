@@ -1,5 +1,7 @@
 # Head-to-head baselines for FL-MPC (the RIGHT comparison set)
 
+> Status (2026-11-05): HISTORY: Sept 2026 baseline set for the FL-MPC cup-collect comparison (Piper-era arms). Not current: current claims are in docs/paper/claims_2026-11-02.md; FL-MPC now lives in world_model/v2/flmpc/.
+
 Our problem class: **CENTRALIZED, cooperative control of ONE bimanual robot we fully command** —
 avoid arm-arm/self collision WHILE holding a cup upright (orientation-manifold constraint), SMOOTHLY,
 in real time. Baselines must be the SAME class. NeHMO/HaMMaR (decentralized, adversarial, multi-robot)

@@ -1,5 +1,7 @@
 # Slurm rules (copied from vendor: ur5e_benchmark `.agents/skills/slurm-rules`)
 
+> Status (2026-11-05): SUPERSEDED for node choice: the 2026-08 node allow-list below ("ALL ilab and rlab") is stale. Current cluster rules: AGENTS.md and the slurm-gpu-allocation skill (8 GPUs + 1 node per user). HISTORY: verbatim vendor copy of 2026-09-06.
+
 Copied verbatim 2026-09-06 from
 `/common/users/ss5772/VLAism/ur5e_benchmark/.agents/skills/slurm-rules/SKILL.md`
 for the FLOQ multi-GPU DDP relaunch (job replacing 273272). We follow these

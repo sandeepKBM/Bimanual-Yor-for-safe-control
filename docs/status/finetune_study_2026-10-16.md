@@ -1,5 +1,7 @@
 # VLM fine-tuning study (option 2), 2026-10-16
 
+> Status (2026-11-05): HISTORY: record of 2026-10-16. The VLM fine-tune is not active work (VLM parked 10-17); the VLM's current role is in docs/paper/claims_2026-11-02.md §3.
+
 Two Sonnet agents did this study. The owner spot-checked the Cosmos training doc, the Unsloth VRAM figure, and the sim smoke records.
 The VLM is a PROPOSER: tuning it improves completeness (fewer vetoes and probes), never safety.
 

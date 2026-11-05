@@ -1,4 +1,6 @@
 # Handoff bimanual
+
+> Status (2026-11-05): HISTORY: machine-generated handoff snapshot of 2026-10-22; not current guidance.
 Generated: 2026-10-22T00:29:44-04:00
 Repo root: /common/users/ss5772/bimanual
 Current: perception-teleop-2026-10-12 @ 66cd2d8 docs: root README (system requirements, install, quick start, optional envs, repo map); regenerate requirements.txt
@@ -78,5 +80,5 @@ cannot see a blocked doorway and returns the same plan.
 1. P
 ## Resume
 Base rules: /common/users/ss5772/codex_tools/base/AGENTS.md
-Start a fresh session in /common/users/ss5772/bimanual and say: "Read /common/users/ss5772/bimanual/docs/status/2026-10-22_handoff_auto.md and continue from its open items."
+Start a fresh session in /common/users/ss5772/bimanual and say: "Read /common/users/ss5772/bimanual/docs/archive/status/2026-10-22_handoff_auto.md and continue from its open items."
 - Full owner notes: docs/status/2026-10-22_owner_notes.md

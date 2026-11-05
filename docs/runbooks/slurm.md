@@ -1,5 +1,7 @@
 # Slurm rule: generous `--time`, but self-release the moment work finishes
 
+> Status (2026-11-05): CURRENT as a general rule for writing sbatch scripts. The examples (FLOQ, wm_train, hj_reachability) are from the dropped learned-WM work. Who may submit where: AGENTS.md and the slurm-gpu-allocation skill; check the user's current compute rules before any submit.
+
 Memory: `slurm-generous-time-autorelease`. Root-caused 2026-09-06 from FLOQ
 job 272949, which was CANCELLED at its `--time=02:00:00` limit while still
 mid-training (dataset build alone took ~13 min; training on the real
@@ -52,7 +54,7 @@ mid-training (dataset build alone took ~13 min; training on the real
 Use `scripts/offload/submit_via_slurm_gateway.sh <script.sbatch>` -- it now
 calls `sbatch` on the gateway host (`rlab1` by default) directly (fixed
 2026-09-06; it previously `bash`-ran the script on the login node, so
-nothing was ever enqueued -- see FLOQ_SETUP.md for the incident). It also
+nothing was ever enqueued -- see hj_reachability/FLOQ_SETUP.md for the incident). It also
 strips an unsupported `#SBATCH --cpus-per-task` line automatically (this
 cluster's `unlimited` partition rejects that flag).
 

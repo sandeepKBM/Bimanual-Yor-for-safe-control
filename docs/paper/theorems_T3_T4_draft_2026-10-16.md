@@ -1,7 +1,10 @@
 # T3 (finite completion with counted recoveries) and T4 (existence of a progress-preserving recovery) — draft, 2026-10-16
 
-> **2026-10-26: partly superseded.** Current claims, scope (manipulation core; people safety is a borrowed component) and what is obsolete here: `docs/paper/claims_2026-10-26.md`.
-> **2026-10-27:** current claims are `docs/paper/claims_2026-10-27.md`, formulation `docs/paper/proposal_2026-10-27.md`. T4 → claim 2 and T3 → claim 3 must be restated (rest set S, task-ready set R, no-retry rule).
+> **2026-10-26: partly superseded.** Current claims, scope (manipulation core; people safety is a borrowed component) and what is obsolete here: `docs/archive/paper/claims_2026-10-26.md`.
+> **2026-10-27:** current claims are `docs/archive/paper/claims_2026-10-27.md`, formulation `docs/paper/proposal_2026-10-27.md`. T4 → claim 2 and T3 → claim 3 must be restated (rest set S, task-ready set R, no-retry rule).
+> **2026-11-05:** current claims are `docs/paper/claims_2026-11-02.md`. Proof techniques are reusable (claims §2). Out of date here:
+> the base-carry scope, people as the hazard, and the "Shared autonomy" assumption in §3 (dropped 11-04). Claims 2 and 3 are not yet
+> restated for the 11-05 problem (claims §3); that is the user's call.
 
 Builds on `theorems_T1_T2_draft_2026-10-16.md`: same notation (x, b = (P, M, {H_i}), R_i,k, Adm = C1 ∧ C2, T(b), S1–S3, ⊑), A1–A7 and the
 KEEP rule. New: A8, H0–H4, commit rule R_Φ. Scope: base carry (`house/gatekeeper`); T3 is skill-generic (carries to arm recoveries),

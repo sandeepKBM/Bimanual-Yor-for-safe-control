@@ -1,5 +1,7 @@
 # MASTER — Bimanual YOR: cooperative safety + learned world model
 
+> Status (2026-11-05): SUPERSEDED by docs/paper/claims_2026-11-02.md (claims) and docs/paper/demos_2026-11-01.md (demos). HISTORY only.
+
 Single source of truth for **what we are doing and why**. Supersedes the
 earlier `method.md` / `state_spaces.md` on any conflict (they predate the
 decisions below). Last updated: 2026-09-29 (see §1b status block — it supersedes conflicting lines in §2–§8).
@@ -8,10 +10,9 @@ decisions below). Last updated: 2026-09-29 (see §1b status block — it superse
 
 ## 1. Thesis (locked)
 
-> **SUPERSEDED 2026-10-15 (user decision).** The learned world-model / latent-HJ thesis below is DROPPED. Current direction:
-> classical planning + formal checkers + VLM proposals, evaluated as a POMDP with set-valued beliefs, autonomous AND shared-autonomy modes.
-> Novelty = the CHECKERS (belief-wide admission, backup to a task-ready set, exact grasp-load corner check, probe value) + the THEOREMS
-> (soundness, monotonicity, finite completion bound, recovery existence). Plan: docs/paper/YOR_Thesis_Full_Idea_and_Demonstration_Plan_2026-10-15.docx.
+> **SUPERSEDED 2026-10-15 (user decision).** The learned world-model / latent-HJ thesis below is DROPPED. Direction since then:
+> classical planning + formal checkers + VLM proposals. The 10-15 framing (POMDP evaluation, shared-autonomy mode, novelty = checkers +
+> theorems, the 10-15 docx plan) is itself superseded: shared autonomy was dropped 11-04, and claims are in docs/paper/claims_2026-11-02.md.
 > Kept below for history.
 
 Demonstrate **in sim** that a learned **world model (WM) enables learned HJ

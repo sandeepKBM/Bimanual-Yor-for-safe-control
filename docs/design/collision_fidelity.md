@@ -1,5 +1,7 @@
 # Collision fidelity — what is (and isn't) physically represented
 
+> Status (2026-11-05): HISTORY: Sept 2026 audit of the old cup-collect model (Piper-era, sim_common). Current arms are NERO 7-DoF (world_model/v2/nero/).
+
 Audit of the cup-collect model (`load_yor_cup_collect_model`), by semantic geom
 category. Collision predicate: two geoms touch iff
 `(contype_a & conaffinity_b) | (contype_b & conaffinity_a) != 0`.

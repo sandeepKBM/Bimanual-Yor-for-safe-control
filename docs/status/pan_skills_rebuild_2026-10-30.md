@@ -1,5 +1,7 @@
 # Pan action skills rebuild (2026-10-30)
 
+> Status (2026-11-05): HISTORY: record of 2026-10-30. The pan demo is no longer primary (docs/paper/demos_2026-11-01.md); the pan push/clamp tests were archived 11-03.
+
 USER decisions (10-30): stop hand-writing skills; retrofit with mink (MuJoCo-native IK) AND rebuild RoboTwin's skill layer in
 MuJoCo; add a torso-lift / base skill. Building blocks first (each skill checked alone against its contract,
 `pan/skills_check.py`), then the cert v2 algorithm on top (`pan/cert/`).

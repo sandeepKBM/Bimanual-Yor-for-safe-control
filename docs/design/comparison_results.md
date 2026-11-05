@@ -1,5 +1,7 @@
 # Comparison results — FL-MPC vs baselines on the CONSTRAINED problem
 
+> Status (2026-11-05): HISTORY: Sept 2026 FL-MPC cup-collect comparison results; not current claims (see docs/paper/claims_2026-11-02.md).
+
 Our problem is the **constrained** one: cooperative bimanual arm-arm collision avoidance
 **while holding a cup upright** (a task/manifold constraint). The comparison lives on THIS
 problem, not a stripped collision-only case. Thesis: *collision avoidance alone is already

@@ -1,5 +1,7 @@
 # FL-MPC: options for a cleaner constraint abstraction
 
+> Status (2026-11-05): HISTORY: proposal of 2026-10-05; not acted on as written. FL-MPC moved 11-03 to world_model/v2/flmpc/ (mpc_fl.py; QP/Jacobian helpers in flmpc/_sc.py, not sim_common); the experiments/ab_smooth_vs_bangbang/mpc_fl.py paths below are now an alias.
+
 Status: design proposal, 2026-10-05. Read-only analysis. No code was changed.
 Tags: **[V]** = verified (read in code or run, with file:line). **[I]** = inferred.
 Short paths: `mpc_fl` = experiments/ab_smooth_vs_bangbang/mpc_fl.py; `sc` = experiments/ab_smooth_vs_bangbang/sim_common.py;

@@ -1,5 +1,7 @@
 # Owner notes 2026-10-21 (interpretation only; numbers are in memory files + JSONs)
 
+> Status (2026-11-05): SUPERSEDED. Same 10-21 notes plus a 10-22 addendum (option 2 segment build). TAMP/gatekeeper people-avoidance work is no longer the thesis topic (dropped 11-04). Current claims: docs/paper/claims_2026-11-02.md. HISTORY.
+
 ## State
 - Track 1 (base recovery around people): planner tests 11/11 (FD `constraints` clash fixed in tamp/planner._bind_fd_translate);
   executor reviewed OK; run_tamp.py = plan -> execute -> replan (held-grasp planning G1, mid-route suffix routes G2, mu check added).

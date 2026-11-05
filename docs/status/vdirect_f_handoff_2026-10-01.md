@@ -1,5 +1,7 @@
 # Handoff: vdirect confirming-falsifier test (addendum F), 2026-10-01
 
+> Status (2026-11-05): HISTORY: handoff of 2026-10-01 for learned-WM work; the learned world model / latent HJ thesis was dropped 2026-10-15.
+
 The owner APPROVED the design on 2026-10-01 ("Approved design go hit it").
 
 **Why this handoff exists:** the previous session's auto-mode classifier blocked every shell command and every write

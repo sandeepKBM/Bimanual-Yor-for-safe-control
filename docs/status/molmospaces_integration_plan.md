@@ -1,5 +1,7 @@
 # MolmoSpaces house scenes in the bimanual YOR codebase: integration plan
 
+> Status (2026-11-05): HISTORY: plan of 2026-10-05 for house-scale scenes (parts built in world_model/v2/house/). House/mobile work is not current; current work is the hidden-contents carry (world_model/v2/nero/contents/).
+
 Date: 2026-10-05. Status: PLAN. No repo file was edited. Smoke files: `/data/local/ss5772/molmospaces/`.
 No credentials, hardware or GPU. Network: public GitHub clone and public Hugging Face reads only.
 Tags: VERIFIED = read in repo/docs or measured. ASSUMED = not checked.

@@ -1,4 +1,6 @@
 # Handoff contents-armside2
+
+> Status (2026-11-05): HISTORY: machine-generated handoff snapshot of 2026-11-03; the owner notes for that day are docs/status/2026-11-03_handoff_notes.md.
 Generated: 2026-11-03T21:36:34-05:00
 Repo root: /common/users/ss5772/bimanual/.claude/worktrees/contents-armside2
 Current: contents-armside-2026-11-02 @ c9c9822 fix(repo): commit source hidden by .gitignore (world_model/v2/data, nero/pan/skills)
@@ -109,4 +111,4 @@ AgileX gripper REMOVED (NYU only; equiv byte-identical). AgentChord rerun HELD u
 Qwen job 993211 on ilab4 still running (stop: touch /common/users/ss5772/bimanual_data/vlm_serve/STOP_993211).
 ## Resume
 Base rules: /common/users/ss5772/codex_tools/base/AGENTS.md
-Start a fresh session in /common/users/ss5772/bimanual/.claude/worktrees/contents-armside2 and say: "Read /common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/docs/status/2026-11-03_handoff_auto.md and continue from its open items."
+Start a fresh session in /common/users/ss5772/bimanual/.claude/worktrees/contents-armside2 and say: "Read /common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/docs/archive/status/2026-11-03_handoff_auto.md and continue from its open items."

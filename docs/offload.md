@@ -1,5 +1,7 @@
 # Bimanual Compute/Storage Offload (Box Episode Uploader + Slurm Gateway)
 
+> Status (2026-11-05): Reference for the Box uploader + Slurm gateway adapter (Sept 2026). Defaults below match offload/config.sh as of 11-05. The smoke folder artifacts/offload_smoke no longer exists. A real upload or a Slurm submit touches the network: only with the user's approval in the current session (AGENTS.md).
+
 This is a thin **adapter** layer for the bimanual project. It does not copy
 the upload/archive engine or the Slurm gateway logic — it reuses them, as-is,
 from the existing `ur5e_benchmark` project. See "Port decision" below.

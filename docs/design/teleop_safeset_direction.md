@@ -1,5 +1,7 @@
 # Direction: sim-synthesized -> real-validated -> active-refined safe set as a teleop filter
 
+> Status (2026-11-05): SUPERSEDED: candidate direction of 2026-09-18 (teleop safe-set filter). Learned HJ was dropped 10-15 and shared autonomy / teleop 11-04. HISTORY only.
+
 A candidate BIGGER paper beyond the FL-MPC workshop. Prior-art hunt 2026-09-18. Distinct from the
 FL-MPC controller work; reuses our HJ/DeepReach safe-set (task #5) + teleop panel + FL-MPC/CBF filter.
 

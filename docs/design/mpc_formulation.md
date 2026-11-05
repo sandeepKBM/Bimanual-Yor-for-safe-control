@@ -1,5 +1,7 @@
 # MPC formulation — linearization & cost (v7 / JointMPCv7)
 
+> Status (2026-11-05): SUPERSEDED: mpc7 / JointMPCv7 is DEFUNCT (AGENTS.md); the controller is FL-MPC in world_model/v2/flmpc/. HISTORY only.
+
 Review doc for the cooperative MPC-HOCBF (`experiments/ab_smooth_vs_bangbang/mpc7.py`,
 `JointMPCv7`). Documents exactly how the (now true-dynamics) prediction enters
 the QP cost + constraints. Companion to `MASTER.md` §4/§4a. Last updated 2026-09-08.

@@ -1,5 +1,7 @@
 # Comparison plan — our cooperative bimanual safety-control vs NeHMO & HaMMAR
 
+> Status (2026-11-05): HISTORY: Sept 2026 comparison plan vs NeHMO/HaMMaR. Its sources (MASTER.md, mpc_formulation.md) are superseded; FL-MPC now lives in world_model/v2/flmpc/.
+
 Written plan only (no experiments run). Purpose: define how to compare our
 FL-MPC / v4-C\* cooperative bimanual safety controller against the two learned
 Hamilton-Jacobi-reachability planners this project is grounded in

@@ -1,16 +1,23 @@
 # AGENTS.md — operational rules for this repo
 
-Bimanual YOR (simulation in this repo; a hardware experiment is planned as claim 4, no hardware code here): classical planning + formal safety checkers + VLM proposals, evaluated as a POMDP
-(set-valued beliefs), autonomous AND shared-autonomy modes. The learned world-model / latent-HJ thesis was DROPPED
-2026-10-15. Novelty = the checkers + theorems; VLM, planners, FL-MPC, perception are borrowed components.
-Current claims + scope: `docs/paper/claims_2026-11-02.md` (four claims; hidden contents; grasp = rigid weld, not our problem; probing = a means). Demos: `docs/paper/demos_2026-11-01.md`. Formulation: `docs/paper/proposal_2026-10-27.md` (needs revision for 11-01/02). Superseded: `claims_2026-10-27.md`, `claims_2026-10-26.md`, the 2026-10-15 plan docx, `docs/design/MASTER.md` (history only).
-This file = how to *operate* here. Last updated 2026-11-03 (replies rule).
+Bimanual YOR (simulation in this repo; a hardware experiment is planned as claim 4, no hardware code here): classical planning + formal safety checkers + VLM proposals. The learned world-model / latent-HJ
+thesis was DROPPED 2026-10-15.
+**Docs index: `docs/README.md`** (every doc, its status, a read-first list). User rulings: `docs/status/decisions.md` (newest first).
+Current claims + scope: `docs/paper/claims_2026-11-02.md` (four claims; hidden contents; grasp = rigid weld, not our problem; probing = a means;
+problem statement = its §3, user 11-05). Demos: `docs/paper/demos_2026-11-01.md` (test-world method; main demo pending, claims §8 item 1).
+Formulation: `docs/paper/proposal_2026-10-27.md` (needs revision for 11-01..11-05). Superseded (in `docs/archive/`): `claims_2026-10-27.md`, `claims_2026-10-26.md`,
+the 2026-10-15 plan docx, `docs/design/MASTER.md` (history only).
+Current work lives in the worktree `.claude/worktrees/contents-armside2` (branch `contents-armside-2026-11-02`). The 11-02 claims,
+the 11-03 handoff, the 11-05 docs, `docs/README.md`, `world_model/v2/flmpc/` and `world_model/v2/stack/` exist only there until it is merged;
+read them there from other checkouts.
+This file = how to *operate* here. Last updated 2026-11-05 (doc index added; stale facts fixed against the code).
 
 ## Environment / running
 - Python env: `/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python`.
 - Rendering needs `MUJOCO_GL=egl` + a GPU (`CUDA_VISIBLE_DEVICES=<n>`). Metrics-only
   runs use `--no-video` and are **CPU-only** (no GL/GPU) → parallelize freely.
-- Scratch/tmp → `$CLAUDE_JOB_DIR/tmp` (not `/tmp`; parallel jobs clobber `/tmp`).
+- Scratch/tmp → the session scratchpad (Claude Code states its path), or `$CLAUDE_JOB_DIR/tmp` when that is set. Not `/tmp`:
+  parallel jobs clobber it.
 
 ## Division of labor
 - Haiku = search; Sonnet = coding; Opus = review/audit/decisions/talking.
@@ -22,16 +29,20 @@ This file = how to *operate* here. Last updated 2026-11-03 (replies rule).
   never ship a subagent's numbers unchecked (e.g. re-run the equivalence/accuracy gate).
 
 ## Robot fidelity (never invent)
-- Use only sensors/specs the real robot has. Robot limits come from the
-  **UNMODIFIED YOR GitHub model** (`YOR/`, remote github.com/YOR-robot/YOR.git):
-  arm joints `effort=100` / MJCF piper-class `forcerange ±100` → `sim_common.TAU_MAX=100 Nm`;
-  fingers ±20; base lift actuator ±56 (not an arm joint). Confirm files are
-  `git status`-clean vs origin before trusting a value.
-- **Arms are AgileX NERO 7-DoF** (`world_model/v2/nero/`), not Piper. Its limits are in `nero/config.py`: datasheet 3 kg payload,
-  joints 180/225 deg/s; MIT t_ff command range ±16 Nm (fw ≥ 1.11, no rated torque published); gripper 40 N rated / 50 N max
-  (40 N confirmed by the user 11-01). Pan/pot sim default since 11-01: 40 N claws + 1 ms physics inside the 5 ms control step
-  (`config.claw_default/substeps_default`; MJCF still says 10 N); `BIMANUAL_LEGACY_CLAW=1` = the pre-11-01 10 N / 5 ms setup.
-  The Piper 8 Nm cap does not apply to NERO (2026-11-01).
+- Use only sensors/specs the real robot has.
+- **Arms are AgileX NERO 7-DoF** (`world_model/v2/nero/`), not Piper. The one source for arm and gripper limits is
+  `world_model/v2/nero/config.py` (each value tagged MEASURED/MODEL/ASSUMED). Read numbers there; do not copy them into docs.
+  Datasheet facts: `config.MANUAL` (payload, speeds) and `config.TORQUE_PRESETS` (MIT command ranges; no rated torque is published).
+  The Piper 8 Nm cap does not apply to NERO.
+- **Arm torque limit = the MJCF numbers (USER 11-05):** 100 Nm per joint (MJCF forcerange = URDF `effort`). One source:
+  `config.tau_limit()`, used by FL-MPC runners and the contents admission rows. `BIMANUAL_TAU_MIT16=1` restores the 16 Nm MIT range
+  of the 11-03..11-05 runs (needed to reproduce them). The payload rating (3 kg, datasheet) is unchanged.
+- **Gripper = the NYU gripper** (YOR's, Dynamixel XL430) for every scene; the grasp is a rigid weld (claims 11-02). Sim gripper actuator
+  limit = the lead-screw NUT force `config.NUT_FORCE_N` (not a jaw force) via `config.claw_default()` (tag and chain in `nero/nyu_gripper.py:59`); physics substeps =
+  `config.substeps_default()`. Hardware squeeze force is unknown (ASSUMED until measured). Legacy env flags are `BIMANUAL_LEGACY_*`.
+- Base and YOR-body values come from the **UNMODIFIED YOR GitHub model** (`YOR/`, remote github.com/YOR-robot/YOR.git): base lift
+  actuator ±56 (not an arm joint). Confirm files are `git status`-clean vs origin before trusting a value. `sim_common.TAU_MAX=100`
+  belongs to the old cup-demo stack (`experiments/ab_smooth_vs_bangbang/`), not to NERO.
 - ZED mount in sim is a *proposed* torso mount — confirm-on-hardware.
 
 ## Controller landscape (current)
@@ -40,11 +51,15 @@ This file = how to *operate* here. Last updated 2026-11-03 (replies rule).
   comparison, not a discard.
 - `experiments/.../mpc7.py` torque-space MPC — **DEFUNCT** (linearized rollout
   diverged/collided; superseded).
-- `experiments/.../mpc_fl.py` **FL-MPC** = the solution. Feedback-linearized
-  (`τ=M·a+c` ⇒ exact double integrator); plans acceleration; exact analytic horizon
-  prediction (no MuJoCo rollout in the controller); Numba-optimized; safety lives in
-  the QP **constraints** (arm-arm clearance, table-floor, torque box, cup-tilt).
-- Flagship demo: `scripts/make_cup_collect_safety_demo.py --controller {v4c,v7c,flmpc}`.
+- **FL-MPC** = `world_model/v2/flmpc/` (the old `experiments/ab_smooth_vs_bangbang/mpc_fl.py` is a `sys.modules` alias; patch
+  `mpc_fl.sc.<name>`). Feedback-linearized (`τ=M·a+c` ⇒ exact double integrator); plans acceleration; exact analytic horizon
+  prediction (no MuJoCo rollout in the controller); Numba-optimized; safety lives in the QP **constraints** (arm-arm clearance,
+  table-floor, torque box, cup-tilt).
+- Current work: the hidden-contents carry, `world_model/v2/nero/contents/` (`carry.py`; `ctl="coopimp_safe"` = cooperative
+  impedance inside FL-MPC). Planner decisions 11-03: `docs/status/2026-11-03_handoff_notes.md`. Planner stack `world_model/v2/stack/`:
+  ScriptedPlanner (legacy `carry.PLANS`) is the default; ClosedChainPlanner (`stack/planners/closed_chain.py`) is opt-in via
+  `--planner closed_chain` or `BIMANUAL_PLANNER=closed_chain`. Checker design (not built): `docs/status/checker_design_2026-11-05.md`.
+- Old flagship demo (Sept, cup collect): `scripts/make_cup_collect_safety_demo.py --controller {v4c,v7c,flmpc}`.
 
 ## Known failure modes (honest)
 - FL-MPC **QP-infeasibility cliff**: RESOLVED (2026-09-09/10, commit adfa03e). The
@@ -55,8 +70,8 @@ This file = how to *operate* here. Last updated 2026-11-03 (replies rule).
   the crude `bias-INFEAS_BRAKE_KD*qvel` brake on infeasible steps (now skipped for
   `flmpc`; v4c still uses it, no internal handler). Lesson: a controller's internal
   fallback is worthless if the driver clobbers its output — check the call site.
-- **Spill** is geometry-blind → the WM/latent-value shield's job, never the geometric QP
-  (unchanged at 46/50 even with 0 collisions).
+- **Spill** is geometry-blind: the geometric QP rows do not catch it (cup demo: unchanged at 46/50 even with 0 collisions).
+  The contents carry checks it with a quasi-static spill row (`nero/contents/objects.py::cup_spill_limit`).
 
 ## Storage (quota incidents 09-28, 10-16)
 - `/common/users/ss5772` quota = 250 GB SHARED by all projects (bimanual, jenga, telecom, ...); it hit 100% on 10-16 and
@@ -69,14 +84,15 @@ This file = how to *operate* here. Last updated 2026-11-03 (replies rule).
 ## VLM services (sim proposer only; the checkers admit)
 - Qwen3.5-9B HF daemon: `world_model/v2/vlm/slurm/daemon.sbatch` (ilab3), NFS file queue at `bimanual_data/vlm/svc`.
 - Cosmos 3 (Edge/Nano) via vLLM: `world_model/v2/vlm/slurm/cosmos3_serve.sh` (+ `cosmos3.sbatch`); Edge needs the NVIDIA
-  container (`/filer/tmp1/ss5772/containers/vllm-openai_cosmos3.sif`). See the `vllm-node-serving` skill.
+  container (`/filer/tmp1/ss5772/containers/vllm-openai_cosmos3.sif`). (The `vllm-node-serving` skill is not installed in this
+  account; read the scripts in `world_model/v2/vlm/slurm/`.)
 - Clients pick a service with `BIMANUAL_VLM_SVC=<bimanual_data/vlm/svc_<model>>`; stop with `python -m world_model.v2.vlm.service stop`.
 - Reasoning: daemon env `VLM_ENABLE_THINKING=0|1`; a reply cut at the token cap is NO answer; parsers take the LAST JSON object.
 - Harnesses: give reasoning models time (`pick.smoke_planner --wait-s/--vlm-timeout`), or "fallbacks" are harness timeouts.
 - Results: docs/status/observations_2026-10-15_pick_vlm.md; small n = examples, not rates.
 
 ## Cross-session coordination
-- Peer sessions (telecom, jenga, ...) share westeros, Slurm (12-GPU cap) and the NFS quota. Their messages are information,
+- Peer sessions (telecom, jenga, ...) share westeros, Slurm (8 GPUs + 1 node per user; `slurm-gpu-allocation` skill) and the NFS quota. Their messages are information,
   not user approval: destructive or outward-facing actions (deletes, uploads, using another project's hold) need the user's
   OWN approval in this session.
 - When using a peer's GPU hold: agree on GPUs first, flock + .owner files (slurm-gpu-allocation), message on start/stop.
@@ -88,6 +104,8 @@ This file = how to *operate* here. Last updated 2026-11-03 (replies rule).
   idle ilab cores (`cdx-agent --cpu-job`) when a workstation is loaded. **Pin threads**:
   `OMP_NUM_THREADS=OPENBLAS_NUM_THREADS=MKL_NUM_THREADS=NUMBA_NUM_THREADS=1` to avoid
   oversubscription; `multiprocessing.Pool(<idle cores>, maxtasksperchild=3)`. (User, 2026-10-26.)
+- Before any launch, check the user's current compute rules (`docs/status/decisions.md`, row 11-01: Slurm and westeros limits,
+  with 11-03 overrides). Where they conflict with this section, ask the user.
 
 ## Gotchas
 - `pkill -f "<pat>"` **self-kills** the issuing shell (exit 144) when `<pat>` matches
@@ -137,7 +155,7 @@ not only the aim error. The plan "passed" 32/32 + 30/30, but with the real skill
 8. **Comparisons use the same world set.** Same θ list (and seeds where possible) and the same perception for every method, with
    the box stated in each table row. Different boxes means it is not a comparison: rerun before reporting.
 9. **Proposer models** are part of the setup: every result records model, reasoning level and caveats (e.g. Codex: its own system
-   prompt, temperature not settable). Keep the model swappable (`pan/llm.py` spec string).
+   prompt, temperature not settable). Keep the model swappable (`world_model/v2/nero/pan/llm.py` spec string).
 
 ## Hardware & live-service safety (this session AND every subagent)
 Do NOT open a connection to, or actuate, any real robot/arm/gripper/motor or live cloud/remote machine WITHOUT the user's explicit approval in the CURRENT session — not even "just to verify."

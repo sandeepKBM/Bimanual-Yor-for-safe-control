@@ -1,5 +1,7 @@
 # Live VLM one-arm-or-two planner on the pick props (2026-10-15) [V: owner read planner_table_live_default.json]
 
+> Status (2026-11-05): HISTORY: record of 2026-10-15 (live VLM pick test, small n = examples, not rates).
+
 - Setup:
   - Qwen3.5-9B daemon (job 519036), `pick.smoke_planner --backend live --planner vlm+veto`. User-approved VLM use.
   - 5 head-camera proposals.

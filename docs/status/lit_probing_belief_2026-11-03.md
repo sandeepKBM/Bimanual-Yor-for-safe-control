@@ -1,5 +1,7 @@
 # Literature: probing skills + online belief estimation (2026-11-03)
 
+> Status (2026-11-05): CURRENT literature reference (shallow search, 11-03). Probing and belief shrinking are adopted mechanisms, not our claim.
+
 Three web searches (Sonnet agents, abstract pages only, not full texts). Opus re-checked 22 arXiv ids against their titles (all
 match). "Not found" below means not found in a shallow search, not "does not exist".
 

@@ -1,5 +1,7 @@
 # Covered pan: one claw vs two claws, grasp proposer, lift reliability (2026-10-28)
 
+> Status (2026-11-05): HISTORY: record of 2026-10-28. The pan demo is no longer primary (demos_2026-11-01.md) and friction grasps are out of scope (grasp = rigid weld, claims 11-02).
+
 All simulation (MuJoCo, NERO 7-DoF arms, FL-MPC, real friction contact, no welds). Results:
 `world_model/v2/nero/results/pan_handle_grasp_2026-10-28/`. Scene: `pan/covered.py` (PLA pan + loose lid + hidden puck; all
 dimensions and densities are assumptions). Squeeze 10 N = MJCF gripper force limit, run in force mode (the stock MJCF gripper is a

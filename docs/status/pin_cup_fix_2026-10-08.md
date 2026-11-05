@@ -1,5 +1,7 @@
 # pin_cup carrier fix (2026-10-08)
 
+> Status (2026-11-05): HISTORY: record of the 2026-10-08 pin_cup fix (BIMANUAL_LEGACY_PIN=1 = old physics).
+
 ## Bug
 
 `world_model/v2/data/contents.pin_cup` sets the carried body's (tray or cup) pose and velocity before each `mj_step`. The body stayed

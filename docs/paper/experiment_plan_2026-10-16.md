@@ -1,7 +1,10 @@
 # Experiment plan: claims → evidence (2026-10-16, owner draft)
 
-> **2026-10-26: partly superseded.** Current claims, scope (manipulation core; people safety is a borrowed component) and what is obsolete here: `docs/paper/claims_2026-10-26.md`.
-> **2026-10-27:** current claims are `docs/paper/claims_2026-10-27.md`, formulation `docs/paper/proposal_2026-10-27.md`. Superseded: its C1–C4 labels match neither claims list; experiments now follow the proposal.
+> **2026-10-26: partly superseded.** Current claims, scope (manipulation core; people safety is a borrowed component) and what is obsolete here: `docs/archive/paper/claims_2026-10-26.md`.
+> **2026-10-27:** current claims are `docs/archive/paper/claims_2026-10-27.md`, formulation `docs/paper/proposal_2026-10-27.md`. Superseded: its C1–C4 labels match neither claims list; experiments now follow the proposal.
+> **2026-11-05: SUPERSEDED, history only.** Current claims: `docs/paper/claims_2026-11-02.md` (four claims, hidden-contents carry,
+> NERO arms). Obsolete here: the house-h5 base scope, the PiPER arms, row E5 and the "novelty = ..." framing (novelty and POMDP
+> statements are the user's to make). Index: `docs/README.md`.
 
 The frame is fixed: novelty = the checkers (C1 admission, C2 backup→task-ready, C3 grasp-load corners, C4 probe value) plus the theorems
 (T1 soundness, T2 monotonicity, T3 completion bound, T4 recovery existence). Everything else is borrowed.

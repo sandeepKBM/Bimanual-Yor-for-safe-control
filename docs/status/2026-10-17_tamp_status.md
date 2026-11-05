@@ -1,5 +1,7 @@
 # TAMP layer status, 2026-10-17 (owner notes, full)
 
+> Status (2026-11-05): SUPERSEDED. The TAMP/PDDLStream people-avoidance work (10-17..10-26) is no longer the thesis topic (shared autonomy dropped 11-04). Current claims: docs/paper/claims_2026-11-02.md; current planner decisions: docs/status/2026-11-03_handoff_notes.md. HISTORY: record of 2026-10-17.
+
 
 **User direction change (10-17):**
 - The viability library felt "not right". Diagnosis: it was wired into the 50 Hz gatekeeper as a stall rescue (E4: 0/2789 recoveries).

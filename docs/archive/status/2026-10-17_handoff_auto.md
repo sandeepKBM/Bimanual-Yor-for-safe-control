@@ -1,4 +1,6 @@
 # Handoff bimanual
+
+> Status (2026-11-05): HISTORY: machine-generated handoff snapshot of 2026-10-17 (branch perception-teleop-2026-10-12); not current guidance.
 Generated: 2026-10-17T01:39:27-04:00
 Repo root: /common/users/ss5772/bimanual
 Current: perception-teleop-2026-10-12 @ 66cd2d8 docs: root README (system requirements, install, quick start, optional envs, repo map); regenerate requirements.txt
@@ -70,4 +72,4 @@ finished:
 - The "MolmoSpaces Phase 0" open item below is STALE (phase1/phase2 and the h5 sweeps already exist).
 ## Resume
 Base rules: /common/users/ss5772/codex_tools/base/AGENTS.md
-Start a fresh session in /common/users/ss5772/bimanual and say: "Read /common/users/ss5772/bimanual/docs/status/2026-10-17_handoff_auto.md and continue from its open items."
+Start a fresh session in /common/users/ss5772/bimanual and say: "Read /common/users/ss5772/bimanual/docs/archive/status/2026-10-17_handoff_auto.md and continue from its open items."

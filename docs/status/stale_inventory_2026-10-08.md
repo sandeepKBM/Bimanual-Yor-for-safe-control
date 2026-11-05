@@ -1,5 +1,7 @@
 # Stale-data inventory (pin_cup fix, 2026-10-08)
 
+> Status (2026-11-05): HISTORY: inventory of 2026-10-08 (pin_cup fix).
+
 Rule: a folder is STALE if it was produced by a pin_cup code path before 2026-10-08 09:00 local.
 pin_cup paths: `world_model/v2/testbeds/{a_loose_items,b_tray_ball,c_block_tower,d_opaque_fill}`,
 `world_model/v2/tray_rep`, `world_model/v2/bead_rep`, `world_model/v2/data/gen_spill_data.py`, `world_model/v2/data/contents.py` (run_rig).

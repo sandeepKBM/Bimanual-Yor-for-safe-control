@@ -1,5 +1,7 @@
 # FL-MPC — positioning & rationale (the conceptual spine)
 
+> Status (2026-11-05): HISTORY: Sept 2026 positioning of the FL-MPC cup-collect work. Not current; claims and novelty statements belong to the user (docs/paper/claims_2026-11-02.md).
+
 Durable record of the WHY behind the method and its comparison. Measured numbers live in
 `comparison_results.md`; the baseline lineup in `baselines.md`. This file is the argument.
 

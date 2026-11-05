@@ -1,5 +1,7 @@
 # Observations, 2026-10-11 → 10-12 (bimanual YOR, sim only)
 
+> Status (2026-11-05): HISTORY: lab notebook of 2026-10-11/12 (teleop/perception/language push). Teleop and shared autonomy were dropped 11-04; results are not current guidance.
+
 The lab notebook for the teleop / perception / language push. **[V]** = the owner verified it: re-ran the tests, re-ran a regression, or
 read the result files and frames directly. **[A]** = agent-reported, not independently re-run yet. All numbers come from MuJoCo simulation.
 Code: branch `perception-teleop-2026-10-12` (commit f04b891, plus the uncommitted work listed at the end).
@@ -340,7 +342,7 @@ NEW shield, 27 episodes per cell (9 seeds × 3 walker types).
 - **Not done:** the wrist RGB path.
 
 ## 15. Paper draft (2026-10-12)
-- 4-page draft written and delivered: docs/paper/draft_2026-10-12/main.{tex,pdf}. Title: 'Confidently Wrong: Keeping Real-Time Bimanual Safety Sound When VLM Priors and Perception Are Miscalibrated'.
+- 4-page draft written and delivered: docs/archive/paper/draft_2026-10-12/main.{tex,pdf}. Title: 'Confidently Wrong: Keeping Real-Time Bimanual Safety Sound When VLM Priors and Perception Are Miscalibrated'.
 - Central claim: language may specify constraints and ENLARGE uncertainty sets; only calibrated evidence may SHRINK them; margins must be honest AND continuous.
 - Coverage numbers are stated in the ROBOT frame (the frame the cup-on-tray constraint uses): engineering cup 0.006 / tray 0.69 vs calibrated 0.96 / 0.94. In the world frame they look fine (0.90 / 0.999) because base-pose uncertainty hides the relative error.
 - † marks citations still to verify (Phys2Real, ActSafe, Lu-Chen L4DC, polynomial annihilation). The literature search is incomplete.
