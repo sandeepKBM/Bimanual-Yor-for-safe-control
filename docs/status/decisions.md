@@ -20,6 +20,7 @@ Earlier rulings (before 10-15) are history in `docs/design/MASTER.md`.
 
 | Date | Ruling | Source |
 |---|---|---|
+| 11-05 | **Proposer model = Codex `gpt-5.6-sol:high`** for every executed plan (ours and AgentChord's); Codex calls approved now. Every request cached for offline replay (`nero/pan/llm.py`). **Baseline = AgentChord's own Codex-authored plans** (task graph + recoveries from their agents), run on our robot with their monitors. | this ledger |
 | 11-05 | **Plans executed in a run are authored by the Codex GPT models, not by us.** The VLM/LLM proposer writes the high-level plan (segments, goals, recoveries, fallback); our low-level planner and checker work it out and verify it. Hand-written task plans (carry.PLANS, the closed-chain goal offsets, stored backups) are test fixtures only. | this ledger |
 | 11-05 | **Torque limit = the MJCF numbers** (actuator forcerange, 100 Nm on every arm joint): "use mjcf numbers ofc that is real". Replaces the 16 Nm MIT-range default of 11-03 (kept behind a switch for old runs). Payload rating 3 kg (datasheet) is unchanged. | this ledger; `world_model/v2/nero/config.py` |
 | 11-05 | **Try all three demos (pot, tray, box)** to find where the method works and where it does not, before choosing the main one. | this ledger |
