@@ -80,16 +80,20 @@ def tau_limits(preset: str | None = None) -> np.ndarray:
 # ---- 2026-11-03 F3: ONE torque limit for every NERO runner that builds FLMPC (tau_max_vec / torque-box rows / saturation reports).
 # tau_limits() above is unchanged and still feeds the MJCF actuator forcerange only (servos are disabled in the FL-MPC runners, so
 # forcerange never acts on the applied qfrc).  FL-MPC runners call tau_limit() instead.
-TAU_MIT_NM = 16.0       # ASSUMED: = NERO MIT t_ff command range +-16 Nm (fw >= 1.11); AgileX publishes no rated joint torque
-LEGACY_TAU = os.environ.get("BIMANUAL_LEGACY_TAU") == "1"   # 1 = every pre-11-03 pan/democ/hold run: the 100 Nm URDF-effort placeholder in FL-MPC
+# USER 11-05: "use mjcf numbers ofc that is real" -> the default limit is the MJCF actuator forcerange (= the official URDF <limit effort>,
+# written into the MJCF by the scene builders via tau_limits()): 100 Nm on every arm joint.  MODEL (the robot's own model files).
+TAU_MJCF_NM = float(TORQUE_PRESETS["urdf_effort"][0])   # MODEL: MJCF forcerange "-100 100" (assets_nero/nero_arm_nyugrip.xml)
+TAU_MIT_NM = 16.0       # ASSUMED: NERO MIT t_ff command range +-16 Nm (fw >= 1.11); the 11-03..11-05 default, now only under BIMANUAL_TAU_MIT16=1
+TAU_MIT16 = os.environ.get("BIMANUAL_TAU_MIT16") == "1"     # 1 = every 11-03..11-05 contents/pan run (16 Nm torque box and admission rows)
+LEGACY_TAU = os.environ.get("BIMANUAL_LEGACY_TAU") == "1"   # pre-11-03 runs used 100 Nm: now equal to the default (kept for old commands)
 
 
 def tau_limit(preset: str | None = None) -> np.ndarray:
-    """per-joint torque limit [Nm] (7,) given to FLMPC(tau_max_vec=...): 16 Nm (ASSUMED, MIT command range) by default, the
-    100 Nm placeholder under BIMANUAL_LEGACY_TAU=1; an explicit `preset` name still selects that TORQUE_PRESETS entry."""
+    """per-joint torque limit [Nm] (7,): FL-MPC torque box AND the contents admission rows (one source).  Default = the MJCF forcerange
+    (100 Nm, USER 11-05); 16 Nm under BIMANUAL_TAU_MIT16=1; an explicit `preset` name selects that TORQUE_PRESETS entry."""
     if preset is not None:
         return TORQUE_PRESETS[preset].copy()
-    return np.full(N_ARM, 100.0 if LEGACY_TAU else TAU_MIT_NM)
+    return np.full(N_ARM, TAU_MIT_NM if TAU_MIT16 else TAU_MJCF_NM)
 
 
 # ---- servo/passive params: ALL ASSUMED (the URDF has none).  Piper-class values in yor_robot_derived: frictionloss 0.3,
