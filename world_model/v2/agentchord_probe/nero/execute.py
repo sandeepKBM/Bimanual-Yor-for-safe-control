@@ -94,11 +94,15 @@ def run_world(args):
     t0 = time.time()
     task, cell, i = args["task"], tuple(args["cell"]), args["i"]
     plan = json.loads(pathlib.Path(args["plan"]).read_text())
-    rec = dict(plan_id=plan["plan_id"], task=task, cell=list(cell), i=i, seed=None, outcome=None, reason=None)
+    rec = dict(plan_id=plan["plan_id"], task=task, cell=list(cell), i=i, seed=None, outcome=None, reason=None,
+               proposer=plan.get("proposer"), plan_backend=plan.get("backend"), plan_models=plan.get("models"))
     try:
-        seed, w = T.world_for(task, cell, i, args.get("seeds", "cert"))
+        if args.get("world") is not None:                          # same_world_trial: (seed, world) given
+            seed, w = args["world"]
+        else:
+            seed, w = T.world_for(task, cell, i, args.get("seeds", "cert"))
         rec["seed"] = seed
-        m_hat = None                                               # prior centre (CarryEpisode default; the planner knows no contents)
+        m_hat = args.get("m_hat_kg")                               # same_world_trial: prior mid-contents (as baseline_ungated._trial); else None = prior centre (CarryEpisode default; the planner knows no contents)
         if args.get("m_hat") == "cell":                            # as baseline_ungated: the contents mass the cell centre implies
             from world_model.v2.nero.contents import objects as OB
             n = int(task[4:]) if task.startswith("tray") else 0
@@ -149,3 +153,32 @@ def run_world(args):
         rec.update(outcome="error", reason=repr(e), tb=traceback.format_exc()[-1500:])
     rec["wall_s"] = round(time.time() - t0, 1)
     return rec
+
+
+def same_world_trial(task, i, plan_dir, mon_period=0.1, edge_settle=0.3):
+    """THEIR cached compiled graph on exactly the world probe._world(task, probe._seed("e2e", task, i)) (the worlds of nero/contents/same_worlds.py).
+    U includes the payload rating: same_worlds._init_worker (strict_claw=True, T_cap=None) is applied to CarryEpisode first.  Payload feedforward
+    mass m_hat = prior mid-contents (ASSUMED; as baseline_ungated._trial called by same_worlds 'theirs': the planner has no estimate).
+    -> dict with method='theirs', any_U, first_U {seg, kind} | None, outcome, ac_success, success_ours, plan_id, model/reasoning (proposer), seed_e2e.
+    `outcome` is run_world's (completed | plan_rejected | graph_error | budget | error); same_worlds.summary's 'carried' column is for 'ours' only.
+    plan_dir: directory holding plan.json (or the plan.json path)."""
+    from world_model.v2.nero.contents import same_worlds as SW, probe as P
+    SW._init_worker()
+    pj = pathlib.Path(plan_dir)
+    pj = pj if pj.suffix == ".json" else pj / "plan.json"
+    seed = P._seed("e2e", task, i)
+    w = P._world(task, seed)
+    lo, hi = P.PRIOR[task]
+    m_hat = 0.5 * (lo + hi)                                      # ASSUMED, identical to same_worlds 'theirs' (BU._trial(..., m_hat=0.5*(lo+hi)))
+    r = run_world(dict(plan=str(pj), task=task, cell=[lo, hi], i=i, world=(seed, w), m_hat_kg=m_hat, mon_period=mon_period, edge_settle=edge_settle))
+    fu = None
+    if r.get("any_U"):                                           # first U entry: the pre-hold phase, else the first edge whose cumulative track has viol
+        if r.get("pre_hold_viol"):
+            fu = dict(seg="pre_hold", kind=r["pre_hold_viol"].get("kind"))
+        else:
+            e = next((e for e in r.get("edges", []) if (e.get("track") or {}).get("viol")), None)
+            v = (e["track"]["viol"] if e else None) or (r.get("track") or {}).get("viol") or {}
+            fu = dict(seg=e["edge_id"] if e else None, kind=v.get("kind"))
+    pr = r.get("proposer") or {}
+    r.update(method="theirs", seed_e2e=seed, first_U=fu, plan_model=pr.get("model"), plan_reasoning=pr.get("reasoning"))
+    return r

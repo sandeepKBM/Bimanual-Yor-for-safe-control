@@ -27,6 +27,19 @@ SETUP_DEVIATIONS = [
 ]
 
 
+# USER 11-05: executed plans are authored by Codex gpt-5.6-sol at high reasoning.  LEGACY = the 10-27 choice (gpt-5.6-terra, Codex's own reasoning default).
+DEFAULT_MODEL, DEFAULT_REASONING = "gpt-5.6-sol", "high"
+LEGACY_MODEL, LEGACY_REASONING = "gpt-5.6-terra", None
+
+
+def resolve_proposer(backend, model=None, reasoning=None, legacy=False):
+    """-> (model, reasoning) for the codex backend.  Explicit model/reasoning win; `legacy` = the 10-27 pair; reasoning 'default' = Codex's own."""
+    dm, dr = (LEGACY_MODEL, LEGACY_REASONING) if legacy else (DEFAULT_MODEL, DEFAULT_REASONING)
+    m = model or dm
+    r = dr if reasoning is None else (None if reasoning == "default" else reasoning)
+    return (m, r) if backend == "codex" else (model, reasoning)
+
+
 class Canned:
     """gateway backend answering from a list of reply strings, in order (tests / dry runs; no model)."""
     name, caveat = "canned", "canned replies (no model)"
@@ -50,7 +63,8 @@ def _backend(a):
     if a["backend"] == "replay":
         return gw.Replay()
     if a["backend"] == "codex":
-        return gw.Codex(a.get("model") or "gpt-5.5", reasoning=a.get("reasoning"))
+        m, r = resolve_proposer("codex", a.get("model"), a.get("reasoning"), a.get("legacy", False))
+        return gw.Codex(m, reasoning=r)
     raise SystemExit(f"unknown backend {a['backend']}")
 
 
@@ -64,7 +78,7 @@ def prompt_files(out):
 
 
 def make_plan(task, out, backend="canned", model=None, reasoning=None, replay_log=None, canned=None, regenerate=False, recovery=True,
-              rgb=None, port=0):
+              rgb=None, port=0, legacy=False):
     """-> plan.json dict.  rgb: uint8 RGB image override (tests); default = MuJoCo render of the representative world."""
     from world_model.v2.agentchord_probe import gateway as gw
     out = pathlib.Path(out)
@@ -80,7 +94,8 @@ def make_plan(task, out, backend="canned", model=None, reasoning=None, replay_lo
     cv2.imwrite(str(out / "agent_obs.png"), bgr)
 
     log_path = str(out / "llm_log.jsonl")
-    be = _backend(dict(backend=backend, model=model, reasoning=reasoning, canned=canned))
+    be = _backend(dict(backend=backend, model=model, reasoning=reasoning, canned=canned, legacy=legacy))
+    pm, pr = resolve_proposer(backend, model, reasoning, legacy)
     srv, log = gw.serve(be, log_path, port, reuse=False, concurrency=1)
     if backend == "replay" and replay_log:
         src = gw.Log(replay_log)
@@ -116,7 +131,9 @@ def make_plan(task, out, backend="canned", model=None, reasoning=None, replay_lo
     rows = [json.loads(l) for l in open(log_path)] if os.path.exists(log_path) else []
     meta = dict(task=task, plan_id=T.sha(pathlib.Path(graph_path).read_text()), graph=str(graph_path), backend=backend,
                 models=sorted({(r.get("backend"), r.get("model")) for r in rows if r.get("reply") is not None}),
-                reasoning=(reasoning or "codex default") if backend == "codex" else None,
+                reasoning=(pr or "codex default") if backend == "codex" else None,
+                proposer=dict(backend=backend, model=(pm if backend == "codex" else be.model() if hasattr(be, "model") else model), reasoning=(pr or "codex default") if backend == "codex" else None,
+                              legacy=bool(legacy)),
                 caveats=sorted({r.get("caveat", "") for r in rows}), n_llm_calls=len(rows), n_errors=sum(1 for r in rows if r.get("error")),
                 facts_text=facts, task_prompt=text, prompt_hash=T.sha(text), recovery=recovery, regenerate=regenerate,
                 plan_wall_s=round(time.time() - t0, 1), setup_deviations=SETUP_DEVIATIONS, date=time.strftime("%Y-%m-%d"),

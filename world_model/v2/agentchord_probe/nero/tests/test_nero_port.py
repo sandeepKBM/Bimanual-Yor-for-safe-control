@@ -95,3 +95,39 @@ def test_arms_move_independently_after_release():
     assert r["n_rejected"] == 0
     e6 = next(e for e in r["edges"] if e["edge_id"] == "e06_withdraw_grippers")
     assert e6["info"].get("released") is True
+
+
+def test_pot_prompt_and_canned_plan(tmp_path):
+    text, facts = T.task_prompt("pot")
+    assert "'pot'" in text and "'counter'" in text and facts in text and "lid" in facts
+    meta = _plan(tmp_path, "two_arm", "pot")
+    g = json.loads((tmp_path / "plan_two_arm" / "agent_task_graph.json").read_text())
+    assert g["edges"][0]["left_arm_action"]["kwargs"]["obj_name"] == "pot" and meta["task"] == "pot"
+    x, y = T.goal_xy("pot", T.rep_world("pot"))
+    assert 0.0 < x < 0.38 and abs(x - (T.rep_world("pot").obj_xy[0] - 0.10)) < 1e-9
+
+
+def test_model_config_recorded(tmp_path):
+    from world_model.v2.agentchord_probe.nero.plan import resolve_proposer
+    assert resolve_proposer("codex") == ("gpt-5.6-sol", "high")
+    assert resolve_proposer("codex", legacy=True) == ("gpt-5.6-terra", None)
+    assert resolve_proposer("codex", "gpt-5.6-terra", "default") == ("gpt-5.6-terra", None)
+    meta = _plan(tmp_path, "two_arm", "tray2")
+    assert meta["proposer"]["backend"] == "canned" and "proposer" in json.loads((tmp_path / "plan_two_arm" / "plan.json").read_text())
+
+
+@pytest.mark.parametrize("task", ["box", "tray6", "pot"])
+def test_same_world_trial(tmp_path, task):
+    from world_model.v2.agentchord_probe.nero.execute import same_world_trial
+    from world_model.v2.nero.contents import probe as PR
+    _plan(tmp_path, "two_arm", task)
+    r = same_world_trial(task, 0, tmp_path / "plan_two_arm")
+    assert r["method"] == "theirs" and r["seed_e2e"] == PR._seed("e2e", task, 0)
+    assert r["outcome"] in ("completed", "plan_rejected", "graph_error", "budget"), (r.get("reason"), r.get("tb"))
+    for k in ("any_U", "first_U", "outcome", "ac_success", "success_ours", "plan_id", "plan_model"):
+        assert k in r
+    assert r["plan_model"] == "canned" and (r["first_U"] is None) == (not r["any_U"])
+    assert r["any_U"] is False or {"seg", "kind"} <= set(r["first_U"])
+    from world_model.v2.nero.contents import carry as CR
+    assert getattr(CR.CarryEpisode, "_same_worlds_strict", False)            # payload row in U
+    print(task, {k: r[k] for k in ("outcome", "any_U", "first_U", "ac_success", "success_ours")})

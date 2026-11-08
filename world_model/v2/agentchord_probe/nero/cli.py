@@ -1,7 +1,7 @@
 """agentchord_probe/nero/cli.py -- AgentChord's planner on our hidden-contents carry tasks.  SIMULATION ONLY (no hardware; LLM only via the
 owner-run `plan --backend codex`).
 
-  plan --task tray4 --backend codex --model gpt-5.6-terra [--reasoning high] --out DIR     plan ONCE per task variant (cached in DIR)
+  plan --task tray4 --backend codex [--model gpt-5.6-sol --reasoning high | --legacy-model] --out DIR  (default gpt-5.6-sol:high)     plan ONCE per task variant (cached in DIR)
   plan --task tray4 --backend replay --replay-log OLD/llm_log.jsonl --out DIR              answers only from a logged run (no model call)
   plan --task tray4 --backend canned --canned replies.json --out DIR                        [task_graph JSON, recovery_spec JSON] (tests)
   exec --plan DIR/plan.json --task tray4 --n 20 --procs 2 --out OUT                         run the cached plan on the carry_cert worlds
@@ -24,8 +24,9 @@ def main(argv=None):
     p = sp.add_parser("plan")
     p.add_argument("--task", required=True)
     p.add_argument("--backend", required=True, choices=["codex", "replay", "canned"])
-    p.add_argument("--model")
-    p.add_argument("--reasoning")
+    p.add_argument("--model", help="codex model (default plan.DEFAULT_MODEL = gpt-5.6-sol)")
+    p.add_argument("--reasoning", help="codex reasoning effort (default plan.DEFAULT_REASONING = high; 'default' = Codex's own)")
+    p.add_argument("--legacy-model", action="store_true", help="the 10-27 pair: gpt-5.6-terra, Codex's default reasoning")
     p.add_argument("--replay-log")
     p.add_argument("--canned")
     p.add_argument("--regenerate", action="store_true")
@@ -46,8 +47,8 @@ def main(argv=None):
     if a.cmd == "plan":
         from .plan import make_plan
         meta = make_plan(a.task, a.out, backend=a.backend, model=a.model, reasoning=a.reasoning, replay_log=a.replay_log, canned=a.canned,
-                         regenerate=a.regenerate, recovery=not a.no_recovery)
-        print(json.dumps({k: meta[k] for k in ("task", "plan_id", "backend", "models", "n_llm_calls", "n_errors", "plan_wall_s")}, default=str))
+                         regenerate=a.regenerate, recovery=not a.no_recovery, legacy=a.legacy_model)
+        print(json.dumps({k: meta[k] for k in ("task", "plan_id", "backend", "models", "proposer", "n_llm_calls", "n_errors", "plan_wall_s")}, default=str))
         return
     import multiprocessing as mp
     from . import tasks as T

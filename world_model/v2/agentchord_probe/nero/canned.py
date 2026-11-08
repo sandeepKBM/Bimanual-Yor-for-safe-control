@@ -30,7 +30,7 @@ def act(fn, arm, **kw):
 def two_arm(task):
     """grasp, lift, carry, place + release (the PLANS of carry.py as AgentChord atoms)."""
     box = task == "box"
-    obj = "box" if box else "tray"
+    obj = "box" if box else ("pot" if task == "pot" else "tray")
     lift, carry_dx = (0.18, -0.20) if box else (0.05, -0.10)
     pre = 0.03 if box else 0.05
     from . import tasks   # place target from the scene (obj_xy + PLANS deltas), not literals: the scene moved +y by SCENE_DY on 11-03
@@ -63,7 +63,7 @@ def empty_recovery(g):
 def loop_recovery(g, thr=0.001):
     """object_moved(thr) on the lift edge + retry: fires on normal motion when thr is below the per-sample displacement -> recovery runs."""
     return dict(task=g["task"], recovery_bindings=[dict(edge_id=g["edges"][1]["id"], failure_name="moved", monitors=[
-        dict(type="object_moved", objects=["tray" if "tray" in g["task"] else "box"], threshold=thr)],
+        dict(type="object_moved", objects=[g["task"].split("_", 1)[1]], threshold=thr)],
         recovery=[dict(type="retry_failed_edge")], merge="target", repeat_until_success=False)])
 
 
