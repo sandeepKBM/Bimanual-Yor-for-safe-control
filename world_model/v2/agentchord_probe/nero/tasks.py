@@ -44,9 +44,12 @@ def pot_facts():
 
 
 def goal_xy(task, world):
-    from .sim_imports import CR
-    d = np.sum([np.asarray(dl, float) for _, dl in CR.plan_moves(kind(task))], axis=0)
-    return (world.obj_xy[0] + d[0], world.obj_xy[1] + d[1])
+    """task goal xy = the task spec's goal (closed_chain.GOAL_DXY, ASSUMED user-confirmed 11-02; the same source as stack/proposer/prompt.task_spec).
+    11-07 fix (clarity report 11-06 (f)10): was the sum of the scripted plan's moves (carry.plan_moves), i.e. the goal came from a hand-written
+    plan.  Same numbers: the scripted moves sum to GOAL_DXY in xy for tray, box and pot (checked 11-07)."""
+    from world_model.v2.stack.planners import closed_chain as CCP
+    gx, gy = CCP.GOAL_DXY[kind(task)]
+    return (world.obj_xy[0] + gx, world.obj_xy[1] + gy)
 
 
 def cell_list(task):

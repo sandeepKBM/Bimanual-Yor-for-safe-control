@@ -131,3 +131,15 @@ def test_same_world_trial(tmp_path, task):
     from world_model.v2.nero.contents import carry as CR
     assert getattr(CR.CarryEpisode, "_same_worlds_strict", False)            # payload row in U
     print(task, {k: r[k] for k in ("outcome", "any_U", "first_U", "ac_success", "success_ours")})
+
+
+def test_goal_from_task_spec_and_tau_note():
+    """11-07 (clarity report (f)9, (f)10): the goal comes from the task spec (same numbers as the scripted plan), the torque note from config."""
+    from world_model.v2.agentchord_probe.nero.execute import ASSUMPTIONS
+    from world_model.v2.nero import config as NC
+    from world_model.v2.nero.contents import carry as CR
+    for task in ("tray6", "box", "pot"):
+        w = T.rep_world(task)
+        d = np.sum([np.asarray(dl, float) for _, dl in CR.plan_moves(T.kind(task))], axis=0)
+        assert np.allclose(T.goal_xy(task, w), (w.obj_xy[0] + d[0], w.obj_xy[1] + d[1]), atol=1e-12)
+    assert f"{float(NC.tau_limit()[0]):g} Nm" in ASSUMPTIONS["controller"] and "16 Nm box" not in ASSUMPTIONS["controller"]

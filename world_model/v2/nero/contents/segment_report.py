@@ -46,7 +46,11 @@ def report(run):
                      + (f" ({pl[0]['plan_rejected'].get('stage')}: {pl[0]['plan_rejected'].get('reasons')})" if rej else "") + ".")
             pb = [r["probe_in_B"] for r in pl if r.get("probe_in_B")]
             if pb:
-                L.append(f"Probe set inside the plan's belief B: {sum(bool(x['inside']) for x in pb)}/{len(pb)} probed worlds (B on {pb[0]['param']} = {pb[0]['B']}; other B parameters are not probed).")
+                L.append(f"Probe set inside the plan's belief B (B ∩ prior): {sum(bool(x['inside']) for x in pb)}/{len(pb)} probed worlds (B on {pb[0]['param']} = {pb[0]['B']}, "
+                         f"prior {pb[0].get('prior')}; other B parameters are not probed).")
+                cov = sum(bool(x.get("covers_prior")) for x in pb)
+                if cov:
+                    L.append(f"B covers the whole prior in {cov}/{len(pb)} of them: there Rule 2 cannot trigger, so 'inside' is no evidence.")
             L.append("")
         if car:
             u = [r["decision"].get("u_nom") for r in car if r.get("decision")]

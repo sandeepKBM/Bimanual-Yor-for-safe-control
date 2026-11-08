@@ -150,6 +150,18 @@ def test_probe_in_belief():
     assert t["inside"] and abs(t["probe"][0] - 0.1) < 1e-9
 
 
+def test_probe_in_belief_uses_b_within_prior():
+    """11-07 (clarity report (f)1): B is intersected with the prior box; a B covering the prior is flagged (Rule 2 cannot trigger)."""
+    xy = dict(contents_x=[0, 0], contents_y=[0, 0])
+    wide = PC.probe_in_belief("box", dict(contents_kg=[0.0, 20.0], **xy), 1.2, 2.9)              # the sanity range the 11-05 replies used
+    assert wide["inside"] and wide["covers_prior"] and wide["prior"] == [0.5, 5.0] and wide["B_eff"] == [0.5, 5.0]
+    part = PC.probe_in_belief("box", dict(contents_kg=[0.0, 3.0], **xy), 0.6, 2.9)                # clipped below: B_eff = [0.5, 3]
+    assert part["inside"] and not part["covers_prior"] and part["B_eff"] == [0.5, 3.0] and part["B"] == [0.0, 3.0]
+    assert not PC.probe_in_belief("box", dict(contents_kg=[0.0, 3.0], **xy), 0.6, 3.5)["inside"]
+    far = PC.probe_in_belief("box", dict(contents_kg=[6.0, 8.0], **xy), 1.2, 2.9)                 # B disjoint from the prior
+    assert far["B_eff"] is None and not far["inside"] and not far["covers_prior"]
+
+
 # ------------------------------------------------------------------------------------------------------------------ compile -> closed-chain plan
 @pytest.fixture(scope="module", params=TASKS)
 def compiled(request):

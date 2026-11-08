@@ -24,6 +24,14 @@ from . import tasks as T
 
 AC_XY_TOL, AC_Z_TOL = 0.05, 0.02          # m, ASSUMED
 GOAL_TOL_M = 0.03                         # m, USER 11-03 (was ASSUMED; item 12b): success_ours needs the object within this of the task goal (xy and support-relative z)
+def _tau_note():
+    """the torque box this process actually uses (config.tau_limit(), one source).  11-07 fix (clarity report 11-06 (f)9): the records said
+    "16 Nm box" while the 11-05 runs used the 100 Nm MJCF default."""
+    from world_model.v2.nero import config as NC
+    src = "BIMANUAL_TAU_MIT16=1: MIT command range, ASSUMED" if NC.TAU_MIT16 else "MJCF forcerange, MODEL, USER 11-05"
+    return f"{float(NC.tau_limit()[0]):g} Nm torque box ({src})"
+
+
 ASSUMPTIONS = dict(
     goal_tol=f"USER 11-03 {GOAL_TOL_M} m (xy and z, success_ours, 11-03)",
     carry_physics="config.carry_physics(): fric_comp=True + weld solref WELD_STIFF (11-03 item 6; before: MuJoCo default weld, no friction comp); records carry rec['physics']",
@@ -32,7 +40,7 @@ ASSUMPTIONS = dict(
     arm_tol_m="ASSUMED 0.03 m (max disagreement of the two arms' requested TCP deltas)", regrasp_tol_m="ASSUMED 0.05 m",
     budgets="ASSUMED 120 s sim time and 40 edges per episode", ac_success_tol=f"ASSUMED xy {AC_XY_TOL} m, z {AC_Z_TOL} m, tilt < 45 deg",
     ik_reach="IK miss of the straight-line path is recorded per edge (ik_miss_m), never a rejection", plan_geometry="PLANS destinations ASSUMED (user-confirmed 11-02)",
-    grasp="ASSUMED rigid weld (user 11-01), on from t = 0 at the scripted grasp pose", controller="carry.LeverCtl, 16 Nm box, a_plan = A_NOM",
+    grasp="ASSUMED rigid weld (user 11-01), on from t = 0 at the scripted grasp pose", controller=f"carry.LeverCtl, {_tau_note()}, a_plan = A_NOM",
     worlds="theta ~ uniform per cell (carry_cert.sample_world); prior box = union of the cells", perception="none (planner sees a render + facts)")
 
 

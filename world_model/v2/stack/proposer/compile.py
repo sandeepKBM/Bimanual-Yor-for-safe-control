@@ -171,8 +171,21 @@ def fallback_phases(kinds, ep):
 # ---- Rule 2: is the probe set inside B? -------------------------------------------------------------------------------------------------
 def probe_in_belief(task, belief, c_lo, c_hi, tol=1e-9):
     """c_lo..c_hi = the probe's interval on the total contents mass [kg] (probe.py).  Only the probed belief parameter is checked (the others are not measured:
-    listed in `not_probed`).  -> dict(param, probe=[lo, hi], B=[lo, hi], inside, not_probed)."""
+    listed in `not_probed`).  -> dict(param, probe=[lo, hi], B=[lo, hi], prior, B_eff, covers_prior, inside, not_probed).
+
+    11-07 fix (clarity report 11-06 (f)1): B must lie inside the prior box Theta_0 (sets rule; bounds rule 4).  The model states B without
+    seeing Theta_0 (prompt.py), and the schema checks B only against a wide sanity range, so the replies so far had B covering all of
+    Theta_0.  The reply is never repaired: B is kept as written and the check uses B_eff = B intersected with Theta_0 (the prior box of the
+    probed parameter, ASSUMED: probe.prior_contents minus the probe offset).  covers_prior = B_eff is all of Theta_0: then no sound probe set
+    can fall outside B and Rule 2 cannot trigger; reports must say so instead of counting `inside`.  B disjoint from Theta_0 -> inside False."""
+    from world_model.v2.nero.contents import probe as PR
     name, off = S.probe_offset(task)
     lo, hi = float(c_lo) - off, float(c_hi) - off
-    b = belief[name]
-    return dict(param=name, probe=[lo, hi], B=list(b), inside=bool(lo >= b[0] - tol and hi <= b[1] + tol), not_probed=[k for k in belief if k != name])
+    b = [float(x) for x in belief[name]]
+    p0, p1 = (float(x) - off for x in PR.prior_contents(task))
+    e0, e1 = max(b[0], p0), min(b[1], p1)
+    disjoint = e0 > e1 + tol
+    covers = (not disjoint) and e0 <= p0 + tol and e1 >= p1 - tol
+    inside = (not disjoint) and lo >= e0 - tol and hi <= e1 + tol
+    return dict(param=name, probe=[lo, hi], B=b, prior=[p0, p1], B_eff=None if disjoint else [e0, e1], covers_prior=bool(covers),
+                inside=bool(inside), not_probed=[k for k in belief if k != name])

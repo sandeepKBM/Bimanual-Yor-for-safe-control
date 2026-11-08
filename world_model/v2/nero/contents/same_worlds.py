@@ -124,8 +124,12 @@ def summary(out):
     for (task, method), rs in sorted(by.items()):
         pb = [r for r in rs if r.get("probe_in_B")]
         if method == "ours" and pb:
-            lines.append(f"{task}: probe set inside the proposer's belief B in {sum(bool(r['probe_in_B']['inside']) for r in pb)}/{len(pb)} probed worlds "
-                         f"(plan {pb[0].get('plan_id')}, model {((pb[0].get('plan_record') or {}).get('model'))}).")
+            x0 = pb[0]["probe_in_B"]
+            cov = sum(bool(r["probe_in_B"].get("covers_prior")) for r in pb)
+            lines.append(f"{task}: probe set inside the proposer's belief B (B ∩ prior) in {sum(bool(r['probe_in_B']['inside']) for r in pb)}/{len(pb)} probed worlds "
+                         f"(plan {pb[0].get('plan_id')}, model {((pb[0].get('plan_record') or {}).get('model'))}; B on {x0['param']} = {x0['B']}, prior {x0.get('prior')}).")
+            if cov:
+                lines.append(f"{task}: B covers the whole prior in {cov}/{len(pb)} of them: there Rule 2 cannot trigger, so 'inside' is no evidence.")
     (out / "SUMMARY.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 
