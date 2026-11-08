@@ -4,12 +4,12 @@ import numpy as np
 import pytest
 
 from world_model.v2.stack.kin.srs_ik import SRSArm
-from world_model.v2.stack.kin.validate_srs import SCENE
+from world_model.v2.stack.kin.validate_srs import load_model
 
 
 @pytest.fixture(scope="module")
 def model():
-    return mujoco.MjModel.from_xml_path(str(SCENE))
+    return load_model()
 
 
 @pytest.mark.parametrize("side", ["left", "right"])

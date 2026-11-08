@@ -14,7 +14,14 @@ import numpy as np
 
 from .srs_ik import SRSArm
 
-SCENE = Path(__file__).resolve().parents[4] / "scenes" / "yor_nero_democ_nyu.mjcf"
+SCENE = "nero.democ.scene.compose() (NYU gripper, built in memory)"   # 11-07: was scenes/yor_nero_democ_nyu.mjcf, a generated file with
+# worktree-absolute mesh paths that was never committed; same model (ee_grasp pose diff 1.0e-6 over 400 random q, XML float rounding).
+
+
+def load_model():
+    """the DemoC NERO scene with the NYU gripper (the only build), compiled in memory."""
+    from world_model.v2.nero.democ import scene as DS
+    return DS.compose()
 
 
 def stats(x):
@@ -65,8 +72,8 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="srs_val.json")
     a = ap.parse_args()
-    m = mujoco.MjModel.from_xml_path(str(SCENE))
-    out = dict(scene=str(SCENE), n=a.n, seed=a.seed, sides={})
+    m = load_model()
+    out = dict(scene=SCENE, n=a.n, seed=a.seed, sides={})
     for side in ("left", "right"):
         arm = SRSArm(m, side)
         rec = run_side(m, side, a.n, a.seed)
