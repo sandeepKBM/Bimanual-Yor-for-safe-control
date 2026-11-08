@@ -202,8 +202,11 @@ def _tilt_deg(R):
 
 class CarryEpisode:
     def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=None, ctl="lever", strict_claw=False,
-                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None, planner=None):
+                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None, planner=None, wp=None):
         self.planner = resolve_planner(planner)               # 11-05: "scripted" (default) | "closed_chain"
+        self.wp = wp                                            # 11-05 opt-in: closed_chain.WaypointPlan written by the proposer (stack/proposer/compile.py); None = the default plan
+        if wp is not None:
+            self.planner = "closed_chain"                       # a waypoint plan is planned by the closed-chain planner only
         self.cc = None                                          # closed_chain plan being executed (set by the planner / executor)
         # 11-03 item 6: PHYS_DEFAULT -> config.carry_physics() (fric_comp=True + stiff weld; legacy pair None/None under BIMANUAL_LEGACY_CARRY_PHYS=1);
         # an explicit None / False / value is honoured as before.
@@ -671,7 +674,7 @@ class CarryEpisode:
     def backup_phases(self, seg):
         if self.planner == "closed_chain":
             from world_model.v2.stack.planners import closed_chain as CCP
-            return CCP.backup_phases_for(seg)
+            return CCP.backup_phases_for(seg, self.wp)
         from world_model.v2.stack.planners import scripted as SP
         return SP.backup_phases(seg)
 
@@ -692,12 +695,12 @@ class CarryEpisode:
 
 # ---------------------------------------------------------------------------------------------------------------------------
 def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl="lever", strict_claw=False, m_hat=None,
-                fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None, planner=None):
+                fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None, planner=None, wp=None):
     """m_hat: the robot's nominal contents mass (belief cell centre; None = the prior's centre)."""
     """nominal run of all segments in one world + the stored backup from branch points of each segment.  -> record for admit."""
     t0 = time.time()
     ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp,
-                      coop=coop, weld_solref=weld_solref, rules=rules, planner=planner)
+                      coop=coop, weld_solref=weld_solref, rules=rules, planner=planner, wp=wp)
     ep.run_phases([("hold", 0.4)])                            # load transfer, object still on the counter
     rec = dict(tag=tag, task=ep.task, theta=_theta(world), truth=_jsonable(ep.truth0), a_plan=a_plan, m_nom=ep.m_nom, ctl=ctl,
                strict_claw=strict_claw, fric_comp=ep.fc, coop=ep.coop, weld_solref=ep.weld_solref,
@@ -714,7 +717,8 @@ def run_segments(ep, rec, branch_backups=True, t0=None):
         from types import SimpleNamespace
         from world_model.v2.stack.planners.closed_chain import ClosedChainPlanner
         plan = ClosedChainPlanner().plan(None, SkillCall("carry_task", dict(task=ep.task, a_plan=ep.a_plan)), SimpleNamespace(episode=ep))
-        rec.setdefault("planner", dict(name="closed_chain", **{k: plan.provenance[k] for k in ("key", "summary")}))
+        rec.setdefault("planner", dict(name="closed_chain", **{k: plan.provenance[k] for k in ("key", "summary")},
+                                       **({"wp": ep.wp.key_data()} if getattr(ep, "wp", None) is not None else {})))
     else:
         plan = ScriptedPlanner().plan(None, SkillCall("carry_task", dict(task=ep.task, a_plan=ep.a_plan)), None)
     return EX.run_segments(ep, plan, rec, branch_backups, t0)

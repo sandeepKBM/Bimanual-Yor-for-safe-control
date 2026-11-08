@@ -37,6 +37,17 @@ def report(run):
         L += [f"## {task}", "",
               f"Ours: n {len(ours)}; outcomes {dict(outc)}; probe set contains truth {sum(bool(r.get('theta_sound')) for r in ours)}/{len(ours)}; "
               f"U during probe {sum(bool(r.get('probe_viol')) for r in ours)}.", ""]
+        pl = [r for r in ours if r.get("plan_source")]
+        if pl:                                            # 11-05: the plan was written by the proposer model; its segments (named after its steps) are the rows below
+            rej = sum(r.get("outcome") == "plan_rejected" for r in pl)
+            rc = pl[0].get("plan_record") or {}
+            L.append(f"Plan source: proposer model {rc.get('model')} ({rc.get('reasoning')}), spec {rc.get('spec')}, plan id {pl[0].get('plan_id')}, "
+                     f"reply {rc.get('raw_reply_path')}; plan_rejected in {rej}/{len(pl)} worlds"
+                     + (f" ({pl[0]['plan_rejected'].get('stage')}: {pl[0]['plan_rejected'].get('reasons')})" if rej else "") + ".")
+            pb = [r["probe_in_B"] for r in pl if r.get("probe_in_B")]
+            if pb:
+                L.append(f"Probe set inside the plan's belief B: {sum(bool(x['inside']) for x in pb)}/{len(pb)} probed worlds (B on {pb[0]['param']} = {pb[0]['B']}; other B parameters are not probed).")
+            L.append("")
         if car:
             u = [r["decision"].get("u_nom") for r in car if r.get("decision")]
             a = [r["decision"].get("a_admit") for r in car if r.get("decision")]

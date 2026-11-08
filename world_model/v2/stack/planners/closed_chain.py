@@ -25,6 +25,7 @@ DQ_MAX, N_GRID, FK_TOL;  MODEL = SRS kinematics from the compiled MJCF, FK valid
 """
 from __future__ import annotations
 
+import dataclasses
 import functools
 import hashlib
 import json
@@ -71,6 +72,38 @@ class PlanRefused(RuntimeError):
         self.info = info
 
 
+@dataclasses.dataclass(frozen=True)
+class WaypointPlan:
+    """11-05 entry point: the OBJECT-LEVEL plan written by the proposer (stack/proposer/compile.py), in place of the fixed GOAL_DXY / lift-carry-place shape.
+    One move per step; each move is a straight object translation, orientation fixed (level).  Everything else (IK, psi / branch DP, the lateral lift offset
+    dy, TOPP-RA timing, backups) is still this module's.
+      names    segment name per move (the plan's segments follow the steps)
+      deltas   per move (dx, dy, dz) [m] of the object, world frame
+      backups  per move: the backup kind run from inside that segment: set_down | retrace | hold | let_go  (backup_phases_for)
+      lands    the last move lands ON the goal support (the shelf collision test then counts penetration only on it, as for the default plan)
+    The lateral lift offset dy (see object_path) is applied to the end of move 0 when move 0 is a pure rise; every later node is the proposer's own, so a
+    standard lift / carry / place request reproduces the default path."""
+    names: tuple
+    deltas: tuple
+    backups: tuple
+    lands: bool = True
+
+    def __post_init__(self):
+        if not (len(self.names) == len(self.deltas) == len(self.backups) >= 1):
+            raise ValueError("WaypointPlan: names, deltas, backups must have the same length >= 1")
+
+    def nodes(self):
+        return np.vstack([np.zeros(3), np.cumsum(np.asarray(self.deltas, float), axis=0)])
+
+    @property
+    def pure_rise_first(self):
+        d = self.deltas[0]
+        return abs(d[0]) < 1e-9 and abs(d[1]) < 1e-9 and d[2] > 0
+
+    def key_data(self):
+        return dict(names=list(self.names), deltas=[[round(float(x), 9) for x in d] for d in self.deltas], backups=list(self.backups), lands=bool(self.lands))
+
+
 def kind_of(task):
     t = str(task)
     return "tray" if t.startswith("tray") else ("pot" if t == "pot" else "box")
@@ -84,8 +117,9 @@ def vlim():
 class PlanInputs:
     """everything the path planner needs, independent of the episode object: model (for the SRS constants), hold q per arm, the world."""
 
-    def __init__(self, m, world, q0, task):
+    def __init__(self, m, world, q0, task, wp=None):
         self.m, self.world, self.task = m, world, kind_of(task)
+        self.wp = wp                                                                   # WaypointPlan | None (None = the default GOAL_DXY lift / carry / place)
         self.q0 = {s: np.asarray(q0[s], float) for s in SIDES}
         self.arms = {s: SRSArm(m, s) for s in SIDES}
         self.T0 = {s: self.arms[s].fk(self.q0[s]) for s in SIDES}                      # claw TCP pose at the hold = rigidly fixed relative to the object
@@ -99,6 +133,8 @@ class PlanInputs:
                  q0={s: [round(float(x), 9) for x in self.q0[s]] for s in SIDES}, lim=[SRSArm_limits(self.arms[s]) for s in SIDES],
                  params=dict(CLEAR_M=CLEAR_M[self.task], GOAL=GOAL_DXY[self.task], LAT=LAT_CLEAR, DY=list(map(float, DY_GRID)), MW=MARGIN_WANT, MG=M_GOOD,
                              DS=DS, PSI=PSI_STEP_DEG, DQ=DQ_MAX, SS=list(SMOOTH_SIGMAS), SL=SMOOTH_MARGIN_LOSS), v=3)
+        if self.wp is not None:                                                        # only a waypoint plan adds a key: default-plan keys (and cache files) are unchanged
+            d["wp"] = self.wp.key_data()
         return hashlib.sha256(json.dumps(d, sort_keys=True, default=float).encode()).hexdigest()[:20]
 
 
@@ -107,11 +143,11 @@ def SRSArm_limits(arm):
 
 
 def inputs_from_episode(ep):
-    return PlanInputs(ep.m, ep.world, ep.q0, ep.task)
+    return PlanInputs(ep.m, ep.world, ep.q0, ep.task, wp=getattr(ep, "wp", None))
 
 
 @functools.lru_cache(maxsize=None)
-def _nominal_inputs(task):
+def _nominal_inputs(task, wp=None):
     """default world of the task + the hold pose of contents/capture_nyu.json (what the static admission uses)."""
     from world_model.v2.nero.contents import envelope as E, scenes as SC
     k = kind_of(task)
@@ -119,7 +155,7 @@ def _nominal_inputs(task):
          else (SC.PotWorld() if k == "pot" else SC.BoxWorld()))
     cap = json.loads(E.CAP_FILE.read_text())["pot"]
     m = SC.compose(w)
-    return PlanInputs(m, w, {s: cap["q"]["W0_liftoff"][s] for s in SIDES}, task)
+    return PlanInputs(m, w, {s: cap["q"]["W0_liftoff"][s] for s in SIDES}, task, wp=wp)
 
 
 # ----------------------------------------------------------------------------------------------------------------------- object path
@@ -129,6 +165,11 @@ def object_path(inp: PlanInputs, dy):
     w, task = inp.world, inp.task
     tops = SC.support_tops(w)
     t0 = tops["counter"]["top"]
+    if inp.wp is not None:                                  # proposer's waypoints (WaypointPlan): its own nodes; dy only on the end of a pure rise
+        nodes = inp.wp.nodes()
+        if inp.wp.pure_rise_first:
+            nodes[1, 1] += dy
+        return nodes, dict(z_c=float(nodes[:, 2].max()), goal_dz=float(nodes[-1, 2]), goal_xy=[float(w.obj_xy[0] + nodes[-1, 0]), float(w.obj_xy[1] + nodes[-1, 1])])
     goal_top = tops["shelf"]["top"] if (task == "box" and "shelf" in tops) else t0
     z_c = max(goal_top, t0) + CLEAR_M[task] - t0
     gx, gy = GOAL_DXY[task]
@@ -152,14 +193,15 @@ def _collides(inp: PlanInputs, nodes, n=400):
             cx, cy, cz = w.obj_xy[0] + o[0], w.obj_xy[1] + o[1], z0 + o[2]
             xo = (cx + hx + LAT_CLEAR > sx[0]) and (cx - hx - LAT_CLEAR < sx[1])
             yo = (cy + hy + LAT_CLEAR > sy[0]) and (cy - hy - LAT_CLEAR < sy[1])
-            zmin = top - 1e-6 if k == 2 else top + CLEAR_M[inp.task] - 1e-9        # the last move lands ON the support: only penetration counts
+            landing = (k == len(nodes) - 2) if (inp.wp is None or inp.wp.lands) else False      # default plan: k == 2 of 3 moves
+            zmin = top - 1e-6 if landing else top + CLEAR_M[inp.task] - 1e-9        # the last move lands ON the support: only penetration counts
             zo = (cz < zmin) and (cz + H > top - t)
             if xo and yo and zo:
                 return o.tolist()
     return None
 
 
-def _samples(nodes, ds=DS):
+def _samples(nodes, ds=DS, names=MOVES):
     """polyline -> (offsets (N,3), seg index per sample (N,), {seg: (i0, i1)}); consecutive segments share their boundary sample."""
     pts, seg, bounds = [nodes[0]], [0], {}
     for k, (a, b) in enumerate(zip(nodes[:-1], nodes[1:])):
@@ -168,7 +210,7 @@ def _samples(nodes, ds=DS):
         for f in np.linspace(0, 1, n + 1)[1:]:
             pts.append(a + (b - a) * f)
             seg.append(k)
-        bounds[MOVES[k]] = (i0, len(pts) - 1)
+        bounds[names[k]] = (i0, len(pts) - 1)
     return np.array(pts), np.array(seg), bounds
 
 
@@ -376,14 +418,19 @@ class Geometry:
                    {s: A(v) for s, v in d["fk_pos"].items()}, {s: A(v) for s, v in d["fk_rot"].items()}, d["info"])
 
 
+def _dys(inp: PlanInputs):
+    """lateral lift offsets tried: DY_GRID (default plan, or a waypoint plan whose first move is a pure rise), else only 0 (dy would change nothing)."""
+    return DY_GRID if (inp.wp is None or inp.wp.pure_rise_first) else (0.0,)
+
+
 def _screen_dy(inp: PlanInputs, psis):
     """-> list of (dy, bottleneck margin) over DY_GRID: best (psi, branch) margin of both arms at screening poses along the lift and the start of the carry."""
     out = []
-    for dy in DY_GRID:
+    for dy in _dys(inp):
         nodes, _ = object_path(inp, float(dy))
         if _collides(inp, nodes) is not None:
             continue
-        pts = [nodes[1] * f for f in (0.5, 0.75, 1.0)] + [nodes[1] + (nodes[2] - nodes[1]) * 0.25]
+        pts = [nodes[1] * f for f in (0.5, 0.75, 1.0)] + [nodes[1] + (nodes[2] - nodes[1]) * 0.25 if len(nodes) > 2 else nodes[1]]
         b = np.inf
         for s in SIDES:
             for o in pts:
@@ -413,7 +460,7 @@ def plan_geometry(inp: PlanInputs, use_cache=True):
         if bscr <= 0:
             continue
         nodes, oi = object_path(inp, dy)
-        offs, seg, bounds = _samples(nodes)
+        offs, seg, bounds = _samples(nodes, names=(inp.wp.names if inp.wp is not None else MOVES))
         try:
             ch = {s: _dp_chain(inp.arms[s], inp.T0[s], offs, inp.q0[s], psis[s][0]) for s in SIDES}
         except PlanRefused as e:
@@ -555,7 +602,7 @@ class ClosedChainPlan:
     def __init__(self, geo: Geometry, inp: PlanInputs, a_plan):
         self.geo, self.inp, self.a_plan = geo, inp, float(a_plan)
         self.pieces = {}
-        for sg in MOVES:
+        for sg in geo.bounds:                                  # MOVES for the default plan, the waypoint plan's names otherwise
             i0, i1 = geo.bounds[sg]
             self.pieces[sg] = _toppra(geo.q["left"][i0:i1 + 1], geo.q["right"][i0:i1 + 1], geo.offs[i0:i1 + 1], self.a_plan)
         self._retreat = {}
@@ -672,7 +719,7 @@ class ClosedChainPlan:
     def summary(self):
         geo = self.geo
         out = {}
-        for sg in MOVES:
+        for sg in geo.bounds:
             i0, i1 = geo.bounds[sg]
             pc = self.pieces[sg]
             out[sg] = dict(pc.summary(), fk_pos_max_m={s: float(geo.fk_pos[s][i0:i1 + 1].max()) for s in SIDES},
@@ -717,8 +764,28 @@ def phases_for(seg):
     return [("track", seg), ("hold", 0.3)]
 
 
-def backup_phases_for(seg):
-    back = {"lift": ["lift"], "carry": ["carry", "lift"], "place": ["place", "carry", "lift"]}.get(seg)
+def backup_phases_for(seg, wp=None):
+    """stored backup of a move.  Default plan: stop, retrace to the lift start, let go.  wp (WaypointPlan): the kind named for that move --
+    set_down  = the default (retrace this move and all earlier ones in reverse to the start of the first, let go there)
+    retrace   = stop, back along this move to its start, hold (claws keep the object)
+    hold      = stop, hold
+    let_go    = stop, let go in place (weld off, legacy 5 cm retreat)"""
+    if wp is not None:
+        if seg not in wp.names:
+            return None
+        j = wp.names.index(seg)
+        kind = wp.backups[j]
+        if kind == "retrace":
+            return [("stop", 0.3), ("retrace", (seg,)), ("hold", 0.6)]
+        if kind == "hold":
+            return [("stop", 0.3), ("hold", 1.0)]
+        if kind == "let_go":
+            return [("stop", 0.3), ("hold", 0.3), ("weld", False), ("retreat", RETREAT_M, RETREAT_T), ("hold", 0.6)]
+        if kind != "set_down":
+            raise ValueError(f"unknown backup kind {kind!r}")
+        back = list(wp.names[:j + 1])[::-1]
+    else:
+        back = {"lift": ["lift"], "carry": ["carry", "lift"], "place": ["place", "carry", "lift"]}.get(seg)
     if back is None:
         return None
     return [("stop", 0.3), ("retrace", tuple(back)), ("hold", 0.3), ("weld", False), ("jretreat", "start"), ("hold", 0.6)]
@@ -752,7 +819,7 @@ class ClosedChainPlanner:
         inp = inputs if inputs is not None else (inputs_from_episode(ep) if ep is not None else _nominal_inputs(name))
         cc = plan_for(inp, a)
         segs, t = [], 0.0
-        for sg in SEGS:
+        for sg in (list(cc.geo.bounds) + ["release"]):
             ph = phases_for(sg)
             dur = _duration(ph, cc)
             if sg == "release":
@@ -760,7 +827,7 @@ class ClosedChainPlanner:
                 x_obj, q_ref = None, None
             else:
                 pc = cc.pieces[sg]
-                meta = dict(phases=ph, backup_phases=backup_phases_for(sg), accel=cc.accel_record(sg), cc=cc, summary=pc.summary(), piece=pc)
+                meta = dict(phases=ph, backup_phases=backup_phases_for(sg, inp.wp), accel=cc.accel_record(sg), cc=cc, summary=pc.summary(), piece=pc)
                 x_obj = _x_obj(inp, cc, sg)
                 q_ref = _q_ref(pc)
             segs.append(Segment(mode=sg, t0=t, t1=t + dur, q_ref=q_ref, x_obj=x_obj, weld={s: sg != "release" for s in SIDES}, meta=meta))
@@ -808,17 +875,17 @@ def assumptions():
 
 
 # ----------------------------------------------------------------------------------------------------------------------- static-admission hooks
-def static_path(task):
+def static_path(task, wp=None):
     """(offs {key: object offset}, per_seg {seg: [keys]}, cap) for carry_cert.static_cell: the planned path samples (N_STATIC per move, evenly in path
     parameter, both ends) with the planned joint configurations of both arms.  cap = capture_nyu 'pot' dict with q / tcp replaced (same layout as thresholds.capture_path)."""
     from world_model.v2.nero.contents import envelope as E
-    inp = _nominal_inputs(task)
+    inp = _nominal_inputs(task, wp)
     g = geometry_for(inp)
     caps = json.loads(E.CAP_FILE.read_text())["pot"]
     offs, per_seg, q, tcp = {}, {}, {}, {}
     prev_key = None
     k = 0
-    for sg in MOVES:
+    for sg in g.bounds:
         i0, i1 = g.bounds[sg]
         idx = np.unique(np.round(np.linspace(i0, i1, N_STATIC + 1)).astype(int))
         keys = []
@@ -841,16 +908,16 @@ def static_path(task):
 N_STATIC = 6                                    # path samples per move for the static rows (same count as carry_cert.N_PER_MOVE)
 
 
-def goal_offset(task):
+def goal_offset(task, wp=None):
     """total object offset S -> G of the planned path [m] (3,)."""
-    return geometry_for(_nominal_inputs(task)).offs[-1].copy()
+    return geometry_for(_nominal_inputs(task, wp)).offs[-1].copy()
 
 
-def accel_records(task, a):
+def accel_records(task, a, wp=None):
     """per move: the planned object acceleration record for plan acceleration a (carry_cert.cell_accel analogue)."""
-    inp = _nominal_inputs(task)
+    inp = _nominal_inputs(task, wp)
     cc = plan_for(inp, a)
-    return {sg: cc.accel_record(sg) for sg in MOVES}
+    return {sg: cc.accel_record(sg) for sg in cc.geo.bounds}
 
 
 def main(argv=None):

@@ -127,19 +127,20 @@ def refused_static(task, cell, spec, why):
                 u_nom=float("inf"), worst_nom={}, u_one_nom=float("inf"), worst_one={}, T_cap=None, rows={}, planner="closed_chain", why=why)
 
 
-def static_cell(task, cell, world, T_cap=None, spec=None, planner=None):
+def static_cell(task, cell, world, T_cap=None, spec=None, planner=None, wp=None):
     """T_cap=None (default, user 11-02 pm): arm-side rows only.  T_cap=E.T_CAP reproduces the morning rule (claw twist row).
     spec: an ObjectSpec for an arbitrary contents set (11-03, probe.py: the interval a probe measured); default = the cell's.
     planner (11-05, None -> carry.resolve_planner): "scripted" = the legacy PLANS samples + continuation IK (unchanged); "closed_chain" = the samples and joint
-    configurations of the PLANNED path (stack/planners/closed_chain.static_path); an unreachable goal gives a refused verdict (refused_static)."""
+    configurations of the PLANNED path (stack/planners/closed_chain.static_path); an unreachable goal gives a refused verdict (refused_static).
+    wp (11-05): a closed_chain.WaypointPlan written by the proposer: implies planner "closed_chain"; the rows are per its segment names (the place row = its last move)."""
     spec = cell_spec(task, cell) if spec is None else spec
-    planner = CR.resolve_planner(planner)
+    planner = "closed_chain" if wp is not None else CR.resolve_planner(planner)
     caps = json.loads(TH.CAP_FILE.read_text())
     if planner == "closed_chain":
         from ...stack.planners import closed_chain as CCP
         try:
-            offs, per_seg, cap = CCP.static_path(task)
-            disp = CCP.goal_offset(task)
+            offs, per_seg, cap = CCP.static_path(task, wp)
+            disp = CCP.goal_offset(task, wp)
         except CCP.PlanRefused as e:
             return refused_static(task, cell, spec, str(e))
     else:
@@ -180,7 +181,7 @@ def static_cell(task, cell, world, T_cap=None, spec=None, planner=None):
             rows[seg]["open_content"] = dict(ok=bool(aa <= a_open), a_plan=aa, a_open=round(float(a_open), 4),
                                              guarantee="proof under MODEL (quasi-static liquid surface; slosh NOT covered)")
     rows["release"] = dict(support_dest=support_row(task, spec, cont, world, disp))
-    rows["place"]["support_dest"] = rows["release"]["support_dest"]
+    rows[list(per_seg)[-1] if wp is not None else "place"]["support_dest"] = rows["release"]["support_dest"]
     if action != "refuse" and not rows["release"]["support_dest"]["ok"]:
         action = "refuse (placement)"
         a_adm = None
@@ -190,6 +191,8 @@ def static_cell(task, cell, world, T_cap=None, spec=None, planner=None):
                T_cap=T_cap, rows=rows)
     if planner != "scripted":
         out["planner"] = planner
+    if wp is not None:
+        out["wp"] = wp.key_data()
     return out
 
 

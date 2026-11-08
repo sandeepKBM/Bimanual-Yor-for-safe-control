@@ -97,30 +97,30 @@ def interval_spec(task, c_lo, c_hi):
     return sp
 
 
-def static_interval(task, c_lo, c_hi, world=None, planner=None):
-    """planner (11-05): None -> carry.resolve_planner() (env BIMANUAL_PLANNER, default "scripted")."""
+def static_interval(task, c_lo, c_hi, world=None, planner=None, wp=None):
+    """planner (11-05): None -> carry.resolve_planner() (env BIMANUAL_PLANNER, default "scripted").  wp: a closed_chain.WaypointPlan (the proposer's plan)."""
     world = world if world is not None else CC.world_default(task)
-    return CC.static_cell(task, (round(c_lo, 4), round(c_hi, 4)), world, spec=interval_spec(task, c_lo, c_hi), planner=planner)
+    return CC.static_cell(task, (round(c_lo, 4), round(c_hi, 4)), world, spec=interval_spec(task, c_lo, c_hi), planner=planner, wp=wp)
 
 
-def c_admit_max(task, tol=0.01, planner=None):
-    """largest contents mass c with the point interval [c, c] admitted, on the plan of `planner` (None = the process default, CR.resolve_planner)."""
-    return _c_admit_max(task, tol, CR.resolve_planner(planner))
+def c_admit_max(task, tol=0.01, planner=None, wp=None):
+    """largest contents mass c with the point interval [c, c] admitted, on the plan of `planner` (None = the process default, CR.resolve_planner) or on wp."""
+    return _c_admit_max(task, tol, "closed_chain" if wp is not None else CR.resolve_planner(planner), wp)
 
 
 @functools.lru_cache(maxsize=None)
-def _c_admit_max(task, tol, planner):
+def _c_admit_max(task, tol, planner, wp=None):
     """largest contents mass c with the point interval [c, c] admitted (bisection; admission is monotone in the mass: MODEL --
     torque rows grow with m, the spill limit tightens with the fill).  None if even the lightest prior member is refused."""
     lo, hi = prior_contents(task)
-    if static_interval(task, lo, lo, planner=planner)["action"].startswith("refuse"):
+    if static_interval(task, lo, lo, planner=planner, wp=wp)["action"].startswith("refuse"):
         return None
-    if not static_interval(task, hi, hi, planner=planner)["action"].startswith("refuse"):
+    if not static_interval(task, hi, hi, planner=planner, wp=wp)["action"].startswith("refuse"):
         return hi
     a, b = lo, hi
     while b - a > tol:
         c = 0.5 * (a + b)
-        a, b = (c, b) if not static_interval(task, c, c, planner=planner)["action"].startswith("refuse") else (a, c)
+        a, b = (c, b) if not static_interval(task, c, c, planner=planner, wp=wp)["action"].startswith("refuse") else (a, c)
     return a
 
 
@@ -269,8 +269,8 @@ def _world(task, seed):
     return CC.sample_world(task, PRIOR[task], np.random.default_rng(seed))
 
 
-def _episode(world):
-    return CR.CarryEpisode(world, m_hat=0.0, fric_comp=True, weld_solref=CC.WELD_STIFF)
+def _episode(world, wp=None):
+    return CR.CarryEpisode(world, m_hat=0.0, fric_comp=True, weld_solref=CC.WELD_STIFF, wp=wp)
 
 
 def _calib_job(args):
@@ -317,17 +317,22 @@ def calibrate_summary(rows):
 
 
 def _e2e_job(args):
-    task, i, eps_lo, eps_free = args
+    """args = (task, i, eps_lo, eps_free[, plan]).  plan (11-05, same_worlds --plan-source codex): dict(wp = closed_chain.WaypointPlan, fallback = tuple of recovery
+    skills, belief = {param: [lo, hi]} | None, outside_b = "refuse" | "carry"): the proposer's compiled plan replaces the default one in the static admission, the
+    carry (its segments and recoveries) and the refuse path (its fallback).  Without it: unchanged."""
+    task, i, eps_lo, eps_free, *rest = args
+    plan = rest[0] if rest else None
+    wp = plan["wp"] if plan else None
     seed = _seed("e2e", task, i)
     t0 = time.time()
     try:
         w = _world(task, seed)
-        ep = _episode(w)
+        ep = _episode(w, wp)
         M = true_mass(ep)
-        cmax = c_admit_max(task)
+        cmax = c_admit_max(task, wp=wp)
         M_stop = None if cmax is None else empty_mass(task) + cmax
         pr = Probe(ep, task, eps_lo, eps_free, rng=np.random.default_rng(seed), noise=True)
-        if not static_interval(task, *prior_contents(task), w)["action"].startswith("refuse"):
+        if not static_interval(task, *prior_contents(task), w, wp=wp)["action"].startswith("refuse"):
             why = "free"                                     # verdict already "carry" on all of Theta_0: no probe needed
             pr.M_lo, pr.M_hi = empty_mass(task) + prior_contents(task)[0], empty_mass(task) + prior_contents(task)[1]
         else:
@@ -339,8 +344,13 @@ def _e2e_job(args):
         decision = None
         if why == "free":
             c_lo, c_hi = pr.M_lo - empty_mass(task), pr.M_hi - empty_mass(task)
-            st = static_interval(task, c_lo, c_hi, w)
+            st = static_interval(task, c_lo, c_hi, w, wp=wp)
             decision = dict(action=st["action"], a_admit=st["a_admit"], u_nom=st["u_nom"], contents=[c_lo, c_hi])
+            if plan and plan.get("belief"):                  # Rule 2: is the probe's set inside the proposer's belief B?  (only the probed dimension, the contents mass)
+                from world_model.v2.stack.proposer import compile as PC
+                rec["probe_in_B"] = PC.probe_in_belief(task, plan["belief"], c_lo, c_hi)
+                if not rec["probe_in_B"]["inside"] and plan.get("outside_b", "refuse") == "refuse":
+                    decision = dict(decision, action="refuse (probe set outside B)", a_admit=None, why_B=rec["probe_in_B"])
         rec["decision"] = decision
         if decision and decision["a_admit"] is not None:
             ep.set_belief(0.5 * (decision["contents"][0] + decision["contents"][1]), a_plan=decision["a_admit"])
@@ -354,7 +364,12 @@ def _e2e_job(args):
             rec["outcome"] = "carried" if (carry["end_in_R"][0] and not any(s["nominal"]["viol"] for s in carry["segments"])) else "carry_failed"
         else:
             pr._ramp(0.0, 0.5)
-            ep.run_phases([("hold", 0.3), ("weld", False), ep.retreat_phase(), ("hold", 0.5)])
+            if plan and plan.get("fallback"):               # the proposer's fallback (hold / let_go / set_down: the object is still on its start support)
+                from world_model.v2.stack.proposer import compile as PC
+                ep.run_phases(PC.fallback_phases(plan["fallback"], ep))
+                rec["fallback"] = list(plan["fallback"])
+            else:
+                ep.run_phases([("hold", 0.3), ("weld", False), ep.retreat_phase(), ("hold", 0.5)])
             okR, whyR = ep.in_R()
             rec["refuse_end_in_R"] = [okR, whyR]
             rec["outcome"] = "refused_in_R" if okR and not ep.track["viol"] else "refused_bad"
