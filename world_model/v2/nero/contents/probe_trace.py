@@ -18,17 +18,18 @@ import time
 
 import numpy as np
 
+from world_model.v2.stack import tasks as TK
+
 from . import carry_cert as CC
 from . import probe as PR
 
-PRIOR = {"box": (0.5, 5.0), "tray2": (0.0, 0.25), "tray4": (0.0, 0.25), "tray6": (0.0, 0.25)}   # = contents_eval render cells
 
 
 def _job(args):
     task, seed, eps_lo, eps_free, method = args
     t0 = time.time()
     try:
-        w = CC.sample_world(task, PRIOR[task], np.random.default_rng(seed))
+        w = CC.sample_world(task, TK.prior_box(task), np.random.default_rng(seed))
         ep = PR._episode(w)
         M = PR.true_mass(ep)
         pr = PR.make_probe(ep, task, eps_lo, eps_free, rng=np.random.default_rng(seed + 1), noise=True, method=method)

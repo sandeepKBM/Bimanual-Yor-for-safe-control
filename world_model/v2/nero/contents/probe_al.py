@@ -24,6 +24,8 @@ import time
 
 import numpy as np
 
+from world_model.v2.stack import tasks as TK
+
 from . import envelope as E
 from . import probe as PR
 
@@ -323,7 +325,7 @@ def _job(a):
     from . import carry_cert as CC
     t0 = time.time()
     try:
-        w = CC.sample_world(task, PR.PRIOR[task], np.random.default_rng(seed))
+        w = CC.sample_world(task, TK.prior_box(task), np.random.default_rng(seed))
         ep = PR._episode(w)
         M = PR.true_mass(ep)
         pr = PR.make_probe(ep, task, eps[0], eps[1], rng=np.random.default_rng(seed + 1), noise=True, method="ladder")   # AL chooses push-ladder rung forces: ladder only

@@ -29,12 +29,14 @@ def act(fn, arm, **kw):
 
 def two_arm(task):
     """grasp, lift, carry, place + release (the PLANS of carry.py as AgentChord atoms)."""
+    from world_model.v2.stack import goal as GL, tasks as TK
     box = task == "box"
     obj = "box" if box else ("pot" if task == "pot" else "tray")
-    lift, carry_dx = (0.18, -0.20) if box else (0.05, -0.10)
+    mv = dict(TK.task(task).moves)                       # the task's scripted moves (stack/tasks.py)
+    lift, carry_dx = mv["lift"][2], mv["carry"][0]
     pre = 0.03 if box else 0.05
     from . import tasks   # place target from the scene (obj_xy + PLANS deltas), not literals: the scene moved +y by SCENE_DY on 11-03
-    x_t, y_t = tasks.goal_xy(task, tasks.rep_world(task))
+    x_t, y_t = GL.goal_xy(task, tasks.rep_world(task))
     mk = lambda fn, **kw: (lambda b: (b["left_arm_action"], b["right_arm_action"]))(_both(fn, **kw))
     e = [("grasp", *mk("grasp", obj_name=obj, pre_grasp_dis=0.1)),
          ("lift", *mk("move_by_relative_offset", dx=0.0, dy=0.0, dz=lift, mode="extrinsic")),

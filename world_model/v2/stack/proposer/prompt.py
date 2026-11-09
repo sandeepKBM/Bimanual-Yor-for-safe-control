@@ -4,7 +4,7 @@ The prompt holds: the task instruction (destination = the TASK INPUT), the scene
 vocabulary and the output format.  It holds NO hidden truth: no sampled world, no true contents mass / centre / fills, no prior box (bounds rule: the proposer
 states its own belief B).  The text is deterministic (no times, no random ids), so the response cache replays offline.
 
-Destinations: GOAL_DXY of stack/planners/closed_chain.py (ASSUMED, user-confirmed 11-02) turned into a world xy -- the same destination the fixture plans reach, so
+Destinations: GOAL_DXY of stack/tasks.py (ASSUMED, user-confirmed 11-02) turned into a world xy -- the same destination the fixture plans reach, so
 a model plan and the fixture plan are judged on one goal.  Goal tolerance GOAL_TOL_M = 0.03 m (decision 11-03 "goal tolerance 3 cm", ASSUMED).
 """
 from __future__ import annotations
@@ -29,12 +29,13 @@ def task_spec(task, world=None):
     """the task input: -> dict(instruction, start_xy, goal_xy, goal_support, goal_top, goal_tol_m, supports {name: dict(top, x, y)}, object {...}).  Frames: world."""
     from world_model.v2.nero.contents import objects as OB, scenes as SC
     from world_model.v2.stack.planners import closed_chain as CCP
+    from world_model.v2.stack import tasks as TK
     w = _world(task, world)
     kind = CCP.kind_of(task)
     tops = SC.support_tops(w)
-    gx, gy = CCP.GOAL_DXY[kind]
+    gx, gy = TK.GOAL_DXY[kind]
     goal = [round(float(w.obj_xy[0] + gx), 4), round(float(w.obj_xy[1] + gy), 4)]
-    goal_support = "shelf" if (kind == "box" and "shelf" in tops) else "counter"
+    goal_support = TK.of_kind(kind).goal_support if TK.of_kind(kind).goal_support in tops else "counter"
     sup = {k: dict(top=round(float(v["top"]), 4), x=[round(float(a), 4) for a in v["x"]], y=[round(float(a), 4) for a in v["y"]]) for k, v in tops.items()}
     if kind == "box":
         obj = dict(name="closed crate", footprint_xy_m=[w.box_outer[0], w.box_outer[1]], height_m=w.box_outer[2], empty_mass_kg=OB.BOX["mass"],

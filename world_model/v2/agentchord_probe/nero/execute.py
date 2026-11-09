@@ -18,6 +18,8 @@ import time
 
 import numpy as np
 
+from world_model.v2.stack import tasks as TK
+
 from . import tasks as T
 
 def _tau_note():
@@ -145,7 +147,7 @@ def same_world_trial(task, i, plan_dir, mon_period=0.1, edge_settle=0.3):
     pj = pj if pj.suffix == ".json" else pj / "plan.json"
     seed = P._seed("e2e", task, i)
     w = P._world(task, seed)
-    lo, hi = P.PRIOR[task]
+    lo, hi = TK.prior_box(task)
     m_hat = 0.5 * (lo + hi)                                      # ASSUMED, identical to same_worlds 'theirs' (BU._trial(..., m_hat=0.5*(lo+hi)))
     r = run_world(dict(plan=str(pj), task=task, cell=[lo, hi], i=i, world=(seed, w), m_hat_kg=m_hat, mon_period=mon_period, edge_settle=edge_settle))
     fu = None

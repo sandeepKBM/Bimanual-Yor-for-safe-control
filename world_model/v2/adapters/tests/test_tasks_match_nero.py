@@ -35,18 +35,22 @@ def test_plans_and_goal_dxy():
     for n in ("tray2", "tray6", "box", "pot"):
         t = TK.task(n)
         assert [(s, tuple(d)) for s, d in CR.plan_moves(t.kind if t.kind != "tray" else "tray")] == [(s, tuple(d)) for s, d in t.moves]
-        assert tuple(CCP.GOAL_DXY[t.kind]) == tuple(t.goal_dxy)
-    assert TK.GOAL_DXY == {k: tuple(v) for k, v in CCP.GOAL_DXY.items()}
+        assert not hasattr(CCP, "GOAL_DXY")                                           # deleted 11-09: stack/tasks.py is the one copy
+    assert TK.GOAL_DXY == {t.kind: t.goal_dxy for t in TK.TASKS.values() if t.backend == "carry"}
 
 
-def test_priors_agree_with_all_three_old_copies():
+def test_prior_has_one_copy_and_matches_contents():
     from world_model.v2.agentchord_probe.nero import tasks as AT
     from world_model.v2.nero.contents import probe, probe_trace
+    from world_model.v2.vlm import contents_eval as CE
+    assert not any(hasattr(m, "PRIOR") for m in (probe, probe_trace, AT))
+    assert CE.PRIOR_FILL == TK.prior_box("tray2") and CE.PRIOR_BOX == TK.prior_box("box")
     for n in ("tray2", "tray4", "tray6", "box", "pot"):
         t = TK.task(n)
-        assert (t.prior.lo, t.prior.hi) == tuple(probe.PRIOR[n]) == tuple(AT.PRIOR[t.kind])
-        if n in probe_trace.PRIOR:
-            assert tuple(probe_trace.PRIOR[n]) == (t.prior.lo, t.prior.hi)
+        assert (t.prior.lo, t.prior.hi) == TK.prior_box(n)
+        if n == "pot":
+            from world_model.v2.nero.contents import scenes as SC
+            assert TK.prior_box(n) == tuple(SC.POT_CONTENTS_KG)          # scenes.POT_CONTENTS_KG = pan/theta.py THETA mass (the sim's own range)
         # total-mass prior = probe.prior_contents
         assert CS.prior_total(n) == pytest.approx(probe.prior_contents(n))
 

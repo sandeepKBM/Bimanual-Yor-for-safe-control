@@ -41,6 +41,8 @@ import time
 import mujoco
 import numpy as np
 
+from world_model.v2.stack import tasks as TK
+
 from . import carry as CR
 from . import carry_cert as CC
 from . import envelope as E
@@ -67,8 +69,6 @@ T_HOLD_POSLIFT = float(os.environ.get("PL_T_HOLD", 1.2))  # ASSUMED, USER-approv
 N_FREE_CONFIRM = 2                                       # ASSUMED, USER-approved 11-09 (poslift): consecutive flat dL needed
 POSLIFT_CALIB = pathlib.Path(__file__).resolve().parents[1] / "results" / "probe_calib_poslift_2026-11-09" / "CALIB.json"   # MEASURED n=20/task (see README next to it)
 LADDER_CALIB = "/data/local/ss5772/contents/probe_calib_2026-11-03/CALIB.json"                                              # MEASURED 11-03 (ladder only)
-PRIOR = {"box": (0.5, 5.0), "tray6": (0.0, 0.25), "tray4": (0.0, 0.25), "tray2": (0.0, 0.25),
-         "pot": SC.POT_CONTENTS_KG}   # sample_world cells = full prior (pot: pan/theta.py THETA "mass" 0.02..1.5 kg, ASSUMED)
 
 
 # ------------------------------------------------------------------------------------------------- specs and static verdicts
@@ -448,7 +448,7 @@ def _seed(kind, task, i):
 
 
 def _world(task, seed):
-    return CC.sample_world(task, PRIOR[task], np.random.default_rng(seed))
+    return CC.sample_world(task, TK.prior_box(task), np.random.default_rng(seed))
 
 
 def _episode(world, wp=None):

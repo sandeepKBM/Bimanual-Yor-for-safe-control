@@ -18,9 +18,7 @@ def _tilt_deg(R):   # = carry._tilt_deg (checked by the same test)
     return float(np.degrees(np.arccos(np.clip(R[2, 2], -1.0, 1.0))))
 
 
-def _kind_task(kind):
-    """a TaskDef of this CarryEpisode.task kind ("tray" | "box" | "pot"); the drop bound is the same for every task of a kind."""
-    return next(t for t in TK.TASKS.values() if t.kind == kind and t.backend == "carry")
+_kind_task = TK.of_kind          # a TaskDef of this CarryEpisode.task kind ("tray" | "box" | "pot"); the drop bound is the same for every task of a kind
 
 
 def _tops(world):
@@ -33,7 +31,7 @@ def from_carry(ep, finished=None, pre_hold_viol=None) -> EndState:
     p = d.xpos[ep.obj]
     v = np.zeros(6)
     mujoco.mj_objectVelocity(m, d, mujoco.mjtObj.mjOBJ_BODY, ep.obj, v, 0)
-    sup = {m.geom("counter").id} | ({m.geom("shelf").id} if getattr(ep.world, "shelf", False) and ep.task == "box" else set())
+    sup = {m.geom("counter").id} | ({m.geom("shelf").id} if getattr(ep.world, "shelf", False) and _kind_task(ep.task).goal_support == "shelf" else set())
     touching = any((int(c.geom1) in sup and m.geom_bodyid[c.geom2] == ep.obj) or (int(c.geom2) in sup and m.geom_bodyid[c.geom1] == ep.obj)
                    for c in d.contact[:d.ncon])
     tr = ep.track

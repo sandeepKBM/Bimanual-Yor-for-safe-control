@@ -33,7 +33,7 @@ import os
 import pathlib
 import time
 
-from world_model.v2.stack import outcome as OC
+from world_model.v2.stack import outcome as OC, tasks as TK
 
 CALIB = None          # default: probe.default_calib() = the CALIB of the active probe method (poslift: repo copy; ladder: the 11-03 file)
 
@@ -75,7 +75,7 @@ def _job(args):
         r = AX.same_world_trial(task, i, ex["agentchord_plan"])
     else:
         BU.seed_of = lambda t, c, k: P._seed("e2e", t, k)          # same world as ours: CC.sample_world(task, PRIOR[task], rng(seed))
-        lo, hi = P.PRIOR[task]
+        lo, hi = TK.prior_box(task)
         r = BU._trial((task, (lo, hi), i, 0.5 * (lo + hi), True, CC.WELD_STIFF))
     r.update(method=method, seed_e2e=seed, planner=CR_resolve())
     if method == "ours" and ex.get("plan_source"):

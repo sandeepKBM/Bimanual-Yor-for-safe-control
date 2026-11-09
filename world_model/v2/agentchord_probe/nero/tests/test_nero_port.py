@@ -103,7 +103,8 @@ def test_pot_prompt_and_canned_plan(tmp_path):
     meta = _plan(tmp_path, "two_arm", "pot")
     g = json.loads((tmp_path / "plan_two_arm" / "agent_task_graph.json").read_text())
     assert g["edges"][0]["left_arm_action"]["kwargs"]["obj_name"] == "pot" and meta["task"] == "pot"
-    x, y = T.goal_xy("pot", T.rep_world("pot"))
+    from world_model.v2.stack import goal as GL
+    x, y = GL.goal_xy("pot", T.rep_world("pot"))
     assert 0.0 < x < 0.38 and abs(x - (T.rep_world("pot").obj_xy[0] - 0.10)) < 1e-9
 
 
@@ -142,5 +143,5 @@ def test_goal_from_task_spec_and_tau_note():
     for task in ("tray6", "box", "pot"):
         w = T.rep_world(task)
         d = np.sum([np.asarray(dl, float) for _, dl in CR.plan_moves(T.kind(task))], axis=0)
-        assert np.allclose(T.goal_xy(task, w), (w.obj_xy[0] + d[0], w.obj_xy[1] + d[1]), atol=1e-12)
+        assert np.allclose(__import__("world_model.v2.stack.goal", fromlist=["x"]).goal_xy(task, w), (w.obj_xy[0] + d[0], w.obj_xy[1] + d[1]), atol=1e-12)
     assert f"{float(NC.tau_limit()[0]):g} Nm" in ASSUMPTIONS["controller"] and "16 Nm box" not in ASSUMPTIONS["controller"]

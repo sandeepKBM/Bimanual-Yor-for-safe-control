@@ -46,6 +46,12 @@ def goal_for(task: str, world=None, plan=None) -> Goal:
     return Goal(task, tuple(GoalTerm(q, b) for q, b in t.goal_terms), ref)
 
 
+def goal_xy(task: str, world) -> tuple:
+    """the world xy of the task's goal (object reference), e.g. where a plan must place the object."""
+    g = goal_for(task, world)
+    return (g.ref["gx"], g.ref["gy"])
+
+
 def derive(goal: Goal, values: dict) -> dict:
     """values + the derived quantities the goal's reference gives."""
     out = dict(values)

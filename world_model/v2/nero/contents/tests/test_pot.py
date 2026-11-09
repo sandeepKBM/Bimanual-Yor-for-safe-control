@@ -60,12 +60,12 @@ def test_weld_holds_at_rest(ep_cc):
 
 
 def test_plan_reaches_the_counter_goal(ep_cc):
-    from world_model.v2.stack.planners import closed_chain as CCP
+    from world_model.v2.stack import tasks as TK
     cc = ep_cc.closed_chain()
     geo = cc.geo
     for s in CR.SIDES:
         assert geo.fk_pos[s].max() < 1e-6 and geo.margin[s].min() > 0.0
-    gx, gy = CCP.GOAL_DXY["pot"]
+    gx, gy = TK.GOAL_DXY["pot"]
     assert np.allclose(geo.offs[-1], [gx, gy, 0.0])                                  # back down on the counter, 10 cm toward the robot
     assert [k for k in CR.plan_moves("pot")][0][0] == "lift"
 
@@ -106,7 +106,7 @@ def test_cert_cells_cover_the_theta_mass_range_and_static_rows():
 
 
 def test_probe_ladder_runs_one_rung():
-    assert PR.PRIOR["pot"] == (0.02, 1.5) and PR.prior_contents("pot") == (0.02, 1.5)
+    assert __import__("world_model.v2.stack.tasks", fromlist=["x"]).prior_box("pot") == (0.02, 1.5) and PR.prior_contents("pot") == (0.02, 1.5)
     assert PR.empty_mass("pot") == pytest.approx(SC.pot_empty_props()[0])
     sp = PR.interval_spec("pot", 0.1, 0.4)
     assert sp.contents.m_lo == 0.1 and sp.contents.m_hi == 0.4

@@ -28,13 +28,14 @@ def test_reaches_goal_with_margin(planned):
         assert np.allclose(geo.q[s][0], inp.q0[s], atol=1e-12)                      # starts exactly at the hold pose
         assert np.abs(np.diff(geo.q[s], axis=0)).max() <= CC.DQ_MAX + 1e-12          # continuous
     w = inp.world
-    gx, gy = CC.GOAL_DXY[inp.task]
+    from world_model.v2.stack import tasks as TK
+    gx, gy = TK.GOAL_DXY[inp.task]
     top_goal = SC.support_tops(w)["shelf" if task == "box" else "counter"]["top"]
     top_start = SC.support_tops(w)["counter"]["top"]
     assert np.allclose(geo.offs[-1], [gx, gy, top_goal - top_start])                # object ends on the goal support
     goal_xy = (w.obj_xy[0] + gx, w.obj_xy[1] + gy)
-    from world_model.v2.agentchord_probe.nero.tasks import goal_xy as AC_goal         # tasks.py goal: tray (0.28,-0.22), box (0.18,-0.22)
-    assert np.allclose(goal_xy, AC_goal(task, w))
+    from world_model.v2.stack import goal as GL                                       # tray (0.28,-0.22), box (0.18,-0.22)
+    assert np.allclose(goal_xy, GL.goal_xy(task, w))
     if task == "box":                                                                # shelf clearance: above the shelf top + CLEAR_M before leaving x >= shelf edge
         assert geo.nodes[1][2] + SC.support_tops(w)["counter"]["top"] >= SC.support_tops(w)["shelf"]["top"] + CC.CLEAR_M["box"] - 1e-9
         assert CC._collides(inp, geo.nodes) is None

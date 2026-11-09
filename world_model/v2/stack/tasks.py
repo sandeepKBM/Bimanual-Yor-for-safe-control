@@ -13,7 +13,7 @@ Where the numbers come from (checked by world_model/v2/adapters/tests/test_tasks
   carry U / R      nero/contents/carry.py U_TILT_OBJ, U_TILT_CUP, R_TILT_OBJ, R_TILT_CUP, LID_*, R_SPEED, the drop test in CarryEpisode._check
   pan U / R        nero/pan/segments.py U, R
   goal             closed_chain.GOAL_DXY (xy offset), the carry tasks' goal terms = AgentChord ac_success (USER 11-09); pan success(seg); coffee_tray/env.py
-  contents prior   probe.PRIOR = probe_trace.PRIOR = agentchord tasks.PRIOR (they agree; one copy here)
+  contents prior   was probe.PRIOR = probe_trace.PRIOR = agentchord tasks.PRIOR (deleted 11-09; prior_box() is the one reader)
 """
 from __future__ import annotations
 
@@ -170,7 +170,7 @@ _XY = ("xy_err", ub(0.05, _ASM, _AC_SRC + ": xy_err <= 0.05 m", "m"))
 _Z = ("z_err", ub(0.02, _ASM, _AC_SRC + ": support-relative z_err <= 0.02 m", "m"))
 _TILT_G = ("obj_tilt_deg", ub(45.0, _ASM, _AC_SRC + ": object tilt < 45 deg (strict)", "deg", strict=True))
 _CUP_TILT_G = ("cup_tilt_deg", ub(45.0, _ASM, _AC_SRC + ": every mug tilt < 45 deg (strict)", "deg", strict=True))
-_PRIOR_SRC = "probe.PRIOR = probe_trace.PRIOR = agentchord tasks.PRIOR (checked 11-09: the three agree)"
+_PRIOR_SRC = "prior box moved here 11-09 from probe.PRIOR = probe_trace.PRIOR = agentchord tasks.PRIOR (the three agreed)"
 _PLANS_SRC = "nero/contents/carry.py PLANS / PLANS_EXTRA (ASSUMED, user-confirmed 11-02)"
 
 _TRAY_MOVES = (("lift", (0, 0, 0.05)), ("carry", (-0.10, 0, 0)), ("place", (0, 0, -0.05)))
@@ -198,7 +198,7 @@ _CT_COMMON = dict(kind="coffee_tray", backend="embodichain", goal_frame="start",
 
 def _carry_task(name, kind, world_ref, spec_ref, goal_support, moves, shape, rows, n_cups=0, empty_mass=None, empty_com=None, prior=None, cups=False, lid=False,
                 obj="obj", geom_tags=()):
-    gx, gy = {"tray": (-0.10, 0.0), "box": (-0.20, 0.0), "pot": (-0.10, 0.0)}[kind]    # ASSUMED (user-confirmed 11-02): closed_chain.GOAL_DXY
+    gx, gy = {"tray": (-0.10, 0.0), "box": (-0.20, 0.0), "pot": (-0.10, 0.0)}[kind]    # ASSUMED (user-confirmed 11-02): goal xy of the object reference relative to its start
     return TaskDef(name=name, kind=kind, backend="carry", world_ref=world_ref, n_cups=n_cups, spec_ref=spec_ref, start_support="counter",
                    goal_support=goal_support, goal_dxy=(gx, gy),
                    goal_terms=(_XY, _Z, _TILT_G) + ((_CUP_TILT_G,) if cups else ()), shape=shape, geom_tags=geom_tags, empty_mass=empty_mass, empty_com=empty_com,
@@ -253,7 +253,7 @@ TASKS: dict[str, TaskDef] = {t.name: t for t in (
             **_CT_COMMON),
 )}
 
-# goal xy offset by kind (the same numbers as closed_chain.GOAL_DXY; kept there too until the owner deletes it)
+# goal xy offset by kind: the ONE copy (closed_chain.GOAL_DXY deleted 11-09)
 GOAL_DXY = {t.kind: t.goal_dxy for t in TASKS.values() if t.backend == "carry"}
 
 
@@ -261,6 +261,17 @@ def task(name: str) -> TaskDef:
     if name not in TASKS:
         raise KeyError(f"unknown task {name!r}; have {sorted(TASKS)}")
     return TASKS[name]
+
+
+def of_kind(kind: str, backend: str = "carry") -> TaskDef:
+    """a TaskDef of this kind ("tray" | "box" | "pot"): the facts every task of a kind shares (goal support, goal offset, U / R tables)."""
+    return next(t for t in TASKS.values() if t.kind == kind and t.backend == backend)
+
+
+def prior_box(name: str) -> tuple:
+    """the contents prior box (lo, hi) of a task: ONE copy (TaskDef.prior); tray: kg per mug."""
+    p = task(name).prior
+    return (p.lo, p.hi)
 
 
 def names(backend: str | None = None):

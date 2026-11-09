@@ -6,8 +6,9 @@ import hashlib
 
 import numpy as np
 
+from world_model.v2.stack import goal as GL, tasks as TK
+
 TASKS = ("tray2", "tray4", "tray6", "box", "pot")
-PRIOR = {"tray": (0.0, 0.25), "box": (0.5, 5.0), "pot": (0.02, 1.5)}   # ASSUMED prior boxes (contents_eval.PRIOR_FILL / PRIOR_BOX; pot: scenes.POT_CONTENTS_KG = THETA mass box, kg of puck)
 
 TRAY_TEXT = (
     "Use the robot's two arms together to carry the coffee tray (object name 'tray') on the counter (object name 'counter', top surface at "
@@ -43,15 +44,6 @@ def pot_facts():
             "holding hidden contents as one load.")
 
 
-def goal_xy(task, world):
-    """task goal xy = the task spec's goal (closed_chain.GOAL_DXY, ASSUMED user-confirmed 11-02; the same source as stack/proposer/prompt.task_spec).
-    11-07 fix (clarity report 11-06 (f)10): was the sum of the scripted plan's moves (carry.plan_moves), i.e. the goal came from a hand-written
-    plan.  Same numbers: the scripted moves sum to GOAL_DXY in xy for tray, box and pot (checked 11-07)."""
-    from world_model.v2.stack.planners import closed_chain as CCP
-    gx, gy = CCP.GOAL_DXY[kind(task)]
-    return (world.obj_xy[0] + gx, world.obj_xy[1] + gy)
-
-
 def cell_list(task):
     from world_model.v2.nero.contents import carry_cert as CC
     return [c for (c,) in CC.cells(task)]
@@ -67,7 +59,7 @@ def world_for(task, cell, i, seeds="cert"):
 def rep_world(task):
     """representative world for the planner's image / facts: seed 0 over the FULL prior box (the facts text does not depend on the hidden fill)."""
     from world_model.v2.nero.contents import carry_cert as CC
-    return CC.sample_world(task, PRIOR[kind(task)], np.random.default_rng(0))
+    return CC.sample_world(task, TK.prior_box(task), np.random.default_rng(0))
 
 
 def task_prompt(task, world=None):
@@ -75,7 +67,7 @@ def task_prompt(task, world=None):
     from world_model.v2.vlm import contents_eval as CE
     w = world or rep_world(task)
     facts = pot_facts() if task == "pot" else CE.facts_and_truth(task, w)[0]
-    x1, y1 = goal_xy(task, w)
+    x1, y1 = GL.goal_xy(task, w)
     common = dict(counter_top=w.counter_top, x0=w.obj_xy[0], y0=w.obj_xy[1], x1=x1, y1=y1, facts=facts)
     if kind(task) == "pot":
         return POT_TEXT.format(dx=w.obj_xy[0] - x1, **common), facts

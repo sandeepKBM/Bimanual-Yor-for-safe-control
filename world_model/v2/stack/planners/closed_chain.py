@@ -20,7 +20,7 @@ Backups (same structure as carry.py today): stop, retrace to the segment start (
   (rest to rest per segment, a = carry.A_BACKUP), let go in place, retreat.  Retreat = a planned 5 cm claw translation, smoothstep 0.8 s (legacy), stretched if
   a joint speed limit binds.
 
-Labels (AGENTS.md bounds rule):  ASSUMED = CLEAR_M, GOAL_DXY (user-confirmed 11-02 plans), LAT_CLEAR, DY_GRID, MARGIN_WANT (= carry.PATH_MARGIN_MIN), M_GOOD, DS, PSI_STEP_DEG,
+Labels (AGENTS.md bounds rule):  ASSUMED = CLEAR_M, TK.GOAL_DXY (user-confirmed 11-02 plans; stack/tasks.py), LAT_CLEAR, DY_GRID, MARGIN_WANT (= carry.PATH_MARGIN_MIN), M_GOOD, DS, PSI_STEP_DEG,
 DQ_MAX, N_GRID, FK_TOL;  MODEL = SRS kinematics from the compiled MJCF, FK validation by MuJoCo, TOPP-RA constraints from config.MANUAL (datasheet speeds).
 """
 from __future__ import annotations
@@ -35,6 +35,7 @@ import pathlib
 import numpy as np
 
 from world_model.v2.nero import config as C
+from world_model.v2.stack import tasks as TK
 from world_model.v2.stack.kin.srs_ik import SRSArm
 from world_model.v2.stack.types import SIDES, BimanualPlan, Segment, SkillCall, TaskSpec
 
@@ -45,7 +46,6 @@ MOVES = ("lift", "carry", "place")
 
 # ---- ASSUMED planner numbers (each listed in plan.assumptions)
 CLEAR_M = {"tray": 0.05, "box": 0.03, "pot": 0.05}       # ASSUMED [m]: object underside clearance above the highest support it passes over (the clearances implied by the user-confirmed 11-02 plans: tray lift 5 cm, box 18 cm = shelf 15 cm + 3 cm)
-GOAL_DXY = {"tray": (-0.10, 0.0), "box": (-0.20, 0.0), "pot": (-0.10, 0.0)}   # ASSUMED (user-confirmed 11-02): goal xy of obj_ref relative to its start (tasks.goal_xy: tray (0.28,-0.22), box (0.18,-0.22))
 LAT_CLEAR = 0.005                           # ASSUMED [m]: lateral bloat of the object volume in the shelf collision test
 DY_GRID = tuple(np.round(np.arange(-0.04, 0.0601, 0.005), 4))   # ASSUMED search grid of the lateral lift offset [m]
 MARGIN_WANT = 0.05                          # ASSUMED [rad] (= carry.PATH_MARGIN_MIN): joint-limit distance wanted at every path sample
@@ -131,7 +131,7 @@ class PlanInputs:
         d = dict(task=self.task, obj_xy=list(w.obj_xy), tops={k: dict(top=v["top"], x=list(v["x"]), y=list(v["y"])) for k, v in tops.items()},
                  box=list(w.box_outer) if self.task == "box" else None, shelf_t=getattr(w, "shelf_t", None),
                  q0={s: [round(float(x), 9) for x in self.q0[s]] for s in SIDES}, lim=[SRSArm_limits(self.arms[s]) for s in SIDES],
-                 params=dict(CLEAR_M=CLEAR_M[self.task], GOAL=GOAL_DXY[self.task], LAT=LAT_CLEAR, DY=list(map(float, DY_GRID)), MW=MARGIN_WANT, MG=M_GOOD,
+                 params=dict(CLEAR_M=CLEAR_M[self.task], GOAL=TK.GOAL_DXY[self.task], LAT=LAT_CLEAR, DY=list(map(float, DY_GRID)), MW=MARGIN_WANT, MG=M_GOOD,
                              DS=DS, PSI=PSI_STEP_DEG, DQ=DQ_MAX, SS=list(SMOOTH_SIGMAS), SL=SMOOTH_MARGIN_LOSS), v=3)
         if self.wp is not None:                                                        # only a waypoint plan adds a key: default-plan keys (and cache files) are unchanged
             d["wp"] = self.wp.key_data()
@@ -172,7 +172,7 @@ def object_path(inp: PlanInputs, dy):
         return nodes, dict(z_c=float(nodes[:, 2].max()), goal_dz=float(nodes[-1, 2]), goal_xy=[float(w.obj_xy[0] + nodes[-1, 0]), float(w.obj_xy[1] + nodes[-1, 1])])
     goal_top = tops["shelf"]["top"] if (task == "box" and "shelf" in tops) else t0
     z_c = max(goal_top, t0) + CLEAR_M[task] - t0
-    gx, gy = GOAL_DXY[task]
+    gx, gy = TK.GOAL_DXY[task]
     nodes = np.array([[0, 0, 0], [0, dy, z_c], [gx, gy, z_c], [gx, gy, goal_top - t0]], float)
     return nodes, dict(z_c=float(z_c), goal_dz=float(goal_top - t0), goal_xy=[float(w.obj_xy[0] + gx), float(w.obj_xy[1] + gy)])
 
@@ -862,7 +862,7 @@ def assumptions():
     A = lambda v, src: dict(tag="ASSUMED", value=v, src=src)
     return dict(
         CLEAR_M=A(CLEAR_M, "object underside clearance over the highest support it passes over; implied by the user-confirmed 11-02 plans (tray 5 cm, box 3 cm over the shelf)"),
-        GOAL_DXY=A(GOAL_DXY, "goal xy of obj_ref relative to its start (user-confirmed 11-02; agentchord tasks.goal_xy)"),
+        GOAL_DXY=A(TK.GOAL_DXY, "goal xy of obj_ref relative to its start (user-confirmed 11-02; stack/tasks.py is the one copy)"),
         LAT_CLEAR=A(LAT_CLEAR, "lateral bloat of the object in the shelf collision test [m]"),
         DY_GRID=A([float(DY_GRID[0]), float(DY_GRID[-1]), 0.005], "lateral lift offset search grid [m] (min, max, step)"),
         MARGIN_WANT=A(MARGIN_WANT, "= carry.PATH_MARGIN_MIN [rad]"), M_GOOD=A(M_GOOD, "margin above which the DP prefers smoothness [rad]"),
