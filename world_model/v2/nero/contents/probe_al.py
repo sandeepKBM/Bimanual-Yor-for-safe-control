@@ -326,7 +326,7 @@ def _job(a):
         w = CC.sample_world(task, PR.PRIOR[task], np.random.default_rng(seed))
         ep = PR._episode(w)
         M = PR.true_mass(ep)
-        pr = PR.Probe(ep, task, eps[0], eps[1], rng=np.random.default_rng(seed + 1), noise=True)
+        pr = PR.make_probe(ep, task, eps[0], eps[1], rng=np.random.default_rng(seed + 1), noise=True, method="ladder")   # AL chooses push-ladder rung forces: ladder only
         lik = Lik(lik_params)
         ctx = Ctx(task, lik, ceil_c, eps[0], eps[1], m_umax(task))
         bel = Belief(pr.M_lo, pr.M_hi, prior, iv, M) if objective != "fixed" else Belief(pr.M_lo, pr.M_hi, "flat")

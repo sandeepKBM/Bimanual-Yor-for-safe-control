@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import time
 
@@ -30,7 +31,7 @@ def _job(args):
         w = CC.sample_world(task, PRIOR[task], np.random.default_rng(seed))
         ep = PR._episode(w)
         M = PR.true_mass(ep)
-        pr = PR.Probe(ep, task, eps_lo, eps_free, rng=np.random.default_rng(seed + 1), noise=True)
+        pr = PR.make_probe(ep, task, eps_lo, eps_free, rng=np.random.default_rng(seed + 1), noise=True)
         why = pr.run(M_stop=None)
         return dict(task=task, seed=seed, M_true=M, empty=PR.empty_mass(task), why=why, rungs=pr.rungs,
                     final=[pr.M_lo, pr.M_hi], viol=ep.track["viol"], track=pr.track, wall_s=round(time.time() - t0, 1))
@@ -43,11 +44,15 @@ def main(argv=None):
     import multiprocessing as mp
     ap = argparse.ArgumentParser()
     ap.add_argument("--records", required=True)
-    ap.add_argument("--calib", required=True)
+    ap.add_argument("--calib", required=True, help="CALIB.json of the SAME method as --method (eps must match the method)")
+    ap.add_argument("--method", choices=PR.METHODS, default=None, help="probe method (default: env BIMANUAL_PROBE, else poslift)")
     ap.add_argument("--procs", type=int, default=3)
     ap.add_argument("--out", required=True)
     ap.add_argument("--ceilings-only", action="store_true")
     a = ap.parse_args(argv)
+    if a.method is not None:
+        os.environ["BIMANUAL_PROBE"] = a.method
+        PR.PROBE_METHOD = a.method
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     cal = json.loads(pathlib.Path(a.calib).read_text())["eps"]

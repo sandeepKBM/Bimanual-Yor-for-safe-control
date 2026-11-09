@@ -122,9 +122,9 @@ def test_decision_objective_not_more_rungs_than_fixed_with_oracle_prior():
 def test_fixed_schedule_equals_probe_run_on_real_sim():
     from world_model.v2.nero.contents import carry_cert as CC
     w = CC.sample_world("box", (1.0, 1.0001), np.random.default_rng(3))
-    a = PR.Probe(PR._episode(w), "box", EPS_LO, EPS_FREE, noise=False)
+    a = PR.make_probe(PR._episode(w), "box", EPS_LO, EPS_FREE, noise=False, method="ladder")
     a.run(M_stop=None)
-    b = PR.Probe(PR._episode(w), "box", EPS_LO, EPS_FREE, noise=False)
+    b = PR.make_probe(PR._episode(w), "box", EPS_LO, EPS_FREE, noise=False, method="ladder")
     ctx = AL.Ctx("box", synth_lik(), 2.363, EPS_LO, EPS_FREE, AL.m_umax("box"))
     AL.run_loop(b, ctx, "fixed", None, np.random.default_rng(0))
     assert [r["m_ff"] for r in a.rungs] == [r["m_ff"] for r in b.rungs]

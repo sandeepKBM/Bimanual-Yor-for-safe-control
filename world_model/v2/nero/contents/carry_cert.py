@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import time
 
@@ -101,9 +102,14 @@ def support_row(task, spec, contents, world, disp=None):
     tl, tr = np.asarray(caps["tcp"]["W0_liftoff"]["left"]), np.asarray(caps["tcp"]["W0_liftoff"]["right"])
     o_ref = 0.5 * (tl + tr) - np.array([0, 0, TH.GRASP_DZ])
     dest = o_ref + (sum(np.asarray(dl, float) for _, dl in CR.plan_moves(plan_key(task))) if disp is None else np.asarray(disp, float))
-    if task == "pot":     # MODEL: the pot's contact is a disc of radius R + t; the inscribed square (half side r / sqrt 2) is a subset of it -> a conservative support region
+    disc = None
+    if task == "pot":     # MODEL: the pot's contact is its bottom disc, radius R + t (pan/scene.py:102, cylinder geom "pan_bottom")
         r_c = SC.PS.ASSUMED["pan_radius"] + SC.PS.ASSUMED["pan_wall_t"]
-        hx = hy = r_c / np.sqrt(2.0)
+        hx = hy = r_c       # bounding square of the disc; the disc test below is the binding one
+        if os.environ.get("BIMANUAL_LEGACY_POT_SQUARE") == "1":     # pre-11-09: the inscribed square (half side r / sqrt 2); refused contents from ~1 kg (checker audit 11-06, S3)
+            hx = hy = r_c / np.sqrt(2.0)
+        else:
+            disc = r_c
     else:
         hx, hy = (OB.TRAY["lx"] / 2, OB.TRAY["ly"] / 2) if task.startswith("tray") else (OB.BOX["lx"] / 2, OB.BOX["ly"] / 2)
     x0, x1 = max(dest[0] - hx, sup["x"][0]), min(dest[0] + hx, sup["x"][1])
@@ -113,11 +119,14 @@ def support_row(task, spec, contents, world, disp=None):
         M = spec.empty_mass + pi[0]
         c = dest[:2] + (spec.empty_mass * spec.empty_com[:2] + pi[1:3]) / M
         marg = min(c[0] - x0, x1 - c[0], c[1] - y0, y1 - c[1])
+        if disc is not None:    # COM over (disc ∩ support top).  The test ||M (c - dest)|| <= disc M is convex in pi, so its worst case over the contents polytope is at a vertex: exact
+            marg = min(marg, disc - float(np.linalg.norm(c - dest[:2])))
         if marg < worst:
             worst, worst_v = marg, dict(m=round(float(pi[0]), 3), c=(pi[1:4] / max(pi[0], 1e-9)).round(4).tolist())
     return dict(ok=bool(worst >= 0.0), margin_m=round(float(worst), 4), worst=worst_v, support=sup, region=[[x0, x1], [y0, y1]],
+                **({} if disc is None else dict(disc=dict(centre=[round(float(v), 4) for v in dest[:2]], radius=round(float(disc), 4)))),
                 guarantee="proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact "
-                          "rectangle; placement at the nominal destination, placement error NOT covered)")
+                          "rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)")
 
 
 def refused_static(task, cell, spec, why):

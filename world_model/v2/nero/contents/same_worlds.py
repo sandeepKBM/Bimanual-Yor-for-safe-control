@@ -33,7 +33,7 @@ import os
 import pathlib
 import time
 
-CALIB = "/data/local/ss5772/contents/probe_calib_2026-11-03/CALIB.json"
+CALIB = None          # default: probe.default_calib() = the CALIB of the active probe method (poslift: repo copy; ladder: the 11-03 file)
 
 
 def _init_worker():
@@ -169,7 +169,8 @@ def main(argv=None):
     ap.add_argument("--tasks", default="box,tray6")
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--procs", type=int, default=4)
-    ap.add_argument("--calib", default=CALIB)
+    ap.add_argument("--calib", default=CALIB, help="default: the CALIB of the active probe method")
+    ap.add_argument("--probe-method", choices=("poslift", "ladder"), default=None, help="default: env BIMANUAL_PROBE, else poslift")
     ap.add_argument("--planner", choices=("scripted", "closed_chain"), default=None,
                     help="plan BOTH methods execute and are admitted on (carry.resolve_planner; default = env BIMANUAL_PLANNER, else scripted = the legacy PLANS)")
     ap.add_argument("--plan-source", choices=("fixture", "codex"), default="fixture",
@@ -186,8 +187,13 @@ def main(argv=None):
         return summary(a.out)
     if a.planner is not None:
         os.environ["BIMANUAL_PLANNER"] = a.planner               # workers are spawned after this: they inherit it (one plan for ours and theirs)
-    from world_model.v2.nero.contents import carry as CR0
+    from world_model.v2.nero.contents import carry as CR0, probe as PR0
     planner = CR0.resolve_planner(None)
+    if a.probe_method is not None:
+        os.environ["BIMANUAL_PROBE"] = a.probe_method            # workers inherit it
+        PR0.PROBE_METHOD = a.probe_method
+    probe_method = PR0.PROBE_METHOD
+    a.calib = a.calib or PR0.default_calib(probe_method)
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     cal = json.loads(pathlib.Path(a.calib).read_text())["eps"]          # as probe.main e2e reads it
@@ -215,7 +221,7 @@ def main(argv=None):
         cfg.update(plan_source="codex", plan_spec=a.plan_spec, plan_cache=a.plan_cache, offline=a.offline, outside_b=a.outside_b,
                    plans={t: dict(status=plans[t]["plan_record"]["status"], plan_id=plans[t].get("plan_id"), rejected=plans[t].get("rejected")) for t in tasks})
     jobs = [(m, t, i, eps_lo, eps_free) + ((ex[t][m],) if ex[t][m] else ()) for i in range(a.n) for t in tasks for m in ("theirs", "ours")]
-    (out / "CONFIG.json").write_text(json.dumps(dict(tasks=a.tasks, n=a.n, procs=a.procs, calib=a.calib, eps_lo=eps_lo,
+    (out / "CONFIG.json").write_text(json.dumps(dict(tasks=a.tasks, n=a.n, procs=a.procs, calib=a.calib, probe_method=probe_method, probe_assumptions=PR0.method_assumptions(probe_method), eps_lo=eps_lo,
                                                      eps_free=eps_free, u_payload="strict_claw=True, T_cap=None", planner=planner, **cfg), indent=1, default=str))
     print(f"{len(jobs)} jobs", flush=True)
     t0 = time.time()

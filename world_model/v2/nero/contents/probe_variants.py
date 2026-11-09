@@ -25,7 +25,7 @@ import numpy as np
 RISE_MM = 2.0          # ASSUMED (option 1): claw rise above rest that counts as "off the counter" [mm]
 T_HOLD_SETTLE = 1.2    # ASSUMED (option 2): hold per rung before reading [s] (today 0.4)
 VARIANTS = {"control": dict(free="load", t_hold=None), "rise": dict(free="rise", t_hold=None), "settle": dict(free="load", t_hold=T_HOLD_SETTLE)}
-CONTROL_CALIB = "/data/local/ss5772/contents/probe_calib_2026-11-03/CALIB.json"
+CONTROL_CALIB = "/data/local/ss5772/contents/probe_calib_2026-11-03/CALIB.json"   # ladder variants: the ladder CALIB (= probe.LADDER_CALIB)
 
 
 def _make_class(variant):
@@ -99,6 +99,7 @@ def _job(args):
     cmd, variant, task, i, eps_lo, eps_free = args
     from world_model.v2.nero.contents import same_worlds as SW, probe as P
     SW._init_worker()                                          # payload row in U (strict_claw=True, T_cap=None)
+    P.PROBE_METHOD = "ladder"                                  # these variants are ladder variants (make_probe returns the patched P.Probe)
     P.Probe = _make_class(variant)
     r = P._calib_job((task, i)) if cmd == "calibrate" else P._e2e_job((task, i, eps_lo, eps_free))
     r.update(variant=variant)

@@ -112,7 +112,7 @@ def test_probe_ladder_runs_one_rung():
     assert sp.contents.m_lo == 0.1 and sp.contents.m_hi == 0.4
     w = CC.sample_world("pot", (0.3, 0.3001), np.random.default_rng(2))
     ep = PR._episode(w)
-    pr = PR.Probe(ep, "pot", eps_lo=0.05, eps_free=0.05, noise=False)
+    pr = PR.make_probe(ep, "pot", eps_lo=0.05, eps_free=0.05, noise=False, method="ladder")
     ok, rows = pr.admissible(pr.M_lo)
     assert ok
     ep.ctl.mass = 0.0

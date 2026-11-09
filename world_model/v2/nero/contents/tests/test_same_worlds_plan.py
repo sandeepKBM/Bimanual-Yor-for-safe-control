@@ -23,6 +23,7 @@ EPS = (0.0498, 0.0774)               # eps_lo, eps_free (CALIB.json, MEASURED 11
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
+    monkeypatch.setattr(P, "PROBE_METHOD", "ladder")        # EPS above are the 11-03 LADDER eps: the eps must match the method
 
 
 @pytest.fixture(scope="module")
