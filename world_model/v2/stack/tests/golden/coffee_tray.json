@@ -1,0 +1,725 @@
+{
+ "meta": {
+  "git_sha": "cac058c0718bea5f6c64e36068d2466e9d2a0b15",
+  "git_branch": "contents-armside-2026-11-02",
+  "git_dirty_tracked": false,
+  "date": "2026-11-09 14:42:09",
+  "python": "3.12.13",
+  "env_flags": {
+   "MKL_NUM_THREADS": "1",
+   "MUJOCO_GL": "osmesa",
+   "NUMBA_NUM_THREADS": "1",
+   "OMP_NUM_THREADS": "1",
+   "OPENBLAS_NUM_THREADS": "1"
+  },
+  "make_golden": "world_model/v2/stack/tests/golden/make_golden.py",
+  "source": "pristine export of cac058c (rsync of the worktree + tracked files restored from the commit, plan_cache cleared), run from there"
+ },
+ "data": {
+  "source": "/data/local/ss5772/agentchord/runs",
+  "n_records_with_check": 219,
+  "note": "Raw poses are NOT stored in ac_run records, only the check_detail dict (capsule_rel_tray, tray_dxy, flags).  tray0, the tray pose and the capsule pose were rebuilt from those values (tray0 = identity; tilt 0 deg if tray_level else 15 deg, ASSUMED); the replay reproduces the stored fields except tray_xy_err (stored value uses the true tray0).",
+  "items": [
+   {
+    "label": "strict_success",
+    "found": true,
+    "run": "ct3_full_terra_s11",
+    "episode": 1,
+    "seed": 11,
+    "their_success": true,
+    "stored_check_detail": {
+     "capsule_in_tray": true,
+     "tray_at_target": true,
+     "tray_level": true,
+     "capsule_rel_tray": [
+      -0.03460000082850456,
+      0.09130000323057175,
+      0.008899999782443047
+     ],
+     "tray_xy_err": 0.02459837563431733,
+     "tray_moved_forward": true,
+     "tray_dxy": [
+      0.10520000010728836,
+      -0.024000000208616257
+     ],
+     "success_strict": true,
+     "success_loose": true,
+     "success": true
+    },
+    "replay_inputs": {
+     "tray0": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "tray": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.10520000010728836
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       -0.024000000208616257
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "capsule": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.0705999992787838
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.06730000302195549
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.008899999782443047
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "loose": false,
+     "tilt_assumed_deg": 0.0
+    },
+    "replay_check_detail": {
+     "capsule_in_tray": true,
+     "tray_at_target": true,
+     "tray_level": true,
+     "capsule_rel_tray": [
+      -0.0346,
+      0.0913,
+      0.0089
+     ],
+     "tray_xy_err": 0.02455687299167749,
+     "tray_moved_forward": true,
+     "tray_dxy": [
+      0.1052,
+      -0.024
+     ],
+     "success_strict": true,
+     "success_loose": true,
+     "success": true
+    },
+    "replay_matches_stored_fields": {
+     "capsule_in_tray": true,
+     "tray_at_target": true,
+     "tray_level": true,
+     "capsule_rel_tray": true,
+     "tray_xy_err": true,
+     "tray_moved_forward": true,
+     "tray_dxy": true,
+     "success_strict": true,
+     "success_loose": true,
+     "success": true
+    }
+   },
+   {
+    "label": "loose_only",
+    "found": true,
+    "run": "ct3_full_terra_s13",
+    "episode": 0,
+    "seed": 13,
+    "their_success": false,
+    "stored_check_detail": {
+     "capsule_in_tray": true,
+     "tray_at_target": false,
+     "tray_level": true,
+     "capsule_rel_tray": [
+      -0.030799999833106995,
+      0.09350000321865082,
+      0.008799999952316284
+     ],
+     "tray_xy_err": 0.0310589930363154,
+     "tray_moved_forward": true,
+     "tray_dxy": [
+      0.10840000212192535,
+      -0.029899999499320984
+     ],
+     "success_strict": false,
+     "success_loose": true,
+     "success": false
+    },
+    "replay_inputs": {
+     "tray0": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "tray": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.10840000212192535
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       -0.029899999499320984
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "capsule": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.07760000228881836
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.06360000371932983
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.008799999952316284
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "loose": false,
+     "tilt_assumed_deg": 0.0
+    },
+    "replay_check_detail": {
+     "capsule_in_tray": true,
+     "tray_at_target": false,
+     "tray_level": true,
+     "capsule_rel_tray": [
+      -0.0308,
+      0.0935,
+      0.0088
+     ],
+     "tray_xy_err": 0.031057527359848618,
+     "tray_moved_forward": true,
+     "tray_dxy": [
+      0.1084,
+      -0.0299
+     ],
+     "success_strict": false,
+     "success_loose": true,
+     "success": false
+    },
+    "replay_matches_stored_fields": {
+     "capsule_in_tray": true,
+     "tray_at_target": true,
+     "tray_level": true,
+     "capsule_rel_tray": true,
+     "tray_xy_err": true,
+     "tray_moved_forward": true,
+     "tray_dxy": true,
+     "success_strict": true,
+     "success_loose": true,
+     "success": true
+    }
+   },
+   {
+    "label": "not_level",
+    "found": true,
+    "run": "ct2_full_terra_s12",
+    "episode": 0,
+    "seed": 12,
+    "their_success": false,
+    "stored_check_detail": {
+     "capsule_in_tray": false,
+     "tray_at_target": false,
+     "tray_level": false,
+     "capsule_rel_tray": [
+      0.3828999996185303,
+      0.48410001397132874,
+      -0.7350999712944031
+     ],
+     "tray_xy_err": 0.8022028137594431,
+     "tray_moved_forward": false,
+     "tray_dxy": [
+      0.5669999718666077,
+      0.6521999835968018
+     ],
+     "success_strict": false,
+     "success_loose": false,
+     "success": false
+    },
+    "replay_inputs": {
+     "tray0": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "tray": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.5669999718666077
+      ],
+      [
+       0.0,
+       0.9659258262890683,
+       -0.25881904510252074,
+       0.6521999835968018
+      ],
+      [
+       0.0,
+       0.25881904510252074,
+       0.9659258262890683,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "capsule": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.9498999714851379
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       1.3100625622239148
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       -0.5847577438274405
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "loose": false,
+     "tilt_assumed_deg": 15.0
+    },
+    "replay_check_detail": {
+     "capsule_in_tray": false,
+     "tray_at_target": false,
+     "tray_level": false,
+     "capsule_rel_tray": [
+      0.3829,
+      0.4841,
+      -0.7351
+     ],
+     "tray_xy_err": 0.8021557157604008,
+     "tray_moved_forward": false,
+     "tray_dxy": [
+      0.567,
+      0.6522
+     ],
+     "success_strict": false,
+     "success_loose": false,
+     "success": false
+    },
+    "replay_matches_stored_fields": {
+     "capsule_in_tray": true,
+     "tray_at_target": true,
+     "tray_level": true,
+     "capsule_rel_tray": true,
+     "tray_xy_err": true,
+     "tray_moved_forward": true,
+     "tray_dxy": true,
+     "success_strict": true,
+     "success_loose": true,
+     "success": true
+    }
+   },
+   {
+    "label": "capsule_out",
+    "found": true,
+    "run": "ct2_full_sol_s11",
+    "episode": 0,
+    "seed": 11,
+    "their_success": false,
+    "stored_check_detail": {
+     "capsule_in_tray": false,
+     "tray_at_target": false,
+     "tray_level": true,
+     "capsule_rel_tray": [
+      0.09529999643564224,
+      0.29580000042915344,
+      -0.006899999920278788
+     ],
+     "tray_xy_err": 0.09999999999999998,
+     "tray_moved_forward": false,
+     "tray_dxy": [
+      0.0,
+      0.0
+     ],
+     "success_strict": false,
+     "success_loose": false,
+     "success": false
+    },
+    "replay_inputs": {
+     "tray0": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "tray": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "capsule": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.09529999643564224
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.29580000042915344
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       -0.006899999920278788
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "loose": false,
+     "tilt_assumed_deg": 0.0
+    },
+    "replay_check_detail": {
+     "capsule_in_tray": false,
+     "tray_at_target": false,
+     "tray_level": true,
+     "capsule_rel_tray": [
+      0.0953,
+      0.2958,
+      -0.0069
+     ],
+     "tray_xy_err": 0.1,
+     "tray_moved_forward": false,
+     "tray_dxy": [
+      0.0,
+      0.0
+     ],
+     "success_strict": false,
+     "success_loose": false,
+     "success": false
+    },
+    "replay_matches_stored_fields": {
+     "capsule_in_tray": true,
+     "tray_at_target": true,
+     "tray_level": true,
+     "capsule_rel_tray": true,
+     "tray_xy_err": true,
+     "tray_moved_forward": true,
+     "tray_dxy": true,
+     "success_strict": true,
+     "success_loose": true,
+     "success": true
+    }
+   },
+   {
+    "label": "level_capsule_in_not_moved",
+    "found": true,
+    "run": "ct3_full_sol_s11",
+    "episode": 1,
+    "seed": 11,
+    "their_success": false,
+    "stored_check_detail": {
+     "capsule_in_tray": true,
+     "tray_at_target": false,
+     "tray_level": true,
+     "capsule_rel_tray": [
+      -0.00039999998989515007,
+      0.05990000069141388,
+      0.00839999970048666
+     ],
+     "tray_xy_err": 0.10000017881396277,
+     "tray_moved_forward": false,
+     "tray_dxy": [
+      -0.0,
+      -0.0
+     ],
+     "success_strict": false,
+     "success_loose": false,
+     "success": false
+    },
+    "replay_inputs": {
+     "tray0": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "tray": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       -0.0
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       -0.0
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.0
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "capsule": [
+      [
+       1.0,
+       0.0,
+       0.0,
+       -0.00039999998989515007
+      ],
+      [
+       0.0,
+       1.0,
+       0.0,
+       0.05990000069141388
+      ],
+      [
+       0.0,
+       0.0,
+       1.0,
+       0.00839999970048666
+      ],
+      [
+       0.0,
+       0.0,
+       0.0,
+       1.0
+      ]
+     ],
+     "loose": false,
+     "tilt_assumed_deg": 0.0
+    },
+    "replay_check_detail": {
+     "capsule_in_tray": true,
+     "tray_at_target": false,
+     "tray_level": true,
+     "capsule_rel_tray": [
+      -0.0004,
+      0.0599,
+      0.0084
+     ],
+     "tray_xy_err": 0.1,
+     "tray_moved_forward": false,
+     "tray_dxy": [
+      -0.0,
+      -0.0
+     ],
+     "success_strict": false,
+     "success_loose": false,
+     "success": false
+    },
+    "replay_matches_stored_fields": {
+     "capsule_in_tray": true,
+     "tray_at_target": true,
+     "tray_level": true,
+     "capsule_rel_tray": true,
+     "tray_xy_err": true,
+     "tray_moved_forward": true,
+     "tray_dxy": true,
+     "success_strict": true,
+     "success_loose": true,
+     "success": true
+    }
+   }
+  ]
+ }
+}
