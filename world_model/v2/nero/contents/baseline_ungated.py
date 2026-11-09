@@ -47,11 +47,9 @@ def _trial(args):
         ep.run_phases([("hold", 0.4)])
         segs, mon = [], dict(fired=False, max_step_m=0.0)
         rel_prev = None
-        orig = ep._step
 
-        def step_with_monitor():
+        def step_with_monitor(_ep):
             nonlocal rel_prev
-            orig()
             d = ep.d
             rel = d.xmat[ep.gb["left"]].reshape(3, 3).T @ (d.xpos[ep.obj] - d.xpos[ep.gb["left"]])
             if rel_prev is not None:
@@ -59,7 +57,7 @@ def _trial(args):
                 mon["max_step_m"] = max(mon["max_step_m"], dd)
                 mon["fired"] = mon["fired"] or dd > MON_STEP
             rel_prev = rel
-        ep._step = step_with_monitor
+        ep.step_hooks.append(step_with_monitor)
         for seg in CR.SEGS:
             ep.reset_track()
             ep.run_phases(ep.segment_phases(seg))

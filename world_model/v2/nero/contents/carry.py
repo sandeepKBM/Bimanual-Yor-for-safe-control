@@ -203,6 +203,7 @@ def _tilt_deg(R):
 class CarryEpisode:
     def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=None, ctl="lever", strict_claw=False,
                  fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None, planner=None, wp=None):
+        self.step_hooks = []                                    # per-step callbacks hook(ep), run at the end of _step (see _step)
         self.planner = resolve_planner(planner)               # 11-05: "scripted" (default) | "closed_chain"
         self.wp = wp                                            # 11-05 opt-in: closed_chain.WaypointPlan written by the proposer (stack/proposer/compile.py); None = the default plan
         if wp is not None:
@@ -443,6 +444,13 @@ class CarryEpisode:
         return u, e_int, dq
 
     def _step(self):
+        """one control step; then the registered `step_hooks` (callables hook(ep), run in order AFTER the step; used by the probe to read the
+        commanded torque and by baseline_ungated's monitor).  Replaces the former `ep._step = wrapper` monkeypatching."""
+        self._step_core()
+        for hook in self.step_hooks:
+            hook(self)
+
+    def _step_core(self):
         m, d, ctl = self.m, self.d, self.ctl
         t = self.k * DT
         welded = all(d.eq_active[self.weld_id[s]] for s in SIDES)

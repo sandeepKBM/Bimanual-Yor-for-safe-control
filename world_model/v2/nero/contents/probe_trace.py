@@ -25,15 +25,15 @@ PRIOR = {"box": (0.5, 5.0), "tray2": (0.0, 0.25), "tray4": (0.0, 0.25), "tray6":
 
 
 def _job(args):
-    task, seed, eps_lo, eps_free = args
+    task, seed, eps_lo, eps_free, method = args
     t0 = time.time()
     try:
         w = CC.sample_world(task, PRIOR[task], np.random.default_rng(seed))
         ep = PR._episode(w)
         M = PR.true_mass(ep)
-        pr = PR.make_probe(ep, task, eps_lo, eps_free, rng=np.random.default_rng(seed + 1), noise=True)
+        pr = PR.make_probe(ep, task, eps_lo, eps_free, rng=np.random.default_rng(seed + 1), noise=True, method=method)
         why = pr.run(M_stop=None)
-        return dict(task=task, seed=seed, M_true=M, empty=PR.empty_mass(task), why=why, rungs=pr.rungs,
+        return dict(task=task, seed=seed, probe_method=method, M_true=M, empty=PR.empty_mass(task), why=why, rungs=pr.rungs,
                     final=[pr.M_lo, pr.M_hi], viol=ep.track["viol"], track=pr.track, wall_s=round(time.time() - t0, 1))
     except Exception as e:
         import traceback
@@ -52,10 +52,9 @@ def main(argv=None):
     a = ap.parse_args(argv)
     if a.method is not None:
         os.environ["BIMANUAL_PROBE"] = a.method
-        PR.PROBE_METHOD = a.method
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    cal = json.loads(pathlib.Path(a.calib).read_text())["eps"]
+    cal = PR.load_calib(a.calib, a.method or PR.PROBE_METHOD)["eps"]
     recs = [json.loads(l) for l in open(a.records)]
     worlds = sorted({(r["task"], int(r["seed"])) for r in recs})
     tasks = sorted({t for t, _ in worlds})
@@ -65,7 +64,8 @@ def main(argv=None):
                                                            label="MODEL: largest contents mass c with [c, c] admitted (static rows)"), indent=1))
         print(ceil, flush=True)
         return
-    jobs = [(t, s, cal["EPS_LO"], cal["EPS_FREE"]) for t, s in worlds]
+    method = a.method or PR.PROBE_METHOD
+    jobs = [(t, s, cal["EPS_LO"], cal["EPS_FREE"], method) for t, s in worlds]
     print(f"{len(jobs)} worlds", flush=True)
     with mp.get_context("spawn").Pool(a.procs, maxtasksperchild=3) as pool, open(out / "traces.jsonl", "a") as f:
         for r in pool.imap_unordered(_job, jobs):

@@ -407,7 +407,7 @@ def _run(a):
     import multiprocessing as mp
     out = pathlib.Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    cal = json.loads(pathlib.Path(a.calib).read_text())["eps"]
+    cal = PR.load_calib(a.calib, "ladder")["eps"]            # AL = ladder only
     eps = (cal["EPS_LO"], cal["EPS_FREE"])
     ceil = json.loads(pathlib.Path(a.ceilings).read_text())["c_admit_max"]
     lik_params = fit_likelihood([json.loads(l) for l in open(a.calib_rows)])

@@ -175,13 +175,11 @@ class Probe:
         self.rng = rng if rng is not None else np.random.default_rng(0)
         self.noise = bool(noise)
         self.tau = {s: np.zeros(7) for s in CR.SIDES}
-        orig = ep._step
 
-        def step():                                   # keep the torque the robot commanded this step (robot-side quantity)
-            orig()
+        def keep_tau(_ep):                            # keep the torque the robot commanded this step (robot-side quantity)
             self.tau["left"] = ep.d.qfrc_applied[ep.ctl.ld].copy()
             self.tau["right"] = ep.d.qfrc_applied[ep.ctl.rd].copy()
-        ep._step = step
+        ep.step_hooks.append(keep_tau)
         m_e = empty_mass(task)
         c_lo, c_hi = prior_contents(task)
         self.M_lo, self.M_hi = m_e + c_lo, m_e + c_hi           # Theta_0 (total carried mass)
@@ -276,13 +274,17 @@ class PosLiftProbe(Probe):
     """option A (user 11-09), "lift by position, read while holding": feed-forward ctl.mass = M_lo (current lower bound of the total mass); height ladder:
     both claws move up DZ over T_MOVE, hold T_HOLD_POSLIFT, read L (mean of the last N_READ steps).  Each rung: M_lo <- max(M_lo, L - EPS_LO - nb).  FREE when
     the last N_FREE_CONFIRM dL = L_k - L_{k-1} are all < FREE_TOL in magnitude -> interval [L - EPS_FREE - nb, L + EPS_FREE + nb].  Stops: decided_refuse
-    (M_lo > M_stop), rung_not_admissible (static u(M_lo) > U_ADMIT), z_cap (Z_MAX; lower bound only), abort (sim-truth claw payload row fired).  The claws
+    (M_lo > M_stop), rung_not_admissible (static u(M_lo) > U_ADMIT, or the predictive pre-check u(L_last + DL_STEP_MAX + eps_lo + nb) > U_ADMIT), z_cap
+    (Z_MAX; lower bound only), load_guard (u(read L) > U_ADMIT after a hold; lower bound only).  Decisions use robot-side numbers only; the sim-truth claw
+    payload row (ep.track["viol"]) is recorded as `sim_abort` (diagnostic, no stop).  u_read_max = max u(read L).  The claws
     are always moved back to the start height before returning.  Same Probe interface (M_lo, M_hi, m_ff, rungs, track, _ramp, admissible)."""
     method = "poslift"
 
-    def __init__(self, *a, **k):
+    def __init__(self, *a, dl_step_max=None, **k):
         super().__init__(*a, **k)
         self.peak_u, self.probe_time_s = 0.0, None
+        self.dl_step_max = poslift_dl_step_max() if dl_step_max is None else float(dl_step_max)   # MEASURED (CALIB DL_STEP_MAX)
+        self.guard_events, self.sim_abort, self.u_read_max = [], None, 0.0
 
     def _claw_z(self):
         mujoco.mj_forward(self.ep.m, self.ep.d)
@@ -312,7 +314,7 @@ class PosLiftProbe(Probe):
         ep.run_phases([("hold", 0.3)])
         z_rest, k0 = self._claw_z(), ep.k
         self.m_ff = 0.0
-        zc, idx, prev_L, n_flat, why = 0.0, 0, None, 0, None
+        zc, idx, prev_L, n_flat, why, last_nb = 0.0, 0, None, 0, None, 0.0
         try:
             while True:
                 if M_stop is not None and self.M_lo > M_stop:
@@ -322,6 +324,13 @@ class PosLiftProbe(Probe):
                 if not ok:
                     why = "rung_not_admissible"
                     break
+                if prev_L is not None:                      # predictive pre-check of the load the claws carry AFTER the next height step (robot-side numbers only)
+                    L_pred = prev_L + self.dl_step_max + self.eps_lo + last_nb
+                    u_pred = rung_torque_u(self.task, L_pred)
+                    if u_pred > E.U_ADMIT:
+                        self.guard_events.append(dict(kind="pre_check", L_pred=round(L_pred, 4), u_pred=round(u_pred, 4)))
+                        why = "rung_not_admissible"
+                        break
                 if zc + DZ > Z_MAX + 1e-9:
                     why = "z_cap"
                     break
@@ -341,13 +350,19 @@ class PosLiftProbe(Probe):
                 dL = None if prev_L is None else L - prev_L
                 n_flat = n_flat + 1 if (dL is not None and abs(dL) < FREE_TOL) else 0
                 free = n_flat >= N_FREE_CONFIRM
+                u_read = rung_torque_u(self.task, L)                          # static u at the READ load (robot-side)
+                self.u_read_max = max(self.u_read_max, u_read)
+                guard = u_read > E.U_ADMIT
+                if guard:                                                     # lower bound only: the claws carry more than the payload row admits
+                    free = False
+                last_nb = nb
                 rise_obj = 1e3 * (float(ep.d.xpos[ep.obj][2]) - ep.z0)
                 self.track["rise_mm"] = max(self.track["rise_mm"], rise_obj)
                 self.track["tilt"] = max(self.track["tilt"], ep.track["obj_tilt_max"])
                 self.track["spill"] = max(self.track["spill"], ep.track["spill_ratio"])
                 rec = dict(m_ff=round(self.m_ff, 4), z_cmd_mm=round(1e3 * zc, 3), claw_rise_mm=round(1e3 * (self._claw_z() - z_rest), 3),
                            rise_mm=round(rise_obj, 3), L=round(L, 4), dL=None if dL is None else round(dL, 4), noise_bound=round(nb, 4),
-                           peak_u=round(peak_u, 4), **rows, free=free)
+                           peak_u=round(peak_u, 4), u_read=round(u_read, 4), **rows, free=free)
                 self.peak_u = max(self.peak_u, peak_u)
                 if free:
                     e = self.eps_free + nb
@@ -357,9 +372,13 @@ class PosLiftProbe(Probe):
                 rec["Theta"] = [round(self.M_lo, 4), round(self.M_hi, 4)]
                 self.rungs.append(rec)
                 prev_L = L
-                if ep.track["viol"]:
-                    why = "free" if free else "abort"
-                    rec["viol"] = ep.track["viol"]
+                if ep.track["viol"]:                                          # sim-truth DIAGNOSTIC only (never a decision)
+                    rec["sim_abort"] = ep.track["viol"]
+                    if self.sim_abort is None:
+                        self.sim_abort = dict(rung=len(self.rungs) - 1, **ep.track["viol"])
+                if guard:
+                    self.guard_events.append(dict(kind="load_guard", rung=len(self.rungs) - 1, L=round(L, 4), u_read=round(u_read, 4)))
+                    why = "load_guard"
                     break
                 if free:
                     why = "free"
@@ -374,6 +393,11 @@ class PosLiftProbe(Probe):
                 ep.run_phases([("hold", 0.3)])
             self.probe_time_s = round((ep.k - k0) * CR.DT, 3)
         return why
+
+
+def poslift_dl_step_max():
+    """MEASURED largest per-rung load increase on the counter (CALIB.json DL_STEP_MAX, poslift)."""
+    return float(json.loads(pathlib.Path(POSLIFT_CALIB).read_text())["DL_STEP_MAX"]["value"])
 
 
 def make_probe(ep, task, eps_lo, eps_free, rng=None, noise=True, method=None):
@@ -403,9 +427,19 @@ def method_assumptions(method=None):
         return dict(probe_method="poslift", DZ=f"{DZ} m ASSUMED, USER-approved 11-09", Z_MAX=f"{Z_MAX} m ASSUMED, USER-approved 11-09",
                     FREE_TOL=f"{FREE_TOL} kg ASSUMED, USER-approved 11-09", T_HOLD=f"{T_HOLD_POSLIFT} s ASSUMED, USER-approved 11-09",
                     N_FREE_CONFIRM=f"{N_FREE_CONFIRM} ASSUMED, USER-approved 11-09", T_MOVE=f"{T_MOVE} s design",
-                    TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform", O_MAX="not used (feed-forward = M_lo, overshoot 0)")
+                    TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform", tracker="carry.LeverCtl (FL-MPC, pre-11-07)",
+                    DL_STEP_MAX="MEASURED, CALIB.json DL_STEP_MAX (pre-check of the next height step); guard: u(read L) > U_ADMIT 0.9 ASSUMED")
     return dict(probe_method="ladder", DM=f"{DM} kg ASSUMED", O_MAX=f"{O_MAX} kg ASSUMED", FREE_RATIO=f"{FREE_RATIO} ASSUMED",
-                TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform")
+                TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform", tracker="carry.LeverCtl (FL-MPC, pre-11-07)")
+
+
+def load_calib(path, method):
+    """CALIB.json of the probe method `method` (its eps must match the method).  Asserts the file's "method" field; the 11-03 ladder file predates the
+    field (no "method" key) and is accepted for "ladder" only.  Returns the whole dict."""
+    c = json.loads(pathlib.Path(path).read_text())
+    got = c.get("method", "ladder" if "method" not in c and "variant" not in c else None)
+    assert got == method, f"{path}: CALIB method {got!r} != probe method {method!r} (eps must match the method)"
+    return c
 
 
 # ------------------------------------------------------------------------------------------------- jobs
@@ -421,8 +455,8 @@ def _episode(world, wp=None):
     return CR.CarryEpisode(world, m_hat=0.0, fric_comp=True, weld_solref=CC.WELD_STIFF, wp=wp)
 
 
-def _calib_job(args):
-    """noise-free ladder to free (no stop rule): record per-rung read vs truth."""
+def _calib_job(args, method=None):
+    """noise-free ladder to free (no stop rule): record per-rung read vs truth.  method None -> PROBE_METHOD (make_probe)."""
     task, i = args
     seed = _seed("calib", task, i)
     t0 = time.time()
@@ -430,7 +464,7 @@ def _calib_job(args):
         w = _world(task, seed)
         ep = _episode(w)
         M = true_mass(ep)
-        pr = make_probe(ep, task, eps_lo=0.0, eps_free=0.0, noise=False)
+        pr = make_probe(ep, task, eps_lo=0.0, eps_free=0.0, noise=False, method=method)
         pr.M_lo = empty_mass(task)                          # calibration: start soft from the empty object, ignore the stop rule
         why = pr.run(M_stop=None)
         free = [r for r in pr.rungs if r["free"]]
@@ -464,10 +498,10 @@ def calibrate_summary(rows):
     return dict(per_task=out, eps=eps)
 
 
-def _e2e_job(args):
+def _e2e_job(args, method=None):
     """args = (task, i, eps_lo, eps_free[, plan]).  plan (11-05, same_worlds --plan-source codex): dict(wp = closed_chain.WaypointPlan, fallback = tuple of recovery
     skills, belief = {param: [lo, hi]} | None, outside_b = "refuse" | "carry"): the proposer's compiled plan replaces the default one in the static admission, the
-    carry (its segments and recoveries) and the refuse path (its fallback).  Without it: unchanged."""
+    carry (its segments and recoveries) and the refuse path (its fallback).  Without it: unchanged.  method: probe method (None -> PROBE_METHOD)."""
     task, i, eps_lo, eps_free, *rest = args
     plan = rest[0] if rest else None
     wp = plan["wp"] if plan else None
@@ -479,7 +513,7 @@ def _e2e_job(args):
         M = true_mass(ep)
         cmax = c_admit_max(task, wp=wp)
         M_stop = None if cmax is None else empty_mass(task) + cmax
-        pr = make_probe(ep, task, eps_lo, eps_free, rng=np.random.default_rng(seed), noise=True)
+        pr = make_probe(ep, task, eps_lo, eps_free, rng=np.random.default_rng(seed), noise=True, method=method)
         if not static_interval(task, *prior_contents(task), w, wp=wp)["action"].startswith("refuse"):
             why = "free"                                     # verdict already "carry" on all of Theta_0: no probe needed
             pr.M_lo, pr.M_hi = empty_mass(task) + prior_contents(task)[0], empty_mass(task) + prior_contents(task)[1]
@@ -489,7 +523,8 @@ def _e2e_job(args):
         sound = bool(pr.M_lo - 1e-9 <= M <= pr.M_hi + 1e-9)
         rec = dict(task=task, i=i, seed=seed, probe_method=method_of(pr), probe_assumptions=method_assumptions(method_of(pr)), M_true=M, why=why,
                    rungs=pr.rungs, Theta=[pr.M_lo, pr.M_hi], theta_sound=sound, peak_u=round(getattr(pr, 'peak_u', 0.0), 4), probe_time_s=getattr(pr, 'probe_time_s', None),
-                   probe_viol=probe_viol, probe_track=dict(pr.track), theta_world=CR._theta(w))
+                   probe_viol=probe_viol, probe_track=dict(pr.track), theta_world=CR._theta(w),
+                   u_read_max=round(float(getattr(pr, 'u_read_max', 0.0)), 4), guard_events=list(getattr(pr, 'guard_events', [])), sim_abort=getattr(pr, 'sim_abort', None))
         decision = None
         if why == "free":
             c_lo, c_hi = pr.M_lo - empty_mass(task), pr.M_hi - empty_mass(task)
@@ -611,17 +646,20 @@ def main(argv=None):
     out.mkdir(parents=True, exist_ok=True)
     tasks = a.tasks.split(",")
     t0 = time.time()
+    if PROBE_METHOD == "poslift":                                   # drop the ladder-only fields
+        for k in ("DM", "O_MAX", "FREE_RATIO"):
+            ASSUMPTIONS.pop(k, None)
     ASSUMPTIONS.update(method_assumptions())
     if a.cmd == "calibrate":
-        rows = _pool_run(_calib_job, [(t, i) for t in tasks for i in range(a.n)], a.procs, out / "calib.jsonl")
+        rows = _pool_run(functools.partial(_calib_job, method=PROBE_METHOD), [(t, i) for t in tasks for i in range(a.n)], a.procs, out / "calib.jsonl")
         s = calibrate_summary(rows)
-        s.update(date=time.strftime("%Y-%m-%d"), assumptions=ASSUMPTIONS, n_per_task=a.n, wall_s=round(time.time() - t0))
+        s.update(method=PROBE_METHOD, date=time.strftime("%Y-%m-%d"), assumptions=ASSUMPTIONS, n_per_task=a.n, wall_s=round(time.time() - t0))
         (out / "CALIB.json").write_text(json.dumps(s, indent=1, default=float))
         print(json.dumps(s, indent=1, default=float))
     elif a.cmd == "e2e":
-        cal = json.loads(pathlib.Path(a.calib).read_text())["eps"]
+        cal = load_calib(a.calib, PROBE_METHOD)["eps"]
         jobs = [(t, i, cal["EPS_LO"], cal["EPS_FREE"]) for t in tasks for i in range(a.n)]
-        rows = _pool_run(_e2e_job, jobs, a.procs, out / "e2e.jsonl")
+        rows = _pool_run(functools.partial(_e2e_job, method=PROBE_METHOD), jobs, a.procs, out / "e2e.jsonl")
         s = e2e_summary(rows)
         hdr = (f"probe ({PROBE_METHOD}) end-to-end ({time.strftime('%Y-%m-%d')}), worlds uniform on the full prior, n = {a.n} per task, held-out "
                f"seeds (calibration used different worlds)\neps (MEASURED, {a.calib}): {cal}\nassumptions: {ASSUMPTIONS}\n"

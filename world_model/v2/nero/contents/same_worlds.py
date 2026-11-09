@@ -67,7 +67,7 @@ def _job(args):
         r = dict(task=task, i=i, seed=seed, outcome="plan_rejected", any_U=False, plan_rejected=ex["rejected"], theta_sound=None)
     elif method == "ours":
         pl = ex.get("plan")
-        r = P._e2e_job((task, i, eps_lo, eps_free) + ((pl,) if pl else ()))
+        r = P._e2e_job((task, i, eps_lo, eps_free) + ((pl,) if pl else ()), method=ex.get("probe_method"))
     elif ex.get("theirs") == "agentchord":
         from world_model.v2.agentchord_probe.nero import execute as AX
         r = AX.same_world_trial(task, i, ex["agentchord_plan"])
@@ -191,12 +191,11 @@ def main(argv=None):
     planner = CR0.resolve_planner(None)
     if a.probe_method is not None:
         os.environ["BIMANUAL_PROBE"] = a.probe_method            # workers inherit it
-        PR0.PROBE_METHOD = a.probe_method
-    probe_method = PR0.PROBE_METHOD
+    probe_method = a.probe_method or PR0.PROBE_METHOD
     a.calib = a.calib or PR0.default_calib(probe_method)
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
-    cal = json.loads(pathlib.Path(a.calib).read_text())["eps"]          # as probe.main e2e reads it
+    cal = PR0.load_calib(a.calib, probe_method)["eps"]          # as probe.main e2e reads it (asserts CALIB method == probe method)
     eps_lo, eps_free = float(cal["EPS_LO"]), float(cal["EPS_FREE"])
     tasks = a.tasks.split(",")
     ex = {t: {m: {} for m in ("theirs", "ours")} for t in tasks}                     # per task / method extras (empty = the original job tuple)
@@ -220,6 +219,8 @@ def main(argv=None):
             ex[t]["ours"] = plans[t]
         cfg.update(plan_source="codex", plan_spec=a.plan_spec, plan_cache=a.plan_cache, offline=a.offline, outside_b=a.outside_b,
                    plans={t: dict(status=plans[t]["plan_record"]["status"], plan_id=plans[t].get("plan_id"), rejected=plans[t].get("rejected")) for t in tasks})
+    for t in tasks:
+        ex[t]["ours"] = {**ex[t]["ours"], "probe_method": probe_method}      # explicit argument of probe._e2e_job (no module-global patching)
     jobs = [(m, t, i, eps_lo, eps_free) + ((ex[t][m],) if ex[t][m] else ()) for i in range(a.n) for t in tasks for m in ("theirs", "ours")]
     (out / "CONFIG.json").write_text(json.dumps(dict(tasks=a.tasks, n=a.n, procs=a.procs, calib=a.calib, probe_method=probe_method, probe_assumptions=PR0.method_assumptions(probe_method), eps_lo=eps_lo,
                                                      eps_free=eps_free, u_payload="strict_claw=True, T_cap=None", planner=planner, **cfg), indent=1, default=str))

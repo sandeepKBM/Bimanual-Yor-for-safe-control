@@ -1,4 +1,5 @@
 {
+ "method": "poslift",
  "per_task": {
   "box": {
    "n": 20,
@@ -69,17 +70,14 @@
   "FREE_TOL": "0.05 kg ASSUMED",
   "T_MOVE": "0.3 s design",
   "T_HOLD_POSLIFT": "1.2 s ASSUMED",
-  "T_REBASE": "0.1 s ASSUMED",
   "N_FREE_CONFIRM": "2 ASSUMED",
   "physics": "tracker = carry.LeverCtl (FL-MPC, pre-11-07, the existing tracker); U includes the per-claw payload row (strict_claw); claw rise = encoders+FK, object rise = sim truth, peak_u = sim-truth weld wrench / F_cap",
-  "DM": "0.25 kg ASSUMED push step",
-  "O_MAX": "1.0 kg ASSUMED max push above the lower bound",
-  "FREE_RATIO": "0.2 ASSUMED free test (one rung)",
   "TAU_NOISE": "+-0.05 Nm/joint ASSUMED uniform",
   "grasp": "ASSUMED rigid weld (user 11-01), stiff solref (0.004, 1)",
   "controller": "LeverCtl + FRIC_COMP (ASSUMED gains)",
   "rows": "arm-side static rows (user 11-02 pm), U_ADMIT 0.9 ASSUMED",
-  "worlds": "uniform on the full prior per task"
+  "worlds": "uniform on the full prior per task",
+  "tracker": "carry.LeverCtl (FL-MPC, pre-11-07)"
  },
  "dL": {
   "dL_flat_max": 0.043,
@@ -87,5 +85,13 @@
   "dL_moving_p10": 0.0453,
   "n_flat": 48,
   "n_moving": 452
+ },
+ "DL_STEP_MAX": {
+  "value": 0.9332,
+  "n": 349,
+  "n_worlds": 60,
+  "unit": "kg",
+  "label": "MEASURED: max per-rung load increase dL = L_k - L_{k-1} over rungs with L < M_true - 0.05 (still on the counter), all tasks pooled (box 0.9332 n=140, tray6 0.7209 n=139, pot 0.4 n=70)",
+  "file": "/common/users/ss5772/bimanual_data/contents/probe_liftoff_2026-11-09/slow/poslift/calibrate.jsonl"
  }
 }

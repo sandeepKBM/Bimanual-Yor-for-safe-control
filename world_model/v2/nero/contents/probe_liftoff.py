@@ -229,10 +229,9 @@ def _job(args):
     cmd, variant, task, i, eps_lo, eps_free = args
     from world_model.v2.nero.contents import same_worlds as SW, probe as P
     SW._init_worker()                                          # payload row in U (strict_claw=True, T_cap=None)
-    P.PROBE_METHOD = "ladder"                                  # the variants subclass the ladder Probe (make_probe returns the patched P.Probe); probe.py's own poslift = P.PosLiftProbe
     P.Probe = _make_class(variant)
     _LAST.clear()
-    r = P._calib_job((task, i)) if cmd == "calibrate" else P._e2e_job((task, i, eps_lo, eps_free))
+    r = P._calib_job((task, i), method="ladder") if cmd == "calibrate" else P._e2e_job((task, i, eps_lo, eps_free), method="ladder")   # variants subclass the ladder Probe (make_probe("ladder") returns the patched P.Probe)
     pr = _LAST.get("pr")
     if pr is not None and "error" not in r:
         r.update(probe_time_s=pr.probe_time_s, peak_u=round(pr.peak_u, 4),

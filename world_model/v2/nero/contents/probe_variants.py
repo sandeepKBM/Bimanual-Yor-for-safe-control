@@ -99,9 +99,8 @@ def _job(args):
     cmd, variant, task, i, eps_lo, eps_free = args
     from world_model.v2.nero.contents import same_worlds as SW, probe as P
     SW._init_worker()                                          # payload row in U (strict_claw=True, T_cap=None)
-    P.PROBE_METHOD = "ladder"                                  # these variants are ladder variants (make_probe returns the patched P.Probe)
     P.Probe = _make_class(variant)
-    r = P._calib_job((task, i)) if cmd == "calibrate" else P._e2e_job((task, i, eps_lo, eps_free))
+    r = P._calib_job((task, i), method="ladder") if cmd == "calibrate" else P._e2e_job((task, i, eps_lo, eps_free), method="ladder")   # variants subclass the ladder Probe (make_probe("ladder") returns the patched P.Probe)
     r.update(variant=variant)
     return r
 
