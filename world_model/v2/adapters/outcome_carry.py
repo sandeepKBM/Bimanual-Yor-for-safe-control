@@ -31,8 +31,11 @@ def measure(ep, task, finished, unsafe, pre_hold_viol=None, refused=False, reaso
     okR, whyR = end_in_R if end_in_R is not None else ep.in_R()
     oc = OC.classify(finished, grow, unsafe, pre_hold_viol is not None, _R_row(okR, whyR), refused=refused, reason=reason)
     d = GL.derive(goal, es.now)
-    measured = dict(xy_err=round(float(d["xy_err"]), 4), z_err=round(float(d["z_err"]), 4), tilt_deg=round(float(es.now["obj_tilt_deg"]), 2),
-                    mug_tilt_deg=round(float(es.now["cup_tilt_deg"]), 2), goal_support=goal_support(task))
+    measured = dict(xy_err=round(float(d["xy_err"]), 4), tilt_deg=round(float(es.now["obj_tilt_deg"]), 2), mug_tilt_deg=round(float(es.now["cup_tilt_deg"]), 2),
+                    goal_support=goal_support(task))
+    if "z_err" in d:
+        measured["z_err"] = round(float(d["z_err"]), 4)
+    measured.update({k: round(float(v), 4) for k, v in es.now.items() if k.startswith("cap_rel_")})     # coffee tray: capsule in the tray frame
     return dict(goal=row_dict(grow), measured=measured, result=oc.record())
 
 

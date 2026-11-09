@@ -38,6 +38,9 @@ def from_carry(ep, finished=None, pre_hold_viol=None) -> EndState:
     now = dict(obj_x=float(p[0]), obj_y=float(p[1]), obj_z=float(p[2]), obj_z0=float(ep.z0), rise_m=float(p[2] - ep.z0), drop_m=float(ep.z0 - p[2]),
                obj_tilt_deg=_tilt_deg(R), obj_speed=float(np.linalg.norm(v[3:])), support_contact=1.0 if touching else 0.0,
                cup_tilt_deg=max([_tilt_deg(d.xmat[b].reshape(3, 3)) for b in ep.cups] or [0.0]), tau_ratio=float(tr["tau_ratio"]))
+    if getattr(ep, "cap", None) is not None:          # coffee tray (nero/contents/coffee.py): the capsule's position in the tray frame
+        crel = R.T @ (d.xpos[ep.cap] - p)
+        now.update(cap_rel_x=float(crel[0]), cap_rel_y=float(crel[1]), cap_rel_z=float(crel[2]))
     if ep.lid is not None:
         rel, ltilt = ep._lid_rel()
         r0 = ep.lid_rest[0]

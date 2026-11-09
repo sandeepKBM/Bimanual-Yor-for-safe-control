@@ -18,7 +18,7 @@ Where the numbers come from (checked by world_model/v2/adapters/tests/test_tasks
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from world_model.v2.stack.types import Bound
 
@@ -70,6 +70,7 @@ class TaskDef:
     empty_mass: float | None = None        # kg; None = resolved from the scene (pot): see empty_props
     empty_com: tuple | None = None         # object frame [m]
     prior: Bound | None = None             # contents prior (ONE copy); unit in prior.unit
+    variant_priors: tuple = ()             # ((variant, Bound), ...): scene variants of the same task with their own prior (coffee tray0: "known" | "unknown"); prior = the default
     rows: tuple = ()                       # admission row names applicable to this task
     U: tuple = ()                          # ((quantity, Bound), ...) evaluated on StepState.worst, in monitor order
     R: tuple = ()                          # ((quantity, Bound), ...) evaluated on StepState.now
@@ -224,6 +225,21 @@ def _tray(n):
                        ("torque_payload", "open_content", "support_dest"), n_cups=n, empty_mass=0.30, empty_com=(0.0, 0.0, 0.004),
                        prior=_TRAY_PRIOR, cups=True, geom_tags=_TRAY_GEOM)
 
+# coffee tray in the NERO contents sim (nero/contents/coffee.py, task "tray0" = a tray with no mugs): the capsule must end inside OUR tray's inner footprint
+_T0_SRC = "nero/contents/coffee.py (port of agentchord_probe/coffee_tray/env.py coffee_tray_check to our tray, objects.TRAY 0.22 x 0.33, rim_t 0.008)"
+_T0_IX, _T0_IY = 0.22 / 2 - 0.008, 0.33 / 2 - 0.008
+_T0_CAPSULE = (("abs(cap_rel_x)", ub(_T0_IX, _ASM, f"{_T0_SRC}: capsule inside the tray's inner footprint (lx/2 - rim_t)", "m")),
+               ("abs(cap_rel_y)", ub(_T0_IY, _ASM, f"{_T0_SRC}: (ly/2 - rim_t)", "m")),
+               ("abs(cap_rel_z)", ub(0.04, _ASM, f"{_T0_SRC}: capsule resting on the tray, z within 0.04 m", "m")))
+_T0_PRIOR = Bound(0.0, 3.0, _ASM, "PROPOSED to the user 11-09, NOT YET RULED: hidden load inside the tray, kg (variant unknown); coffee.py LOAD_PRIOR", "kg")
+_T0_KNOWN = Bound(0.0, 0.0, "MODEL", "variant known: nothing in the tray besides the tray (0.30 kg) and the capsule (12 g)", "kg")
+
+
+def _tray0(name, goal_terms, note):
+    t = _tray(0)
+    return replace(t, name=name, goal_terms=goal_terms, prior=_T0_PRIOR, variant_priors=(("unknown", _T0_PRIOR), ("known", _T0_KNOWN)), empty_mass=0.312,
+                   rows=("torque_payload", "support_dest"), U=_u_carry(False, False), R=_r_carry(False, False), note=note)
+
 
 TASKS: dict[str, TaskDef] = {t.name: t for t in (
     _tray(2), _tray(4), _tray(6),
@@ -232,6 +248,9 @@ TASKS: dict[str, TaskDef] = {t.name: t for t in (
                 prior=_BOX_PRIOR, geom_tags=_BOX_GEOM),
     _carry_task("pot", "pot", "world_model.v2.nero.contents.scenes:PotWorld", "world_model.v2.nero.contents.scenes:pot_spec", "counter", _TRAY_MOVES,
                 Disc(_POT_RADIUS), ("torque_payload", "open_content", "support_dest"), prior=_POT_PRIOR, lid=True, geom_tags=_POT_GEOM),
+    _tray0("tray0", (("xy_err", ub(0.03, _ASM, f"{_T0_SRC}: tray_at_target, xy <= 0.03 m of start + goal offset", "m")),) + _T0_CAPSULE + (_CT_TILT,),
+           "coffee tray, STRICT goal set = coffee_tray_check numbers on our tray; the pipeline task name for both coffee variants"),
+    _tray0("tray0_general", (_XY, _Z, _TILT_G) + _T0_CAPSULE, "coffee tray, GENERAL goal set = AgentChord's tray rule (xy <= 5 cm, z <= 2 cm, tilt < 45 deg) + capsule inside; evaluated only"),
     TaskDef(name="pan_pinch", goal_terms=(("touch_left_1_n", lb(1, "MODEL", f"{_PAN_SUCC}: pan touched by left finger 1", "n")),
                                           ("touch_left_2_n", lb(1, "MODEL", f"{_PAN_SUCC}: pan touched by left finger 2", "n"))), **_PAN_COMMON),
     TaskDef(name="pan_push", goal_terms=(("push_frac", lb(0.8, _ASM, f"{_PAN_SUCC}: pan moved >= 0.8 x the planned push", "frac")),
@@ -268,9 +287,15 @@ def of_kind(kind: str, backend: str = "carry") -> TaskDef:
     return next(t for t in TASKS.values() if t.kind == kind and t.backend == backend)
 
 
-def prior_box(name: str) -> tuple:
-    """the contents prior box (lo, hi) of a task: ONE copy (TaskDef.prior); tray: kg per mug."""
-    p = task(name).prior
+def prior_box(name: str, variant: str | None = None) -> tuple:
+    """the contents prior box (lo, hi) of a task: ONE copy (TaskDef.prior); tray: kg per mug.  variant: one of TaskDef.variant_priors (None = the default prior)."""
+    t = task(name)
+    p = t.prior
+    if variant is not None:
+        vp = dict(t.variant_priors)
+        if variant not in vp:
+            raise KeyError(f"{name}: no variant {variant!r}; have {sorted(vp)}")
+        p = vp[variant]
     return (p.lo, p.hi)
 
 
