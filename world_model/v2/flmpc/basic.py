@@ -9,10 +9,15 @@ yield, the slack-QP fallback and the torque-safe scale are NOT built.  Safety li
 Kept limits (the only constraints):
   * actuator torque box  |M a0 + c| <= tau_max_vec        # MODEL: MJCF forcerange = URDF effort (nero/config.tau_limit(); 100 Nm, USER 11-05).
     With tau_max_vec=None the scalar _sc.TAU_MAX (100 Nm, MODEL: YOR MJCF) is used.
-  * acceleration box |a| <= a_box                         # ASSUMED 800 rad/s^2 (inherited FLMPC default, no source; raised to the user)
-Infeasible QP (e.g. gravity bias alone beyond the actuator limit) = what a motor does: solve the unconstrained tracking problem (acceleration
-box only) and SATURATE the torque at the actuator limit; those steps are counted (n_sat_steps = infeasible QP steps, n_tau_clipped = steps where
-the saturation actually changed the torque).  `last_fallback` is always 0 and no fallback is ever called.
+  * joint speed |qd_j(t)| <= qd_max_j over the horizon    # OFFICIAL config.MANUAL["joint_speed_deg_s"] (NERO manual, deg/s -> rad/s); the
+    CALLER passes `qd_max` (hold_test.Ctl reads it from config; None = no speed rows).  Rows sit at step 1 and at the end of each control
+    block (acceleration is piecewise constant per block, so velocity is piecewise linear and these are its extremes).
+  * NO acceleration limit: NERO publishes none (config.MANUAL); acceleration is bounded by the torque box.  The QP solver needs finite variable
+    bounds, so |a| <= A_SOLVER_BOUND (a numerical bound, not a limit); `n_a_bound_steps` counts steps on which it bound (expected 0).
+Infeasible QP (torque or speed rows cannot be met, e.g. gravity bias alone beyond the actuator limit) = what a motor does: solve the unconstrained
+tracking problem (solver bound only) and SATURATE the torque at the actuator limit; those steps are counted (n_sat_steps = infeasible QP steps,
+n_tau_clipped = steps where the saturation actually changed the torque).  `n_speed_binding_steps` = feasible steps on which a speed row is active.
+`last_fallback` is always 0 and no fallback is ever called.
 
 `mpc_fl.FLMPC` is untouched (teleop, Sept cup demo, latent_hj, house keep the full FL-MPC); this is a subclass that overrides step().
 """
@@ -24,16 +29,34 @@ from . import _sc as sc
 from .mpc_fl import FLMPC, _assemble_fl
 from .qp.box_qp import solve_box_qp
 
+RESID_TOL = 1e-3          # Nm / rad/s: a returned x violating a torque or speed row by more than this counts as infeasible
+A_SOLVER_BOUND = 1e5      # rad/s^2: solver bound, not a limit (box QP needs finite bounds); counted when it binds
 _RULING = "USER 11-09: FL-MPC is the BASIC tracker only (no safety rows; safety lives in the checker)"
+
+
+def _osqp_solve(H, f, lower, upper, A, b):
+    """min 0.5 x'Hx + f'x  s.t.  A x <= b, lower <= x <= upper  (OSQP).  None when infeasible / no solution."""
+    import osqp
+    from scipy import sparse
+    n = len(f)
+    Hs = 0.5 * (H + H.T)
+    prob = osqp.OSQP()
+    prob.setup(P=sparse.csc_matrix(np.triu(Hs)), q=f, A=sparse.csc_matrix(np.vstack([A, np.eye(n)])),
+               l=np.concatenate([np.full(len(b), -np.inf), lower]), u=np.concatenate([b, upper]),
+               eps_abs=1e-8, eps_rel=1e-8, max_iter=50000, polishing=True, verbose=False)
+    res = prob.solve()
+    if res.info.status_val not in (1, 2) or res.x is None or not np.all(np.isfinite(res.x)):      # solved / solved inaccurate
+        return None
+    return np.asarray(res.x, float)
 
 
 class FLMPCBasic(FLMPC):
     def __init__(self, model, NC=3, L=8, NV=6, DT=None,
                  W_POS_EGO=3000.0, W_VEL_EGO=15.0, W_POS_INT=600.0, W_VEL_INT=8.0,
-                 R_ACC=1e-4, W_JERK=1e-3, a_box=800.0,        # a_box ASSUMED (see module docstring)
-                 delay_steps=0, tau_max_vec=None):
+                 R_ACC=1e-4, W_JERK=1e-3,
+                 delay_steps=0, tau_max_vec=None, qd_max=None):       # qd_max: rad/s, scalar / (NV,) / (2, NV); OFFICIAL config.MANUAL, passed by the caller
         super().__init__(model, NC=NC, L=L, NV=NV, DT=DT, W_POS_EGO=W_POS_EGO, W_VEL_EGO=W_VEL_EGO, W_POS_INT=W_POS_INT,
-                         W_VEL_INT=W_VEL_INT, R_ACC=R_ACC, W_JERK=W_JERK, a_box=a_box, delay_steps=delay_steps,
+                         W_VEL_INT=W_VEL_INT, R_ACC=R_ACC, W_JERK=W_JERK, a_box=A_SOLVER_BOUND, delay_steps=delay_steps,
                          tau_max_vec=tau_max_vec)
         NV, NP = self.NV, self.NP                       # compile the zero-pair kernel specialization now (not on the first control step)
         qt = np.zeros((NP + 1, NV))
@@ -44,12 +67,28 @@ class FLMPCBasic(FLMPC):
                      self.H_MARGIN, sc.TAU_MAX)
         self.n_sat_steps = 0         # QP infeasible -> unconstrained tracking solve, torque saturated
         self.n_tau_clipped = 0       # steps on which the saturation changed the torque (> 1e-6 Nm)
+        self.n_a_bound_steps = 0     # steps on which the numerical solver bound on |a| was active (expected 0)
+        self.n_speed_binding_steps = 0   # feasible steps on which a speed row is active (within 1e-3 rad/s)
+        self.n_speed_resolves = 0        # steps on which the speed rows were violated by the torque-only solution (re-solved in OSQP)
+        self.qd_max = None if qd_max is None else np.broadcast_to(np.asarray(qd_max, float), (2, NV)).copy()
+        self.speed_steps = sorted(set([1] + list(range(self.L, self.NP + 1, self.L))))
+        self._sp_A = None            # (n_speed, 2*n_blk) rows, built once; right-hand side = +-qd_max -+ qd0 per step
+        if self.qd_max is not None:
+            ntot = 2 * self.n_blk
+            rows = []
+            for c0 in (0, self.n_blk):
+                for t in self.speed_steps:
+                    Ad = self.Phi_qd_all[t]
+                    for j in range(NV):
+                        r = np.zeros(ntot); r[c0:c0 + self.n_blk] = Ad[j]
+                        rows.append(r); rows.append(-r)
+            self._sp_A = np.array(rows)
 
     def step(self, model, data, left_qposadr, left_dofadr, right_qposadr, right_dofadr,
              q_ego_ref, qd_ego_ref, q_int_ref, qd_int_ref,
              pairs_all=None, M_ego_extra=None, bias_ego_extra=None, M_int_extra=None, bias_int_extra=None, **removed):
         """One control step; same positional signature as FLMPC.step for the kept parts.  `pairs_all` is accepted and IGNORED (no clearance rows).
-        Any removed feature (table_rows, tilt / leash / cone, speed cap, q_lim / qd_lim, ego_hold=False ...) given non-None/False raises."""
+        Any removed feature (table_rows, tilt / leash / cone, ee speed cap, q_lim / qd_lim (the joint speed limit is the constructor's qd_max), ego_hold=False ...) given non-None/False raises."""
         for k, v in removed.items():
             if v is not None and not (k == "ego_hold" and v is True):
                 raise ValueError(f"FLMPCBasic.step: '{k}' is a removed FL-MPC feature ({_RULING})")
@@ -102,14 +141,40 @@ class FLMPCBasic(FLMPC):
             b_ineq[2 * j + 1] = tau_lim[j] + c_e[j]
             b_ineq[2 * NV + 2 * j] = tau_lim[j] - c_i[j]
             b_ineq[2 * NV + 2 * j + 1] = tau_lim[j] + c_i[j]
-        lower = -self.a_box * np.ones(ntot)       # ASSUMED a_box
+        n_speed = 0
+        if self.qd_max is not None:               # OFFICIAL config.MANUAL joint speed: Phi_qd_all[t] @ a_block + qd0 within +-qd_max, both arms
+            qd0 = (qd0_e, qd0_i)
+            rhs = []
+            for k in range(2):
+                for t in self.speed_steps:
+                    for j in range(NV):
+                        rhs.append(self.qd_max[k, j] - qd0[k][j]); rhs.append(self.qd_max[k, j] + qd0[k][j])
+            sp_a, sp_b = self._sp_A, np.array(rhs)
+            n_speed = len(rhs)
+        lower = -self.a_box * np.ones(ntot)       # solver bound, not a limit
         upper = self.a_box * np.ones(ntot)
+        # 1) torque box only, with the same dual-ascent solver as FLMPC (identical to before when no speed row is active)
         x, _, feasible = sc.solve_constrained_box_qp(H, f, lower, upper, np.ascontiguousarray(a_ineq), np.ascontiguousarray(b_ineq))
+        # the solver's flag is not trusted alone (memory: QP 'feasible' != constraints met): check the residual of every row (Nm / rad/s)
+        if feasible and float(np.max(a_ineq @ x - b_ineq)) > RESID_TOL:
+            feasible = False
+        if n_speed and feasible and float(np.max(sp_a @ x - sp_b)) > 1e-6:
+            # 2) a speed row is violated: re-solve with torque + speed rows in OSQP (the dual-ascent solver does not converge on the many
+            #    small-norm speed rows: it left torque rows violated by Nm in a test).  Same objective, bounds |a| <= solver bound.
+            x2 = _osqp_solve(H, f, lower, upper, np.vstack([a_ineq, sp_a]), np.concatenate([b_ineq, sp_b]))
+            feasible = x2 is not None and float(np.max(np.vstack([a_ineq, sp_a]) @ x2 - np.concatenate([b_ineq, sp_b]))) <= RESID_TOL
+            if feasible:
+                x = x2
+            self.n_speed_resolves += 1
         self.last_feasible = bool(feasible)
         self.last_fallback = 0
         if not feasible:
             x = solve_box_qp(H, f, lower, upper)          # unconstrained tracking (acceleration box only); torque saturated below
             self.n_sat_steps += 1
+        elif n_speed and float(np.min(sp_b - sp_a @ x)) < 1e-3:
+            self.n_speed_binding_steps += 1
+        if float(np.max(np.abs(x))) >= 0.999 * self.a_box:
+            self.n_a_bound_steps += 1
         a_e0 = x[0:NV].copy()
         a_i0 = x[n_blk:n_blk + NV].copy()
         self.a_ego_prev = a_e0.copy()

@@ -103,9 +103,6 @@ def resolve_planner(planner=None):
 PHYS_DEFAULT = "config.carry_physics"      # sentinel: take fric_comp / weld_solref from config.carry_physics() (item 6)
 
 
-RULING_1109 = "USER 11-09: FL-MPC = BASIC tracker only; safety lives in the checker (docs/status/decisions.md)"
-
-
 class LeverCtl(TwoCtl):
     """FL-MPC with a LEVER-split payload feedforward (11-02; new variant, TwoCtl and FL-MPC unchanged).  TwoCtl's 50/50 split
     puts half the load at the COM on EACH claw, i.e. each claw is commanded the moment of half the weight about itself (an internal
@@ -120,7 +117,6 @@ class LeverCtl(TwoCtl):
         self.c_rel_nom = np.asarray(c_rel_nom, float)            # nominal total COM in the obj frame, about obj_ref
         self.sites = sites
         self.ref = m.site("obj_ref").id
-        self.rules = None                                        # DEAD (11-09): rules.Rules rows were removed from the research tracker; must stay None
 
     def terms(self, d):
         m = self.m
@@ -196,7 +192,7 @@ def _tilt_deg(R):
 
 class CarryEpisode:
     def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=None, ctl="lever", strict_claw=False,
-                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None, planner=None, wp=None):
+                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, planner=None, wp=None):
         self.step_hooks = []                                    # per-step callbacks hook(ep), run at the end of _step (see _step)
         self.planner = resolve_planner(planner)               # 11-05: "scripted" (default) | "closed_chain"
         self.wp = wp                                            # 11-05 opt-in: closed_chain.WaypointPlan written by the proposer (stack/proposer/compile.py); None = the default plan
@@ -251,26 +247,18 @@ class CarryEpisode:
         q0 = {s: d.qpos[self.addr[s]].copy() for s in SIDES}
         hold = {s: q0[s].tolist() for s in SIDES}
         self.ctl_kind = ctl
-        if ctl == "coopimp_safe" or rules == "full":
-            raise ValueError("ctl='coopimp_safe' / rules='full' are dead paths in research: the FL-MPC table/joint/clearance rows were removed (%s)" % RULING_1109)
-        if ctl in ("lever", "coopimp", "coopimp_safe"):
+        if ctl in ("lever", "coopimp"):
             P = cont.P
             c_c = P.mean(0)                                        # belief contents centre (obj frame)
             c_nom = (self.truth0["empty_mass"] * np.asarray(self.truth0["empty_com"]) + self.m_hat * c_c) / self.m_nom
             if ctl == "coopimp":                                   # 11-03 opt-in: object-level impedance (coop_imp.py)
                 from .coop_imp import CoopImpCtl
                 self.ctl = CoopImpCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, c_nom, self.site)
-            elif ctl == "coopimp_safe":                            # 11-03 opt-in: coopimp wrench as FL-MPC payload feedforward (rules in the QP)
-                from .coop_imp import CoopImpSafeCtl
-                self.ctl = CoopImpSafeCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, c_nom, self.site)
             else:
                 self.ctl = LeverCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, c_nom, self.site)
         else:                                                      # "share": pan/handle_grasp.TwoCtl, half the load at the COM
             self.ctl = TwoCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, share=share)
         self.ctl.on = True
-        self.rules_mode = rules if rules is not None else "base"
-        if self.rules_mode != "base":
-            raise ValueError(f"rules must be 'base' (rules='full' is dead since 11-09), got {rules!r}")
         self.NP, self.FDT = self.ctl.fl.NP, self.ctl.fl.DT
         self.q0 = q0
         self.F_cap = (E.PAYLOAD_KG - float(m.body_subtreemass[self.gb["left"]])) * OB.G
@@ -285,7 +273,7 @@ class CarryEpisode:
         self.lid = m.body("lid").id if (self.task == "pot" and world.lid) else None
         self.lid_rest = self._lid_rel() if self.lid is not None else None          # (xy shift ref, z ref) of the lid in the obj frame at rest
         self.fc = dict(FRIC_COMP, **fric_comp) if isinstance(fric_comp, dict) else (dict(FRIC_COMP) if fric_comp else None)
-        if self.fc is not None and ctl in ("coopimp", "coopimp_safe") and not C.LEGACY_COOP_FC:
+        if self.fc is not None and ctl == "coopimp" and not C.LEGACY_COOP_FC:
             # USER 11-03: under coopimp drop the wrapper's joint-level kp/ki terms (they fight the object-level impedance);
             # the Coulomb term f*tanh(v/v_s) stays.  BIMANUAL_LEGACY_COOP_FC=1 = the pre-11-03 wrapper (kp/ki on).
             self.fc = dict(self.fc, kp=0.0, ki=0.0)
@@ -311,8 +299,8 @@ class CarryEpisode:
         return dict(fric_comp=self.fc is not None, weld_solref=self.weld_solref, legacy_carry_phys=C.LEGACY_CARRY_PHYS,
                     arm_arm_collide=not C.LEGACY_ARMCOL, coop_sensor=("legacy_constraint_wrench" if C.LEGACY_COOP_SENSOR else "joint_torque_estimate"),
                     coop_fric=("legacy" if C.LEGACY_COOP_FRIC else "fixed"), gripper=C.GRIPPER,
-                    fc_kp_ki=(None if self.fc is None else (self.fc["kp"], self.fc["ki"])), rules=self.rules_mode,
-                    coop_f_sq=(C.coop_f_sq() if self.ctl_kind in ("coopimp", "coopimp_safe") else None))
+                    fc_kp_ki=(None if self.fc is None else (self.fc["kp"], self.fc["ki"])),
+                    coop_f_sq=(C.coop_f_sq() if self.ctl_kind == "coopimp" else None))
 
     # ---------------- weld / state ----------------
     def weld(self, s, on):
@@ -457,25 +445,17 @@ class CarryEpisode:
                 dq = {s: self.coop["gain"] * dq_c[s] for s in SIDES}
         ctl.qe_ref = np.stack([self._cmd("left", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["left"]
         ctl.qi_ref = np.stack([self._cmd("right", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["right"]
-        safe = self.ctl_kind == "coopimp_safe"
-        if self.ctl_kind in ("coopimp", "coopimp_safe") and ctl.on:
+        if self.ctl_kind == "coopimp" and ctl.on:
             ctl.ref_in = dict(qr={s: np.stack([self._cmd(s, t + j * 0.05) - dq[s] for j in (-1, 0, 1)]) for s in SIDES},
                               h_meas=np.concatenate([np.concatenate(self.claw_wrench(s)) for s in SIDES]),           # sim truth (weld constraint wrench)
                               tau_prev={"left": d.qfrc_applied[ctl.ld].copy(), "right": d.qfrc_applied[ctl.rd].copy()})   # joint torque of the last step (11-03 item 8)
-            if safe:        # Coulomb term of the friction wrapper goes INTO the QP's bias (inside the torque box); no kp/ki, no wrapper afterwards
-                ctl.ref_in["fric"] = {s_: (self.fc["f"] * np.tanh(((self._cmd(s_, t + DT) - self._cmd(s_, t)) / DT) / self.fc["v_s"])
-                                           if self.fc is not None else np.zeros(7)) for s_ in SIDES}
             te, ti = ctl.tau(d)
-            te0, ti0 = te, ti
             te, ti = np.clip(te, -self.tau_lim, self.tau_lim), np.clip(ti, -self.tau_lim, self.tau_lim)
-            if safe:        # guard only: the QP output already respects the box; count steps where the clip changed anything (> 1e-6 Nm)
-                self.track["ci_postclip_steps"] = self.track.get("ci_postclip_steps", 0) + int(
-                    max(float(np.max(np.abs(te - te0))), float(np.max(np.abs(ti - ti0)))) > 1e-6)
             for k, v in ctl.log.items():
                 self.track[k] = max(self.track.get(k, 0.0), float(v))
         else:
             te, ti = ctl.tau(d)
-        if self.fc is not None and not (safe and ctl.on):
+        if self.fc is not None:
             fc, out = self.fc, []
             for s, tau in (("left", te), ("right", ti)):
                 qc = self._cmd(s, t) - dq[s]
@@ -694,12 +674,12 @@ class CarryEpisode:
 
 # ---------------------------------------------------------------------------------------------------------------------------
 def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl="lever", strict_claw=False, m_hat=None,
-                fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, rules=None, planner=None, wp=None):
+                fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, planner=None, wp=None):
     """m_hat: the robot's nominal contents mass (belief cell centre; None = the prior's centre)."""
     """nominal run of all segments in one world + the stored backup from branch points of each segment.  -> record for admit."""
     t0 = time.time()
     ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp,
-                      coop=coop, weld_solref=weld_solref, rules=rules, planner=planner, wp=wp)
+                      coop=coop, weld_solref=weld_solref, planner=planner, wp=wp)
     ep.run_phases([("hold", 0.4)])                            # load transfer, object still on the counter
     rec = dict(tag=tag, task=ep.task, theta=_theta(world), truth=_jsonable(ep.truth0), a_plan=a_plan, m_nom=ep.m_nom, ctl=ctl,
                strict_claw=strict_claw, fric_comp=ep.fc, coop=ep.coop, weld_solref=ep.weld_solref,

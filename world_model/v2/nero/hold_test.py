@@ -50,6 +50,7 @@ class Ctl:
         self.lq, self.ld = A.arm_addrs(m, "left")
         self.rq, self.rd = A.arm_addrs(m, "right")
         k = dict(FL_KW)
+        k["qd_max"] = np.radians(np.asarray(C.MANUAL["joint_speed_deg_s"], float))   # OFFICIAL config.MANUAL (NERO manual), rad/s; the tracker has no default
         k.update(kw)
         from . import fl_log as FLL
         self.fl = FLL.recording_class(FLMPCBasic)(m, NV=C.N_ARM, tau_max_vec=tau_vec, **k)   # 11-03 F2: logging subclass, step() logic unchanged
@@ -134,6 +135,7 @@ def run(seconds=5.0, tau_preset=None, gravcomp=False, lift=False, hold_cache=Non
                     dt=float(m.opt.timestep), FL_KW={**FL_KW, **fl_kw}, NV=C.N_ARM),
         hold=dict(hold_q=info["hold_q"], ik_err=info["ik_err"], min_limit_margin=info["min_limit_margin"], min_pair_h_at_hold=info["min_pair_h"]),
         n_steps=n, n_infeasible=ctl.n_infeasible, n_fallback=ctl.n_fallback, n_taumax_relaxed=ctl.fl.n_taumax_relaxed, n_sat_steps=ctl.fl.n_sat_steps, n_tau_clipped=ctl.fl.n_tau_clipped,
+        n_speed_binding_steps=ctl.fl.n_speed_binding_steps, n_a_bound_steps=ctl.fl.n_a_bound_steps,
         ball_stays=bool(lost_at is None), lost_at_s=lost_at, max_ball_offset_xy_m=maxoff, min_ball_z_above_tray_m=min_bz,
         max_tray_tilt_deg=max_tilt, max_tray_drift_m=drift, max_joint_dev_rad=max_dq,
         contacts_by_class_sum=pair_tot, min_proxy_h_sampled_m=min_h,

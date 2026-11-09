@@ -55,8 +55,8 @@ This file = how to *operate* here. Last updated 2026-11-05 (doc index added; sta
   `mpc_fl.sc.<name>`). Feedback-linearized (`τ=M·a+c` ⇒ exact double integrator); plans acceleration; exact analytic horizon
   prediction (no MuJoCo rollout in the controller); Numba-optimized; safety lives in the QP **constraints** (arm-arm clearance,
   table-floor, torque box, cup-tilt).
-- Current work: the hidden-contents carry, `world_model/v2/nero/contents/` (`carry.py`; `ctl="coopimp_safe"` = cooperative
-  impedance inside FL-MPC). Planner decisions 11-03: `docs/status/2026-11-03_handoff_notes.md`. Planner stack `world_model/v2/stack/`:
+- Current work: the hidden-contents carry, `world_model/v2/nero/contents/` (`carry.py`; tracker = basic FL-MPC,
+  `world_model/v2/flmpc/basic.py`, speed limit from `config.MANUAL`). Planner decisions 11-03: `docs/status/2026-11-03_handoff_notes.md`. Planner stack `world_model/v2/stack/`:
   ScriptedPlanner (legacy `carry.PLANS`) is the default; ClosedChainPlanner (`stack/planners/closed_chain.py`) is opt-in via
   `--planner closed_chain` or `BIMANUAL_PLANNER=closed_chain`. Checker design (not built): `docs/status/checker_design_2026-11-05.md`.
 - Old flagship demo (Sept, cup collect): `scripts/make_cup_collect_safety_demo.py --controller {v4c,v7c,flmpc}`.

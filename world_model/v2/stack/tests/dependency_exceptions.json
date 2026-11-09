@@ -61,12 +61,6 @@
  },
  {
   "rule": "nero_contents_no_forbidden",
-  "importer": "nero/contents/rules.py",
-  "imported": "world_model.v2.flmpc._sc",
-  "reason": "pre-unification 11-09; remove in switch step"
- },
- {
-  "rule": "nero_contents_no_forbidden",
   "importer": "nero/contents/same_worlds.py",
   "imported": "world_model.v2.agentchord_probe.nero.execute",
   "reason": "pre-unification 11-09; remove in switch step"

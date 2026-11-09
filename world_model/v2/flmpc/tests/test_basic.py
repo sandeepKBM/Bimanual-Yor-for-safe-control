@@ -48,11 +48,57 @@ def test_no_removed_rows_and_no_fallback(hold, monkeypatch):
 
 
 def test_torque_saturates_when_infeasible(hold):
-    # limit below gravity bias on some joint -> hard QP infeasible -> unconstrained tracking solve, torque clipped at the limit
-    m, d, fl, (lq, ld, rq, rd), qe, qi, z = _setup(hold, tau_max_vec=np.full(7, 0.5), a_box=0.01)   # a_box too small to give a = -M^-1 c
+    # limit below gravity bias on some joint and a = -M^-1 c unreachable -> hard QP infeasible -> unconstrained tracking solve, torque clipped at the limit
+    m, d, fl, (lq, ld, rq, rd), qe, qi, z = _setup(hold, tau_max_vec=np.full(7, 0.5))
+    fl.a_box = 0.01                                                      # test only: a tiny solver bound makes a = -M^-1 c unreachable (otherwise the torque box is always satisfiable)
     qe = qe + 0.05                                                       # a tracking error so the unconstrained solve commands something
     mujoco.mj_forward(m, d)
     te, ti, ok = fl.step(m, d, lq, ld, rq, rd, qe, z, qi, z)
     assert not ok and fl.n_sat_steps == 1 and fl.n_tau_clipped == 1 and fl.last_fallback == 0
     assert np.max(np.abs(te)) <= 0.5 + 1e-12 and np.max(np.abs(ti)) <= 0.5 + 1e-12
     assert np.isclose(np.max(np.abs(te)), 0.5)                           # it actually saturated
+
+
+def _run_jump(hold, qd_max, steps=100, jump=0.6):
+    """closed loop: the reference of left joint 1 jumps by `jump` rad; returns (peak |qd| of left joint 1, fl)."""
+    m, d, info = hold
+    mujoco.mj_resetData(m, d)
+    from world_model.v2.nero import ik as IK
+    IK.set_hold_state(m, d)
+    m_, d_, fl, (lq, ld, rq, rd), qe, qi, z = _setup(hold, tau_max_vec=C.tau_limit(), qd_max=qd_max)
+    qe = qe.copy(); qe[:, 0] += jump
+    peak = 0.0
+    for _ in range(steps):
+        mujoco.mj_forward(m, d)
+        te, ti, _ok = fl.step(m, d, lq, ld, rq, rd, qe, z, qi, z)
+        d.qfrc_applied[:] = 0.0
+        d.qfrc_applied[ld] = te
+        d.qfrc_applied[rd] = ti
+        mujoco.mj_step(m, d)
+        peak = max(peak, abs(float(d.qvel[ld[0]])))
+    return peak, fl
+
+
+def test_speed_rows_limit_planned_speed(hold):
+    v = 0.3                                                              # rad/s, test value (the research callers pass config.MANUAL speeds)
+    p_free, fl0 = _run_jump(hold, None)
+    p_lim, fl1 = _run_jump(hold, np.full(7, v))
+    assert p_free > 2 * v                                                # the reference does demand more than the limit
+    assert p_lim <= v + 0.02                                             # limited (small slack: tracking of the planned a, one-step lag)
+    assert fl1.n_speed_binding_steps > 0 and fl0.n_speed_binding_steps == 0
+    assert fl1.n_a_bound_steps == 0 and fl0.n_a_bound_steps == 0         # the solver bound never binds
+    assert fl1.n_tau_clipped == 0 and fl1.last_fallback == 0
+
+
+def test_speed_row_infeasible_is_counted_and_torque_saturated(hold):
+    # initial speed above the limit cannot be met within a 1 Nm torque box over the horizon -> infeasible QP -> unconstrained solve + saturation, counted
+    m, d, info = hold
+    mujoco.mj_resetData(m, d)
+    from world_model.v2.nero import ik as IK
+    IK.set_hold_state(m, d)
+    m_, d_, fl, (lq, ld, rq, rd), qe, qi, z = _setup(hold, tau_max_vec=np.full(7, 1.0), qd_max=np.full(7, 0.01))
+    d.qvel[ld[0]] = 5.0
+    mujoco.mj_forward(m, d)
+    te, ti, ok = fl.step(m, d, lq, ld, rq, rd, qe, z, qi, z)
+    assert (not ok) and fl.n_sat_steps == 1
+    assert np.max(np.abs(te)) <= 1.0 + 1e-9 and fl.last_fallback == 0
