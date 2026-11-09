@@ -79,7 +79,7 @@ def main(argv=None):
             f.write(json.dumps(r, default=float) + "\n")
             f.flush()
             recs.append(r)
-            print(f"{r['task']} {r['cell']} i={r['i']} {r['outcome']} {r.get('reason') or ''} ac={r.get('ac_success')} ours={r.get('success_ours')} {r['wall_s']}s", flush=True)
+            print(f"{r['task']} {r['cell']} i={r['i']} {r['outcome']} {r.get('reason') or ''} {(r.get('result') or {})} {r['wall_s']}s", flush=True)
     summ = summarize(recs)
     summ["wall_s"] = round(time.time() - t0)
     (out / "RESULT.json").write_text(json.dumps(dict(metadata=meta, summary=summ), indent=1, default=float))
@@ -88,10 +88,10 @@ def main(argv=None):
 
 def summarize(recs):
     from collections import Counter
+    from world_model.v2.stack import outcome as OC
     return dict(n=len(recs), outcomes=dict(Counter(r["outcome"] for r in recs)),
                 rejections=dict(Counter(x["status"] for r in recs for x in r.get("rejections", []))),
-                ac_success=sum(bool(r.get("ac_success")) for r in recs), success_ours=sum(bool(r.get("success_ours")) for r in recs),
-                any_U=sum(bool(r.get("any_U")) for r in recs), monitors_fired=sum(len(r.get("monitors_fired", [])) for r in recs),
+                tally=OC.tally(recs), monitors_fired=sum(len(r.get("monitors_fired", [])) for r in recs),
                 recoveries_run=sum(r.get("n_recoveries_run", 0) for r in recs))
 
 

@@ -45,6 +45,7 @@ def _trial(args):
     try:
         ep = CR.CarryEpisode(w, a_plan=E.A_NOM, m_hat=m_hat, fric_comp=fc, weld_solref=ws)
         ep.run_phases([("hold", 0.4)])
+        pre_hold_viol = ep.track["viol"]                     # a U entry during the load-transfer hold counts (R1 unsafe)
         segs, mon = [], dict(fired=False, max_step_m=0.0)
         rel_prev = None
 
@@ -71,6 +72,8 @@ def _trial(args):
                  end_in_R=ep.in_R(), dz_end=round(float(dest), 4), any_U=any(s["viol"] for s in segs),
                  first_U=next((dict(seg=s["seg"], **s["viol"]) for s in segs if s["viol"]), None),
                  truth_total_kg=round(float(tr["total_mass"]), 3), wall_s=round(time.time() - t0, 1))
+        from world_model.v2.adapters import outcome_carry as OCC      # the ONE goal + success rule (same as ours and AgentChord)
+        r.update(pre_hold_viol=pre_hold_viol, **OCC.measure(ep, task, True, bool(r["any_U"]) or pre_hold_viol is not None, pre_hold_viol, end_in_R=tuple(r["end_in_R"])))
         if ep.planner != "scripted":
             r["planner"] = ep.planner
     except Exception as e:

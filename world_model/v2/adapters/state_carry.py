@@ -7,9 +7,15 @@ import math
 import mujoco
 import numpy as np
 
-from world_model.v2.nero.contents import carry as CR
 from world_model.v2.stack import tasks as TK
 from world_model.v2.stack.state import EndState
+
+
+DT = 0.005          # = nero/contents/carry.DT (adapters/tests/test_state_readers.py checks it); not imported: carry reaches flmpc (dependency rules)
+
+
+def _tilt_deg(R):   # = carry._tilt_deg (checked by the same test)
+    return float(np.degrees(np.arccos(np.clip(R[2, 2], -1.0, 1.0))))
 
 
 def _kind_task(kind):
@@ -32,8 +38,8 @@ def from_carry(ep, finished=None, pre_hold_viol=None) -> EndState:
                    for c in d.contact[:d.ncon])
     tr = ep.track
     now = dict(obj_x=float(p[0]), obj_y=float(p[1]), obj_z=float(p[2]), obj_z0=float(ep.z0), rise_m=float(p[2] - ep.z0), drop_m=float(ep.z0 - p[2]),
-               obj_tilt_deg=CR._tilt_deg(R), obj_speed=float(np.linalg.norm(v[3:])), support_contact=1.0 if touching else 0.0,
-               cup_tilt_deg=max([CR._tilt_deg(d.xmat[b].reshape(3, 3)) for b in ep.cups] or [0.0]), tau_ratio=float(tr["tau_ratio"]))
+               obj_tilt_deg=_tilt_deg(R), obj_speed=float(np.linalg.norm(v[3:])), support_contact=1.0 if touching else 0.0,
+               cup_tilt_deg=max([_tilt_deg(d.xmat[b].reshape(3, 3)) for b in ep.cups] or [0.0]), tau_ratio=float(tr["tau_ratio"]))
     if ep.lid is not None:
         rel, ltilt = ep._lid_rel()
         r0 = ep.lid_rest[0]
@@ -53,5 +59,5 @@ def from_carry(ep, finished=None, pre_hold_viol=None) -> EndState:
             worst["cup_off_tray_flag"] = 1.0
         elif k == "obj_drop":
             worst["drop_m"] = max(worst["drop_m"], math.nextafter(_kind_task(ep.task).U_dict()["drop_m"].hi, math.inf))   # just past the TaskDef drop bound
-    return EndState(t=float(ep.k * CR.DT), now=now, worst=worst, first_viol=fv, finished=finished, pre_hold_viol=pre_hold_viol,
+    return EndState(t=float(ep.k * DT), now=now, worst=worst, first_viol=fv, finished=finished, pre_hold_viol=pre_hold_viol,
                     meta=dict(backend="carry", task=ep.task, goal_support_tops=_tops(ep.world)))

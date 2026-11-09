@@ -64,7 +64,6 @@ def test_object_dims_and_support_shape():
 def test_pan_and_goal_constants():
     from world_model.v2.nero.pan import segments as S
     from world_model.v2.nero.pan.handle_grasp import LIFT
-    from world_model.v2.agentchord_probe.nero import execute as EX
     t = TK.task("pan_lift")
     u, r = t.U_dict(), t.R_dict()
     assert (u["obj_tilt_deg"].hi, u["lid_mm"].hi, u["drop_mm"].hi, u["joint_margin_rad"].lo, u["tau_ratio"].hi) == (
@@ -73,7 +72,10 @@ def test_pan_and_goal_constants():
         S.R["tilt_deg"], S.R["dz_mm"], S.R["lid_mm"], S.R["support_frac"], S.R["pan_speed"], S.R["arm_speed"], S.R["yaw_deg"])
     g = dict(t.goal_terms)
     assert g["rise_mm"].lo == pytest.approx(0.8 * LIFT * 1e3)
-    assert TK.task("box").goal_terms[0][1].hi == EX.GOAL_TOL_M == TK.task("pot").goal_terms[1][1].hi
+    for n in ("box", "tray6", "pot"):                  # AgentChord ac_success (USER 11-09): xy <= 0.05, z <= 0.02, tilts < 45 deg strict
+        gt = dict(TK.task(n).goal_terms)
+        assert (gt["xy_err"].hi, gt["z_err"].hi, gt["obj_tilt_deg"].hi, gt["obj_tilt_deg"].strict) == (0.05, 0.02, 45.0, True)
+    assert dict(TK.task("tray6").goal_terms)["cup_tilt_deg"].hi == 45.0
 
 
 def test_coffee_tray_numbers():

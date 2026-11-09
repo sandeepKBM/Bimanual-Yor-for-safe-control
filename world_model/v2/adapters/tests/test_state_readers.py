@@ -125,3 +125,12 @@ def test_embodichain_unrounded_xy_err():
     assert s.now["xy_err"] == 0.0300004                                    # the sim's unrounded value, not hypot of rounded positions
     assert not GL.check_goal(GL.goal_for("coffee_tray"), s).ok              # old: norm <= 0.03 -> 0.0300004 fails
     assert GL.check_goal(GL.goal_for("coffee_tray"), from_embodichain(dict(d, tray_xy_err=0.03))).ok
+
+
+def test_local_tilt_and_dt_equal_carry():
+    import numpy as np
+    from world_model.v2.adapters import state_carry as SCY
+    from world_model.v2.nero.contents import carry as CR
+    assert SCY.DT == CR.DT
+    R = np.array([[1, 0, 0], [0, 0.8, -0.6], [0, 0.6, 0.8]])
+    assert SCY._tilt_deg(R) == CR._tilt_deg(R)

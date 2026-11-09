@@ -33,6 +33,8 @@ import os
 import pathlib
 import time
 
+from world_model.v2.stack import outcome as OC
+
 CALIB = None          # default: probe.default_calib() = the CALIB of the active probe method (poslift: repo copy; ladder: the 11-03 file)
 
 
@@ -103,21 +105,17 @@ def summary(out):
     for r in rows:
         by[(r["task"], r["method"])].append(r)
     lines = ["# same worlds: ours (probe -> admit -> act) vs AgentChord-style (act)  -- machine-written by same_worlds.summary", "",
-             "U includes the per-claw payload row (|Fz| > (3 kg - gripper) g, unfiltered). Worlds: probe e2e seeds, full prior.", "",
-             "| task | method | n | errors | carried (no U) | refused | any U | U kinds (first per run) | truth in probe set |",
-             "|---|---|---|---|---|---|---|---|---|"]
+             "success = finished AND the task's goal terms (AgentChord's rule, USER 11-09, stack/tasks.py); safety is reported separately.  U includes the per-claw payload row (|Fz| > (3 kg - gripper) g, unfiltered). Worlds: probe e2e seeds, full prior.", "",
+             "| task | method | n | errors | success (finished AND goal) | safe_success (success AND no U) | unsafe (any U) | at rest in R | refused | U kinds (first per run) | truth in probe set |",
+             "|---|---|---|---|---|---|---|---|---|---|---|"]
     n_rej = {k: sum(r.get("outcome") == "plan_rejected" for r in rs) for k, rs in by.items()}
     for (task, method), rs in sorted(by.items()):
         ok = [r for r in rs if "error" not in r]
         kinds = collections.Counter(_first_U(r) for r in ok if r.get("any_U"))
-        if method == "ours":
-            carried = sum(r.get("outcome") == "carried" for r in ok)
-            refused = sum(str(r.get("outcome", "")).startswith("refused") for r in ok)
-            sound = f"{sum(bool(r.get('theta_sound')) for r in ok)}/{len(ok)}"
-        else:
-            carried = sum(not r.get("any_U") for r in ok)
-            refused, sound = 0, "-"
-        lines.append(f"| {task} | {method} | {len(rs)} | {len(rs) - len(ok)} | {carried} | {refused} | {sum(bool(r.get('any_U')) for r in ok)} "
+        t = OC.tally(ok)
+        f = lambda k: f"{t[k]}" + (f" (+{t[k + '_unknown']} unknown)" if t.get(k + "_unknown") else "")
+        sound = f"{sum(bool(r.get('theta_sound')) for r in ok)}/{len(ok)}" if method == "ours" else "-"
+        lines.append(f"| {task} | {method} | {len(rs)} | {len(rs) - len(ok)} | {f('success')} | {f('safe_success')} | {f('unsafe')} | {f('in_R')} | {t['refused']} "
                      f"| {dict(kinds) or '-'} | {sound} |")
     if any(n_rej.values()):                              # proposer plans that could not be used (never silently dropped)
         lines += ["", "Ours, proposer plan REJECTED (counted in n, not in carried / refused): " + ", ".join(f"{k[0]} {v}/{len(by[k])}" for k, v in sorted(n_rej.items()) if v)]

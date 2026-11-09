@@ -515,7 +515,7 @@ def _e2e_job(args, method=None):
         M_stop = None if cmax is None else empty_mass(task) + cmax
         pr = make_probe(ep, task, eps_lo, eps_free, rng=np.random.default_rng(seed), noise=True, method=method)
         if not static_interval(task, *prior_contents(task), w, wp=wp)["action"].startswith("refuse"):
-            why = "free"                                     # verdict already "carry" on all of Theta_0: no probe needed
+            why = "no_probe_needed"                          # verdict already "carry" on all of Theta_0: the probe runs 0 rungs (11-09: was labelled "free")
             pr.M_lo, pr.M_hi = empty_mass(task) + prior_contents(task)[0], empty_mass(task) + prior_contents(task)[1]
         else:
             why = pr.run(M_stop=M_stop)
@@ -526,7 +526,7 @@ def _e2e_job(args, method=None):
                    probe_viol=probe_viol, probe_track=dict(pr.track), theta_world=CR._theta(w),
                    u_read_max=round(float(getattr(pr, 'u_read_max', 0.0)), 4), guard_events=list(getattr(pr, 'guard_events', [])), sim_abort=getattr(pr, 'sim_abort', None))
         decision = None
-        if why == "free":
+        if why in ("free", "no_probe_needed"):
             c_lo, c_hi = pr.M_lo - empty_mass(task), pr.M_hi - empty_mass(task)
             st = static_interval(task, c_lo, c_hi, w, wp=wp)
             decision = dict(action=st["action"], a_admit=st["a_admit"], u_nom=st["u_nom"], contents=[c_lo, c_hi])
@@ -558,6 +558,10 @@ def _e2e_job(args, method=None):
             rec["refuse_end_in_R"] = [okR, whyR]
             rec["outcome"] = "refused_in_R" if okR and not ep.track["viol"] else "refused_bad"
         rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", [])))
+        from world_model.v2.adapters import outcome_carry as OCC      # the ONE goal + success rule (stack.goal / stack.outcome), same as AgentChord's records
+        carried = "carry" in rec
+        rec.update(OCC.measure(ep, task, carried, rec["any_U"], rec["carry"]["pre_hold_viol"] if carried else None, refused=not carried, reason=rec["outcome"],
+                               end_in_R=tuple(rec["carry"]["end_in_R"] if carried else rec["refuse_end_in_R"])))
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec
     except Exception as e:
@@ -596,7 +600,7 @@ def e2e_summary(rows):
         c = lambda k, v: sum(r.get(k) == v for r in rs)
         nr = [len(r["rungs"]) for r in rs]
         wid = [r["Theta"][1] - r["Theta"][0] for r in rs]
-        L.append(f"{task} | {len(rs)} | {c('why', 'free')} / {c('why', 'decided_refuse')} / {c('why', 'rung_not_admissible')} | "
+        L.append(f"{task} | {len(rs)} | {c('why', 'free')} (+{c('why', 'no_probe_needed')} no probe needed) / {c('why', 'decided_refuse')} / {c('why', 'rung_not_admissible')} | "
                  f"{sum(r['theta_sound'] for r in rs)}/{len(rs)} | {c('outcome', 'carried')} / {c('outcome', 'carry_failed')} / "
                  f"{c('outcome', 'refused_in_R')} / {c('outcome', 'refused_bad')} | {sum(r['any_U'] for r in rs)} | "
                  f"{int(np.median(nr))}/{max(nr)} | {np.median(wid):.3f}/{max(wid):.3f} | "

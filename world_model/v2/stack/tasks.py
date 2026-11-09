@@ -12,7 +12,7 @@ violates at margin <= 0), so admission / U / R decide the same at equality.
 Where the numbers come from (checked by world_model/v2/adapters/tests/test_tasks_match_nero.py and stack/tests/test_unified_core.py):
   carry U / R      nero/contents/carry.py U_TILT_OBJ, U_TILT_CUP, R_TILT_OBJ, R_TILT_CUP, LID_*, R_SPEED, the drop test in CarryEpisode._check
   pan U / R        nero/pan/segments.py U, R
-  goal             closed_chain.GOAL_DXY (xy offset), agentchord_probe/nero/execute.py GOAL_TOL_M (USER 11-03); pan success(seg); coffee_tray/env.py
+  goal             closed_chain.GOAL_DXY (xy offset), the carry tasks' goal terms = AgentChord ac_success (USER 11-09); pan success(seg); coffee_tray/env.py
   contents prior   probe.PRIOR = probe_trace.PRIOR = agentchord tasks.PRIOR (they agree; one copy here)
 """
 from __future__ import annotations
@@ -103,7 +103,7 @@ class TaskDef:
 
 
 # ----------------------------------------------------------------------------------------------------------------------- shared numbers
-_GOAL_SRC = "USER 11-03 (execute.GOAL_TOL_M); xy / support-relative z, was ASSUMED"
+_AC_SRC = "AgentChord ac_success (execute.py:25,157), adopted USER 11-09 (success = their rule, both methods)"
 _ASM = "ASSUMED"
 _CARRY = "nero/contents/carry.py"
 _PAN = "nero/pan/segments.py"
@@ -166,8 +166,10 @@ _R_PAN_V2 = _R_PAN_COMMON + (
     ("stable_margin_m", lb(0.005, _ASM, f"{_PAN} in_R 'stable' (R_V2): Episode.stable_margin() - STABLE_MARGIN (0.005 ASSUMED = cert/model_check.SUPPORT_MARGIN), strict", "m", strict=True)),
     _REACH)
 
-_XY = ("xy_err", ub(0.03, _ASM, _GOAL_SRC, "m"))
-_Z = ("z_err", ub(0.03, _ASM, _GOAL_SRC, "m"))
+_XY = ("xy_err", ub(0.05, _ASM, _AC_SRC + ": xy_err <= 0.05 m", "m"))
+_Z = ("z_err", ub(0.02, _ASM, _AC_SRC + ": support-relative z_err <= 0.02 m", "m"))
+_TILT_G = ("obj_tilt_deg", ub(45.0, _ASM, _AC_SRC + ": object tilt < 45 deg (strict)", "deg", strict=True))
+_CUP_TILT_G = ("cup_tilt_deg", ub(45.0, _ASM, _AC_SRC + ": every mug tilt < 45 deg (strict)", "deg", strict=True))
 _PRIOR_SRC = "probe.PRIOR = probe_trace.PRIOR = agentchord tasks.PRIOR (checked 11-09: the three agree)"
 _PLANS_SRC = "nero/contents/carry.py PLANS / PLANS_EXTRA (ASSUMED, user-confirmed 11-02)"
 
@@ -198,7 +200,8 @@ def _carry_task(name, kind, world_ref, spec_ref, goal_support, moves, shape, row
                 obj="obj", geom_tags=()):
     gx, gy = {"tray": (-0.10, 0.0), "box": (-0.20, 0.0), "pot": (-0.10, 0.0)}[kind]    # ASSUMED (user-confirmed 11-02): closed_chain.GOAL_DXY
     return TaskDef(name=name, kind=kind, backend="carry", world_ref=world_ref, n_cups=n_cups, spec_ref=spec_ref, start_support="counter",
-                   goal_support=goal_support, goal_dxy=(gx, gy), goal_terms=(_XY, _Z), shape=shape, geom_tags=geom_tags, empty_mass=empty_mass, empty_com=empty_com,
+                   goal_support=goal_support, goal_dxy=(gx, gy),
+                   goal_terms=(_XY, _Z, _TILT_G) + ((_CUP_TILT_G,) if cups else ()), shape=shape, geom_tags=geom_tags, empty_mass=empty_mass, empty_com=empty_com,
                    prior=prior, rows=rows, U=_u_carry(cups, lid), R=_r_carry(cups, lid), moves=moves, obj=obj,
                    note=f"moves: {_PLANS_SRC}")
 

@@ -13,12 +13,6 @@
  },
  {
   "rule": "adapters_transitive",
-  "importer": "adapters/state_carry.py",
-  "imported": "world_model.v2.nero.contents.carry",
-  "reason": "pre-unification 11-09; remove in switch step"
- },
- {
-  "rule": "adapters_transitive",
   "importer": "adapters/state_pan.py",
   "imported": "world_model.v2.nero.pan.observe_pose",
   "reason": "pre-unification 11-09; remove in switch step"
@@ -274,6 +268,12 @@
   "importer": "stack/proposer/propose.py",
   "imported": "world_model.v2.nero.pan.llm",
   "reason": "two LLM backends; unify later"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/eval/harness.py",
+  "imported": "world_model.v2.adapters.outcome_carry",
+  "reason": "pre-unification 11-09; remove in switch step"
  },
  {
   "rule": "stack_engine_no_episode",

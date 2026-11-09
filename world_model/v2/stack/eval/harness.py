@@ -68,7 +68,12 @@ def _contents_job(uni, world, spec):
         return schema.build_record(**base, outcome="refused", guarantee="proof",
                                    metrics=dict(static=dict(action=st["action"], u_nom=st["u_nom"])), wall_s=time.time() - t0,
                                    verdicts=[dict(checker="static_cell", admit=False, guarantee="proof", margins={}, why=st["action"])])
-    r = CR.world_trial(world.native, world.world_id, a_plan=a, m_hat=0.5 * sum(st["contents_m"]), **kw)
+    from ...adapters import outcome_carry as OCC
+    ep = CR.CarryEpisode(world.native, a_plan=a, ctl=kw["ctl"], m_hat=0.5 * sum(st["contents_m"]), fric_comp=kw["fric_comp"], weld_solref=kw["weld_solref"])
+    ep.run_phases([("hold", 0.4)])                            # = carry.world_trial, with the episode kept to measure the end state
+    r = CR.run_segments(ep, dict(tag=world.world_id, task=ep.task, theta=CR._theta(world.native), truth=CR._jsonable(ep.truth0), a_plan=a, m_nom=ep.m_nom, ctl=kw["ctl"],
+                                 strict_claw=False, fric_comp=ep.fc, coop=ep.coop, weld_solref=ep.weld_solref, physics=ep.physics_flags(), segments=[]),
+                        kw["branch_backups"], time.time())
     verdicts, viol = [], None
     for s in r["segments"]:
         nom, fam = s["nominal"], s["family"][0.0]
@@ -80,8 +85,10 @@ def _contents_job(uni, world, spec):
                              why=f"viol={nom['viol']} end_in_R={nom['end_in_R']} backups bad {fam['n_bad']}/{fam['n']}"))
     okR, whyR = r["end_in_R"]
     complete = len(r["segments"]) == len(CR.SEGS)
-    outcome = "violation" if (viol or r.get("pre_hold_viol")) else ("ok" if (okR and complete) else "fail")
-    metrics = dict(end_in_R=bool(okR), R_fail=list(whyR), pre_hold_viol=r.get("pre_hold_viol"), viol=viol, n_segments=len(r["segments"]),
+    unsafe = bool(viol or r.get("pre_hold_viol"))
+    m = OCC.measure(ep, task, complete, unsafe, r.get("pre_hold_viol"), end_in_R=(okR, whyR))     # the ONE goal + success rule (stack.outcome)
+    outcome = "violation" if m["result"]["unsafe"] else ("ok" if m["result"]["safe_success"] else "fail")
+    metrics = dict(result=m["result"], goal=m["goal"], measured=m["measured"], end_in_R=bool(okR), R_fail=list(whyR), pre_hold_viol=r.get("pre_hold_viol"), viol=viol, n_segments=len(r["segments"]),
                    truth_end=r.get("truth_end"), physics=r.get("physics"), sim_wall_s=r.get("wall_s"))
     return schema.build_record(**base, outcome=outcome, guarantee="sampled", metrics=metrics, verdicts=verdicts, wall_s=time.time() - t0)
 

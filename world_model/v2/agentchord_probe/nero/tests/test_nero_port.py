@@ -53,7 +53,7 @@ def test_two_arm_plan_executes(tmp_path):
     st = [e["status"] for e in r["edges"]]
     assert st == ["executed"] * 4
     assert r["edges"][0]["info"]["note"].startswith("no-op")           # grasp under the scripted weld
-    assert r["goal"]["xy_err"] < 0.05 and "tau_ratio" in r["track"]
+    assert r["measured"]["xy_err"] < 0.05 and "tau_ratio" in r["track"]
 
 
 def test_one_arm_edge_rejected(tmp_path):
@@ -61,7 +61,7 @@ def test_one_arm_edge_rejected(tmp_path):
     r = _run(meta, "tray2")
     assert r["outcome"] == "plan_rejected" and r["reason"] == "rejected_one_arm"
     assert r["n_edges_executed"] == 2 and r["n_rejected"] == 1         # grasp + lift ran, the carry edge did not, nothing after it
-    assert len(r["edges"]) == 3 and not r["ac_success"]
+    assert len(r["edges"]) == 3 and r["result"]["success"] is False
 
 
 def test_rotate_eef_rejected(tmp_path):
@@ -124,13 +124,14 @@ def test_same_world_trial(tmp_path, task):
     r = same_world_trial(task, 0, tmp_path / "plan_two_arm")
     assert r["method"] == "theirs" and r["seed_e2e"] == PR._seed("e2e", task, 0)
     assert r["outcome"] in ("completed", "plan_rejected", "graph_error", "budget"), (r.get("reason"), r.get("tb"))
-    for k in ("any_U", "first_U", "outcome", "ac_success", "success_ours", "plan_id", "plan_model"):
+    for k in ("any_U", "first_U", "outcome", "goal", "measured", "result", "plan_id", "plan_model"):
         assert k in r
+    assert {"success", "unsafe", "in_R", "safe_success"} <= set(r["result"]) and r["result"]["unsafe"] == r["any_U"] if r["outcome"] != "error" else True
     assert r["plan_model"] == "canned" and (r["first_U"] is None) == (not r["any_U"])
     assert r["any_U"] is False or {"seg", "kind"} <= set(r["first_U"])
     from world_model.v2.nero.contents import carry as CR
     assert getattr(CR.CarryEpisode, "_same_worlds_strict", False)            # payload row in U
-    print(task, {k: r[k] for k in ("outcome", "any_U", "first_U", "ac_success", "success_ours")})
+    print(task, {k: r[k] for k in ("outcome", "any_U", "first_U", "result")})
 
 
 def test_goal_from_task_spec_and_tau_note():
