@@ -188,6 +188,12 @@ distance -- no reach/IK in the ranking (IK fails later = action fails). Our NERO
 theirs as written 149/140 of 200; two bugs: reach test |SW| < d_bs+d_ew (=0.408 m; should be |d_se-d_ew|=0.04) and NO 2*pi angle wrap
 (valid solutions rejected as out of limits). With both fixed: 200/200. They find ~1/6 the solutions/pose (p50 ~25 vs 128-174); pos err 1.8e-7 vs 3e-8.
 Robot: CobotMagic 2x6-DoF, bases (0.233, +-0.300, 0) = 0.60 m apart, upright; tasks per-arm (separate trajectories), NO closed-chain task.
+11-09 results read (arxiv.org/html/2605.11951 v1; Tables I-II and Sec. IV-A..C, V verbatim; Table III/V and App. D/E via summary only; App. B/C
+not read). Success %, AgentChord vs best baseline, 20 trials/task. Real (Table II): fold towel 55 (CaM 50), coffee tray 60 (CaM 60, tie),
+dual-arm pour 80 (CaM 70), handover 85 (CaM 75), rearrange 90 (ReKep 95: only loss), single-arm pour 95 (CaM 90); avg 77.5. Sim (Table I,
+object dropped with prob p per atomic action): 95-100 on every task, lowest dual-arm pour p=0.10 (95). Failures: injected drops/pushes only;
+no hidden contents, payload/torque limits or moving base. Their reasons: towel thin/deformable; general = reasoning limits, IK infeasible
+in recovery, perception/monitor errors; limitations: "may still miss rare, compound, or non-hand-induced failures".
 Ours: bases 0.185 m apart, tilted 45 deg outward, shoulders 0.38 m apart at 0.77 m. Script: scratchpad stack/srs_vs_agentchord.py, srs_diag.py.
 
 ## Lit: program synthesis for adaptation 10-28
