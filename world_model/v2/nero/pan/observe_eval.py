@@ -70,7 +70,10 @@ def _acc(job):
 def _closed(job):
     _pin()
     from . import under_rim as U
-    from .vizcoast import evidence as E
+    try:
+        from .vizcoast import evidence as E
+    except ImportError as e:      # USER 11-09: moved to branch archive/pan-history-2026-11-09
+        raise ImportError("observe_eval needs nero/pan/vizcoast, moved to branch archive/pan-history-2026-11-09") from e
     tag, th, nz, seed = job
     kw = dict(placement=th["placement"], hidden_mass=th["hidden_mass"] if th["hidden_mass"] > 0 else None,
               perturb=dict(dx=th["dx"], dy=th["dy"], yaw_deg=th["yaw_deg"], mu_scale=th["mu_scale"]),
@@ -120,7 +123,10 @@ def main(argv=None):
                                        for r in rows], flush=True)
         (out / "_DONE_accuracy").write_text("ok")
         return
-    from .vizcoast import domain as D
+    try:
+        from .vizcoast import domain as D
+    except ImportError as e:      # USER 11-09: moved to branch archive/pan-history-2026-11-09
+        raise ImportError("observe_eval needs nero/pan/vizcoast, moved to branch archive/pan-history-2026-11-09") from e
     noises = a.noise or ["clean", "mid", "zed", "zed_calib"]
     worlds = [(f"V{i:02d}", th) for i, th in enumerate(D.PREREG.vertices())]
     worlds += [(f"I{i:02d}", th) for i, th in enumerate(_random_thetas(a.n_interior, 1))]
