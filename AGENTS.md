@@ -104,8 +104,8 @@ This file = how to *operate* here. Last updated 2026-11-05 (doc index added; sta
   idle ilab cores (`cdx-agent --cpu-job`) when a workstation is loaded. **Pin threads**:
   `OMP_NUM_THREADS=OPENBLAS_NUM_THREADS=MKL_NUM_THREADS=NUMBA_NUM_THREADS=1` to avoid
   oversubscription; `multiprocessing.Pool(<idle cores>, maxtasksperchild=3)`. (User, 2026-10-26.)
-- Before any launch, check the user's current compute rules (`docs/status/decisions.md`, row 11-01: Slurm and westeros limits,
-  with 11-03 overrides). Where they conflict with this section, ask the user.
+- Bimanual is the main project (USER 11-09): run at normal priority (no `nice`); the 11-01 compute limits (process caps, no Slurm,
+  jenga/ilabu limits) are removed. Cluster-enforced Slurm caps still apply.
 
 ## Gotchas
 - `pkill -f "<pat>"` **self-kills** the issuing shell (exit 144) when `<pat>` matches
