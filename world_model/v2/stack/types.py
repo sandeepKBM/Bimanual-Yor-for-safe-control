@@ -19,7 +19,7 @@ from world_model.v2.house.ocs.state import (Belief, Kind, ObjectState, Producer,
                                             WorldState)
 
 Tag = Literal["MEASURED", "MODEL", "ASSUMED"]
-Guarantee = Literal["proof", "sampled", "refuted"]
+Guarantee = Literal["proof", "sampled", "refuted", "missing"]
 SIDES = ("left", "right")
 
 

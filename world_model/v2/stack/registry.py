@@ -23,7 +23,20 @@ PLANNERS = {
 PRODUCERS = {
     "truth": "world_model.v2.stack.producers:ContentsTruthProducer",
 }
-CHECKERS: dict = {}
+CHECKERS = {                       # unified rows (11-09): each is a function returning checks.row.Row (see the module docstrings for the arguments)
+    "payload": "world_model.v2.stack.checks.payload:torque_row",
+    "payload_rest": "world_model.v2.stack.checks.payload:rest_row",
+    "support": "world_model.v2.stack.checks.support:support_row",
+    "open_content": "world_model.v2.stack.checks.open_content:open_content_row",
+    "probe_rung": "world_model.v2.stack.checks.probe_rung:rung_row",
+    "plan_shape": "world_model.v2.stack.checks.plan_shape:check",
+    "dynamic": "world_model.v2.stack.checks.dynamic:family_row",
+    "tilt": "world_model.v2.stack.checks.tilt:tilt_row",           # MISSING row (not built)
+    "monitors_U": "world_model.v2.stack.checks.monitors:u_row",
+    "monitors_R": "world_model.v2.stack.checks.monitors:recoverable",
+    "admit": "world_model.v2.stack.checks.admit:admit",
+    "goal": "world_model.v2.stack.goal:check_goal",
+}
 
 _KINDS = {"universes": UNIVERSES, "skills": SKILLS, "planners": PLANNERS, "producers": PRODUCERS, "checkers": CHECKERS}
 
