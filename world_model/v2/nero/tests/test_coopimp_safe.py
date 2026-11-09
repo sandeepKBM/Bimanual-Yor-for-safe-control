@@ -1,10 +1,14 @@
 """11-03: opt-in FL-MPC joint position/speed rows (q_lim/qd_lim), rules.py table rows, ctl='coopimp_safe'.  Targeted, short."""
 import numpy as np
 import mujoco
+import pytest
 
 from world_model.v2.nero import adapters as A, config as C, ik as IK
 from world_model.v2.nero import hold_test as HT
 from world_model.v2.nero.contents import carry as CR, carry_cert as CC, rules as RU, tilt_sweep as TS
+
+
+pytestmark = pytest.mark.skip(reason="dead path since 11-09 (USER): FL-MPC rows (q_lim/qd_lim, rules.py table rows, coopimp_safe) removed from the research tracker; user to delete or keep")
 
 
 def _setup():

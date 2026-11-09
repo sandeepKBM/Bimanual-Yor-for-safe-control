@@ -47,8 +47,8 @@ RULES = {
     "single_llm_backend": "stack may reach at most one LLM backend module",
     "adapters_no_flmpc_teleop": "adapters (adapters/**, stack/universes) must not import flmpc/teleop (direct)",
     "adapters_transitive": "adapters must not reach flmpc/teleop transitively",
-    "nero_contents_no_forbidden": "nero/contents must not import agentchord_*, flmpc, teleop (direct)",
-    "nero_contents_transitive": "nero/contents must not reach flmpc/teleop through other modules",
+    "nero_contents_no_forbidden": "nero/contents must not import agentchord_*, flmpc (except the basic tracker entry flmpc.basic), teleop (direct)",
+    "nero_contents_transitive": "nero/contents must not reach flmpc/teleop through other modules (flmpc.basic, the basic tracker skill, is the only allowed flmpc entry)",
     "agentchord_nero_no_contents": "agentchord_probe/nero must not import nero/contents internals (ALLOW table)",
     "probe_method_single_writer": "only nero/contents/probe.py may assign PROBE_METHOD",
 }
@@ -85,7 +85,9 @@ def bucket_of_parts(p: tuple[str, ...]) -> str:
             return "agentchord_coffee"
         return "other"
     if top == "flmpc":
-        return "flmpc"
+        # USER 11-09: the BASIC tracker (flmpc/basic.py, flmpc_basic skill) is the ONLY flmpc entry research code may reach; the full FL-MPC
+        # (mpc_fl, qp, _sc, ...) stays for teleop / cup demo / latent_hj / house only.  The walk below does not look inside the entry point.
+        return "flmpc_basic" if (len(p) > 1 and p[1] == "basic") else "flmpc"
     if top == "house":
         return "teleop" if (len(p) > 1 and p[1] == "teleop") else "house"
     if top == "vlm":
@@ -211,6 +213,8 @@ def violations() -> list[dict]:
             hit = None
             while q and hit is None:
                 m = q.popleft()
+                if bucket_of_module(m) == "flmpc_basic":      # the allowed entry point: do not look inside it
+                    continue
                 for e2 in graph.get(m, ()):
                     if e2.dst_bucket in TRANSITIVE_TARGETS:
                         hit = (m, e2)

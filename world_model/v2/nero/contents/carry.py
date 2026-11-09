@@ -50,7 +50,6 @@ from ..pan.handle_grasp import TwoCtl, _set_fingers
 from . import envelope as E
 from . import objects as OB
 from . import scenes as SC
-from . import rules as RU
 def _hold_finger():
     from .nyu_hold import hold_finger_frac       # nyu 11-03: V-jaw opening over the whole tab depth (nyu_hold.hold_opening, theta 0.662 rad ASSUMED clearance 2 mm/side)
     return hold_finger_frac()
@@ -104,6 +103,9 @@ def resolve_planner(planner=None):
 PHYS_DEFAULT = "config.carry_physics"      # sentinel: take fric_comp / weld_solref from config.carry_physics() (item 6)
 
 
+RULING_1109 = "USER 11-09: FL-MPC = BASIC tracker only; safety lives in the checker (docs/status/decisions.md)"
+
+
 class LeverCtl(TwoCtl):
     """FL-MPC with a LEVER-split payload feedforward (11-02; new variant, TwoCtl and FL-MPC unchanged).  TwoCtl's 50/50 split
     puts half the load at the COM on EACH claw, i.e. each claw is commanded the moment of half the weight about itself (an internal
@@ -118,7 +120,7 @@ class LeverCtl(TwoCtl):
         self.c_rel_nom = np.asarray(c_rel_nom, float)            # nominal total COM in the obj frame, about obj_ref
         self.sites = sites
         self.ref = m.site("obj_ref").id
-        self.rules = None                                        # 11-03 opt-in rules.Rules (table + joint limit rows); None = today's rows only
+        self.rules = None                                        # DEAD (11-09): rules.Rules rows were removed from the research tracker; must stay None
 
     def terms(self, d):
         m = self.m
@@ -139,23 +141,15 @@ class LeverCtl(TwoCtl):
 
     def tau(self, d):
         if not self.on:
-            if self.rules is None:
-                return super().tau(d)
-            mujoco.mj_forward(self.m, d)           # 11-03 rules='full': the release phase goes through the same rule set (no payload terms)
-            return self._fl(d, {s: (np.zeros((7, 7)), np.zeros(7)) for s in SIDES})
+            return super().tau(d)
         mujoco.mj_forward(self.m, d)
         return self._fl(d, self.terms(d))
 
     def _fl(self, d, t):
-        """FL-MPC step with the payload terms t[side] = (M_extra, bias_extra); self.rules (opt-in) adds table + joint-limit rows."""
-        kw = {}
-        if self.rules is not None:
-            Me, ce = RU.arm_dyn(self.m, d, self.ld, t["left"][0], t["left"][1])
-            Mi, ci = RU.arm_dyn(self.m, d, self.rd, t["right"][0], t["right"][1])
-            kw = self.rules.fl_kwargs(d, Me, ce, Mi, ci, fl=self.fl)
+        """basic FL-MPC step (flmpc_basic) with the payload terms t[side] = (M_extra, bias_extra)."""
         te, ti, ok = self.fl.step(self.m, d, self.lq, self.ld, self.rq, self.rd, self.qe_ref, self.z, self.qi_ref, self.z,
                                   self.pairs(d), M_ego_extra=t["left"][0], bias_ego_extra=t["left"][1],
-                                  M_int_extra=t["right"][0], bias_int_extra=t["right"][1], **kw)
+                                  M_int_extra=t["right"][0], bias_int_extra=t["right"][1])
         self.n_infeasible += int(not ok)
         self.n_fallback += int(bool(self.fl.last_fallback))
         return te, ti
@@ -257,6 +251,8 @@ class CarryEpisode:
         q0 = {s: d.qpos[self.addr[s]].copy() for s in SIDES}
         hold = {s: q0[s].tolist() for s in SIDES}
         self.ctl_kind = ctl
+        if ctl == "coopimp_safe" or rules == "full":
+            raise ValueError("ctl='coopimp_safe' / rules='full' are dead paths in research: the FL-MPC table/joint/clearance rows were removed (%s)" % RULING_1109)
         if ctl in ("lever", "coopimp", "coopimp_safe"):
             P = cont.P
             c_c = P.mean(0)                                        # belief contents centre (obj frame)
@@ -272,14 +268,9 @@ class CarryEpisode:
         else:                                                      # "share": pan/handle_grasp.TwoCtl, half the load at the COM
             self.ctl = TwoCtl(m, hold, self.tau_lim, self.obj, self.gb, self.m_nom, share=share)
         self.ctl.on = True
-        self.rules_mode = rules if rules is not None else ("full" if ctl == "coopimp_safe" else "base")
-        if self.rules_mode not in ("base", "full"):
-            raise ValueError(f"rules must be 'base' or 'full', got {rules!r}")
-        if self.rules_mode == "full":                          # 11-03: table-top + joint position/speed rows inside the FL-MPC QP (rules.py)
-            if ctl not in ("lever", "coopimp_safe"):
-                raise ValueError("rules='full' needs an FL-MPC controller (ctl='lever' or 'coopimp_safe')")
-            self.ctl.rules = RU.Rules(m)
-            self.ctl.fl._rules = self.ctl.rules               # for fl_log (row / past-limit counters)
+        self.rules_mode = rules if rules is not None else "base"
+        if self.rules_mode != "base":
+            raise ValueError(f"rules must be 'base' (rules='full' is dead since 11-09), got {rules!r}")
         self.NP, self.FDT = self.ctl.fl.NP, self.ctl.fl.DT
         self.q0 = q0
         self.F_cap = (E.PAYLOAD_KG - float(m.body_subtreemass[self.gb["left"]])) * OB.G

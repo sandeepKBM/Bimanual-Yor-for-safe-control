@@ -29,7 +29,7 @@ from . import adapters as A
 ARMARM_DMAX = 0.5       # m, A.true_min_dist default
 STATIC_DMAX = 0.3       # m
 ENABLED = os.environ.get("BIMANUAL_FL_RESIDUAL", "1") != "0"
-_CNT = ("n_relaxed", "n_zero_fallback", "n_scale_shrunk", "n_taumax_relaxed", "n_limit_slack", "n_limit_fallback", "n_limit_steps")
+_CNT = ("n_relaxed", "n_zero_fallback", "n_scale_shrunk", "n_taumax_relaxed", "n_limit_slack", "n_limit_fallback", "n_limit_steps", "n_sat_steps", "n_tau_clipped")
 
 
 def _min_dist(m, d, ga, gb, dmax):
@@ -104,6 +104,10 @@ class FLRecorder:
         if int(getattr(self.fl, "n_limit_steps", 0)) > 0:      # 11-03 opt-in joint position/speed rows (rules='full'); keys absent otherwise
             extra = dict(fl_n_limit_steps=self._delta("n_limit_steps"), fl_n_limit_slack=self._delta("n_limit_slack"),
                          fl_n_limit_fallback=self._delta("n_limit_fallback"))
+        sat = 0
+        if hasattr(self.fl, "n_sat_steps"):                    # 11-09 flmpc_basic: infeasible QP -> torque saturated at the actuator limit (counted)
+            sat = self._delta("n_sat_steps")
+            extra.update(fl_n_sat_steps=sat, fl_n_tau_clipped=self._delta("n_tau_clipped"))
         rs = self._rstats()
         if rs is not None:                                     # rule-row bookkeeping (rules.Rules.stats), deltas over this window
             dl = {k: rs[k] - self.rbase[k] for k in rs}
@@ -111,7 +115,7 @@ class FLRecorder:
                          fl_rows_pruned=dl["tab_pruned"] + dl["q_pruned"] + dl["qd_pruned"],
                          fl_tab_cand=dl["tab_cand"], fl_tab_pruned=dl["tab_pruned"], fl_q_cand=dl["q_cand"], fl_q_pruned=dl["q_pruned"],
                          fl_qd_cand=dl["qd_cand"], fl_qd_pruned=dl["qd_pruned"])
-        return dict(**extra, fl_steps=self.n, fl_n_infeasible=rel + zero, fl_n_relaxed=rel, fl_n_zero=zero, fl_n_scale_called=rel + zero,
+        return dict(**extra, fl_steps=self.n, fl_n_infeasible=rel + zero + sat, fl_n_relaxed=rel, fl_n_zero=zero, fl_n_scale_called=rel + zero,
                     fl_n_scale_shrunk=self._delta("n_scale_shrunk"), fl_n_taumax_relaxed=self._delta("n_taumax_relaxed"),
                     fl_res_armarm_min_m=self.armarm_min, fl_res_static_min_m=self.static_min,
                     fl_res_n_armarm_pen=self.n_armarm_pen, fl_res_n_static_pen=self.n_static_pen,
