@@ -140,9 +140,9 @@ def _closed_chain_path(task):
 
 
 # closed_chain planner (the planned path, not the scripted one): u_nom is finite here, so a payload refusal is actually exercised
-#   box (4.5, 5.0): refused (payload u 1.7 and support); tray6 (0.10, 0.15): total ~3.0 kg, two arms slowed (u_nom 0.91 near U_ADMIT); pot (1.25, 1.5): admitted,
+#   box (4.5, 5.0): refused (payload u 1.7 and support); tray6 (0.10, 0.15): total ~3.0 kg, u_nom 0.91: slowed at U_ADMIT 0.9, full speed at U_ADMIT 1.0 (USER 11-09); pot (1.25, 1.5): admitted,
 #   its COM 1.9 cm inside the bottom disc (the disc binds)
-@pytest.mark.parametrize("task,cell,action", [("box", (4.5, 5.0), "refuse"), ("tray6", (0.10, 0.15), "two arms, slow"), ("pot", (1.25, 1.5), "two arms")])
+@pytest.mark.parametrize("task,cell,action", [("box", (4.5, 5.0), "refuse"), ("tray6", (0.10, 0.15), "two arms"), ("pot", (1.25, 1.5), "two arms")])
 def test_admit_equals_static_cell_closed_chain(task, cell, action):
     from world_model.v2.nero.contents import carry_cert as CC
     t = TK.task(task)

@@ -25,8 +25,9 @@ Limits (labels):
              DROPPED 11-02 pm (USER: "make grasp something we do not care about ... arm joint angles causing issues"): admission
              uses arm-side rows only (tau_lim, F_cap); T_CAP is kept only to reproduce the 11-02 am runs.
              In the LP the ball is replaced by an inner polytope (hull of 26 unit directions; conservative: u* can only rise).
-    u_admit  0.9: admit only when the MODEL utilisation <= 0.9   ASSUMED (user-approved 11-02): margin for the controller's feedback
-             torque above the model (11-01 smoke: sim 0.548 vs model 0.507 at the true contents, +8%); to be sized from sim runs.
+    u_admit  1.0: admit only when the MODEL utilisation <= 1.0 = the rated motor and payload limits   MODEL (USER 11-09: "the limit is motor and physical limits,
+             that is the only one that matters"; no extra margin).  Was 0.9 ASSUMED (user-approved 11-02: margin for the controller's feedback torque
+             above the model; 11-01 smoke: sim 0.548 vs model 0.507 at the true contents, +8%): with 1.0 that feedback excess is NOT covered by a margin.
 """
 from __future__ import annotations
 
@@ -50,7 +51,7 @@ TAU_LIM = C.tau_limit()                           # config.tau_limit(): MJCF 100
 PAYLOAD_KG = C.MANUAL["payload_kg"]                # 3.0 kg, NERO manual
 A_NOM = 0.5                                        # m/s^2, ASSUMED
 T_CAP = 1.30                                       # Nm per claw, ASSUMED, DROPPED 11-02 pm (old-rule reproduction only; module doc)
-U_ADMIT = 0.9                                      # ASSUMED admission margin on the MODEL utilisation (see module doc)
+U_ADMIT = 1.0                                      # MODEL: the rated limits themselves (joint torque config.tau_limit(); per-arm payload 3 kg MEASURED-spec minus gripper); USER 11-09: no extra margin (was 0.9 ASSUMED, USER 11-02)
 # waypoints: offsets of the object (and both TCPs) from the grasp pose [m]  (ASSUMED plan)
 # carry is TOWARD the robot (-x): +x 10 cm is out of the right arm's reach at the pot grasp (IK error 105 mm, 11-01 probe)
 WAYPOINTS = {"W0_liftoff": (0, 0, 0.0), "W1_lift5cm": (0, 0, 0.05), "W2_carry10cm": (-0.10, 0, 0.05), "W3_shelf25cm": (-0.10, 0, 0.25)}

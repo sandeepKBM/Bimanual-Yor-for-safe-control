@@ -12,10 +12,10 @@ from typing import Protocol
 
 from world_model.v2.stack.checks.row import Row
 
-U_ADMIT = 0.9                  # ASSUMED admission margin on the MODEL utilisation (nero/contents/envelope.py U_ADMIT; the adapter test asserts equality)
+U_ADMIT = 1.0                  # MODEL: the rated limits themselves (joint torque config.tau_limit(); per-arm payload 3 kg MEASURED-spec minus gripper); USER 11-09: no extra margin (= nero/contents/envelope.py U_ADMIT; the adapter test asserts equality)
 MODE = "two_lever"
 GUARANTEE = ("proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), "
-             f"admit u <= {U_ADMIT} ASSUMED)")
+             f"admit u <= {U_ADMIT} MODEL, USER 11-09)")
 
 
 class EnvelopeLike(Protocol):

@@ -168,7 +168,7 @@ def static_cell(task, cell, world, T_cap=None, spec=None, planner=None, wp=None)
     row_name = "torque_payload" if T_cap is None else "torque_payload_twist"
     row_guar = (f"proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, "
                 + ("no claw rows (user 11-02)" if T_cap is None else f"claw twist {T_cap} Nm ASSUMED")
-                + f", admit u <= {E.U_ADMIT} ASSUMED)")
+                + f", admit u <= {E.U_ADMIT} MODEL, USER 11-09)")
     if u_nom <= E.U_ADMIT and E.A_NOM <= a_open:
         a_adm, action = E.A_NOM, "two arms"
     else:
@@ -266,7 +266,7 @@ def run(tasks, n, procs, out, fric_comp=None, weld_stiff=None, T_cap=None, only=
     res = dict(date=time.strftime("%Y-%m-%d"), n_per_cell=n, assumptions=dict(
         grasp="ASSUMED rigid weld (user 11-01)", **GR.provenance("rigid weld"),
         T_cap=("none: no claw rows (user 11-02 pm, arm-side rows only)" if T_cap is None else f"ASSUMED {T_cap} Nm (old 11-02 am rule)"),
-        seeds="carry_cert.cell_seed(task, cell, i)", u_admit=f"ASSUMED {E.U_ADMIT}", a_nom=E.A_NOM,
+        seeds="carry_cert.cell_seed(task, cell, i)", u_admit=f"MODEL {E.U_ADMIT} (rated motor / payload limits, USER 11-09)", a_nom=E.A_NOM,
         a_backup=CR.A_BACKUP, a_min=A_MIN, controller="carry.LeverCtl (FL-MPC + lever-split payload ff), config.tau_limit() torque box",
         claw_rows_in_sim="recorded, NOT in U (closed-chain internal stress under the weld; see carry.py doc)",
         spill_sim="quasi-static proxy from sim mug acceleration; slosh NOT modelled",

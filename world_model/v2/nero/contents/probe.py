@@ -428,7 +428,7 @@ def method_assumptions(method=None):
                     FREE_TOL=f"{FREE_TOL} kg ASSUMED, USER-approved 11-09", T_HOLD=f"{T_HOLD_POSLIFT} s ASSUMED, USER-approved 11-09",
                     N_FREE_CONFIRM=f"{N_FREE_CONFIRM} ASSUMED, USER-approved 11-09", T_MOVE=f"{T_MOVE} s design",
                     TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform", tracker="carry.LeverCtl (FL-MPC, pre-11-07)",
-                    DL_STEP_MAX="MEASURED, CALIB.json DL_STEP_MAX (pre-check of the next height step); guard: u(read L) > U_ADMIT 0.9 ASSUMED")
+                    DL_STEP_MAX="MEASURED, CALIB.json DL_STEP_MAX (pre-check of the next height step); guard: u(read L) > U_ADMIT (1.0 MODEL: rated limits, USER 11-09)")
     return dict(probe_method="ladder", DM=f"{DM} kg ASSUMED", O_MAX=f"{O_MAX} kg ASSUMED", FREE_RATIO=f"{FREE_RATIO} ASSUMED",
                 TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform", tracker="carry.LeverCtl (FL-MPC, pre-11-07)")
 
@@ -623,7 +623,7 @@ def _pool_run(fn, jobs, procs, out_file):
 ASSUMPTIONS = dict(probe_method="ladder (see method_assumptions() for the active method)", DM=f"{DM} kg ASSUMED push step", O_MAX=f"{O_MAX} kg ASSUMED max push above the lower bound",
                    FREE_RATIO=f"{FREE_RATIO} ASSUMED free test (one rung)", TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform",
                    grasp="ASSUMED rigid weld (user 11-01), stiff solref (0.004, 1)", controller="LeverCtl + FRIC_COMP (ASSUMED gains)",
-                   rows="arm-side static rows (user 11-02 pm), U_ADMIT 0.9 ASSUMED", worlds="uniform on the full prior per task")
+                   rows="arm-side static rows (user 11-02 pm), U_ADMIT 1.0 MODEL (rated limits, USER 11-09)", worlds="uniform on the full prior per task")
 
 
 def main(argv=None):
