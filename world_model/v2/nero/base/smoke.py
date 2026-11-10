@@ -428,6 +428,14 @@ def task_world(task, seed=None):
     raise ValueError(task)
 
 
+def behind_world(task, i):
+    """THE world list of the table-behind tasks, for BOTH methods (same_worlds ours + theirs): (seed, world) of world i of `task` (tray6_behind | box_behind) =
+    probe._seed("e2e", base task, i) and task_world(base task, seed) (full prior box; box_behind: shelf=False)."""
+    bt = task[:-len("_behind")] if task.endswith("_behind") else task
+    seed = PR._seed("e2e", bt, i)
+    return seed, task_world(bt, seed)
+
+
 def heaviest_seed(n=40, task="tray6"):
     best = (-1.0, None)
     for sd in range(n):

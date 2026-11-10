@@ -439,8 +439,7 @@ BASE_FLAGS = ("wheel_liftoff", "base_world_contact", "load_world_contact", "rout
 
 def _world(task, i):
     from world_model.v2.nero.base import smoke as SM
-    seed = SM.PR._seed("e2e", base_task(task), i)
-    return seed, SM.task_world(base_task(task), seed)
+    return SM.behind_world(task, i)                 # the ONE world list of both methods (nero/base/smoke.py)
 
 
 def run_world(args):
@@ -516,3 +515,26 @@ def run_world(args):
         rec.update(outcome="error", reason=repr(e), tb=traceback.format_exc()[-1500:])
     rec["wall_s"] = round(time.time() - t0, 1)
     return rec
+
+
+def same_world_trial(task, i, plan_dir, level=None, mon_period=0.1, edge_settle=0.3):
+    """AgentChord's cached graph on world i of a table-behind task (run_world, their pipeline unchanged) on the SAME world as ours (smoke.behind_world).  Called by
+    execute.same_world_trial for *_behind tasks (nero/contents/same_worlds.py, which applies _init_worker first).  U includes the per-claw payload row (run_world: strict_claw=True).
+    Record fields as execute.same_world_trial: method, seed_e2e, first_U {seg, kind} | None (pre-hold phase, else the first edge whose track has a viol, else the run track),
+    plus base_level (= the cap `level`; default LEVEL L3, ASSUMED)."""
+    pj = pathlib.Path(plan_dir)
+    pj = pj if pj.suffix == ".json" else pj / "plan.json"
+    seed, w = _world(task, i)
+    lo, hi = TK.prior_box(task)
+    r = run_world(dict(plan=str(pj), task=task, i=i, level=level or LEVEL, world=(seed, w), m_hat_kg=0.5 * (lo + hi), mon_period=mon_period, edge_settle=edge_settle))
+    fu = None
+    if r.get("any_U"):
+        if r.get("pre_hold_viol"):
+            fu = dict(seg="pre_hold", kind=r["pre_hold_viol"].get("kind"))
+        else:
+            e = next((e for e in r.get("edges", []) if (e.get("track") or {}).get("viol")), None)
+            v = (e["track"]["viol"] if e else None) or (r.get("track") or {}).get("viol") or {}
+            fu = dict(seg=e["edge_id"] if e else None, kind=v.get("kind"))
+    pr = r.get("proposer") or {}
+    r.update(method="theirs", seed_e2e=seed, first_U=fu, plan_model=pr.get("model"), plan_reasoning=pr.get("reasoning"), base_level=level or LEVEL)
+    return r

@@ -636,8 +636,8 @@ class CarryEpisode:
             why.append("moving")
         if _tilt_deg(d.xmat[self.obj].reshape(3, 3)) > R_TILT_OBJ:
             why.append("obj_tilt")
-        if self.goal_support:                                      # table-behind: the goal support (counter2)
-            sup = {m.geom(self.goal_support).id}
+        if self.goal_support:                                      # table-behind: at rest on the start counter (a refusal / set_down there) or on the goal support; the goal itself is checked separately
+            sup = {m.geom("counter").id, m.geom(self.goal_support).id}
         else:
             sup = {m.geom("counter").id} | ({m.geom("shelf").id} if self.task == "box" and getattr(self.world, "shelf", False) else set())
         if not any((int(c.geom1) in sup and m.geom_bodyid[c.geom2] == self.obj) or

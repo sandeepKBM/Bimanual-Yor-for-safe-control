@@ -64,15 +64,28 @@ def _job(args):
     ex = rest[0] if rest else {}                      # 11-05 extras (plan source / theirs mode); absent = the original behaviour
     _init_worker()
     from world_model.v2.nero.contents import probe as P, baseline_ungated as BU, carry_cert as CC
-    seed = P._seed("e2e", task, i)
+    behind = bool(TK.task(task).base)                 # table-behind task (swerve base): its own world list (smoke.behind_world) and per-world job
+    if behind:
+        from world_model.v2.nero.base import smoke as SM
+        seed = SM.behind_world(task, i)[0]
+    else:
+        seed = P._seed("e2e", task, i)
     if method == "ours" and ex.get("rejected"):       # the proposer's plan is invalid / unbuildable: nothing is run, the event is counted
         r = dict(task=task, i=i, seed=seed, outcome="plan_rejected", any_U=False, plan_rejected=ex["rejected"], theta_sound=None)
+    elif method == "ours" and behind:
+        from world_model.v2.nero.contents import behind_job as BJ
+        r = BJ.behind_job((task, i, eps_lo, eps_free, ex["plan"]), method=ex.get("probe_method"))
     elif method == "ours":
         pl = ex.get("plan")
         r = P._e2e_job((task, i, eps_lo, eps_free) + ((pl,) if pl else ()), method=ex.get("probe_method"))
+    elif ex.get("theirs") == "agentchord" and behind:
+        from world_model.v2.agentchord_probe.nero import execute as AX            # execute.same_world_trial hands *_behind tasks to behind.same_world_trial
+        r = AX.same_world_trial(task, i, ex["agentchord_plan"], level=ex.get("theirs_level", THEIRS_LEVEL))
     elif ex.get("theirs") == "agentchord":
         from world_model.v2.agentchord_probe.nero import execute as AX
         r = AX.same_world_trial(task, i, ex["agentchord_plan"])
+    elif behind:
+        raise ValueError(f"{task}: the table-behind tasks need --theirs agentchord (the ungated baseline has no base plan)")
     else:
         BU.seed_of = lambda t, c, k: P._seed("e2e", t, k)          # same world as ours: CC.sample_world(task, PRIOR[task], rng(seed))
         lo, hi = TK.prior_box(task)
@@ -85,12 +98,40 @@ def _job(args):
     return r
 
 
+THEIRS_LEVEL = "L3"           # ASSUMED: AgentChord's base speed cap = the highest level of the grid (agentchord_probe.nero.behind.LEVEL; they have no speed reasoning)
+
+
+def _fixture_behind_plan(t):
+    """ours on a table-behind task with --plan-source fixture: the mock proposer's fixture plan (lift -> route R1 -> place on counter 2), compiled at L1 (geometry built)."""
+    from world_model.v2.stack.proposer import compile as PC, mock as MK, schema as PS, prompt as PRM
+    d = MK.fixture_plan(t)
+    tp = PS.validate(d, t, tuple(PRM.task_spec(t)["supports"]))
+    cp = PC.compile_plan(tp, t, level="L1")
+    plan = dict(status="ok", plan_id=PS.plan_id(tp.to_dict()), **d)
+    item = dict(plan_source="fixture", plan_record=dict(kind="fixture", spec="mock:fixture", status="ok", n_reasks=0), plan_id=plan["plan_id"], plan=cp.job_plan("refuse"))
+    item["plan"]["plan_dict"] = plan
+    return item
+
+
+def _plan_map(spec, tasks):
+    """--agentchord-plan: one DIR (or plan.json) for every task, or a per-task mapping "tray6_behind=DIR,box_behind=DIR"."""
+    if "=" not in spec:
+        return {t: spec for t in tasks}
+    m = dict(kv.split("=", 1) for kv in spec.split(","))
+    miss = [t for t in tasks if t not in m]
+    if miss:
+        raise SystemExit(f"--agentchord-plan has no entry for {miss} (have {sorted(m)})")
+    return {t: m[t] for t in tasks}
+
+
 def _first_U(r):
     if r.get("method") == "theirs":
         v = r.get("first_U")
         return v and f"{v.get('seg')}:{v.get('kind')}"
     if r.get("probe_viol"):
         return f"probe:{r['probe_viol'].get('kind')}"
+    if TK.TASKS.get(r.get("task")) is not None and TK.task(r["task"]).base and r.get("first_U"):          # table-behind: the first U of the whole episode (base flags included)
+        return f"{r['first_U'].get('kind')}"
     for s in r.get("carry", {}).get("segments", []):
         v = s.get("nominal", {}).get("viol")
         if v:
@@ -115,6 +156,10 @@ def summary(out):
              "| task | method | n | errors | success (finished AND goal) | safe_success (success AND no U) | unsafe (any U) | at rest in R | refused | U kinds (first per run) | truth in probe set | proposer re-asks p50/max |",
              "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     n_rej = {k: sum(r.get("outcome") == "plan_rejected" for r in rs) for k, rs in by.items()}
+    has_behind = any(TK.TASKS.get(t) is not None and TK.task(t).base for t, _ in by)
+    if has_behind:                                       # table-behind rows: one more column (base level histogram: ours = the admission's pick, none = refused; theirs = the fixed cap)
+        lines[-2] = lines[-2] + " base level (count) |"
+        lines[-1] = lines[-1] + "---|"
     for (task, method), rs in sorted(by.items()):
         ok = [r for r in rs if "error" not in r]
         kinds = collections.Counter(_first_U(r) for r in ok if r.get("any_U"))
@@ -122,7 +167,9 @@ def summary(out):
         f = lambda k: f"{t[k]}" + (f" (+{t[k + '_unknown']} unknown)" if t.get(k + "_unknown") else "")
         sound = f"{sum(bool(r.get('theta_sound')) for r in ok)}/{len(ok)}" if method == "ours" else "-"
         lines.append(f"| {task} | {method} | {len(rs)} | {len(rs) - len(ok)} | {f('success')} | {f('safe_success')} | {f('unsafe')} | {f('in_R')} | {t['refused']} "
-                     f"| {dict(kinds) or '-'} | {sound} | {_reask_cell(rs)} |")
+                     f"| {dict(kinds) or '-'} | {sound} | {_reask_cell(rs)} |"
+                     + (f" {dict(sorted(collections.Counter(str(r.get('base_level') or 'none') for r in ok if r.get('outcome') != 'plan_rejected').items())) or '-'} |"
+                        if has_behind and TK.task(task).base else (" - |" if has_behind else "")))
     if any(n_rej.values()):                              # proposer plans that could not be used (never silently dropped)
         lines += ["", "Ours, proposer plan REJECTED (counted in n, not in carried / refused): " + ", ".join(f"{k[0]} {v}/{len(by[k])}" for k, v in sorted(n_rej.items()) if v)]
     for (task, method), rs in sorted(by.items()):
@@ -146,7 +193,7 @@ def _proposer_plans(tasks, a, out):
     res = {}
     for t in tasks:
         def _check(pl, t=t):                                                   # compile + build (planner); raises PS.PlanRejected -> the proposer is re-asked (USER 11-09, no cap)
-            return PC.compile_plan(pl, t)
+            return PC.compile_plan(pl, t, level=("L1" if TK.task(t).base else None))      # behind: validated at L1 (the level does not enter the geometry); per world the admission's level is applied
         plan, cp, rec, info = PP.propose_until_accepted(t, _check, backend_spec=a.plan_spec, cache_dir=a.plan_cache, offline=a.offline)
         small = {k: rec.get(k) for k in ("kind", "spec", "model", "reasoning", "backend", "request_hash", "raw_reply_path", "status", "stage", "reasons", "plan_id", "cached")}
         small.update(n_reasks=info["n_reasks"], reask_attempts=info["attempts"], proposer_wall_s=info["proposer_wall_s"], proposer_error=info["proposer_error"])
@@ -154,6 +201,8 @@ def _proposer_plans(tasks, a, out):
         doc = dict(plan=plan, record=rec, reask=info)
         if cp is not None:
             item["plan"] = cp.job_plan(a.outside_b)
+            if TK.task(t).base:
+                item["plan"]["plan_dict"] = plan                               # recompiled per world at the admission's base level (behind_job)
             doc["compiled"] = cp.to_json()
         else:                                                                  # only a proposer ERROR leaves no accepted plan (info["proposer_error"])
             item["rejected"] = dict(status="plan_rejected", stage=plan.get("stage"), reasons=plan.get("reasons"))
@@ -183,7 +232,9 @@ def main(argv=None):
     ap.add_argument("--offline", action="store_true", help="proposer: replay from --plan-cache only; a miss fails loudly, the network is never called")
     ap.add_argument("--outside-b", choices=("refuse", "carry"), default="refuse", help="probe set not inside the plan's belief B: refuse (default) or carry anyway (recorded)")
     ap.add_argument("--theirs", choices=("ungated", "agentchord"), default="ungated")
-    ap.add_argument("--agentchord-plan", help="dir (or plan.json) of AgentChord's cached compiled graph, for --theirs agentchord")
+    ap.add_argument("--agentchord-plan", help="dir (or plan.json) of AgentChord's cached compiled graph, for --theirs agentchord; with several tasks a mapping "
+                                              "\"tray6_behind=DIR,box_behind=DIR\" (one plan per task)")
+    ap.add_argument("--theirs-level", default=THEIRS_LEVEL, choices=("L1", "L2", "L3"), help="table-behind tasks: AgentChord's base speed cap (ASSUMED L3; they have no speed reasoning)")
     ap.add_argument("--out", required=True)
     a = ap.parse_args(argv)
     if a.cmd == "summary":
@@ -211,9 +262,10 @@ def main(argv=None):
             raise SystemExit(f"--theirs agentchord needs world_model.v2.agentchord_probe.nero.execute.same_world_trial ({e!r})")
         if not a.agentchord_plan:
             raise SystemExit("--theirs agentchord needs --agentchord-plan DIR")
+        pm = _plan_map(a.agentchord_plan, tasks)
         for t in tasks:
-            ex[t]["theirs"] = dict(theirs="agentchord", agentchord_plan=a.agentchord_plan)
-        cfg.update(theirs="agentchord", agentchord_plan=a.agentchord_plan)
+            ex[t]["theirs"] = dict(theirs="agentchord", agentchord_plan=pm[t], theirs_level=a.theirs_level)
+        cfg.update(theirs="agentchord", agentchord_plan=pm, theirs_level=a.theirs_level)
     if a.plan_source == "codex":
         if not a.plan_cache:
             raise SystemExit("--plan-source codex needs --plan-cache DIR (every request and reply is stored there; with --offline it is replayed)")
@@ -222,6 +274,12 @@ def main(argv=None):
             ex[t]["ours"] = plans[t]
         cfg.update(plan_source="codex", plan_spec=a.plan_spec, plan_cache=a.plan_cache, offline=a.offline, outside_b=a.outside_b,
                    plans={t: dict(status=plans[t]["plan_record"]["status"], plan_id=plans[t].get("plan_id"), rejected=plans[t].get("rejected")) for t in tasks})
+    for t in tasks:
+        if TK.task(t).base and not ex[t]["ours"]:          # table-behind, plan source "fixture": the mock proposer's fixture plan (stack/proposer/mock.fixture_plan)
+            ex[t]["ours"] = _fixture_behind_plan(t)
+    if any(TK.task(t).base for t in tasks):                           # the base rows admit on the MEASURED base card (guarantee: sampled)
+        from world_model.v2.adapters import base_tip_model as BTM
+        cfg.update(base_card=str(BTM.CARD), base_source="measured", base_levels=["L1", "L2", "L3"], theirs_level_assumed=a.theirs_level)
     for t in tasks:
         ex[t]["ours"] = {**ex[t]["ours"], "probe_method": probe_method}      # explicit argument of probe._e2e_job (no module-global patching)
     jobs = [(m, t, i, eps_lo, eps_free) + ((ex[t][m],) if ex[t][m] else ()) for i in range(a.n) for t in tasks for m in ("theirs", "ours")]

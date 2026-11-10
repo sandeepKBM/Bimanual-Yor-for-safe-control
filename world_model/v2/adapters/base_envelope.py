@@ -29,6 +29,7 @@ from world_model.v2.nero.contents import objects as OB
 from world_model.v2.nero.contents import scenes as SC
 from world_model.v2.stack import tasks as TK
 from world_model.v2.stack.checks import base_motion as BM
+from world_model.v2.stack.checks import base_tip as BTIP
 
 G = OB.G
 Z = np.array([0.0, 0.0, 1.0])
@@ -196,3 +197,20 @@ def mug_corners(task: str = "tray6_behind", footprint: str = "tray"):
 def open_row(task: str, level: str, source: str = "measured", footprint: str = "tray"):
     """base_open_content row (tray tasks only)."""
     return BM.open_content_base_row(mug_geom(task), mug_corners(task, footprint), BT.accels(level, source))
+
+
+def pick_level(task: str, spec, levels=("L1", "L2", "L3"), source: str = "measured"):
+    """the base level of the admission (design section 3): the HIGHEST level at which every base row passes on spec.contents (Theta_t): base_tip, base_torque and (tray
+    tasks only) base_open_content, all on the acceleration box of `source` ("measured" = the base card, sampled; "command" is for comparison only).  Robot masses and
+    the arm envelope are the task's default scene (MODEL: they do not depend on the hidden world; the contents enter through spec.contents).
+    -> (level | None, {level: {row name: Row}}); None = no level passes -> refuse."""
+    rows, best = {}, None
+    for L in levels:
+        r = {"base_tip": BTIP.tip_row(BT.mass_model(task), spec.contents, BT.polygons(task), BT.accels(L, source)),
+             "base_torque": torque_row(task, spec.contents, L, source)}
+        if TK.task(task).kind == "tray":
+            r["base_open_content"] = open_row(task, L, source)
+        rows[L] = r
+        if all(x.ok for x in r.values()):
+            best = L
+    return best, rows

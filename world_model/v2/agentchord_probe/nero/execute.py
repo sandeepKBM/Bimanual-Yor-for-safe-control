@@ -134,7 +134,7 @@ def run_world(args):
     return rec
 
 
-def same_world_trial(task, i, plan_dir, mon_period=0.1, edge_settle=0.3):
+def same_world_trial(task, i, plan_dir, mon_period=0.1, edge_settle=0.3, level=None):
     """THEIR cached compiled graph on exactly the world probe._world(task, probe._seed("e2e", task, i)) (the worlds of nero/contents/same_worlds.py).
     U includes the payload rating: same_worlds._init_worker (strict_claw=True, T_cap=None) is applied to CarryEpisode first.  Payload feedforward
     mass m_hat = prior mid-contents (ASSUMED; as baseline_ungated._trial called by same_worlds 'theirs': the planner has no estimate).
@@ -143,6 +143,9 @@ def same_world_trial(task, i, plan_dir, mon_period=0.1, edge_settle=0.3):
     plan_dir: directory holding plan.json (or the plan.json path)."""
     from world_model.v2.nero.contents import same_worlds as SW, probe as P
     SW._init_worker()
+    if task.endswith("_behind"):                                   # table-behind tasks (swerve base): behind.run_world on world i of smoke.behind_world; level = the base speed cap
+        from . import behind as BH
+        return BH.same_world_trial(task, i, plan_dir, level, mon_period, edge_settle)
     pj = pathlib.Path(plan_dir)
     pj = pj if pj.suffix == ".json" else pj / "plan.json"
     seed = P._seed("e2e", task, i)

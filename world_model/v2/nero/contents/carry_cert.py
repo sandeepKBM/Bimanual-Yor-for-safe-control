@@ -96,12 +96,19 @@ def path_offsets(task):
 
 def support_row(task, spec, contents, world, disp=None):
     """total COM over the destination support for every contents vertex (linear in pi -> exact).  disp: object displacement start -> goal [m] (default: sum of PLANS)."""
-    tops = SC.support_tops(world)
-    sup = tops["shelf"] if plan_key(task) == "box" else tops["counter"]
+    from ...stack import tasks as TK
+    td = TK.TASKS.get(task)
     caps = json.loads(TH.CAP_FILE.read_text())["pot"]
     tl, tr = np.asarray(caps["tcp"]["W0_liftoff"]["left"]), np.asarray(caps["tcp"]["W0_liftoff"]["right"])
     o_ref = 0.5 * (tl + tr) - np.array([0, 0, TH.GRASP_DZ])
-    dest = o_ref + (sum(np.asarray(dl, float) for _, dl in CR.plan_moves(plan_key(task))) if disp is None else np.asarray(disp, float))
+    if td is not None and td.base:                 # table-behind task (11-09): the goal support (counter2) of the swerve scene; dest = the goal xy (MODEL: scene.place_pose_xy)
+        from ..base import scene as BS
+        sup = BS.support_tops_behind(world)[td.goal_support]
+        dest = np.array([*BS.place_pose_xy(world), o_ref[2]], float)
+    else:
+        tops = SC.support_tops(world)
+        sup = tops["shelf"] if plan_key(task) == "box" else tops["counter"]
+        dest = o_ref + (sum(np.asarray(dl, float) for _, dl in CR.plan_moves(plan_key(task))) if disp is None else np.asarray(disp, float))
     disc = None
     if task == "pot":     # MODEL: the pot's contact is its bottom disc, radius R + t (pan/scene.py:102, cylinder geom "pan_bottom")
         r_c = SC.PS.ASSUMED["pan_radius"] + SC.PS.ASSUMED["pan_wall_t"]
