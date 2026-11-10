@@ -36,8 +36,8 @@ class ProposerCacheMiss(RuntimeError):
 class _ReplayOnly(Backend):
     name = "replay-only"
 
-    def __init__(self, model):
-        self.model = model
+    def __init__(self, model, reasoning=None):
+        self.model, self.reasoning = model, reasoning          # reasoning: checked against the cache record (CachedVLM)
 
     def ask(self, *a, **k):                                   # pragma: no cover - CachedVLM(mode="ro") raises before this
         raise ProposerCacheMiss("offline: a cache miss would need the network")
@@ -56,7 +56,7 @@ def make_backend(spec, cache_dir, offline=False):
     elif off:
         if not cache_dir:
             raise ValueError("offline replay needs a cache_dir")
-        inner = _ReplayOnly(rest[0] if rest else "unknown")
+        inner = _ReplayOnly(rest[0] if rest else "unknown", rest[1] if len(rest) > 1 else None)
     else:
         inner = LLM.make(spec)                                # raw backend: no network call happens before .ask
         if not cache_dir:

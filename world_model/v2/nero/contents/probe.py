@@ -288,7 +288,8 @@ class PosLiftProbe(Probe):
         self.peak_u, self.probe_time_s = 0.0, None
         self.dl_step_max = poslift_dl_step_max() if dl_step_max is None else float(dl_step_max)   # MEASURED (CALIB DL_STEP_MAX)
         self.adaptive = bool(adaptive)
-        self.k_step = poslift_k_step()[0] if k_step is None else float(k_step)                     # MEASURED [kg/mm] (CALIB K_STEP)
+        # MEASURED [kg/mm] (CALIB K_STEP); only the adaptive step needs it (review 11-09: the fixed-step reproduction must run on the old CALIB without K_STEP)
+        self.k_step = (poslift_k_step()[0] if k_step is None else float(k_step)) if self.adaptive else None
         self.dz_min = DZ_MIN if dz_min is None else float(dz_min)
         self.summary = None
         self.guard_events, self.sim_abort, self.u_read_max = [], None, 0.0
@@ -494,6 +495,14 @@ def default_calib(method=None):
     return str(POSLIFT_CALIB) if (PROBE_METHOD if method is None else method) == "poslift" else LADDER_CALIB
 
 
+def _k_step_note():
+    try:
+        k, src = poslift_k_step()
+    except ValueError as e:                    # a CALIB without K_STEP (fixed-step runs): say so, do not invent a value
+        return f"not in CALIB ({e}); adaptive step unavailable"
+    return f"MEASURED {k:.4g} kg/mm, {src} (adaptive step dz = min(DZ, H/K_STEP))"
+
+
 def method_assumptions(method=None):
     method = PROBE_METHOD if method is None else method
     if method == "poslift":
@@ -501,7 +510,7 @@ def method_assumptions(method=None):
                     FREE_TOL=f"{FREE_TOL} kg ASSUMED, USER-approved 11-09", T_HOLD=f"{T_HOLD_POSLIFT} s ASSUMED, USER-approved 11-09",
                     N_FREE_CONFIRM=f"{N_FREE_CONFIRM} ASSUMED, USER-approved 11-09", T_MOVE=f"{T_MOVE} s design",
                     TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform", tracker="carry.LeverCtl (FL-MPC, pre-11-07)",
-                    DZ_MIN=f"{DZ_MIN} m ASSUMED, USER-approved 11-09", K_STEP=f"MEASURED {poslift_k_step()[0]:.4g} kg/mm, {poslift_k_step()[1]} (adaptive step dz = min(DZ, H/K_STEP))",
+                    DZ_MIN=f"{DZ_MIN} m ASSUMED, USER-approved 11-09", K_STEP=_k_step_note(),
                     free_test="rate |dL|/dz < FREE_TOL/DZ",
                     DL_STEP_MAX="MEASURED, CALIB.json DL_STEP_MAX (pre-check of the next height step, fixed-step probe only); guard: u(read L) > U_ADMIT (1.0 MODEL: rated limits, USER 11-09)")
     return dict(probe_method="ladder", DM=f"{DM} kg ASSUMED", O_MAX=f"{O_MAX} kg ASSUMED", FREE_RATIO=f"{FREE_RATIO} ASSUMED",

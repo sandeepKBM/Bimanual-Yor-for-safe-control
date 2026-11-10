@@ -486,7 +486,7 @@ if __name__ == "__main__":
     if which == "nl":
         print(json.dumps(smoke_noload(DZ), indent=1, default=float))
     elif which == "seeds":
-        print(heaviest_seed())
+        print(heaviest_seed(task=TASK))
     elif which in ("light", "heavy", "heavy_still", "light_still", "heavy_fixed", "light_fixed"):
         kind = which.split("_")[0]
         mode = which.split("_")[1] if "_" in which else "turn"

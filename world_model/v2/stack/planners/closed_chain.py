@@ -106,6 +106,8 @@ class WaypointPlan:
 
 def kind_of(task):
     t = str(task)
+    if getattr(TK.TASKS.get(t), "base", ""):       # review 11-09: a *_behind task would silently get the fixed-base goal (GOAL_DXY by kind)
+        raise NotImplementedError(f"{t}: a moving-base task; the closed-chain planner has no base route yet (goal = TaskDef.goal_dxy)")
     return "tray" if t.startswith("tray") else ("pot" if t == "pot" else "box")
 
 

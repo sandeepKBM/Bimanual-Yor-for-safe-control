@@ -30,6 +30,8 @@ def task_spec(task, world=None):
     from world_model.v2.nero.contents import objects as OB, scenes as SC
     from world_model.v2.stack.planners import closed_chain as CCP
     from world_model.v2.stack import tasks as TK
+    if getattr(TK.TASKS.get(str(task)), "base", ""):
+        raise NotImplementedError(f"{task}: a moving-base task; the proposer prompt / closed-chain plan have no base route yet (goal is TaskDef.goal_dxy on {TK.task(str(task)).goal_support})")
     w = _world(task, world)
     kind = CCP.kind_of(task)
     tops = SC.support_tops(w)
