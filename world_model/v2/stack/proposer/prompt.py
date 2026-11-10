@@ -31,7 +31,7 @@ def task_spec(task, world=None):
     from world_model.v2.stack.planners import closed_chain as CCP
     from world_model.v2.stack import tasks as TK
     if getattr(TK.TASKS.get(str(task)), "base", ""):
-        raise NotImplementedError(f"{task}: a moving-base task; the proposer prompt / closed-chain plan have no base route yet (goal is TaskDef.goal_dxy on {TK.task(str(task)).goal_support})")
+        return _task_spec_behind(task, world)
     w = _world(task, world)
     kind = CCP.kind_of(task)
     tops = SC.support_tops(w)
@@ -64,6 +64,49 @@ def task_spec(task, world=None):
                 goal_tol_m=GOAL_TOL_M, supports=sup, object=obj)
 
 
+def _task_spec_behind(task, world=None):
+    """table-behind tasks (tray6_behind, box_behind; docs/status/table_behind_design_2026-11-09.md section 2 "Proposer prompt").  Goal = TaskDef.goal_dxy on TaskDef.goal_support
+    (counter2), world frame.  Two counters with their world extents (MODEL: nero/base/scene mirror), the base start pose, route R1 as the known-good route, the one scene fact about turning at the
+    pick pose, the planner's refusal rule.  NO contents prior and no sanity ranges (user 11-08: skills supply numbers, the model names phenomena)."""
+    from world_model.v2.nero.contents import objects as OB, scenes as SC
+    from world_model.v2.stack import tasks as TK
+    from world_model.v2.stack.planners import base_route as BR
+    td = TK.task(str(task))
+    be = BR.default_backend()
+    w = world if world is not None else be.world_default(task)
+    sup = {k: dict(top=round(float(v["top"]), 4), x=[round(float(a), 4) for a in v["x"]], y=[round(float(a), 4) for a in v["y"]]) for k, v in be.supports(w).items()}
+    gx, gy = td.goal_dxy
+    goal = [round(float(w.obj_xy[0] + gx), 4), round(float(w.obj_xy[1] + gy), 4)]
+    p0 = be.start_pose(w)
+    r1 = [{k: v} for k, v in BR.default_route(td)]
+    if td.kind == "box":
+        obj = dict(name="closed crate", footprint_xy_m=[w.box_outer[0], w.box_outer[1]], height_m=w.box_outer[2], empty_mass_kg=OB.BOX["mass"],
+                   grasp="end tabs on the +y and -y sides, tab centre %.4f m above the support" % SC.GRASP_Z)
+        what = "the closed crate (it holds hidden contents)"
+        tail = ""
+    else:
+        n = td.n_cups
+        obj = dict(name=f"serving tray with {n} mugs of coffee", footprint_xy_m=[OB.TRAY["lx"], OB.TRAY["ly"]], rim_height_m=OB.TRAY["rim_h"],
+                   empty_mass_kg=OB.TRAY["mass"] + n * OB.CUP["empty"], mugs=dict(n=n, diameter_m=OB.CUP["D"], height_m=OB.CUP["H"], empty_kg_each=OB.CUP["empty"],
+                                                                                 capacity_kg_each=OB.CUP["fill_max_kg"]),
+                   grasp="end tabs on the +y and -y sides, tab centre %.4f m above the support" % SC.GRASP_Z)
+        what = f"the serving tray with {n} mugs of coffee (the fill of each mug is hidden)"
+        tail = "  Do not spill."
+    text = (f"Carry {what} from where it stands on counter 1 (xy = ({round(float(w.obj_xy[0]), 4)}, {round(float(w.obj_xy[1]), 4)}), object centre) to counter 2 BEHIND the robot, "
+            f"at xy = ({goal[0]}, {goal[1]}) (object centre), set it down there and let go.{tail}  "
+            f"The robot base can drive: the step skill base_move(route) moves the whole robot, the arms hold still and keep carrying the object during it; "
+            f"the robot's +x axis turns with the base (so after a 180 degree turn the robot faces -x).  base_move is a motion step like lift and place: give it a recovery too.  "
+            f"The planner refuses a base route that sweeps the base, arms or object into a counter or table.  "
+            f"Known-good route R1 (it sweeps clear): {json.dumps(r1)}.  Turning in place at the pick pose hits counter 1.  Place only on counter 2 (support name \"counter2\").")
+    obj["start_xy"] = [round(float(w.obj_xy[0]), 4), round(float(w.obj_xy[1]), 4)]
+    obj["start_support"] = "counter"
+    base = dict(start_pose_xy_yaw_deg=[round(float(p0[0]), 4), round(float(p0[1]), 4), round(float(np.degrees(p0[2])), 2)],
+                note="pose of the base rotation centre; in-place turns turn about it; a line moves along the robot's CURRENT +x axis (negative = backwards)",
+                routes_known_good={td.routes[0][0]: r1}, supports_world_frame_xy_m=dict(counter_1=sup["counter"], counter_2=sup["counter2"]))
+    return dict(task=task, instruction=text, start_xy=obj["start_xy"], goal_xy=goal, goal_support=td.goal_support, goal_top=sup[td.goal_support]["top"],
+                goal_tol_m=GOAL_TOL_M, supports=sup, object=obj, base=base)
+
+
 def robot_limits():
     """datasheet / config numbers shown to the model (nero/config.py is the one source; nothing is copied into this file)."""
     from world_model.v2.nero import config as C
@@ -76,12 +119,19 @@ def scene_facts(task, world=None):
     """everything the model may know about the scene (JSON-able, deterministic).  No hidden truth."""
     sp = task_spec(task, world)
     P = S.params(task)
-    return dict(task=sp, hidden_parameters={k: dict(unit=v["unit"], sanity_range=[round(float(v["range"][0]), 4), round(float(v["range"][1]), 4)], meaning=v["doc"])
-                                           for k, v in P.items()},
+    behind = task in S.BASE_TASKS
+    if behind:                                    # 11-08: no sanity ranges / contents prior in the table-behind prompt (validation still rejects a belief outside them, with the reason)
+        hp = {k: dict(unit=v["unit"], meaning=v["doc"]) for k, v in P.items()}
+        frame = ("world frame, metres, z up.  The left arm holds the +y handle/tab, the right arm the -y one (at the start; they turn with the base).  Arm-step numbers "
+                 "(lift, move, place) are world-frame translations of the object; the robot's +x axis is the world +x axis at the start.")
+    else:
+        hp = {k: dict(unit=v["unit"], sanity_range=[round(float(v["range"][0]), 4), round(float(v["range"][1]), 4)], meaning=v["doc"]) for k, v in P.items()}
+        frame = "world frame, metres, z up.  Decreasing x moves the object toward the robot.  The left arm holds the +y handle/tab, the right arm the -y one."
+    return dict(task=sp, hidden_parameters=hp,
                 robot=robot_limits(),
-                frame="world frame, metres, z up.  Decreasing x moves the object toward the robot.  The left arm holds the +y handle/tab, the right arm the -y one.",
+                frame=frame,
                 grasp="Both claws are rigidly welded to the object at its handles/tabs for the whole motion (ASSUMED: grasping is not part of this task).  The object stays level.",
-                vocabulary=S.vocabulary(tuple(sp["supports"])))
+                vocabulary=S.vocabulary(tuple(sp["supports"]), base=behind))
 
 
 SYSTEM = """You are the high-level planner of a two-arm robot (two 7-DoF NERO arms) in a simulation. You write the plan; a separate low-level planner turns it into joint motions and a checker verifies it before anything moves. You never control joints.

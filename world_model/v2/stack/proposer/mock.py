@@ -27,6 +27,13 @@ def fixture_plan(task, narrow=False):
         k = next(k for k, v in P.items() if v["probed"])
         lo, hi = belief[k]
         belief[k] = [lo, lo + 0.1 * (hi - lo)]
+    if task in S.BASE_TASKS:                  # table-behind: lift (planner CLEAR_M), the known-good route R1, place on counter 2 (route R1 = tasks.py TaskDef.routes, ASSUMED)
+        steps = [dict(skill="lift", args=dict(dz=0.05), why="raise the object clear of counter 1"),
+                 dict(skill="base_move", args=dict(route=[dict(line=-0.5), dict(turn=180.0), dict(line=0.5)]), why="route R1: back, turn around, forward to counter 2"),
+                 dict(skill="place", args=dict(support="counter2"), why="lower it onto counter 2"),
+                 dict(skill="release", args={}, why="let go")]
+        rec = {"0": [dict(skill="set_down", args={})], "1": [dict(skill="retrace", args={})], "2": [dict(skill="hold", args={})]}
+        return dict(belief=belief, steps=steps, recoveries=rec, fallback=[dict(skill="let_go", args={})])
     if task == "box":
         steps = [dict(skill="lift", args=dict(dz=0.18), why="raise the crate clear of the counter and above the shelf lip"),
                  dict(skill="move", args=dict(dx=-0.20, dy=0.0, dz=0.0), why="carry it over the shelf"),

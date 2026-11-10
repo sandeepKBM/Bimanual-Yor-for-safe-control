@@ -12,6 +12,11 @@ Checks done here (MODEL = scene geometry, scenes.support_tops; ASSUMED = a numbe
   * the object never goes below its start support top; horizontal motion needs MIN_CLEAR_M clearance above it at both ends (no dragging)  [MIN_CLEAR_M ASSUMED]
   * every motion has length >= MIN_MOVE_M  [ASSUMED]
   * the plan ends on the task's goal support within GOAL_TOL_M of the goal xy  (prompt.task_spec)
+  * table-behind tasks (schema.BASE_TASKS, design 2026-11-09 section 2): lift -> optional move -> base_move -> optional move -> place(goal support) -> release.  base_move needs
+    the object >= MIN_CLEAR_M above counter 1 (no dragging), a `level` (caller: adapters.base_tip_model.pick_level; None -> rejected "no base level passes the tip row").
+    Arm numbers after the base move are WORLD translations; they are rotated into the base frame for the WaypointPlan (deltas are arm-space, base frame).  The goal check
+    maps the object's base-frame position through the NOMINAL end pose of the route (sim truth end pose: no odometry error, ASSUMED A5).  The sweep / height / reach checks
+    run in the planner (closed_chain.geometry_for -> base_route.check).
   * build=True: the planner builds it (SRS IK, joint limits, shelf collision, TOPP-RA); PlanRefused -> plan_rejected stage "planner" with the planner's reason
 Not checked here (the checker's job, not built): torque / spill / support rows for the plan (admission today = carry_cert.static_cell over the compiled segments),
 and whether a recovery's claimed `covers` holds.
@@ -23,6 +28,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from world_model.v2.stack.planners import base_route as BR
 from world_model.v2.stack.planners import closed_chain as CCP
 from world_model.v2.stack.proposer import prompt as PR
 from world_model.v2.stack.proposer import schema as S
@@ -57,13 +63,13 @@ class CompiledPlan:
         return dict(wp=self.wp, fallback=tuple(self.fallback), belief=self.belief, outside_b=outside_b, plan_id=self.plan_id)
 
     def to_json(self):
-        return dict(task=self.task, wp=self.wp.key_data(), steps=self.steps, fallback=list(self.fallback), belief=self.belief, goal=self.goal,
+        return dict(task=self.task, wp=self.wp.key_data(level=True), steps=self.steps, fallback=list(self.fallback), belief=self.belief, goal=self.goal,
                     plan_id=self.plan_id, planner=self.planner, assumptions=self.assumptions)
 
     @classmethod
     def from_json(cls, d):
         w = d["wp"]
-        wp = CCP.WaypointPlan(tuple(w["names"]), tuple(tuple(x) for x in w["deltas"]), tuple(w["backups"]), bool(w["lands"]))
+        wp = CCP.WaypointPlan.from_data(w)
         return cls(d["task"], wp, d["steps"], tuple(d["fallback"]), d["belief"], d["goal"], d.get("plan_id", ""), d.get("planner", {}), d.get("assumptions", {}))
 
 
@@ -71,8 +77,10 @@ def _reject(reasons):
     raise S.PlanRejected("compile", reasons)
 
 
-def compile_plan(plan, task, world=None, build=True):
-    """plan: a status-ok plan dict (propose()) or a schema.TaskPlan.  -> CompiledPlan."""
+def compile_plan(plan, task, world=None, build=True, level=None):
+    """plan: a status-ok plan dict (propose()) or a schema.TaskPlan.  -> CompiledPlan.
+    level: the base speed level of a base_move step ("L1" ...), chosen by the caller (adapters.base_tip_model.pick_level(task, spec)); None with a base_move -> PlanRejected
+    ("planner": no base level passes the tip row).  Ignored for fixed-base plans."""
     if isinstance(plan, dict):
         if plan.get("status") != "ok":
             raise S.PlanRejected(plan.get("stage", "schema"), plan.get("reasons", ["not an ok plan"]))
@@ -82,6 +90,8 @@ def compile_plan(plan, task, world=None, build=True):
     else:
         tp, pid = plan, S.plan_id(plan.to_dict())
     spec = PR.task_spec(task, world)
+    if task in S.BASE_TASKS:
+        return _compile_behind(tp, task, world, build, level, pid, spec)
     sup = spec["supports"]
     t0 = sup["counter"]["top"]                      # the object starts on the counter
     sx, sy = spec["start_xy"]
@@ -137,6 +147,99 @@ def compile_plan(plan, task, world=None, build=True):
     return cp
 
 
+def _compile_behind(tp, task, world, build, level, pid, spec):
+    be = CCP._BASE_BACKEND or BR.default_backend()
+    w = world if world is not None else be.world_default(task)
+    sup = spec["supports"]
+    t0 = sup["counter"]["top"]
+    sx, sy = spec["start_xy"]
+    p0 = be.start_pose(w)                                       # (x, y, yaw) of the base rotation centre at the start (MODEL)
+    c0, yaw0 = np.array(p0[:2], float), float(p0[2])
+    pb0 = BR.rot(yaw0).T @ (np.array([sx, sy]) - c0)            # object reference in the base frame
+    cur = tuple(p0)
+    pos = np.zeros(3)                                           # arm-space offset (base frame, start-aligned) of the object
+    names, deltas, backups, steps, bases = [], [], [], [], []
+    errs = []
+    wxy = lambda: cur_xy(cur, pb0, pos)
+    n_motion = len(tp.steps) - 1
+    for i, st in enumerate(tp.steps[:n_motion]):
+        sk, a = st.call.skill, st.call.args
+        rc = st.recoveries
+        if sk == "base_move":
+            route = BR.normalize_route(a["route"])
+            if level is None:
+                errs.append(f"step {i} base_move: no base level passes the tip row (level=None); the planner cannot time the route")
+            if pos[2] < MIN_CLEAR_M - Z_EPS:
+                errs.append(f"step {i} base_move: the object is {pos[2]:.3f} m above counter 1; the base must not move with the object closer than {MIN_CLEAR_M} m to the support (no dragging; lift first)")
+            if bases:
+                errs.append(f"step {i} base_move: a second base_move (one per plan)")
+            if not names:
+                errs.append(f"step {i} base_move: before any arm move (lift the object first)")
+            bases.append((len(names), route, str(level)))
+            cur = BR.route_end(cur, route)
+            steps.append(dict(index=i, name=f"s{i}_base_move", skill=sk, args=dict(route=[[k, v] for k, v in route]), delta=[0.0, 0.0, 0.0], backup=rc[0].skill, why=st.why,
+                              alternatives=[dict(skill=r.skill, covers=r.covers) for r in rc], unexecuted=[dict(skill=r.skill, covers=r.covers) for r in rc[1:]],
+                              base_end_pose=[float(x) for x in cur], level=level))
+            continue
+        dyaw = cur[2] - yaw0                                    # body rotation since the start: world translations -> start-aligned base-frame translations
+        if sk == "lift":
+            dw = np.array([0.0, 0.0, a["dz"]])
+        elif sk == "move":
+            dw = np.array([a["dx"], a["dy"], a["dz"]])
+        else:                                                   # place
+            top = sup[a["support"]]["top"]
+            dw = np.array([0.0, 0.0, top - (t0 + pos[2])])
+            cx, cy = wxy()
+            s_ = sup[a["support"]]
+            if not (s_["x"][0] <= cx <= s_["x"][1] and s_["y"][0] <= cy <= s_["y"][1]):
+                errs.append(f"step {i} place({a['support']}): the object centre ({cx:.3f}, {cy:.3f}) is not over the support (x {s_['x']}, y {s_['y']})"
+                            + ("" if bases else "; the plan has no base_move: the goal is behind the robot"))
+            if dw[2] > -MIN_MOVE_M:
+                errs.append(f"step {i} place({a['support']}): the object underside is at {t0 + pos[2]:.3f} m, the support top at {top:.3f} m; nothing to lower (needs >= {MIN_MOVE_M} m)")
+        d = np.array([*(BR.rot(dyaw).T @ dw[:2]), dw[2]])
+        new = pos + d
+        if np.linalg.norm(d) < MIN_MOVE_M:
+            errs.append(f"step {i} {sk}: motion {np.linalg.norm(d):.4f} m shorter than {MIN_MOVE_M} m")
+        horiz = float(np.hypot(d[0], d[1])) > 1e-9
+        if new[2] < -Z_EPS and not (sk == "place"):
+            errs.append(f"step {i} {sk}: the object would go to {new[2]:.3f} m relative to its start support (below it)")
+        if horiz and (pos[2] < MIN_CLEAR_M - Z_EPS or new[2] < MIN_CLEAR_M - Z_EPS):
+            errs.append(f"step {i} {sk}: horizontal motion with the object {min(pos[2], new[2]):.3f} m above its start support; needs >= {MIN_CLEAR_M} m at both ends (no dragging)")
+        name = f"s{i}_{sk}"
+        names.append(name)
+        deltas.append(tuple(round(float(x), 9) for x in d))
+        backups.append(rc[0].skill)
+        steps.append(dict(index=i, name=name, skill=sk, args=st.call.args, delta=[float(x) for x in d], delta_world=[float(x) for x in dw], backup=rc[0].skill, why=st.why,
+                          alternatives=[dict(skill=r.skill, covers=r.covers) for r in rc], unexecuted=[dict(skill=r.skill, covers=r.covers) for r in rc[1:]]))
+        pos = new
+    end = [float(x) for x in wxy()]
+    goal = dict(goal_xy=spec["goal_xy"], goal_support=spec["goal_support"], goal_tol_m=spec["goal_tol_m"], end_xy=end,
+                end_support=tp.steps[n_motion - 1].call.args.get("support") if n_motion else None,
+                miss_m=float(np.hypot(end[0] - spec["goal_xy"][0], end[1] - spec["goal_xy"][1])), base_end_pose=[float(x) for x in cur],
+                base_end_pose_tag="nominal route end (sim truth, no odometry error: ASSUMED A5)")
+    if goal["end_support"] != spec["goal_support"]:
+        errs.append(f"the plan places on {goal['end_support']!r}, the task goal is on {spec['goal_support']!r}")
+    if goal["miss_m"] > spec["goal_tol_m"]:
+        errs.append(f"the plan ends at world xy ({end[0]:.3f}, {end[1]:.3f}), {goal['miss_m']:.3f} m from the goal ({spec['goal_xy'][0]}, {spec['goal_xy'][1]}); tolerance {spec['goal_tol_m']} m")
+    if errs:
+        if level is None and bases:
+            raise S.PlanRejected("planner", [e for e in errs if "level" in e] + ["reason=base_level"] + [e for e in errs if "level" not in e])
+        _reject(errs)
+    wp = CCP.WaypointPlan(tuple(names), tuple(deltas), tuple(backups), True, tuple(bases))
+    cp = CompiledPlan(task, wp, steps, tuple(r.skill for r in tp.fallback), tp.belief, goal, pid)
+    cp.assumptions = dict(cp.assumptions, base_route=dict(tag="ASSUMED", value=dict(MAX_SEGMENTS=BR.MAX_SEGMENTS, MAX_LINE_M=BR.MAX_LINE_M, MAX_TURN_DEG=BR.MAX_TURN_DEG,
+                                                                                    STEP_M=BR.STEP_M, STEP_DEG=BR.STEP_DEG, GAP_S=BR.GAP_S, TRACK_MARGIN_M=BR.TRACK_MARGIN_M),
+                                                          src="stack/planners/base_route.py (design 2026-11-09 A3, A7; tracking margin 0: no MEASURED base error wired)"))
+    if build:
+        build_geometry(cp, world)
+    return cp
+
+
+def cur_xy(cur, pb0, pos):
+    """world xy of the object reference: base pose `cur` (x, y, yaw of the rotation centre) applied to its base-frame position."""
+    return np.array(cur[:2], float) + BR.rot(cur[2]) @ (pb0 + pos[:2])
+
+
 def build_geometry(cp, world=None):
     """run the closed-chain planner on the compiled waypoints (the geometry goes to the on-disk plan cache).  PlanRefused -> PlanRejected('planner', reason)."""
     inp = CCP._nominal_inputs(cp.task, cp.wp) if world is None else CCP.PlanInputs(*(_inputs(cp.task, world)), wp=cp.wp)
@@ -145,12 +248,16 @@ def build_geometry(cp, world=None):
     except CCP.PlanRefused as e:
         raise S.PlanRejected("planner", [str(e), f"reason={e.info.get('reason')}"] + ([f"arm={e.info['arm']}"] if "arm" in e.info else [])) from e
     cp.planner = dict(dy=g.info["dy"], z_c=g.info["z_c"], goal_xy=g.info["goal_xy"], margin_min=g.info["margin_min"], n_samples=g.info["n_samples"], key=inp.key())
+    if "base" in g.info:
+        cp.planner["base"] = g.info["base"]
     return cp
 
 
 def _inputs(task, world):
     from world_model.v2.nero.contents import envelope as E, scenes as SC
     cap = json.loads(E.CAP_FILE.read_text())["pot"]
+    if CCP.is_base_task(task):
+        return (CCP._BASE_BACKEND or BR.default_backend()).compose(world), world, {s: cap["q"]["W0_liftoff"][s] for s in CCP.SIDES}, task
     return SC.compose(world), world, {s: cap["q"]["W0_liftoff"][s] for s in CCP.SIDES}, task
 
 

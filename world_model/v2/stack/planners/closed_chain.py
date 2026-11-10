@@ -37,6 +37,7 @@ import numpy as np
 from world_model.v2.nero import config as C
 from world_model.v2.stack import tasks as TK
 from world_model.v2.stack.kin.srs_ik import SRSArm
+from world_model.v2.stack.planners import base_route as BR
 from world_model.v2.stack.types import SIDES, BimanualPlan, Segment, SkillCall, TaskSpec
 
 NAME = "closed_chain"
@@ -87,10 +88,16 @@ class WaypointPlan:
     deltas: tuple
     backups: tuple
     lands: bool = True
+    base: tuple = ()                 # table-behind (11-09): ((after, route, level),) -- ONE base_move after `after` arm moves (1 <= after <= len(names));
+                                     # route = (("line", m) | ("turn", deg), ...); level "L1".. (the base speed level, does not enter the arm geometry key).
+                                     # deltas are ARM-SPACE offsets in the BASE frame (start-aligned): the object keeps its base-frame offset across the base move.
 
     def __post_init__(self):
         if not (len(self.names) == len(self.deltas) == len(self.backups) >= 1):
             raise ValueError("WaypointPlan: names, deltas, backups must have the same length >= 1")
+        for a, r, lv in self.base:
+            if not (isinstance(a, int) and 1 <= a <= len(self.names)):
+                raise ValueError(f"WaypointPlan.base: 'after' {a!r} must be an int in 1..{len(self.names)}")
 
     def nodes(self):
         return np.vstack([np.zeros(3), np.cumsum(np.asarray(self.deltas, float), axis=0)])
@@ -100,15 +107,28 @@ class WaypointPlan:
         d = self.deltas[0]
         return abs(d[0]) < 1e-9 and abs(d[1]) < 1e-9 and d[2] > 0
 
-    def key_data(self):
-        return dict(names=list(self.names), deltas=[[round(float(x), 9) for x in d] for d in self.deltas], backups=list(self.backups), lands=bool(self.lands))
+    def key_data(self, level=False):
+        """cache-key / JSON data.  The base route enters the geometry key (it is checked in geometry_for); the level only with level=True (JSON round trip)."""
+        d = dict(names=list(self.names), deltas=[[round(float(x), 9) for x in d] for d in self.deltas], backups=list(self.backups), lands=bool(self.lands))
+        if self.base:                                                   # fixed-base keys (and cache files) are unchanged
+            d["base"] = [[int(a), [[k, float(v)] for k, v in r]] + ([lv] if level else []) for a, r, lv in self.base]
+        return d
+
+    @classmethod
+    def from_data(cls, w):
+        base = tuple((int(b[0]), tuple((str(k), float(v)) for k, v in b[1]), str(b[2]) if len(b) > 2 else "L1") for b in w.get("base", ()))
+        return cls(tuple(w["names"]), tuple(tuple(x) for x in w["deltas"]), tuple(w["backups"]), bool(w["lands"]), base)
 
 
 def kind_of(task):
     t = str(task)
-    if getattr(TK.TASKS.get(t), "base", ""):       # review 11-09: a *_behind task would silently get the fixed-base goal (GOAL_DXY by kind)
-        raise NotImplementedError(f"{t}: a moving-base task; the closed-chain planner has no base route yet (goal = TaskDef.goal_dxy)")
+    if getattr(TK.TASKS.get(t), "base", ""):       # a *_behind task: its kind from the TaskDef; its goal is TaskDef.goal_dxy on goal_support, never the fixed-base GOAL_DXY (the plan is a base WaypointPlan)
+        return TK.task(t).kind
     return "tray" if t.startswith("tray") else ("pot" if t == "pot" else "box")
+
+
+def is_base_task(task):
+    return bool(getattr(TK.TASKS.get(str(task)), "base", ""))
 
 
 def vlim():
@@ -121,6 +141,9 @@ class PlanInputs:
 
     def __init__(self, m, world, q0, task, wp=None):
         self.m, self.world, self.task = m, world, kind_of(task)
+        self.task_name = str(task)
+        if wp is None and is_base_task(task):                                          # a table-behind task has no GOAL_DXY plan: its default is lift -> base_move R1 -> place on counter 2
+            wp = default_waypoint(task, world)
         self.wp = wp                                                                   # WaypointPlan | None (None = the default GOAL_DXY lift / carry / place)
         self.q0 = {s: np.asarray(q0[s], float) for s in SIDES}
         self.arms = {s: SRSArm(m, s) for s in SIDES}
@@ -148,15 +171,36 @@ def inputs_from_episode(ep):
     return PlanInputs(ep.m, ep.world, ep.q0, ep.task, wp=getattr(ep, "wp", None))
 
 
+BASE_LEVEL_DEFAULT = "L1"      # ASSUMED: base speed level written into a default plan (= today's swerve Limits); the admission / caller passes the level it picked (plan(level=...))
+_BASE_BACKEND = None           # tests may set a backend object here (base_route.check / sweep interface); None = base_route.default_backend()
+
+
+def default_waypoint(task, world, backend=None):
+    """the default plan of a table-behind task (ASSUMED shape, design section 2): lift CLEAR_M -> base_move (TaskDef route R1) -> straight down onto the goal support
+    (the route puts the place pose of the object at the pick pose in the robot frame: scene.place_pose_xy), then release.  Arm-space deltas, base frame."""
+    td = TK.task(str(task))
+    be = backend or _BASE_BACKEND or BR.default_backend()
+    sup = be.supports(world)
+    zc = CLEAR_M[td.kind]
+    dz = float(sup[td.goal_support]["top"]) - (float(sup["counter"]["top"]) + zc)
+    return WaypointPlan(("s0_lift", "s2_place"), ((0.0, 0.0, zc), (0.0, 0.0, round(dz, 9))), ("set_down", "hold"), True,
+                        ((1, BR.default_route(td), BASE_LEVEL_DEFAULT),))
+
+
 @functools.lru_cache(maxsize=None)
 def _nominal_inputs(task, wp=None):
     """default world of the task + the hold pose of contents/capture_nyu.json (what the static admission uses)."""
     from world_model.v2.nero.contents import envelope as E, scenes as SC
     k = kind_of(task)
-    w = (SC.TrayWorld(n_cups=int(task[4:]) if task.startswith("tray") and task[4:].isdigit() else 2) if k == "tray"
-         else (SC.PotWorld() if k == "pot" else SC.BoxWorld()))
+    if is_base_task(task):                                                         # table-behind: the task's own world (n_cups, world_kw) and the two-table swerve scene
+        be = BR.default_backend()
+        w = be.world_default(task)
+        m = be.compose(w)
+    else:
+        w = (SC.TrayWorld(n_cups=int(task[4:]) if task.startswith("tray") and task[4:].isdigit() else 2) if k == "tray"
+             else (SC.PotWorld() if k == "pot" else SC.BoxWorld()))
+        m = SC.compose(w)
     cap = json.loads(E.CAP_FILE.read_text())["pot"]
-    m = SC.compose(w)
     return PlanInputs(m, w, {s: cap["q"]["W0_liftoff"][s] for s in SIDES}, task, wp=wp)
 
 
@@ -744,7 +788,10 @@ _PLANS = {}
 def geometry_for(inp: PlanInputs):
     k = inp.key()
     if k not in _GEO:
-        _GEO[k] = plan_geometry(inp)
+        g = plan_geometry(inp)
+        if inp.wp is not None and inp.wp.base:                   # base route: swept clearance, height over counter 2, table-2 reach info (base_route.check; raises PlanRefused)
+            g.info = dict(g.info, base=BR.check(inp.world, inp.task_name, inp.wp, g, CLEAR_M[inp.task], backend=_BASE_BACKEND))
+        _GEO[k] = g
     return _GEO[k]
 
 
@@ -785,7 +832,8 @@ def backup_phases_for(seg, wp=None):
             return [("stop", 0.3), ("hold", 0.3), ("weld", False), ("retreat", RETREAT_M, RETREAT_T), ("hold", 0.6)]
         if kind != "set_down":
             raise ValueError(f"unknown backup kind {kind!r}")
-        back = list(wp.names[:j + 1])[::-1]
+        k0 = wp.base[0][0] if (wp.base and j >= wp.base[0][0]) else 0    # v1: a retrace never runs back across the base move (no base retrace between arm pieces): after it, set_down
+        back = list(wp.names[k0:j + 1])[::-1]                            # retraces to the start of the post-base moves and lets go THERE (the object is not back on counter 1)
     else:
         back = {"lift": ["lift"], "carry": ["carry", "lift"], "place": ["place", "carry", "lift"]}.get(seg)
     if back is None:
@@ -821,7 +869,13 @@ class ClosedChainPlanner:
         inp = inputs if inputs is not None else (inputs_from_episode(ep) if ep is not None else _nominal_inputs(name))
         cc = plan_for(inp, a)
         segs, t = [], 0.0
-        for sg in (list(cc.geo.bounds) + ["release"]):
+        base = inp.wp.base[0] if (inp.wp is not None and inp.wp.base) else None
+        names = list(cc.geo.bounds)
+        for ix, sg in enumerate(names + ["release"]):
+            if base is not None and ix == base[0]:                     # the base move between arm move base[0]-1 and base[0]
+                bseg = _base_segment(inp, cc, names[ix - 1], base, args.get("level"), t)
+                segs.append(bseg)
+                t = bseg.t1
             ph = phases_for(sg)
             dur = _duration(ph, cc)
             if sg == "release":
@@ -830,13 +884,28 @@ class ClosedChainPlanner:
             else:
                 pc = cc.pieces[sg]
                 meta = dict(phases=ph, backup_phases=backup_phases_for(sg, inp.wp), accel=cc.accel_record(sg), cc=cc, summary=pc.summary(), piece=pc)
-                x_obj = _x_obj(inp, cc, sg)
+                x_obj = _x_obj(inp, cc, sg, base is not None and ix >= base[0])
                 q_ref = _q_ref(pc)
             segs.append(Segment(mode=sg, t0=t, t1=t + dur, q_ref=q_ref, x_obj=x_obj, weld={s: sg != "release" for s in SIDES}, meta=meta))
             t += dur
         return BimanualPlan(segments=segs, planner=NAME,
                             provenance=dict(legacy=False, task=kind_of(name), a_plan=a, geometry=_geo_info(cc.geo), key=inp.key(), summary=cc.summary()),
                             assumptions=assumptions())
+
+
+def _base_segment(inp, cc, prev, base, level, t0):
+    """the Segment of a base move: mode "carry" (no new Mode literal), phases [("base_move", ref)], arms hold the last planned q of the previous move (ASSUMED A4).
+    ref = dict(route=[[kind, value], ...], level).  meta: base_ref, accel = dict(source="base_card", level), backup_phases None (v1: no recovery run inside a base move)."""
+    after, route, lv = base
+    lv = level or lv or BASE_LEVEL_DEFAULT
+    be = _BASE_BACKEND or BR.default_backend()
+    ref = dict(route=[[k, float(v)] for k, v in route], level=lv)
+    pc = cc.pieces[prev]
+    q_end = {s: (pc.q[s][-1].copy(), np.zeros(7), np.zeros(7)) for s in SIDES}
+    dur = BR.route_duration(route, lv, be.levels())
+    meta = dict(phases=[("base_move", ref)], base_ref=ref, accel=dict(source="base_card", level=lv), backup_phases=None, cc=cc,
+                end_pose=cc.geo.info.get("base", {}).get("end_pose"))
+    return Segment(mode="carry", t0=t0, t1=t0 + dur, q_ref=lambda t, q=q_end: q, x_obj=None, weld={s: True for s in SIDES}, meta=meta)
 
 
 def _q_ref(pc):
@@ -846,14 +915,25 @@ def _q_ref(pc):
     return f
 
 
-def _x_obj(inp, cc, sg):
+def _x_obj(inp, cc, sg, after_base=False):
     pc = cc.pieces[sg]
     x0 = np.array([inp.world.obj_xy[0], inp.world.obj_xy[1], 0.0])
+    if not after_base:
+        def f(t):
+            k = int(np.clip(round(t / DT), 0, pc.n))
+            return np.r_[x0 + pc.p[k], 1.0, 0, 0, 0]          # z relative to the support start; orientation fixed (level)
+        return f
+    b = cc.geo.info["base"]                                   # after the base move: base-frame position -> world through the nominal end pose (pose of the rotation centre)
+    c0, ce = np.array(b["start_pose"][:2]), np.array(b["end_pose"][:2])
+    dl = b["end_pose"][2] - b["start_pose"][2]
+    R = BR.rot(dl)
+    qz = np.array([np.cos(dl / 2), 0.0, 0.0, np.sin(dl / 2)])
 
-    def f(t):
+    def g(t):
         k = int(np.clip(round(t / DT), 0, pc.n))
-        return np.r_[x0 + pc.p[k], 1.0, 0, 0, 0]          # z relative to the support start; orientation fixed (level)
-    return f
+        p = x0 + pc.p[k]
+        return np.r_[np.r_[ce + R @ (p[:2] - c0), p[2]], qz]
+    return g
 
 
 def _geo_info(g):
@@ -873,7 +953,10 @@ def assumptions():
         a_backup=A("carry.A_BACKUP", "ASSUMED 0.25 m/s^2"), retreat=A(dict(m=RETREAT_M, T=RETREAT_T), "legacy release retreat, smoothstep"),
         joint_speed=dict(tag="MEASURED-spec", value=list(C.MANUAL["joint_speed_deg_s"]), src="NERO datasheet, config.MANUAL (deg/s)"),
         joint_accel=dict(tag="OPEN", value=None, src="config.py has no joint acceleration limit; none imposed (TOPP-RA sentinel 1e4 rad/s^2 is not a limit); max |qdd| reported"),
-        kinematics=dict(tag="MODEL", src="SRS constants read from the compiled MJCF; every chosen q FK-validated (MuJoCo)"))
+        kinematics=dict(tag="MODEL", src="SRS constants read from the compiled MJCF; every chosen q FK-validated (MuJoCo)"),
+        base_route=A(dict(MAX_SEGMENTS=BR.MAX_SEGMENTS, MAX_LINE_M=BR.MAX_LINE_M, MAX_TURN_DEG=BR.MAX_TURN_DEG, STEP_M=BR.STEP_M, STEP_DEG=BR.STEP_DEG, GAP_S=BR.GAP_S,
+                         TRACK_MARGIN_M=BR.TRACK_MARGIN_M, level_default=BASE_LEVEL_DEFAULT),
+                     "table-behind base_move ranges, sweep sampling (A7), rest gap, tracking margin 0 (no MEASURED base error wired), default level (ASSUMED; design section 8)"))
 
 
 # ----------------------------------------------------------------------------------------------------------------------- static-admission hooks

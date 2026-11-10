@@ -22,7 +22,12 @@ Argument ranges (labels, AGENTS.md bounds rule):  the dz / dx / dy ranges are AS
 scenes.Common; the box lift of 0.18 m reaches and 0.20 m does not, scenes.BoxWorld.shelf_top comment, 11-02); whether a plan is reachable is decided per plan by
 the planner (PlanRefused), not by these ranges.  PARAMS ranges are SANITY limits of the hidden parameters (MODEL from the scene geometry where stated, else ASSUMED),
 NOT the prior box: the prompt does not contain the prior.
-Not offered (the planner has no such input): a speed / acceleration request (the admission chooses a_admit), rotations, per-arm motions, regrasp, push, base motion.
+Table-behind tasks (tray6_behind, box_behind; BASE_TASKS) also offer
+  base_move(route)    drive the whole robot: route = 1-4 segments {"line": metres along the robot's current +x} | {"turn": degrees CCW, in place}; |line| <= 1.0 m,
+                      |turn| <= 180 deg (ASSUMED outer ranges, design 2026-11-09 A3); the arms hold still, the object rides along; at most one per plan, after the lift.
+                      A motion step (needs a recovery: hold = stop the base, retrace = drive the route back, set_down = retrace everything; let_go is accepted here and
+                      refused by the checker).  No speed argument: the admission picks the base level.  Fixed-base tasks do not see it.
+Not offered (the planner has no such input): a speed / acceleration request (the admission chooses a_admit), rotations, per-arm motions, regrasp, push.
 """
 from __future__ import annotations
 
@@ -32,7 +37,8 @@ from dataclasses import dataclass, field
 
 from world_model.v2.stack.types import SkillCall
 
-TASKS = ("box", "tray2", "tray4", "tray6", "pot")
+TASKS = ("box", "tray2", "tray4", "tray6", "pot", "tray6_behind", "box_behind")
+BASE_TASKS = ("tray6_behind", "box_behind")      # TaskDef.base == "swerve": the object goes to the counter BEHIND the robot; the base can move (base_move)
 MAX_STEPS = 8                  # ASSUMED: longest plan accepted (steps incl. place + release)
 MAX_WHY = 400                  # ASSUMED: characters of the free-text reason per step
 
@@ -43,21 +49,40 @@ STEP_SKILLS = {                # name -> {arg: (lo, hi)}; "place": {"support": e
     "place": {"support": ("counter", "shelf")},
     "release": {},
 }
-MOTION_SKILLS = ("lift", "move", "place")
+BASE_STEP_SKILLS = {           # only offered for BASE_TASKS (fixed-base plans / prompts are unchanged).  The arg is a list, validated by _route_errors
+    "base_move": {"route": dict(segments="1..4", line_m=[-1.0, 1.0], turn_deg=[-180.0, 180.0])},
+}
+BASE_TAG = "ASSUMED outer ranges (design 2026-11-09 A3: <= 4 segments, |line| <= 1.0 m, |turn| <= 180 deg); the sweep clearance and reach are decided by the planner (PlanRefused)"
+MOTION_SKILLS = ("lift", "move", "place", "base_move")
 RECOVERY_SKILLS = ("hold", "retrace", "set_down", "let_go")
 RANGE_TAG = "ASSUMED outer range per motion; reach is decided by the planner (PlanRefused)"
 
 
-def vocabulary(supports=None):
-    """JSON-able description of the vocabulary (what the prompt shows).  supports = the support names of the scene (default: all enum values)."""
+def step_skills(task=None):
+    """the step skills offered for `task`: STEP_SKILLS, plus base_move for the table-behind tasks."""
+    return {**STEP_SKILLS, **BASE_STEP_SKILLS} if task in BASE_TASKS else dict(STEP_SKILLS)
+
+
+def vocabulary(supports=None, base=False):
+    """JSON-able description of the vocabulary (what the prompt shows).  supports = the support names of the scene (default: all enum values).  base=True adds base_move."""
     steps = {k: {n: (list(supports) if (k == "place" and supports is not None) else list(r)) for n, r in a.items()} for k, a in STEP_SKILLS.items()}
-    return dict(steps=steps, recoveries=list(RECOVERY_SKILLS), tags=dict(ranges=RANGE_TAG))
+    tags = dict(ranges=RANGE_TAG)
+    if base:
+        steps.update({k: {n: dict(r) for n, r in a.items()} for k, a in BASE_STEP_SKILLS.items()})
+        tags["base_move"] = BASE_TAG
+    return dict(steps=steps, recoveries=list(RECOVERY_SKILLS), tags=tags)
+
+
+def _fixed(task):
+    """the fixed-base task a table-behind task is built on ("tray6_behind" -> "tray6"): same hidden parameters."""
+    return task[:-len("_behind")] if task in BASE_TASKS else task
 
 
 # ---- hidden parameters (belief) ---------------------------------------------------------------------------------------------------
 def params(task):
     """{name: dict(range=(lo, hi), unit, doc, probed, tag)} -- sanity range of each hidden parameter of the task (NOT the prior box)."""
     from world_model.v2.nero.contents import objects as OB, scenes as SC
+    task = _fixed(task)
     if task == "box":
         w = SC.BoxWorld()
         hx, hy = w.box_outer[0] / 2 - w.wall_t - w.contents_half[0], w.box_outer[1] / 2 - w.wall_t - w.contents_half[1]
@@ -82,6 +107,7 @@ def params(task):
 def probe_offset(task):
     """contents-mass interval of the probe (total contents mass c, nero/contents/probe.py) -> value of the probed belief parameter: (param name, offset subtracted)."""
     from world_model.v2.nero.contents import objects as OB
+    task = _fixed(task)
     if task == "box":
         return "contents_kg", 0.0
     if task == "pot":
@@ -214,13 +240,20 @@ def validate(d, task, supports=("counter", "shelf")):
         if not _keys(s, ("skill", "args", "why"), (), w, errs):
             continue
         sk = s["skill"]
-        if sk not in STEP_SKILLS:
-            errs.append(f"{w}.skill: unknown skill {sk!r}; have {sorted(STEP_SKILLS)}")
+        SK = step_skills(task)
+        if sk not in SK:
+            errs.append(f"{w}.skill: unknown skill {sk!r}; have {sorted(SK)}")
             continue
         if not (isinstance(s["why"], str) and s["why"].strip() and len(s["why"]) <= MAX_WHY):
             errs.append(f"{w}.why: must be a non-empty string of at most {MAX_WHY} characters")
-        spec, args = STEP_SKILLS[sk], s["args"]
+        spec, args = SK[sk], s["args"]
         if not _keys(args, tuple(spec), (), f"{w}.args", errs):
+            continue
+        if sk == "base_move":
+            rerr = _route_errors(args["route"], f"{w}.args.route")
+            errs.extend(rerr)
+            if not rerr:
+                steps.append(Step(SkillCall(sk, dict(route=[{k: float(v)} for seg in args["route"] for k, v in seg.items()])), s["why"].strip()))
             continue
         ok = True
         for a, rng in spec.items():
@@ -246,6 +279,8 @@ def validate(d, task, supports=("counter", "shelf")):
             errs.append("steps: the step before release() must be place(support)")
         if sk.count("place") != 1:
             errs.append(f"steps: exactly one place() allowed, found {sk.count('place')}")
+        if sk.count("base_move") > 1:
+            errs.append(f"steps: at most one base_move() allowed, found {sk.count('base_move')}")
     # recoveries
     rec = d["recoveries"]
     if not isinstance(rec, dict):
@@ -253,7 +288,7 @@ def validate(d, task, supports=("counter", "shelf")):
         rec = {}
     for k in rec:
         if not (isinstance(k, str) and k.isdigit() and int(k) < len(raw) and isinstance(raw[int(k)], dict) and raw[int(k)].get("skill") in MOTION_SKILLS):
-            errs.append(f"recoveries.{k}: key must be the index of a motion step (lift / move / place), not {k!r}")
+            errs.append(f"recoveries.{k}: key must be the index of a motion step ({' / '.join(s_ for s_ in MOTION_SKILLS if s_ != 'base_move' or task in BASE_TASKS)}), not {k!r}")
     for i, s in enumerate(steps):
         if s.call.skill in MOTION_SKILLS:
             lst = rec.get(str(i))
@@ -272,6 +307,24 @@ def validate(d, task, supports=("counter", "shelf")):
     if errs:
         raise PlanRejected("schema", errs)
     return TaskPlan(task, belief, steps, [r for r in fbl if r is not None])
+
+
+def _route_errors(route, what):
+    """strict check of a base_move route: a list of 1..4 objects {"line": metres} | {"turn": degrees}, inside the ASSUMED outer ranges."""
+    from world_model.v2.stack.planners import base_route as BR
+    if not isinstance(route, list) or not route:
+        return [f"{what}: must be a non-empty list of {{\"line\": m}} / {{\"turn\": deg}} objects"]
+    errs, ok = [], True
+    for i, seg in enumerate(route):
+        if not (isinstance(seg, dict) and len(seg) == 1 and next(iter(seg)) in ("line", "turn")):
+            errs.append(f"{what}[{i}]: must be an object with exactly one key, \"line\" (metres) or \"turn\" (degrees), got {seg!r}")
+            ok = False
+        elif not _num(next(iter(seg.values()))):
+            errs.append(f"{what}[{i}].{next(iter(seg))}: must be a finite number, got {next(iter(seg.values()))!r}")
+            ok = False
+    if ok:
+        errs += [what + e[len("route"):] for e in BR.check_ranges(BR.normalize_route(route))]
+    return errs
 
 
 def _recovery(r, what, belief, errs, with_covers):
