@@ -9,6 +9,7 @@ Earlier rulings (before 10-15) are history in `docs/design/MASTER.md`.
 
 | Since | Question | Where |
 |---|---|---|
+| 11-09 | AgentChord table-behind port (behind.py): their monitors read poses in the base frame (MONITOR_FRAME='base'; in the world frame monitor_object_moved fires on every base move); default level L3 (no speed choice); brake ends at 4 s or 1 mm/s. | `agentchord_probe/nero/behind.py` |
 | 11-09 | Base-move ASSUMED values (0021839, 53a0cc5): sweep sampling 1 cm / 2 deg; base_move ranges <= 4 segments, abs(line) <= 1.0 m, abs(turn) <= 180 deg; sweep tracking margin 0 mm (no MEASURED base path error); default level L1 when no level is given; rest gap 0.5 s per segment + 0.5 s settle; load may touch only counter/counter2 while the base stands and nothing while it moves. | `stack/planners/base_route.py`, `adapters/base_sweep.py`, `nero/base/drive.py`, `nero/contents/carry.py` |
 | 11-09 | A set_down recovery on a move AFTER the base move retraces only to the start of the post-base moves and lets go there (object not back on counter 1); no base retrace exists. Accept as the semantics, or have the checker refuse such recoveries? | `stack/planners/closed_chain.py` (53a0cc5) |
 | 11-09 | Table-behind ASSUMED values: speed levels L1-L3 (`nero/base/smoke.LEVELS`), route R1 (0.5 m back, turn 180 deg, 0.5 m forward), route-finished tolerance 20 mm / 2 deg, wheel lift-off debounce 0.05 s. | `nero/base/smoke.py`, `stack/tasks.py` `_R1` |
