@@ -285,7 +285,8 @@ _BEHIND_NOTE = "table-behind (docs/status/table_behind_design_2026-11-09.md); mo
 
 
 def _behind(t: TaskDef, name, note):
-    return replace(t, name=name, base="swerve", routes=(_R1,), goal_support="counter2", goal_dxy=_BEHIND_DXY, moves=(), note=f"{_BEHIND_NOTE}; {note}")
+    return replace(t, name=name, base="swerve", routes=(_R1,), goal_support="counter2", goal_dxy=_BEHIND_DXY, moves=(), rows=t.rows + ("base_tip",),
+                   note=f"{_BEHIND_NOTE}; {note}; base_tip = stack/checks/base_tip.py (ZMP in the wheel polygon, measured base card)")
 
 
 TASKS.update({t.name: t for t in (
