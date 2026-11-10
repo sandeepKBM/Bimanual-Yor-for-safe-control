@@ -1,6 +1,7 @@
 """nero/base/smoke.py -- smokes of the swerve base (SIMULATION ONLY, CPU).
 
   python -m world_model.v2.nero.base.smoke nl       # (a) no load: rest drift, turn 180 deg, drive 0.5 m
+  python -m world_model.v2.nero.base.smoke light|heavy [seed] [--level L1|L2|L3] [--g0 [--video out.mp4]]   # G0: loaded route R1 at a speed level + monitor
   python -m world_model.v2.nero.base.smoke loaded   # (b) tray6 welded, lifted 2 cm, base turns 180 deg  (+ (c) fixed-vs-floating hold comparison)
 """
 from __future__ import annotations
@@ -22,6 +23,16 @@ from . import scene as BS
 from . import swerve as SW
 
 DT = 0.005
+
+# G0 speed levels of the table-behind design (docs/status/table_behind_design_2026-11-09.md section 8, A1): (v m/s, a m/s^2, w rad/s, alpha rad/s^2).
+# ASSUMED, pending user ruling.  L1 = today's swerve.Limits defaults; L3 = the YOR caps (swerve.YOR_MAX_VEL / YOR_MAX_ACCEL, MEASURED from YOR source;
+# using them as a cap is our choice); L2 = ASSUMED midpoint.
+LEVELS = dict(L1=(0.25, 0.25, 0.5, 0.5), L2=(0.5, 0.5, 1.0, 1.0), L3=(1.0, 1.0, 1.57, 1.57))
+
+
+def level_limits(level="L1"):
+    v, a, w, al = LEVELS[level]
+    return SW.Limits(v_max=v, a_max=a, w_max=w, alpha_max=al)
 
 
 def arm_geoms(m):
@@ -64,6 +75,7 @@ class BaseDrive:
 
     def reset(self):
         self.queue, self.pf, self.gap_left, self.seg_err = [], None, 0.0, []
+        self.seg_idx, self.seg_kind = -1, ""
         self.peak = dict(Fz_left=0.0, Fz_right=0.0, slip=0.0, tau_ratio=0.0, bad=set())
         self.n = 0
 
@@ -84,8 +96,15 @@ class BaseDrive:
             self._pend = False
         if self.pf is None and self.gap_left <= 0.0 and self.queue:
             kind, a = self.queue.pop(0)
+            self.seg_idx, self.seg_kind = self.seg_idx + 1, kind
             self.pf = SW.PathFollower(self.sb)
             (self.pf.drive_line if kind == "line" else self.pf.turn_in_place)(a)
+
+    def phase(self):
+        """route phase label for the G0 monitor: seg<i>_<kind> while a segment runs, rest<i> in the gap after it."""
+        if not self.active or self.seg_idx < 0:
+            return "pre" if self.active else "post"
+        return f"seg{self.seg_idx}_{self.seg_kind}" if self.pf is not None else f"rest{self.seg_idx}"
 
     def __call__(self, ep):
         m, d = ep.m, ep.d
@@ -107,6 +126,156 @@ class BaseDrive:
         self.n += 1
         if self.n % 10 == 0:
             pk["bad"].update(bad_contacts(m, d, ep._ag, ep.obj if ep._loaded else None))
+
+
+class G0Monitor:
+    """G0 step hook (smoke-local, read-only): records per-step series during the base route and reduces them to MEASURED maxima with the time and the
+    route phase of each maximum.  Registered AFTER BaseDrive, so each sample is the state after the step.  Series are post-processed in `finalize`.
+    Acceleration filter: 0.05 s moving average (10 steps) of the finite-differenced velocity; the raw 5 ms value is reported as well."""
+    SMOOTH = 10
+
+    def __init__(self, ep, sb, drv, world, video=None):
+        self.ep, self.sb, self.drv, self.world = ep, sb, drv, world
+        m = ep.m
+        self.base_id = m.body("base").id
+        root = m.body_rootid[self.base_id]
+        self.robot_g = {g for g in range(m.ngeom) if m.body_rootid[m.geom_bodyid[g]] == root}
+        self.arm_g = ep._ag
+        self.load_b = {ep.obj, *ep.cups}
+        self.load_g = {g for g in range(m.ngeom) if m.geom_bodyid[g] in self.load_b}
+        self.world_g = {g for g in range(m.ngeom) if m.geom_bodyid[g] == 0}
+        self.floor_g = {g for g in self.world_g if m.geom_type[g] == mujoco.mjtGeom.mjGEOM_PLANE}
+        self.R0 = ep.d.xmat[self.base_id].reshape(3, 3).copy()
+        self.on = False
+        self.rows, self.phases, self.contact_events, self.viol_log = [], [], {}, []
+        self.rel0 = None
+        self.tau_seen, self.tau_t, self.tau_ph = 0.0, 0.0, ""
+        self._phase_ix = {}
+        orig = ep._viol
+        def _viol(kind, t, **kw):
+            if self.on:
+                self.viol_log.append(dict(kind=kind, t=round(float(t), 3), phase=self.drv.phase(), **{k: (round(float(v), 4) if isinstance(v, (int, float, np.number)) else v) for k, v in kw.items()}))
+            return orig(kind, t, **kw)
+        ep._viol = _viol
+        self.video = video
+        if video:
+            self.rend = mujoco.Renderer(m, 480, 640)
+            self.cam = mujoco.MjvCamera()
+            p0 = sb.pose()
+            self.cam.lookat[:] = [p0[0] - 0.5 * np.cos(p0[2]) , p0[1] - 0.5 * np.sin(p0[2]), 0.7]
+            self.cam.distance, self.cam.azimuth, self.cam.elevation = 3.6, 135.0, -22.0
+            self.frames, self.next_frame_t = [], 0.0
+        ep.step_hooks.append(self)
+
+    def start(self):
+        ep, d, m = self.ep, self.ep.d, self.ep.m
+        self.on = True
+        self.t0 = ep.k * DT
+        ref = d.site_xpos[m.site("obj_ref").id]
+        self.rel0 = [(d.xmat[ep.obj].reshape(3, 3).T @ (d.xpos[b] - ref)) for b in ep.cups]
+
+    def _pid(self, name):
+        return self._phase_ix.setdefault(name, len(self._phase_ix))
+
+    def __call__(self, ep):
+        if not self.on:
+            return
+        m, d = ep.m, ep.d
+        t = ep.k * DT
+        ref = d.site_xpos[m.site("obj_ref").id]
+        Ro = d.xmat[ep.obj].reshape(3, 3)
+        rel = [Ro.T @ (d.xpos[b] - ref) for b in ep.cups]
+        slide = [1e3 * float(np.linalg.norm((r - r0)[:2])) for r, r0 in zip(rel, self.rel0)]
+        off = sum(abs(r[0]) > self.world.tray_lx / 2 or abs(r[1]) > self.world.tray_ly / 2 or r[2] < -0.005 for r in rel)
+        cup_tilt = [CA._tilt_deg(d.xmat[b].reshape(3, 3)) for b in ep.cups]
+        Fz = [abs(float(ep.claw_wrench(s)[0][2])) for s in C.SIDES]
+        v = np.zeros(6)
+        mujoco.mj_objectVelocity(m, d, mujoco.mjtObj.mjOBJ_BODY, ep.obj, v, 0)
+        pose = self.sb.pose()
+        Rb = d.xmat[self.base_id].reshape(3, 3) @ self.R0.T
+        zc = Rb[:, 2]
+        cy, sy = np.cos(pose[2]), np.sin(pose[2])
+        fwd, lat = zc[0] * cy + zc[1] * sy, -zc[0] * sy + zc[1] * cy         # tilt of the base z axis along / across the robot x axis [rad]
+        ph = self.drv.phase()
+        tr = ep.track["tau_ratio"]
+        if tr > self.tau_seen + 1e-12:
+            self.tau_seen, self.tau_t, self.tau_ph = tr, t - self.t0, ph
+        self.rows.append([t - self.t0, self._pid(ph), *pose, *self.sb._v, *v[3:], CA._tilt_deg(Ro), max(cup_tilt), max(slide), off, max(Fz), np.degrees(fwd), np.degrees(lat), np.degrees(np.arccos(np.clip(Rb[2, 2], -1, 1)))])
+        for c in d.contact[:d.ncon]:
+            if c.dist > 1e-4:
+                continue
+            g1, g2 = int(c.geom1), int(c.geom2)
+            for a, b in ((g1, g2), (g2, g1)):
+                if b in self.world_g and b not in self.floor_g:
+                    kind = "tray_mug_world" if a in self.load_g else ("arm_world" if a in self.arm_g else ("base_world" if a in self.robot_g else None))
+                elif b in self.floor_g:
+                    kind = "tray_mug_floor" if a in self.load_g else ("arm_floor" if a in self.arm_g else None)
+                elif a in self.robot_g and b in self.load_g and not (a in self.arm_g) and not (m.geom_bodyid[b] == ep.obj):
+                    kind = "base_mug"
+                elif a in self.arm_g and b in self.load_g and m.geom_bodyid[b] in set(ep.cups):
+                    kind = "arm_mug"
+                else:
+                    kind = None
+                if kind:
+                    key = (kind, m.geom(a).name or m.body(m.geom_bodyid[a]).name, m.geom(b).name or m.body(m.geom_bodyid[b]).name)
+                    ev = self.contact_events.setdefault(key, dict(first_t=round(t - self.t0, 3), phase=ph, n=0, min_dist_mm=1e3 * float(c.dist)))
+                    ev["n"] += 1
+                    ev["min_dist_mm"] = min(ev["min_dist_mm"], 1e3 * float(c.dist))
+                break
+        if self.video and t - self.t0 >= self.next_frame_t:
+            self.next_frame_t += 1.0 / 30.0
+            self.rend.update_scene(d, self.cam)
+            self.frames.append(self.rend.render().copy())
+
+    def finalize(self, lim, F_cap, tau_limit_note):
+        A = np.array(self.rows)
+        names = {v: k for k, v in self._phase_ix.items()}
+        t, ph = A[:, 0], A[:, 1].astype(int)
+        pose, cmd, tray_v = A[:, 2:5], A[:, 5:8], A[:, 8:11]
+        k = self.SMOOTH
+        ker = np.ones(k) / k
+
+        def sm(x):
+            return np.stack([np.convolve(x[:, i], ker, mode="same") for i in range(x.shape[1])], 1)
+
+        def peak(x, thr=None):
+            i = int(np.argmax(x))
+            return dict(max=float(x[i]), t=round(float(t[i]), 3), phase=names[ph[i]])
+
+        yaw = np.unwrap(pose[:, 2])
+        v_w = np.diff(pose[:, :2], axis=0) / DT                      # base-centre world velocity
+        w = np.diff(yaw) / DT
+        a_raw = np.linalg.norm(np.diff(v_w, axis=0) / DT, axis=1)
+        al_raw = np.abs(np.diff(w) / DT)
+        vs, ws = sm(v_w), sm(w[:, None])[:, 0]
+        a_s = np.linalg.norm(np.diff(vs, axis=0) / DT, axis=1)
+        al_s = np.abs(np.diff(ws) / DT)
+        # commanded: the rate-limited body twist command (sb._v, body frame) -> world frame with the measured yaw
+        cw = np.stack([cmd[:, 0] * np.cos(yaw) - cmd[:, 1] * np.sin(yaw), cmd[:, 0] * np.sin(yaw) + cmd[:, 1] * np.cos(yaw)], 1)
+        ca = np.linalg.norm(np.diff(cw, axis=0) / DT, axis=1)
+        cal = np.abs(np.diff(cmd[:, 2]) / DT)
+        def pk2(x, off):                                                # series shorter by `off` samples
+            i = int(np.argmax(x)); return dict(max=float(x[i]), t=round(float(t[i + off]), 3), phase=names[ph[i + off]])
+        jerk_base = np.abs(np.diff(sm(np.diff(vs, axis=0) / DT), axis=0) / DT)
+        jb = np.linalg.norm(jerk_base, axis=1)
+        a_tray = np.diff(tray_v, axis=0) / DT
+        a_tray_s = sm(a_tray)
+        j_tray = np.linalg.norm(np.diff(a_tray_s, axis=0) / DT, axis=1)
+        out = dict(
+            limits=dict(v=lim.v_max, a=lim.a_max, w=lim.w_max, alpha=lim.alpha_max),
+            Fz_over_Fcap=dict(peak(A[:, 15] / F_cap), F_cap=F_cap),
+            tau_ratio=dict(max=self.tau_seen, t=round(self.tau_t, 3), phase=self.tau_ph, note=tau_limit_note),
+            tray_tilt_deg=peak(A[:, 11]), mug_tilt_max_deg=peak(A[:, 12]), mug_slide_max_mm=peak(A[:, 13]),
+            mugs_off_tray_max=int(A[:, 14].max()), mugs_off_tray_end=int(A[-1, 14]),
+            base_acc_cmd_lin=pk2(ca, 1), base_acc_cmd_ang=pk2(cal, 1),
+            base_acc_ach_lin_smooth=pk2(a_s, 2), base_acc_ach_ang_smooth=pk2(al_s, 2),
+            base_acc_ach_lin_raw5ms=pk2(a_raw, 2), base_acc_ach_ang_raw5ms=pk2(al_raw, 2),
+            base_jerk_lin_smooth=pk2(jb, 3), tray_acc_smooth=pk2(np.linalg.norm(a_tray_s, axis=1), 1), tray_jerk_smooth=pk2(j_tray, 2),
+            base_pitch_deg_maxabs=peak(np.abs(A[:, 16])), base_roll_deg_maxabs=peak(np.abs(A[:, 17])), base_tilt_deg=peak(A[:, 18]),
+            contacts={"|".join(k): v for k, v in self.contact_events.items()},
+            U_all=self.viol_log, n_steps=len(A), t_route_s=float(t[-1]),
+            filter="achieved = 0.05 s moving average of finite-differenced velocity of the module-pivot centre; commanded = finite difference of the rate-limited twist command (swerve._v); jerk = 0.05 s smoothed d(acc)/dt")
+        return out
 
 
 def arm_dev(ep, q_ref):
@@ -164,11 +333,11 @@ def smoke_noload(dz=0.02):
     return out
 
 
-def run_loaded(world, base="swerve", turn=True, T_lift=1.0, dz=0.02):
+def run_loaded(world, base="swerve", turn=True, T_lift=1.0, dz=0.02, level="L1", g0=False, video=None):
     """tray welded at the hold pose, lifted 2 cm (T_lift), 0.5 s hold; then (turn) the base turns 180 deg + 1 s settle (swerve) -- or the same hold time
     with the base still (base='fixed', or turn=False).  Returns the metrics of the post-lift window."""
     ep = make_ep(world, base=base)
-    sb = SW.SwerveBase(ep.m, ep.d) if base == "swerve" else None
+    sb = SW.SwerveBase(ep.m, ep.d, level_limits(level)) if base == "swerve" else None
     out = dict(F_cap=ep.F_cap, mass_total=ep.truth0["total_mass"], fills_kg=list(map(float, world.layout()[1])))
     if sb is not None:
         drv = _prep(ep, sb, True)
@@ -181,6 +350,10 @@ def run_loaded(world, base="swerve", turn=True, T_lift=1.0, dz=0.02):
     F_mean = {s: [] for s in C.SIDES}
     ep.step_hooks.append(lambda e: [F_mean[s].append(e.claw_wrench(s)[0].copy()) for s in C.SIDES])
     p0 = sb.pose() if sb is not None else None
+    mon = None
+    if g0 and sb is not None:
+        mon = G0Monitor(ep, sb, drv, world, video=video)
+        mon.start()
     if sb is not None and turn:
         T = drv.start_route([("line", -BS.RETREAT_M), ("turn", np.pi), ("line", BS.ADVANCE_M)])
         ep.run_phases([("hold", T + 0.5)])
@@ -206,6 +379,15 @@ def run_loaded(world, base="swerve", turn=True, T_lift=1.0, dz=0.02):
     rel = [d.xmat[ep.obj].reshape(3, 3).T @ (d.xpos[b] - d.site_xpos[m.site("obj_ref").id]) for b in ep.cups]
     out["mugs_off_tray"] = int(sum(abs(r[0]) > world.tray_lx / 2 or abs(r[1]) > world.tray_ly / 2 or r[2] < -0.005 for r in rel))
     out["obj_end_xyz"] = d.xpos[ep.obj].round(4).tolist()
+    if mon is not None:
+        n = BS.RETREAT_M + BS.ADVANCE_M          # nominal end of R1: start + R(yaw0) [-(retreat+advance), 0], yaw0 + pi
+        nom = np.array([p0[0] - n * np.cos(p0[2]), p0[1] - n * np.sin(p0[2]), p0[2] + np.pi])
+        dyaw = (pb[2] - nom[2] + np.pi) % (2 * np.pi) - np.pi
+        out["g0"] = dict(level=level, route_end_err_mm=1e3 * float(np.linalg.norm(pb[:2] - nom[:2])), route_end_yaw_err_deg=float(np.degrees(dyaw)),
+                         U_first=tr["viol"], **mon.finalize(sb.lim, ep.F_cap, "ep.track tau_ratio = commanded joint torque / config.tau_limit() (100 Nm per joint, USER 11-05)"))
+        if video:
+            import imageio
+            imageio.mimwrite(video, mon.frames, fps=30, macro_block_size=1)
     return out
 
 
@@ -221,7 +403,23 @@ def heaviest_seed(n=40):
 
 DZ = float(os.environ.get("SMOKE_DZ", "0.02"))     # lift height [m] before the turn
 
+def _opt(name, default=None):
+    """pop `--name value` from sys.argv"""
+    if name in sys.argv:
+        i = sys.argv.index(name)
+        v = sys.argv[i + 1]
+        del sys.argv[i:i + 2]
+        return v
+    return default
+
+
 if __name__ == "__main__":
+    LEVEL = _opt("--level", "L1")                      # {L1, L2, L3}; default L1 = today's limits
+    assert LEVEL in LEVELS, LEVEL
+    G0 = "--g0" in sys.argv
+    if G0:
+        sys.argv.remove("--g0")
+    VIDEO = _opt("--video")
     which = sys.argv[1] if len(sys.argv) > 1 else "nl"
     if which == "nl":
         print(json.dumps(smoke_noload(DZ), indent=1, default=float))
@@ -234,4 +432,4 @@ if __name__ == "__main__":
             w = SC.TrayWorld(n_cups=6)
         else:
             w = PR._world("tray6", int(sys.argv[2]) if len(sys.argv) > 2 else heaviest_seed()[1])
-        print(json.dumps(run_loaded(w, base=("fixed" if mode == "fixed" else "swerve"), turn=(mode == "turn"), dz=DZ), indent=1, default=float))
+        print(json.dumps(run_loaded(w, base=("fixed" if mode == "fixed" else "swerve"), turn=(mode == "turn"), dz=DZ, level=LEVEL, g0=G0, video=VIDEO), indent=1, default=float))
