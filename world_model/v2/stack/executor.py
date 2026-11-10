@@ -36,10 +36,16 @@ def run_phases(ep, phases, branch=None):
             for s in SIDES:
                 ep._trim(s, t)
                 ep._add_path(s, t, t + dur, to=tgt[s])
+        elif ph[0] == "base_move":                              # table-behind (11-09): a swerve base route; the episode method owns it (stack core imports no nero)
+            ep.base_move(ph[1], branch)
+            continue
         elif ph[0] == "retreat":
             dur = ph[2]
             for s in SIDES:
-                ep._add_path(s, t, t + dur, np.array([0, ph[1] if s == "left" else -ph[1], 0]))
+                d_ = np.array([0, ph[1] if s == "left" else -ph[1], 0])
+                if getattr(ep, "base", "") == "swerve":         # retreat is outward in the ROBOT frame (a turned base: not world y); fixed base unchanged
+                    d_ = ep.body_delta(d_)
+                ep._add_path(s, t, t + dur, d_)
         elif ph[0] == "track":                                  # closed_chain plan: the planned joint trajectory of segment ph[1] (no continuation IK)
             pc = ep.cc.segment(ph[1])
             dur = pc.n * DT

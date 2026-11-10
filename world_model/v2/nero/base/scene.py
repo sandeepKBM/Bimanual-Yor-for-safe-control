@@ -102,6 +102,16 @@ def place_pose_xy(world):
     return mirror(world.obj_xy, mirror_centre())
 
 
+def support_tops_behind(world):
+    """support tops and xy extents of the table-behind scene: {'counter': dict(top, x, y), 'counter2': dict(top, x, y), ('shelf': ...)}.
+    MODEL: counter2 = the point mirror of the counter about mirror_centre(), same size and height (build_spec)."""
+    out = dict(SC.support_tops(world))
+    cx, cy = mirror(world.counter_centre[:2], mirror_centre())
+    hx, hy, _ = world.counter_half
+    out["counter2"] = dict(top=float(world.counter_top), x=(float(cx - hx), float(cx + hx)), y=(float(cy - hy), float(cy + hy)))   # box faces are axis-aligned: the 180-deg mirror keeps the half sizes
+    return out
+
+
 def compose(world, **kw):
     return PS.apply_sim_defaults(build_spec(world, **kw).compile())
 

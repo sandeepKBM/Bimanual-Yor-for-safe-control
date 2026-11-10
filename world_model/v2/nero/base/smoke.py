@@ -38,10 +38,7 @@ LEVELS = dict(L1=(0.25, 0.25, 0.5, 0.5), L2=(0.5, 0.5, 1.0, 1.0), L3=(1.0, 1.0, 
 #   base_world_contact MODEL: a base/torso geom (robot, not an arm) penetrates a world geom other than the floor
 #   load_world_contact MODEL: the carried object or a mug penetrates a world geom (after the lift, nothing may touch it during the route)
 #   route_unfinished   ASSUMED tolerance: base end pose after the last rest gap off the nominal end of the route by more than ROUTE_TOL_M / ROUTE_TOL_DEG
-EDGES = ((0, 2), (1, 3), (0, 1), (2, 3))   # MODEL: swerve.MODULES = (front_left, back_left, front_right, back_right): front axle, back axle, left side, right side
-LIFTOFF_STEPS = 10        # ASSUMED: 0.05 s debounce of single-step contact flicker
-ROUTE_TOL_M = 0.02        # ASSUMED m (raised to the user 11-09; the place step has no base-error correction yet)
-ROUTE_TOL_DEG = 2.0       # ASSUMED deg
+from .monitors import BaseMonitors, EDGES, LIFTOFF_STEPS, ROUTE_TOL_M, ROUTE_TOL_DEG   # 11-09: the base U flags live in monitors.py (same values)
 
 
 def level_limits(level="L1"):
@@ -153,15 +150,10 @@ class G0Monitor:
         self.ep, self.sb, self.drv, self.world = ep, sb, drv, world
         m = ep.m
         self.base_id = m.body("base").id
-        root = m.body_rootid[self.base_id]
-        self.robot_g = {g for g in range(m.ngeom) if m.body_rootid[m.geom_bodyid[g]] == root}
         self.arm_g = ep._ag
         self.load_b = {ep.obj, *ep.cups}
-        self.load_g = {g for g in range(m.ngeom) if m.geom_bodyid[g] in self.load_b}
-        self.world_g = {g for g in range(m.ngeom) if m.geom_bodyid[g] == 0}
-        self.floor_g = {g for g in self.world_g if m.geom_type[g] == mujoco.mjtGeom.mjGEOM_PLANE}
-        self.wheel_g = {g: i for i, h in enumerate(sb.hub) for g in range(m.ngeom) if m.geom_bodyid[g] == h and (m.geom_contype[g] | m.geom_conaffinity[g])}
-        self.off_floor = np.zeros(4, int)                  # consecutive steps without floor contact, per wheel
+        self.bm = BaseMonitors(m, sb, self.arm_g, self.load_b)          # base U flags (moved to monitors.py 11-09)
+        self.robot_g, self.load_g, self.world_g, self.floor_g = self.bm.robot_g, self.bm.load_g, self.bm.world_g, self.bm.floor_g
         self.flagged = set()                               # base U flags already emitted (one entry per kind)
         self.R0 = ep.d.xmat[self.base_id].reshape(3, 3).copy()
         self.on = False
@@ -225,18 +217,9 @@ class G0Monitor:
         if tr > self.tau_seen + 1e-12:
             self.tau_seen, self.tau_t, self.tau_ph = tr, t - self.t0, ph
         self.rows.append([t - self.t0, self._pid(ph), *pose, *self.sb._v, *v[3:], CA._tilt_deg(Ro), max(cup_tilt), max(slide), off, max(Fz), np.degrees(fwd), np.degrees(lat), np.degrees(np.arccos(np.clip(Rb[2, 2], -1, 1)))])
-        on_floor = np.zeros(4, bool)
+        self.bm.step(d, t, self._flag, base_tilt_deg=float(self.rows[-1][-1]))      # wheel_liftoff / base_world_contact / load_world_contact
         for c in d.contact[:d.ncon]:
             g1, g2 = int(c.geom1), int(c.geom2)
-            for a, b in ((g1, g2), (g2, g1)):
-                if a in self.wheel_g and b in self.floor_g:
-                    on_floor[self.wheel_g[a]] = True
-            if c.dist < 0.0:
-                for a, b in ((g1, g2), (g2, g1)):
-                    if b in self.world_g and b not in self.floor_g and a in self.robot_g and a not in self.arm_g and a not in self.wheel_g:
-                        self._flag("base_world_contact", t, geom=m.geom(a).name or m.body(m.geom_bodyid[a]).name, world=m.geom(b).name)
-                    elif b in self.world_g and a in self.load_g:
-                        self._flag("load_world_contact", t, geom=m.geom(a).name or m.body(m.geom_bodyid[a]).name, world=m.geom(b).name)
             if c.dist > 1e-4:
                 continue
             for a, b in ((g1, g2), (g2, g1)):
@@ -256,13 +239,6 @@ class G0Monitor:
                     ev["n"] += 1
                     ev["min_dist_mm"] = min(ev["min_dist_mm"], 1e3 * float(c.dist))
                 break
-        self.off_floor = np.where(on_floor, 0, self.off_floor + 1)
-        off = self.off_floor >= LIFTOFF_STEPS
-        n_off = int(off.sum())
-        self.max_off = max(getattr(self, "max_off", 0), n_off)
-        edge = [e for e in EDGES if off[list(e)].all()]
-        if edge:
-            self._flag("wheel_liftoff", t, wheels_off=n_off, edge="+".join(SW.MODULES[i] for i in edge[0]), base_tilt_deg=float(self.rows[-1][-1]))
         if self.video and t - self.t0 >= self.next_frame_t:
             self.next_frame_t += 1.0 / 30.0
             self.rend.update_scene(d, self.cam)
@@ -428,7 +404,7 @@ def run_loaded(world, base="swerve", turn=True, T_lift=1.0, dz=0.02, level="L1",
         if e_m > ROUTE_TOL_M or abs(e_deg) > ROUTE_TOL_DEG:
             mon._flag("route_unfinished", ep.k * DT, err_mm=1e3 * e_m, yaw_err_deg=e_deg, tol=f"{1e3 * ROUTE_TOL_M:.0f} mm / {ROUTE_TOL_DEG} deg ASSUMED")
         out["g0"] = dict(level=level, route_end_err_mm=1e3 * e_m, route_end_yaw_err_deg=e_deg, strict_claw=ep.strict_claw,
-                         U_first=tr["viol"], U_base_flags=sorted(mon.flagged), wheels_off_max=getattr(mon, "max_off", 0), **mon.finalize(sb.lim, ep.F_cap, "ep.track tau_ratio = commanded joint torque / config.tau_limit() (100 Nm per joint, USER 11-05)"))
+                         U_first=tr["viol"], U_base_flags=sorted(mon.flagged), wheels_off_max=mon.bm.max_off, **mon.finalize(sb.lim, ep.F_cap, "ep.track tau_ratio = commanded joint torque / config.tau_limit() (100 Nm per joint, USER 11-05)"))
         if video:
             import imageio
             imageio.mimwrite(video, mon.frames, fps=30, macro_block_size=1)

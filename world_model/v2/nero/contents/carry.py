@@ -192,7 +192,16 @@ def _tilt_deg(R):
 
 class CarryEpisode:
     def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=None, ctl="lever", strict_claw=False,
-                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, planner=None, wp=None):
+                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, planner=None, wp=None, base="", goal_support=""):
+        """base="" (default): the fixed-base scene, every path bit-identical to before.  base="swerve" (table-behind tasks, 11-09): the swerve-base scene with
+        the second table (nero/base/scene.build_spec), `self.sb` = SwerveBase, `self.driver` = base/drive.BaseDriver (step hook), base U flags in _check
+        (base/monitors.py), `base_move(ref)` runs a route.  goal_support="counter2" (needs base="swerve"): in_R / the drop check read that support."""
+        if base not in ("", "swerve"):
+            raise ValueError(f"base must be '' or 'swerve', got {base!r}")
+        if goal_support not in ("", "counter2") or (goal_support and base != "swerve"):
+            raise ValueError(f"goal_support {goal_support!r} needs base='swerve' (and is '' or 'counter2')")
+        self.base, self.goal_support = base, goal_support
+        self.sb = self.driver = self.bmon = None
         self.step_hooks = []                                    # per-step callbacks hook(ep), run at the end of _step (see _step)
         self.planner = resolve_planner(planner)               # 11-05: "scripted" (default) | "closed_chain"
         self.wp = wp                                            # 11-05 opt-in: closed_chain.WaypointPlan written by the proposer (stack/proposer/compile.py); None = the default plan
@@ -206,7 +215,11 @@ class CarryEpisode:
         weld_solref = cp["weld_solref"] if isinstance(weld_solref, str) and weld_solref == PHYS_DEFAULT else weld_solref
         self.world, self.task = world, ("tray" if isinstance(world, SC.TrayWorld) else ("pot" if isinstance(world, SC.PotWorld) else "box"))
         self.a_plan, self.T_cap, self.strict_claw = float(a_plan), T_cap, bool(strict_claw)
-        spec = SC.build_spec(world)
+        if base == "swerve":
+            from ..base import scene as BS            # late: base.scene imports contents.scenes (not carry)
+            spec = BS.build_spec(world)
+        else:
+            spec = SC.build_spec(world)
         for s in SIDES:
             spec.add_equality(name=f"weld_{s}", type=mujoco.mjtEq.mjEQ_WELD, objtype=mujoco.mjtObj.mjOBJ_BODY,
                               name1=f"{s}_arm_gripper_base", name2="obj", active=False)
@@ -286,6 +299,22 @@ class CarryEpisode:
         self.reset_track()
         self._acc = {b: np.zeros(3) for b in self.cups}
         self._vprev = {b: np.zeros(3) for b in self.cups}
+        self.z_drop_ref = self.z0
+        if base == "swerve":
+            self._init_base()
+
+    def _init_base(self):
+        """swerve base: controller, driver (step hook), U-flag monitors; goal support top (MODEL: scene.support_tops_behind)."""
+        from ..base import scene as BS, swerve as SW, drive as DR, monitors as MON
+        m = self.m
+        self.sb = SW.SwerveBase(m, self.d)
+        self.driver = DR.BaseDriver(self, self.sb)
+        self.bmon = MON.BaseMonitors(m, self.sb, self.arm_g, self.carried)
+        self.support_geoms = {n: m.geom(n).id for n in ("counter", "counter2")}
+        if self.goal_support:
+            tops = BS.support_tops_behind(self.world)
+            # a drop = below the start resting height, or below the goal support's resting height when that is lower (counter2 = counter height, MODEL)
+            self.z_drop_ref = self.z0 + min(0.0, tops[self.goal_support]["top"] - tops["counter"]["top"])
 
     def _lid_rel(self):
         """lid position in the obj frame (m) and its tilt relative to the pot (deg)."""
@@ -326,7 +355,8 @@ class CarryEpisode:
         return dict(st=st, weld={s: self.m.eq_data[i].copy() for s, i in self.weld_id.items()},
                     ctl=copy.deepcopy(self.ctl, {id(self.m): self.m}), k=self.k, paths={s: list(v) for s, v in self.paths.items()},
                     track=copy.deepcopy(self.track), acc=copy.deepcopy(self._acc), vprev=copy.deepcopy(self._vprev),
-                    e_int=copy.deepcopy(self.e_int), wc=self.wc.state())
+                    e_int=copy.deepcopy(self.e_int), wc=self.wc.state(),
+                    **({} if self.base != "swerve" else dict(base=self.driver.state(), bmon=self.bmon.state())))
 
     def restore(self, sn):
         for s, i in self.weld_id.items():
@@ -338,6 +368,9 @@ class CarryEpisode:
         self.track = copy.deepcopy(sn["track"])
         self._acc, self._vprev = copy.deepcopy(sn["acc"]), copy.deepcopy(sn["vprev"])
         self.e_int = copy.deepcopy(sn["e_int"])
+        if self.base == "swerve":                        # swerve controller state (th_cmd, _wi, _v, yaw_nom, _sgn, _have_cmd ...), route clock, U-flag monitors
+            self.driver.set_state(sn["base"])
+            self.bmon.set_state(sn["bmon"])
         mujoco.mj_forward(self.m, self.d)
 
     def reset_track(self):
@@ -346,6 +379,8 @@ class CarryEpisode:
                           path_ik_err_max=0.0, path_q_margin_min=PATH_NO_MARGIN, path_unreachable=0)
         if getattr(self, "task", None) == "pot" and getattr(self, "lid", None) is not None:      # pot only: tray / box records keep their keys
             self.track.update(lid_slide_mm=0.0, lid_dz_mm=0.0, lid_tilt_deg=0.0)
+        if getattr(self, "bmon", None) is not None:
+            self.bmon.reset()
         if getattr(self, "ctl", None) is not None:          # 11-03 F2: FL-MPC fallback counters + true residuals (fl_log.py), same window as the track
             self.ctl.rec.reset()
             self.track.update(self.ctl.rec.scalars())
@@ -357,6 +392,8 @@ class CarryEpisode:
     def _add_path(self, s, t0, t1, delta=None, to=None):
         """continuation IK from the last commanded q; `to` = absolute TCP target (stored pose) instead of a delta."""
         pik = K.PoseIK(self.m, s)
+        if self.base == "swerve":
+            pik.ik.d.qpos[:] = self.d.qpos        # IK in the CURRENT base pose (the IK's own MjData sits at the XML pose; the base has moved / turned)
         q = self.q0[s].copy() if not self.paths[s] else self.paths[s][-1][2][-1].copy()
         p0, R0 = pik.ik.pose(q)
         delta = np.asarray(to, float) - p0 if to is not None else np.asarray(delta, float)
@@ -535,7 +572,7 @@ class CarryEpisode:
         tr["obj_tilt_max"] = max(tr["obj_tilt_max"], tilt)
         if tilt > U_TILT_OBJ:
             self._viol("obj_tilt", t, deg=tilt)
-        if d.xpos[self.obj][2] < self.z0 - 0.01:
+        if d.xpos[self.obj][2] < self.z_drop_ref - 0.01:
             self._viol("obj_drop", t)
         al = DT / (SPILL_TAU + DT)
         for j, b in enumerate(self.cups):
@@ -586,6 +623,9 @@ class CarryEpisode:
             if ga in self.grip_g and m.geom_bodyid[go] == self.obj:
                 continue                                                       # claw on the object's tab (the grasp)
             self._viol("collision", t, arm=m.geom(ga).name, other=m.geom(go).name or m.body(m.geom_bodyid[go]).name)
+        if self.base == "swerve":                                               # task-gated base U flags (fixed-base U unchanged)
+            ok = frozenset() if self.driver.moving() else frozenset(self.support_geoms.values())      # the load may rest on a counter while the base stands
+            self.bmon.step(d, t, self.base_flag, load_ok=ok)
 
     def in_R(self):
         m, d = self.m, self.d
@@ -596,7 +636,10 @@ class CarryEpisode:
             why.append("moving")
         if _tilt_deg(d.xmat[self.obj].reshape(3, 3)) > R_TILT_OBJ:
             why.append("obj_tilt")
-        sup = {m.geom("counter").id} | ({m.geom("shelf").id} if self.task == "box" and getattr(self.world, "shelf", False) else set())
+        if self.goal_support:                                      # table-behind: the goal support (counter2)
+            sup = {m.geom(self.goal_support).id}
+        else:
+            sup = {m.geom("counter").id} | ({m.geom("shelf").id} if self.task == "box" and getattr(self.world, "shelf", False) else set())
         if not any((int(c.geom1) in sup and m.geom_bodyid[c.geom2] == self.obj) or
                    (int(c.geom2) in sup and m.geom_bodyid[c.geom1] == self.obj) for c in d.contact[:d.ncon]):
             why.append("not_supported")
@@ -623,6 +666,32 @@ class CarryEpisode:
         command at its value at t."""
         q = self._cmd(s, t)
         self.paths[s] = [p for p in self.paths[s] if p[1] <= t] + [(t - 1e-9, t, [q.copy(), q.copy()])]
+
+    # ---------------- swerve base (table-behind tasks) ----------------
+    def base_flag(self, kind, t, **kw):
+        """a base U flag (wheel_liftoff, base_world_contact, load_world_contact, route_unfinished): once per kind per window (reset_track), through _viol."""
+        if kind not in self.bmon.flagged:
+            self.bmon.flagged.add(kind)
+            self._viol(kind, t, **kw)
+
+    def base_move(self, ref, branch=None):
+        """run a base route while the arms hold their joint references (ASSUMED A4).  ref = {"route": [["line", d_m] | ["turn", deg], ...],
+        "level": "L1" | "L2" | "L3"}; line d along the robot's CURRENT +x, turn deg CCW.  branch(ep, t_rel) every 0.25 s.  -> record dict (drive.BaseDriver.run)."""
+        if self.base != "swerve":
+            raise ValueError("base_move needs CarryEpisode(base='swerve')")
+        self.base_log = getattr(self, "base_log", [])
+        out = self.driver.run(ref, branch)
+        self.base_log.append(out)
+        return out
+
+    def body_delta(self, v):
+        """a robot-frame displacement (x fwd, y left, z up) as a WORLD-frame vector at the current base heading (identity for the fixed base)."""
+        v = np.asarray(v, float)
+        if self.base != "swerve":
+            return v
+        yaw = self.sb.pose()[2]
+        c, s = np.cos(yaw), np.sin(yaw)
+        return np.array([c * v[0] - s * v[1], s * v[0] + c * v[1], v[2]])
 
     def retreat_phase(self):
         """the let-go retreat phase of the claws at the START pose (probe refuse path): legacy ("retreat", r, T) or, under closed_chain, the planned one."""

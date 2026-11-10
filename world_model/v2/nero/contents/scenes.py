@@ -65,6 +65,11 @@ class Common:
     def counter_top(self):
         return self.counter_centre[2] + self.counter_half[2]
 
+    @property
+    def counter2_top(self):
+        """table-behind scene (nero/base/scene.build_spec): counter2 = the point mirror of the counter, same height. MODEL."""
+        return self.counter_top
+
 
 @dataclass
 class TrayWorld(Common):
