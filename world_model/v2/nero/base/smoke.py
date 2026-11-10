@@ -31,12 +31,14 @@ DT = 0.005
 LEVELS = dict(L1=(0.25, 0.25, 0.5, 0.5), L2=(0.5, 0.5, 1.0, 1.0), L3=(1.0, 1.0, 1.57, 1.57))
 
 # G0 base U flags (USER 11-09 accepted the proposal "U flags for base tilt and unfinished route"):
-#   wheel_liftoff      MODEL: >= 2 wheels have no floor contact for LIFTOFF_STEPS consecutive steps: the base stands on <= 2 wheels, i.e. it pivots about a
-#                      support edge (tip onset).  One wheel off is NOT flagged: a rigid 4-wheel base on a plane often stands on 3 wheels (seen 11-09 at
-#                      0.01 deg base tilt).  The base angle is reported, not thresholded.
+#   wheel_liftoff      MODEL: the two wheels of one support EDGE (same axle or same side) have no floor contact for LIFTOFF_STEPS consecutive steps:
+#                      the base pivots about the opposite edge (tip onset).  Not flagged: one wheel off (a rigid 4-wheel base on a plane often stands
+#                      on 3 wheels) and a diagonal pair off (rocking / hop; seen 11-09 with 2 wheels off at 0.01-0.04 deg base tilt).  The base angle
+#                      is reported, not thresholded.
 #   base_world_contact MODEL: a base/torso geom (robot, not an arm) penetrates a world geom other than the floor
 #   load_world_contact MODEL: the carried object or a mug penetrates a world geom (after the lift, nothing may touch it during the route)
 #   route_unfinished   ASSUMED tolerance: base end pose after the last rest gap off the nominal end of the route by more than ROUTE_TOL_M / ROUTE_TOL_DEG
+EDGES = ((0, 2), (1, 3), (0, 1), (2, 3))   # MODEL: swerve.MODULES = (front_left, back_left, front_right, back_right): front axle, back axle, left side, right side
 LIFTOFF_STEPS = 10        # ASSUMED: 0.05 s debounce of single-step contact flicker
 ROUTE_TOL_M = 0.02        # ASSUMED m (raised to the user 11-09; the place step has no base-error correction yet)
 ROUTE_TOL_DEG = 2.0       # ASSUMED deg
@@ -255,10 +257,12 @@ class G0Monitor:
                     ev["min_dist_mm"] = min(ev["min_dist_mm"], 1e3 * float(c.dist))
                 break
         self.off_floor = np.where(on_floor, 0, self.off_floor + 1)
-        n_off = int((self.off_floor >= LIFTOFF_STEPS).sum())
+        off = self.off_floor >= LIFTOFF_STEPS
+        n_off = int(off.sum())
         self.max_off = max(getattr(self, "max_off", 0), n_off)
-        if n_off >= 2:
-            self._flag("wheel_liftoff", t, wheels_off=n_off, base_tilt_deg=float(self.rows[-1][-1]))
+        edge = [e for e in EDGES if off[list(e)].all()]
+        if edge:
+            self._flag("wheel_liftoff", t, wheels_off=n_off, edge="+".join(SW.MODULES[i] for i in edge[0]), base_tilt_deg=float(self.rows[-1][-1]))
         if self.video and t - self.t0 >= self.next_frame_t:
             self.next_frame_t += 1.0 / 30.0
             self.rend.update_scene(d, self.cam)
