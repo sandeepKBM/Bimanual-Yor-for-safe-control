@@ -98,6 +98,12 @@ def _first_U(r):
     return None
 
 
+def _reask_cell(rs):
+    """p50/max of the proposer re-asks behind the rows' plans (one plan per task, so every world of a task shows the same count); '-' = no proposer plan."""
+    v = [int((r.get("plan_record") or {}).get("n_reasks", 0)) for r in rs if r.get("plan_record")]
+    return "-" if not v else f"{sorted(v)[len(v) // 2]}/{max(v)}"
+
+
 def summary(out):
     out = pathlib.Path(out)
     rows = [json.loads(l) for l in open(out / "trials.jsonl")]
@@ -106,8 +112,8 @@ def summary(out):
         by[(r["task"], r["method"])].append(r)
     lines = ["# same worlds: ours (probe -> admit -> act) vs AgentChord-style (act)  -- machine-written by same_worlds.summary", "",
              "success = finished AND the task's goal terms (AgentChord's rule, USER 11-09, stack/tasks.py); safety is reported separately.  U includes the per-claw payload row (|Fz| > (3 kg - gripper) g, unfiltered). Worlds: probe e2e seeds, full prior.", "",
-             "| task | method | n | errors | success (finished AND goal) | safe_success (success AND no U) | unsafe (any U) | at rest in R | refused | U kinds (first per run) | truth in probe set |",
-             "|---|---|---|---|---|---|---|---|---|---|---|"]
+             "| task | method | n | errors | success (finished AND goal) | safe_success (success AND no U) | unsafe (any U) | at rest in R | refused | U kinds (first per run) | truth in probe set | proposer re-asks p50/max |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
     n_rej = {k: sum(r.get("outcome") == "plan_rejected" for r in rs) for k, rs in by.items()}
     for (task, method), rs in sorted(by.items()):
         ok = [r for r in rs if "error" not in r]
@@ -116,7 +122,7 @@ def summary(out):
         f = lambda k: f"{t[k]}" + (f" (+{t[k + '_unknown']} unknown)" if t.get(k + "_unknown") else "")
         sound = f"{sum(bool(r.get('theta_sound')) for r in ok)}/{len(ok)}" if method == "ours" else "-"
         lines.append(f"| {task} | {method} | {len(rs)} | {len(rs) - len(ok)} | {f('success')} | {f('safe_success')} | {f('unsafe')} | {f('in_R')} | {t['refused']} "
-                     f"| {dict(kinds) or '-'} | {sound} |")
+                     f"| {dict(kinds) or '-'} | {sound} | {_reask_cell(rs)} |")
     if any(n_rej.values()):                              # proposer plans that could not be used (never silently dropped)
         lines += ["", "Ours, proposer plan REJECTED (counted in n, not in carried / refused): " + ", ".join(f"{k[0]} {v}/{len(by[k])}" for k, v in sorted(n_rej.items()) if v)]
     for (task, method), rs in sorted(by.items()):
@@ -139,22 +145,21 @@ def _proposer_plans(tasks, a, out):
     (out / "plans").mkdir(exist_ok=True)
     res = {}
     for t in tasks:
-        plan, rec = PP.propose(t, backend_spec=a.plan_spec, cache_dir=a.plan_cache, offline=a.offline)
+        def _check(pl, t=t):                                                   # compile + build (planner); raises PS.PlanRejected -> the proposer is re-asked (USER 11-09, no cap)
+            return PC.compile_plan(pl, t)
+        plan, cp, rec, info = PP.propose_until_accepted(t, _check, backend_spec=a.plan_spec, cache_dir=a.plan_cache, offline=a.offline)
         small = {k: rec.get(k) for k in ("kind", "spec", "model", "reasoning", "backend", "request_hash", "raw_reply_path", "status", "stage", "reasons", "plan_id", "cached")}
-        item = dict(plan_source="codex", plan_record=small, plan_id=plan.get("plan_id"))             # full record (caveats, prompt hash) in OUT/plans/<task>.json
-        doc = dict(plan=plan, record=rec)
-        try:
-            cp = PC.compile_plan(plan, t)
+        small.update(n_reasks=info["n_reasks"], reask_attempts=info["attempts"], proposer_wall_s=info["proposer_wall_s"], proposer_error=info["proposer_error"])
+        item = dict(plan_source="codex", plan_record=small, plan_id=plan.get("plan_id"), n_reasks=info["n_reasks"])        # full record (caveats, prompt hash) in OUT/plans/<task>.json
+        doc = dict(plan=plan, record=rec, reask=info)
+        if cp is not None:
             item["plan"] = cp.job_plan(a.outside_b)
             doc["compiled"] = cp.to_json()
-        except PS.PlanRejected as e:
-            item["rejected"] = e.to_dict()
-            doc["rejected"] = e.to_dict()
-        if plan.get("status") != "ok":
+        else:                                                                  # only a proposer ERROR leaves no accepted plan (info["proposer_error"])
             item["rejected"] = dict(status="plan_rejected", stage=plan.get("stage"), reasons=plan.get("reasons"))
             doc["rejected"] = item["rejected"]
         (out / "plans" / f"{t}.json").write_text(json.dumps(doc, indent=1, default=str))
-        print(f"plan {t}: {item['plan_record']['status']}"
+        print(f"plan {t}: re-asks {info['n_reasks']}" + "".join(f" [attempt {x['attempt']}: {x['stage']}: {x['reasons']}]" for x in info["attempts"]) + f"; final {item['plan_record']['status']}"
               + (f" REJECTED [{item['rejected']['stage']}] {item['rejected']['reasons']}" if item.get("rejected") else f" id {item['plan_id']} segments {item['plan']['wp'].names}"), flush=True)
         res[t] = item
     return res

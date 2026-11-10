@@ -71,10 +71,20 @@ def test_static_admission_over_compiled_segments_matches_default_for_fixture_sha
     assert list(a["rows"]) == ["lift", "carry", "place", "release"]
 
 
-def test_rejected_plan_is_counted_for_every_world(cache, tmp_path):
+def test_rejected_plan_is_counted_for_every_world(cache, tmp_path, monkeypatch):
+    """USER 11-09: a rejected plan is re-asked without a cap, so plan_rejected is final only after a proposer ERROR (the backend raises)."""
+    from world_model.v2.house.lang.backend import Backend, CachedVLM
+    from world_model.v2.stack.proposer import propose as PP
+
+    class Boom(Backend):
+        name = model = "boom"
+
+        def ask(self, *a, **k):
+            raise RuntimeError("codex exited 1")
+    monkeypatch.setattr(PP, "make_backend", lambda spec, cache_dir, offline=False: CachedVLM(Boom(), cache_dir, mode="rw"))
     bad = tmp_path / "bad"
-    plans = SW._proposer_plans(["box"], ns(bad, offline=False, spec="mock:unknown_skill"), tmp_path)           # the mock fills ITS cache; the reply has an unknown skill
-    assert plans["box"]["rejected"]["stage"] == "schema" and "plan" not in plans["box"]
+    plans = SW._proposer_plans(["box"], ns(bad, offline=False, spec="mock:unknown_skill"), tmp_path)
+    assert plans["box"]["rejected"]["stage"] == "proposer" and "plan" not in plans["box"] and plans["box"]["plan_record"]["proposer_error"]
     r = SW._job(("ours", "box", 3, *EPS, plans["box"]))
     assert r["outcome"] == "plan_rejected" and r["any_U"] is False and r["plan_rejected"]["reasons"] and r["plan_source"] == "codex" and "error" not in r
 

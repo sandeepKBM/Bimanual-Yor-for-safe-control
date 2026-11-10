@@ -99,6 +99,7 @@ def _finish(kind, task, spec, be, key, out, wall, system, user, image, reply, su
     except S.PlanRejected as e:
         d = dict(e.to_dict(), task=task)
     rec = _record(kind, task, spec, be, key, out, wall, system, user, image, d, reply)
+    rec["reply_text"] = reply                     # the full raw reply (a re-ask after a schema rejection shows it back to the model)
     rec.update(record_extra or {})
     return d, rec
 
@@ -123,6 +124,55 @@ def reask(task, plan, probe_set, scene_facts=None, backend_spec=DEFAULT_SPEC, ca
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
     return _finish("reask", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]),
                    dict(probe_set=probe_set, uncovered=PR.uncovered(plan["belief"], probe_set), previous_plan_id=plan.get("plan_id")))
+
+
+def reask_rejected(task, attempts, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None):
+    """Re-ask after a REJECTED plan (schema / compile / planner).  attempts = [{"plan", "reply", "stage", "reasons"}, ...] oldest first (prompt.rejection_prompt).
+    The feedback text is part of the request, hence of the cache key: replays are deterministic and --offline works.  -> (plan dict, record)."""
+    f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
+    be = make_backend(backend_spec, cache_dir, offline)
+    user = PR.rejection_prompt(task, attempts, f)
+    reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
+    return _finish("reask_rejected", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]),
+                   dict(previous_plan_id=(attempts[-1].get("plan") or {}).get("plan_id"), n_prior_rejections=len(attempts)))
+
+
+def propose_until_accepted(task, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None):
+    """propose, then re-ask on every rejection until a plan is accepted.  NO cap on re-asks (user 11-09), no hidden retry.
+    check(plan) -> the accepted object (e.g. a CompiledPlan) or raises schema.PlanRejected (stage, reasons).  A plan that failed validation (status plan_rejected) is rejected
+    without calling check.  A proposer ERROR (backend exception; ProposerCacheMiss under --offline is re-raised) ends the loop: final plan = plan_rejected stage "proposer".
+    -> (plan, accepted, rec, info); rec = the accepted (or last) attempt's record; info = dict(n_reasks, attempts=[{attempt, plan_id, stage, reasons}] for every REJECTED attempt,
+    accepted_plan_id, proposer_wall_s, proposer_error, final="accepted"|"proposer_error")."""
+    t0 = time.time()
+    rejected, hist = [], []
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            if not rejected:
+                plan, rec = propose(task, scene_facts, image, backend_spec, cache_dir, offline, world)
+            else:
+                plan, rec = reask_rejected(task, rejected, scene_facts, backend_spec, cache_dir, offline, image, world)
+        except ProposerCacheMiss:
+            raise
+        except Exception as e:                       # the proposer itself failed: the only way this loop ends without an accepted plan
+            err = f"{type(e).__name__}: {e}"
+            plan = dict(status="plan_rejected", stage="proposer", reasons=[err], task=task)
+            info = dict(n_reasks=len(rejected), attempts=hist, accepted_plan_id=None, proposer_wall_s=round(time.time() - t0, 2), proposer_error=err, final="proposer_error")
+            return plan, None, dict(kind="proposer_error", task=task, spec=backend_spec, status="plan_rejected", stage="proposer", reasons=[err]), info
+        accepted, rej = None, None
+        if plan.get("status") != "ok":
+            rej = dict(stage=plan.get("stage"), reasons=list(plan.get("reasons") or []))
+        else:
+            try:
+                accepted = check(plan)
+            except S.PlanRejected as e:
+                rej = dict(stage=e.stage, reasons=list(e.reasons))
+        if rej is None:
+            info = dict(n_reasks=len(rejected), attempts=hist, accepted_plan_id=plan.get("plan_id"), proposer_wall_s=round(time.time() - t0, 2), proposer_error=None, final="accepted")
+            return plan, accepted, rec, info
+        hist.append(dict(attempt=attempt, plan_id=plan.get("plan_id"), request_hash=rec.get("request_hash"), **rej))
+        rejected.append(dict(plan=plan, reply=rec.get("reply_text"), **rej))
 
 
 def main(argv=None):

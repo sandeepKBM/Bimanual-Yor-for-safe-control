@@ -141,3 +141,20 @@ def reask_prompt(task, plan_dict, probe_set, facts=None, world=None):
             "Return a COMPLETE new plan in the same JSON format. Its belief must contain the measured range, and its steps and recoveries must be written for the part "
             "your previous plan did not cover (a recovery that was only safe inside the old belief may not be safe now; the object is heavier or lighter than you assumed). "
             "Return the JSON object now.")
+
+
+def rejection_prompt(task, attempts, facts=None, world=None):
+    """Rule 2 re-ask after a REJECTED plan (user 11-09: no cap on re-asks).  attempts = [{"plan": <validated plan dict or None>, "reply": <raw reply text>, "stage", "reasons"}, ...]
+    oldest first.  The prompt = the original prompt + every rejected plan with the checker's structured rejection.  Only what the checker said: no truth, no world seed."""
+    f = facts if facts is not None else scene_facts(task, world)
+    parts = [user_prompt(task, f).rsplit("\n\nReturn the JSON object now.", 1)[0], ""]
+    for i, at in enumerate(attempts, 1):
+        pl = at.get("plan")
+        body = (json.dumps({k: pl[k] for k in ("belief", "steps", "recoveries", "fallback") if k in pl}, sort_keys=True)
+                if pl and pl.get("status") == "ok" else "(the reply did not parse or validate; raw reply follows)\n" + str(at.get("reply") or ""))
+        parts += [f"REJECTED PLAN {i} (JSON):", body,
+                  f"REJECTION {i}: stage={at['stage']}; reasons: " + json.dumps(list(at["reasons"])), ""]
+    parts.append("The checker rejected your plan; it was not run. Propose a COMPLETE corrected plan in the same JSON format that avoids the reasons above "
+                 "(stages: parse/schema = the reply format or ranges; compile = the plan's own consistency with the task; planner = the arms cannot build it, e.g. a joint limit "
+                 "or a collision at the named step). Change only what the reasons require. Return the JSON object now.")
+    return "\n".join(parts)

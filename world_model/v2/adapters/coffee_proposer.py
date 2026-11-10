@@ -108,3 +108,12 @@ def propose_coffee(backend_spec=None, cache_dir=None, offline=False, world=None)
     install()
     from world_model.v2.stack.proposer import propose as PP
     return PP.propose(TASK, backend_spec=backend_spec or PP.DEFAULT_SPEC, cache_dir=cache_dir, offline=offline, world=world)
+
+
+def propose_coffee_until_accepted(backend_spec=None, cache_dir=None, offline=False, world=None, build=True):
+    """propose -> compile_coffee; every rejection (schema / compile / planner) is fed back and the proposer is re-asked, no cap (USER 11-09).
+    -> (plan, CompiledPlan or None, record, info) as propose.propose_until_accepted (None only after a proposer ERROR)."""
+    install()
+    from world_model.v2.stack.proposer import propose as PP
+    return PP.propose_until_accepted(TASK, lambda pl: compile_coffee(pl, world=world, build=build), backend_spec=backend_spec or PP.DEFAULT_SPEC,
+                                     cache_dir=cache_dir, offline=offline, world=world)

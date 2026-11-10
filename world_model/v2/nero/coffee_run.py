@@ -35,15 +35,14 @@ def cmd_plan_ours(a):
     from world_model.v2.adapters import coffee_proposer as PCF
     d = vdir(a.out, a.variant)
     (d / "ours_plan_cache").mkdir(parents=True, exist_ok=True)
-    plan, rec = PCF.propose_coffee(backend_spec=a.spec, cache_dir=str(d / "ours_plan_cache"), offline=a.offline)
-    doc = dict(plan=plan, record=rec)
-    try:
-        cp = PCF.compile_coffee(plan)
+    plan, cp, rec, info = PCF.propose_coffee_until_accepted(backend_spec=a.spec, cache_dir=str(d / "ours_plan_cache"), offline=a.offline)
+    doc = dict(plan=plan, record=rec, reask=info)                  # re-asks after every rejection, no cap (USER 11-09); "rejected" only after a proposer error
+    if cp is not None:
         doc["compiled"] = cp.to_json()
-    except Exception as e:                                         # PlanRejected: counted, never repaired
-        doc["rejected"] = getattr(e, "to_dict", lambda: dict(error=repr(e)))()
+    else:
+        doc["rejected"] = dict(status="plan_rejected", stage=plan.get("stage"), reasons=plan.get("reasons"))
     (d / "ours_plan.json").write_text(json.dumps(doc, indent=1, default=str))
-    print(json.dumps(dict(status=plan.get("status"), plan_id=plan.get("plan_id"), rejected=doc.get("rejected"), model=rec.get("model"), reasoning=rec.get("reasoning"),
+    print(json.dumps(dict(status=plan.get("status"), plan_id=plan.get("plan_id"), rejected=doc.get("rejected"), n_reasks=info["n_reasks"], reask_attempts=info["attempts"], model=rec.get("model"), reasoning=rec.get("reasoning"),
                           steps=[(s["skill"], s["args"]) for s in plan.get("steps", [])]), default=str))
 
 
@@ -90,7 +89,7 @@ def _ours_job(args):
     rec = r.get("record", {}) or {}
     w = CF.world_for(i)                                          # TRUTH for analysis only: the world's true hidden load; never passed to the planner / probe
     r.update(load_kg=w.load_kg, load_xy=list(map(float, w.load_xy)))
-    r.update(method="ours", variant=CF.variant(), i=i, p=p, seed_e2e=P._seed("e2e", CF.TASK, i), plan_id=doc["plan"].get("plan_id"), plan_spec=doc["record"].get("spec"),
+    r.update(method="ours", variant=CF.variant(), i=i, p=p, seed_e2e=P._seed("e2e", CF.TASK, i), plan_id=doc["plan"].get("plan_id"), n_reasks=(doc.get("reask") or {}).get("n_reasks"), plan_spec=doc["record"].get("spec"),
              plan_model=doc["record"].get("model"), plan_reasoning=doc["record"].get("reasoning"), job_wall_s=round(time.time() - t0, 1))
     if r.get("coffee"):
         r["coffee"] = dict(r["coffee"], cap_log=None)
