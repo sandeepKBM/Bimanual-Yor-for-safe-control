@@ -33,4 +33,5 @@ def test_measured_row_refuses_heavy_tray_at_L2_not_L1():
     best, rows = BT.pick_level("tray6_behind", type("S", (), {"contents": BT.true_contents("tray6_behind", w)})(), world=w)
     assert best == "L1" and not rows["L2"].ok and not rows["L3"].ok
     assert rows["L1"].assumptions["accel"]["line"]["source"] == "measured"
+    assert rows["L1"].guarantee == "sampled" and rows["L1"].n == BT.card()["levels"]["L1"]["n"]        # max over n runs, not a bound (rules 6-7)
     assert "base_tip" in TK.task("box_behind").rows and "base_tip" not in TK.task("box").rows

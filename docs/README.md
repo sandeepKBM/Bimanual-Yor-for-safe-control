@@ -48,7 +48,11 @@ Status: **current** = use it; **superseded by X** = use X instead; **history** =
 
 | Path | Purpose | Status | Date |
 |---|---|---|---|
-| `status/decisions.md` | ledger of user rulings and open questions | **current** | 11-05 |
+| `status/decisions.md` | ledger of user rulings and open questions | **current** | 11-09 |
+| `status/table_behind_design_2026-11-09.md` | table-behind task (swerve base, tray6 and box to the table behind): TaskDef, plan vocabulary, checker rows 3a-3g, tracker, AgentChord port, run protocol | **current**; built: G0 smoke, tasks, tip row 3e (`stack/checks/base_tip.py`); open questions Q1-Q8 | 11-09 |
+| `status/tracker_skills_design_2026-11-09.md` | arm tracker skills T1-T4, skill cards, proposal aids | **current**; design only; AS1-AS8, Q1-Q8 open | 11-09 |
+| `status/probe_selection_build_spec_2026-11-09.md` | probe selection build spec | current; spec | 11-09 |
+| `status/probing_skills_research_2026-11-09.md` | literature on probing skills (system identification, information gain) | current (paper numbers not checked; adopted mechanisms, not a claim) | 11-09 |
 | `status/2026-11-03_handoff_notes.md` | planner decisions D1-D7, next steps, open questions | **current** (banner lists updates since 11-03) | 11-03 |
 | `status/checker_design_2026-11-05.md` | task-agnostic checker design; Rules 1-4 as checker calls | **current**; design only, not built | 11-05 |
 | `status/probe_limits_2026-11-05.md` | what the NERO arms can probe from joint torques | **current** (MODEL; conditional on an ASSUMED torque-read error) | 11-05 |

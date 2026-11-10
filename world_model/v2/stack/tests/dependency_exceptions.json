@@ -159,19 +159,19 @@
   "rule": "stack_engine_no_episode",
   "importer": "stack/skills/pregrasp.py",
   "imported": "world_model.v2.nero.adapters",
-  "reason": "pre-unification 11-09; remove in switch step"
+  "reason": "file predates the 11-09 unification (written 11-04; untracked until d98dc04: .gitignore hid skills/); move behind an adapter in the switch step"
  },
  {
   "rule": "stack_engine_no_episode",
   "importer": "stack/skills/pregrasp.py",
   "imported": "world_model.v2.nero.democ.kin",
-  "reason": "pre-unification 11-09; remove in switch step"
+  "reason": "file predates the 11-09 unification (written 11-04; untracked until d98dc04: .gitignore hid skills/); move behind an adapter in the switch step"
  },
  {
   "rule": "stack_engine_no_episode",
   "importer": "stack/skills/pregrasp.py",
   "imported": "world_model.v2.nero.gripper",
-  "reason": "pre-unification 11-09; remove in switch step"
+  "reason": "file predates the 11-09 unification (written 11-04; untracked until d98dc04: .gitignore hid skills/); move behind an adapter in the switch step"
  },
  {
   "rule": "stack_pure_no_outside",

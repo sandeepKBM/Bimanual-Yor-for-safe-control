@@ -110,7 +110,8 @@ def accels(level: str, source: str = "measured") -> dict:
         return dict(line=Accel(a_lin=a, source="command", src=src), turn=Accel(alpha=al, w=w, source="command", src=src))
     c = card()["levels"][level]
     src = f"MEASURED {CARD.name}: max over n={c['n']} G0b runs ({c['filter']})"
-    return dict(line=Accel(a_lin=c["a_lin"], source="measured", src=src), turn=Accel(alpha=c["alpha"], w=w, source="measured", src=src + "; w = command"))
+    return dict(line=Accel(a_lin=c["a_lin"], source="measured", src=src, n=c["n"]),
+                turn=Accel(alpha=c["alpha"], w=w, source="measured", src=src + "; w = command", n=c["n"]))
 
 
 def pick_level(task: str, spec, levels=("L1", "L2", "L3"), source: str = "measured", world=None):

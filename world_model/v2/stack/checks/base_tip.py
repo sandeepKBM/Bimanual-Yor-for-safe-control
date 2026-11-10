@@ -9,9 +9,12 @@ Segment kinds (route R1):  line: |a_b| <= a (any direction: worst per edge in cl
                            turn: a_b = 0 (centre held), alpha in [-alpha_max, alpha_max], w^2 in [0, w_max^2] (4 corners, affine).
 Contents: the ObjectSpec contents set (masses {m_lo, m_hi} x COM polytope vertices, object frame).  M * margin is affine in m and multilinear
 in the COM coordinates over a prism, so the SIGN of the margin is exact at those vertices (the reported margin value is the minimum over them).
-Guarantee: proof under MODEL (rigid bodies as point masses at their COMs (the bodies' own rotational inertia is left out), flat level floor,
+Guarantee: the ZMP test is exact under MODEL (rigid bodies as point masses at their COMs (the bodies' own rotational inertia is left out), flat level floor,
 all wheels on the floor at the start, arms rigid at the hold pose, the acceleration box of the level).  Which acceleration box: the row records
 its source ("command" = the level caps; "measured" = the achieved peaks of the base card, MEASURED with the card's n and filter).
+Row guarantee (AGENTS.md rules 6-7): "measured" -> "sampled" (the acceleration box is a max over n runs, not a bound; n in Row.n);
+"command" -> "proof" only of the model with the commanded box, whose premise the base card CONTRADICTS (achieved > command at every level):
+never admit on it; it is reported for comparison.
 Margin unit: m (signed distance of the ZMP to the polygon edge, > 0 inside).
 """
 from __future__ import annotations
@@ -49,6 +52,7 @@ class Accel:
     w: float = 0.0              # rad/s (turn)
     source: str = "command"     # "command" | "measured"
     src: str = ""
+    n: int | None = None        # measured: number of runs behind the max
 
 
 @dataclass
@@ -107,7 +111,10 @@ def tip_row(model: MassModel, contents, polys: dict, accs: dict, name="base_tip"
                     worst, wv = mg, dict(info, kind=kind, contents_m=round(float(mm), 3), contents_com_obj=np.round(v, 4).tolist())
     ok = bool(worst >= 0.0)
     srcs = {k: dict(a_lin=a.a_lin, alpha=a.alpha, w=a.w, source=a.source, src=a.src) for k, a in accs.items()}
-    return Row(name, ok, margin=float(worst), unit="m", guarantee="proof", worst=wv,
+    meas = [a for a in accs.values() if a.source == "measured"]
+    g = "sampled" if meas else "proof"
+    n = min(a.n for a in meas if a.n is not None) if meas and any(a.n is not None for a in meas) else None
+    return Row(name, ok, margin=float(worst), unit="m", guarantee=g, worst=wv, n=n,
                assumptions=dict(model=GUARANTEE, accel=srcs, polygons={k: vars(p) for k, p in polys.items()}, **model.labels),
                why="" if ok else f"ZMP leaves the wheel polygon by {-worst * 1e3:.1f} mm ({wv['kind']}, contents {wv['contents_m']} kg)")
 

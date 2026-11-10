@@ -19,7 +19,9 @@ def test_line_closed_form_matches_a_tip():
     assert a_tip == pytest.approx((0.1 - 0.05) * T.G / 0.5)
     for a, ok in ((0.99 * a_tip, True), (1.01 * a_tip, False)):
         r = T.tip_row(mm, none, {"line": POLY}, {"line": T.Accel(a_lin=a)})
-        assert r.ok is ok and r.guarantee == "proof"
+        assert r.ok is ok and r.guarantee == "proof"                      # command source: proof of the model only
+    rm = T.tip_row(mm, none, {"line": POLY}, {"line": T.Accel(a_lin=0.5, source="measured", n=4)})
+    assert rm.guarantee == "sampled" and rm.n == 4
 
 
 def test_turn_centripetal_pushes_outward():
