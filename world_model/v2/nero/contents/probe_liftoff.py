@@ -41,7 +41,8 @@ T_MOVE = 0.3          # design (= probe.T_RAMP): time for one height step / ff r
 T_REBASE = 0.1        # ASSUMED (softz): time to re-base the commanded z to the measured z before a rung [s]
 T_HOLD_POSLIFT = float(os.environ.get("PL_T_HOLD", 1.2))   # ASSUMED, USER-approved 11-09 (poslift): hold per height rung [s]
 N_FREE_CONFIRM = 2    # ASSUMED, USER-approved 11-09 (poslift): number of consecutive flat dL needed
-VARIANTS = ("control", "poslift", "softz")
+VARIANTS = ("control", "poslift", "softz", "poslift_mixed")
+MIXED_DZ = (0.001, 0.0005, 0.00025, 0.0001)   # calibration only (poslift_mixed): per-rung step drawn from these [m] to MEASURE dL/dz at the sizes the adaptive probe uses (0.1 mm = the proposed DZ_MIN, ASSUMED)
 PHYSICS = ("tracker = carry.LeverCtl (FL-MPC, pre-11-07, the existing tracker); U includes the per-claw payload row (strict_claw); "
            "claw rise = encoders+FK, object rise = sim truth, peak_u = sim-truth weld wrench / F_cap")
 
@@ -133,6 +134,15 @@ def _make_class(variant):
                     ep.e_int[s][:] = 0.0
 
     class PosLift(Base):
+        MIXED = False
+
+        def _dz_k(self, idx):
+            if not self.MIXED:
+                return DZ
+            if not hasattr(self, "_mix_rng"):
+                self._mix_rng = np.random.default_rng(int(round(1e6 * P.true_mass(self.ep))))   # deterministic per world
+            return float(self._mix_rng.choice(MIXED_DZ))
+
         def _move(self, dz, ramp_to=None):
             """both claws up dz [m] over T_MOVE (path continuation IK); the ff ramps to ramp_to over the same time."""
             ep = self.ep
@@ -156,7 +166,7 @@ def _make_class(variant):
             ep = self.ep
             self._begin()
             self.m_ff = 0.0
-            zc, idx, prev_L, n_flat, why = 0.0, 0, None, 0, None
+            zc, idx, prev_L, flat_mm, why = 0.0, 0, None, 0.0, None
             try:
                 while True:
                     if M_stop is not None and self.M_lo > M_stop:
@@ -166,12 +176,14 @@ def _make_class(variant):
                     if not ok:
                         why = "rung_not_admissible"
                         break
-                    if zc + DZ > Z_MAX + 1e-9:
+                    dz_k = self._dz_k(idx)
+                    if zc + dz_k > Z_MAX + 1e-9:
                         why = "z_cap"
                         break
                     fz0, ep.track["Fz_max"] = ep.track["Fz_max"], 0.0
-                    self._move(DZ if idx > 0 else 0.0, ramp_to=self.M_lo)
-                    zc += DZ if idx > 0 else 0.0
+                    dz_k = dz_k if idx > 0 else 0.0
+                    self._move(dz_k, ramp_to=self.M_lo)
+                    zc += dz_k
                     reads, nbs, nh = [], [], int(round(T_HOLD_POSLIFT / CR.DT))
                     for i in range(nh):
                         ep._step()
@@ -183,15 +195,16 @@ def _make_class(variant):
                     peak_u = ep.track["Fz_max"] / ep.F_cap
                     ep.track["Fz_max"] = max(fz0, ep.track["Fz_max"])
                     dL = None if prev_L is None else L - prev_L
-                    n_flat = n_flat + 1 if (dL is not None and abs(dL) < FREE_TOL) else 0
-                    free = n_flat >= N_FREE_CONFIRM
+                    rate = None if dL is None else dL / (dz_k * 1e3)               # [kg/mm]
+                    flat_mm, free = P.flat_update(flat_mm, dL, dz_k)
                     rise_obj = 1e3 * (float(ep.d.xpos[ep.obj][2]) - ep.z0)
                     self.track["rise_mm"] = max(self.track["rise_mm"], rise_obj)
                     self.track["tilt"] = max(self.track["tilt"], ep.track["obj_tilt_max"])
                     self.track["spill"] = max(self.track["spill"], ep.track["spill_ratio"])
                     rec = dict(m_ff=round(self.m_ff, 4), z_cmd_mm=round(1e3 * zc, 3), claw_rise_mm=round(1e3 * (self._claw_z() - self._z_rest), 3),
                                rise_mm=round(rise_obj, 3), L=round(L, 4), dL=None if dL is None else round(dL, 4), noise_bound=round(nb, 4),
-                               peak_u=round(peak_u, 4), **rows, free=free)
+                               peak_u=round(peak_u, 4), **rows, free=free,
+                               dz_mm=round(1e3 * dz_k, 5), rate_kg_per_mm=None if rate is None else round(rate, 4))
                     self.peak_u = max(self.peak_u, peak_u)
                     if free:
                         e = self.eps_free + nb
@@ -219,7 +232,10 @@ def _make_class(variant):
                 self._end()
             return why
 
-    return dict(control=Control, softz=SoftZ, poslift=PosLift)[variant]
+    class PosLiftMixed(PosLift):
+        MIXED = True
+
+    return dict(control=Control, softz=SoftZ, poslift=PosLift, poslift_mixed=PosLiftMixed)[variant]
 
 
 _LAST = {}
@@ -252,6 +268,34 @@ def _run(cmd, variant, tasks, n, procs, out, eps_lo=0.0, eps_free=0.0):
             print(f"{variant} {cmd} {r.get('task')} i={r.get('i')} why={r.get('why')} {r.get('outcome', '')} "
                   f"{'ERR ' + r['error'] if 'error' in r else ''}", flush=True)
     return rows
+
+
+def kstep_summary(rows, tol=0.05):
+    """MEASURED load-rate bound K_STEP = max over rungs still on the counter (L < M_true - tol) of dL/dz [kg/mm], pooled over tasks (rows need dz_mm per rung,
+    i.e. poslift / poslift_mixed calibration rows; the first rung has dL = None and is skipped).  Also: per task, per dz size, and the rate-test false-free count
+    (a rung where `free` is declared although L < M_true - tol; n = rungs with free declared)."""
+    per, by_dz, allr, ff, nfree = {}, {}, [], 0, 0
+    for r in rows:
+        if "rungs" not in r or r.get("M_true") is None:
+            continue
+        for k in r["rungs"]:
+            if k.get("dL") is None or k.get("dz_mm") in (None, 0):
+                continue
+            if k["L"] < r["M_true"] - tol:
+                rate = k["dL"] / k["dz_mm"]
+                per.setdefault(r["task"], []).append(rate)
+                by_dz.setdefault(k["dz_mm"], []).append(rate)
+                allr.append(rate)
+            if k.get("free"):
+                nfree += 1
+                ff += k["L"] < r["M_true"] - tol
+    if not allr:
+        return None
+    lab = ", ".join(f"{t} {max(v):.4g} n={len(v)}" for t, v in sorted(per.items()))
+    dzl = ", ".join(f"dz {d} mm: {max(v):.4g} n={len(v)}" for d, v in sorted(by_dz.items()))
+    return dict(K_STEP=dict(value=round(max(allr), 4), n=len(allr), unit="kg/mm",
+                            label=f"MEASURED: max per-rung dL/dz over rungs with L < M_true - {tol} (still on the counter), tasks pooled ({lab}); by step size ({dzl})"),
+                FALSE_FREE=dict(n_false=int(ff), n_free_rungs=int(nfree), label="rungs declared free (rate test) while L < M_true - 0.05"))
 
 
 def _dL_stats(rows):
@@ -320,6 +364,9 @@ def main(argv=None):
         s = P.calibrate_summary(rows)
         s.update(variant=a.variant, date=time.strftime("%Y-%m-%d"), n_per_task=a.n, wall_s=round(time.time() - t0), assumptions=asm,
                  dL=_dL_stats(rows))
+        ks = kstep_summary(rows) if a.variant in ("poslift", "poslift_mixed") else None
+        if ks:
+            s.update(ks)
         (out / "CALIB.json").write_text(json.dumps(s, indent=1, default=float))
         print(json.dumps(s["eps"]), json.dumps(s["per_task"], default=float)[:1500], flush=True)
     else:

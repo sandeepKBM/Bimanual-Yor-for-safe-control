@@ -1,0 +1,117 @@
+{
+ "per_task": {
+  "box": {
+   "n": 20,
+   "n_free": 10,
+   "n_error": 0,
+   "free_res_max_abs": 0.0316,
+   "free_res_p50": 0.008,
+   "on_res_max": 0.0561,
+   "n_viol": 0,
+   "rise_mm_max": 10.23,
+   "tilt_max": 2.16,
+   "spill_max": 0.0,
+   "not_free": [
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible"
+   ]
+  },
+  "pot": {
+   "n": 20,
+   "n_free": 20,
+   "n_error": 0,
+   "free_res_max_abs": 0.0307,
+   "free_res_p50": 0.0174,
+   "on_res_max": 0.0505,
+   "n_viol": 0,
+   "rise_mm_max": 8.12,
+   "tilt_max": 1.06,
+   "spill_max": 0.0,
+   "not_free": []
+  },
+  "tray6": {
+   "n": 20,
+   "n_free": 20,
+   "n_error": 0,
+   "free_res_max_abs": 0.0273,
+   "free_res_p50": 0.0,
+   "on_res_max": 0.0766,
+   "n_viol": 0,
+   "rise_mm_max": 11.92,
+   "tilt_max": 1.76,
+   "spill_max": 0.047,
+   "not_free": []
+  }
+ },
+ "eps": {
+  "EPS_FREE": 0.0316,
+  "EPS_LO": 0.0766,
+  "label": "MEASURED: max over n calibration worlds (noise-free reads; the ASSUMED torque-noise bound is added per read); kept from the fixed-step run (fb8daa3) because it is >= the mixed-step run's (EPS_FREE 0.0281, EPS_LO 0.06)"
+ },
+ "variant": "poslift",
+ "date": "2026-11-09",
+ "n_per_task": 20,
+ "wall_s": 284,
+ "assumptions": {
+  "DZ": "0.001 m ASSUMED",
+  "Z_MAX": "0.02 m ASSUMED",
+  "FREE_TOL": "0.05 kg ASSUMED",
+  "T_MOVE": "0.3 s design",
+  "T_HOLD_POSLIFT": "1.2 s ASSUMED",
+  "T_REBASE": "0.1 s ASSUMED",
+  "N_FREE_CONFIRM": "2 ASSUMED",
+  "physics": "tracker = carry.LeverCtl (FL-MPC, pre-11-07, the existing tracker); U includes the per-claw payload row (strict_claw); claw rise = encoders+FK, object rise = sim truth, peak_u = sim-truth weld wrench / F_cap",
+  "probe_method": "ladder (see method_assumptions() for the active method)",
+  "DM": "0.25 kg ASSUMED push step",
+  "O_MAX": "1.0 kg ASSUMED max push above the lower bound",
+  "FREE_RATIO": "0.2 ASSUMED free test (one rung)",
+  "TAU_NOISE": "+-0.05 Nm/joint ASSUMED uniform",
+  "grasp": "ASSUMED rigid weld (user 11-01), stiff solref (0.004, 1)",
+  "controller": "LeverCtl + FRIC_COMP (ASSUMED gains)",
+  "rows": "arm-side static rows (user 11-02 pm), U_ADMIT 1.0 MODEL (rated limits, USER 11-09)",
+  "worlds": "uniform on the full prior per task"
+ },
+ "dL": {
+  "dL_flat_max": 0.043,
+  "dL_moving_min": 0.0019,
+  "dL_moving_p10": 0.0451,
+  "n_flat": 50,
+  "n_moving": 464
+ },
+ "DL_STEP_MAX": {
+  "value": 1.0364,
+  "n": 355,
+  "n_worlds": 60,
+  "unit": "kg",
+  "label": "MEASURED: max per-rung load increase dL = L_k - L_{k-1} over rungs with L < M_true - 0.05 (still on the counter), all tasks pooled (box 1.036 n=146, pot 0.4 n=70, tray6 0.7209 n=139)",
+  "file": "/common/users/ss5772/bimanual_data/contents/compare_2026-11-09/calib/calibrate.jsonl"
+ },
+ "method": "poslift",
+ "tracker": "flmpc_basic+nero_speed (fb8daa3 / 6b2a6c7)",
+ "K_STEP": {
+  "value": 7.104,
+  "n": 577,
+  "unit": "kg/mm",
+  "label": "MEASURED: max per-rung dL/dz over rungs with L < M_true - 0.05 (still on the counter), tasks pooled (box 7.104 n=236, pot 2.574 n=133, tray6 5.938 n=208); by step size (dz 0.1 mm: 7.104 n=147, dz 0.25 mm: 2.742 n=157, dz 0.5 mm: 1.193 n=133, dz 1.0 mm: 0.6147 n=140)",
+  "file": "/common/users/ss5772/bimanual_data/contents/kstep_calib_2026-11-09/calib/calibrate.jsonl"
+ },
+ "FALSE_FREE": {
+  "n_false": 0,
+  "n_free_rungs": 51,
+  "label": "rungs declared free (rate test) while L < M_true - 0.05"
+ },
+ "eps_mixed_run": {
+  "EPS_FREE": 0.0281,
+  "EPS_LO": 0.06,
+  "label": "MEASURED: max over n calibration worlds (noise-free reads; the ASSUMED torque-noise bound is added per read)"
+ },
+ "adaptive": "dz = min(DZ, H/K_STEP), DZ_MIN 0.1 mm (USER 11-09); free = rate test + 2 mm flat travel"
+}
