@@ -45,7 +45,7 @@ beyond set-inclusion lookups.
 | `pan/cert/admit.certify` (`admit.py:77-126`) | sampled ∃b∀θ: first family member passing all worlds + Clopper–Pearson | dynamic sampled row (§3.11) |
 | `carry.CarryEpisode._check` / `in_R` (`carry.py:489-567`) | U and R predicates, geom names `counter`/`shelf` (`carry.py:557`) | U list and R0 as data (§3.8-3.10) |
 | `path_reach.py` | records IK miss and joint margin; no caller in the repo; unreachable is not in U (`carry.py:351-356`) | reach row that **refuses** (§3.3) |
-| `rules.py` | runtime FL-MPC rows (table, q, qd) | unchanged: runtime, not admission |
+| `rules.py` | runtime FL-MPC rows (table, q, qd) | **superseded 11-09: `rules.py` deleted (c8cf380); the tracker skill is basic FL-MPC, the checker alone owns safety** |
 | `house/tamp/spec_cert.py` + `tray_rep/sets/ir.py` | spec-driven rows (Inside, Upright, Clear, Support, STL), continuous-time sweep term | language for geometric rows (§3.6) |
 
 ### 1.3 Code facts that differ from the task brief
@@ -58,7 +58,7 @@ beyond set-inclusion lookups.
 3. Contents dynamic rows branch every 0.25 s (`stack/executor.py:57`) with one stored backup, `family=(0.0,)` (`carry_cert.py:241`). The
    0.2 s spacing and "longest backup" choice are the pan path (`admit.py:17`, `pan/cert/backups.py:24`).
 4. Object–world contact is **not in U** for the carry: `_check` skips any contact without an arm geom (`carry.py:532-542`), and the welded
-   object is in no FL-MPC table row (`rules.py:21`). A box hitting the shelf edge counts only if it tilts > 10° or drops.
+   object is in no FL-MPC table row (`rules.py:21`; superseded 11-09: `rules.py` deleted, c8cf380). A box hitting the shelf edge counts only if it tilts > 10° or drops.
 5. `capture_nyu.json` field `o0` is the old pot origin (y = −0.30) while its TCP midpoint is at y = −0.22 (`scenes.py:38,48`,
    SCENE_DY). `carry_cert` builds o_ref from the TCPs (`carry_cert.py:111-112`), so its rows are not affected; a new adapter must not read `o0`.
 6. Two torque functions: `config.tau_limits()` defaults to 100 Nm (`config.py:72-77`), `config.tau_limit()` to 16 Nm (`config.py:86-92`).
@@ -394,7 +394,7 @@ The loop belongs to an orchestrator above the planner, not to the checker:
 `envelope.Envelope` → torque row, legacy backend; `carry_cert.support_row` + `static_cert` support → support row; `objects.OpenLimit` →
 `OpenContentRow`; `admit.certify` → dynamic row; `carry._check` / `in_R` → U list and R0; `path_reach.eval_moves` → reach row (refusing);
 `clearance.report` + IR `Clear` → collision row; `carry_cert.static_cell` / `probe.static_interval` (`probe.py:93-95`) → thin callers of
-`check_motion` on a cell. `rules.py` stays the runtime layer.
+`check_motion` on a cell. (Superseded 11-09: `rules.py` was deleted in c8cf380; there is no FL-MPC runtime row layer.)
 
 ### 5.3 Equivalence gates (before anything is retired)
 

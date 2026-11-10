@@ -10,7 +10,7 @@ the 2026-10-15 plan docx, `docs/design/MASTER.md` (history only).
 Current work lives in the worktree `.claude/worktrees/contents-armside2` (branch `contents-armside-2026-11-02`). The 11-02 claims,
 the 11-03 handoff, the 11-05 docs, `docs/README.md`, `world_model/v2/flmpc/` and `world_model/v2/stack/` exist only there until it is merged;
 read them there from other checkouts.
-This file = how to *operate* here. Last updated 2026-11-05 (doc index added; stale facts fixed against the code).
+This file = how to *operate* here. Last updated 2026-11-09 (table-behind task, swerve base, base tip row, one task table).
 
 ## Environment / running
 - Python env: `/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python`.
@@ -59,6 +59,12 @@ This file = how to *operate* here. Last updated 2026-11-05 (doc index added; sta
   `world_model/v2/flmpc/basic.py`, speed limit from `config.MANUAL`). Planner decisions 11-03: `docs/status/2026-11-03_handoff_notes.md`. Planner stack `world_model/v2/stack/`:
   ScriptedPlanner (legacy `carry.PLANS`) is the default; ClosedChainPlanner (`stack/planners/closed_chain.py`) is opt-in via
   `--planner closed_chain` or `BIMANUAL_PLANNER=closed_chain`. Checker design (not built): `docs/status/checker_design_2026-11-05.md`.
+- Per-task facts live ONLY in `world_model/v2/stack/tasks.py` (TaskDef table: goals, priors, U/R bounds, rows); `stack/` core imports no
+  physics (only `world_model/v2/adapters/` does); `stack/tests/test_dependency_rules.py` enforces it.
+- Table-behind task (USER 11-09): `tray6_behind`, `box_behind` (base moves the object to the counter behind the robot). Swerve base
+  `world_model/v2/nero/base/` (`swerve.py` controller, `scene.py` two-table scene, `smoke.py` G0 smoke + base U flags). Design:
+  `docs/status/table_behind_design_2026-11-09.md`. Base tip row: `stack/checks/base_tip.py` (ZMP in the wheel polygon, guarantee sampled on
+  the MEASURED base card `nero/results/base_card_G0b_2026-11-09/CARD.json`; admission picks the highest passing speed level).
 - Old flagship demo (Sept, cup collect): `scripts/make_cup_collect_safety_demo.py --controller {v4c,v7c,flmpc}`.
 
 ## Known failure modes (honest)
