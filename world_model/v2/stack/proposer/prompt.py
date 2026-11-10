@@ -1,5 +1,6 @@
 """stack/proposer/prompt.py -- the system and user prompt of the proposer, per task.  SIMULATION ONLY.   (11-05)
 
+(Schema v2, 11-09: no hidden-parameter table at all; phenomenon cards + measuring-skill cards instead.  BIMANUAL_LEGACY_PROPOSER_V1=1 = the format described below.)
 The prompt holds: the task instruction (destination = the TASK INPUT), the scene facts (supports, object size, grasp), the robot limits (config), the skill
 vocabulary and the output format.  It holds NO hidden truth: no sampled world, no true contents mass / centre / fills, no prior box (bounds rule: the proposer
 states its own belief B).  The text is deterministic (no times, no random ids), so the response cache replays offline.
@@ -116,25 +117,31 @@ def robot_limits():
 
 
 def scene_facts(task, world=None):
-    """everything the model may know about the scene (JSON-able, deterministic).  No hidden truth."""
+    """everything the model may know about the scene (JSON-able, deterministic).  No hidden truth.  Schema v2 (default): no hidden-parameter table, no sanity ranges, no
+    contents prior -- the phenomenon cards and the built-skill cards instead (skills/catalog.cards).  BIMANUAL_LEGACY_PROPOSER_V1=1: the 11-05..11-09 facts."""
     sp = task_spec(task, world)
-    P = S.params(task)
     behind = task in S.BASE_TASKS
-    if behind:                                    # 11-08: no sanity ranges / contents prior in the table-behind prompt (validation still rejects a belief outside them, with the reason)
-        hp = {k: dict(unit=v["unit"], meaning=v["doc"]) for k, v in P.items()}
+    if behind:
         frame = ("world frame, metres, z up.  The left arm holds the +y handle/tab, the right arm the -y one (at the start; they turn with the base).  Arm-step numbers "
                  "(lift, move, place) are world-frame translations of the object; the robot's +x axis is the world +x axis at the start.")
     else:
-        hp = {k: dict(unit=v["unit"], sanity_range=[round(float(v["range"][0]), 4), round(float(v["range"][1]), 4)], meaning=v["doc"]) for k, v in P.items()}
         frame = "world frame, metres, z up.  Decreasing x moves the object toward the robot.  The left arm holds the +y handle/tab, the right arm the -y one."
-    return dict(task=sp, hidden_parameters=hp,
-                robot=robot_limits(),
-                frame=frame,
-                grasp="Both claws are rigidly welded to the object at its handles/tabs for the whole motion (ASSUMED: grasping is not part of this task).  The object stays level.",
-                vocabulary=S.vocabulary(tuple(sp["supports"]), base=behind))
+    common = dict(task=sp, robot=robot_limits(), frame=frame,
+                  grasp="Both claws are rigidly welded to the object at its handles/tabs for the whole motion (ASSUMED: grasping is not part of this task).  The object stays level.",
+                  vocabulary=S.vocabulary(tuple(sp["supports"]), base=behind))
+    if not S.legacy_v1():
+        from world_model.v2.stack.skills import catalog as CAT
+        c = CAT.cards(task)
+        return dict(common, phenomena=c["phenomena"], measuring_skills=c["skills"])
+    P = S.params(task)
+    if behind:                                    # 11-08: no sanity ranges / contents prior in the table-behind prompt (validation still rejects a belief outside them, with the reason)
+        hp = {k: dict(unit=v["unit"], meaning=v["doc"]) for k, v in P.items()}
+    else:
+        hp = {k: dict(unit=v["unit"], sanity_range=[round(float(v["range"][0]), 4), round(float(v["range"][1]), 4)], meaning=v["doc"]) for k, v in P.items()}
+    return dict(common, hidden_parameters=hp)
 
 
-SYSTEM = """You are the high-level planner of a two-arm robot (two 7-DoF NERO arms) in a simulation. You write the plan; a separate low-level planner turns it into joint motions and a checker verifies it before anything moves. You never control joints.
+SYSTEM_V1 = """You are the high-level planner of a two-arm robot (two 7-DoF NERO arms) in a simulation. You write the plan; a separate low-level planner turns it into joint motions and a checker verifies it before anything moves. You never control joints.
 
 You must return ONE JSON object and nothing else (no prose outside it, no code fence needed). Format:
 {"belief": {"<hidden parameter>": [lo, hi], ...},
@@ -150,6 +157,42 @@ Rules:
 5. The object must clear everything it passes over, must end within the goal tolerance of the task goal on the named support, and must never be dragged along a support: horizontal motion needs height above the support.
 6. You do not set speeds or accelerations; the checker admits or slows the plan.
 7. Unknown skills, extra keys, missing keys or numbers outside the ranges make the whole reply invalid; it is then rejected, not repaired."""
+
+
+SYSTEM_V2 = """You are the high-level planner of a two-arm robot (two 7-DoF NERO arms) in a simulation. You write the plan; a separate low-level planner turns it into joint motions and a checker verifies it before anything moves. You never control joints.
+
+The object holds hidden contents. You do NOT estimate any number about them. Instead you name the physical effects (phenomena) of the hidden contents that matter for this task, and say how each one is handled: measured by one of the robot's measuring skills, or not measurable. The robot's measuring skills produce the numbers; the checker uses them.
+
+You must return ONE JSON object and nothing else (no prose outside it, no code fence needed). Format:
+{"phenomena": [{"id": "<phenomenon id from the cards>", "why": "<one short sentence>", "handle": {"measure": "<measuring skill id>"}},
+               {"id": "<phenomenon id from the cards>", "why": "<one short sentence>", "handle": {"unmeasurable": "<one short sentence: why no skill measures it>"}},
+               {"id": "NEW", "name": "<short name>", "why": "<one short sentence>", "handle": {"unmeasurable": "<one short sentence>"}}],
+ "probes": [{"skill": "<measuring skill id>"}, ...],
+ "steps": [{"skill": "<name>", "args": {...}, "why": "<one short sentence>"}, ...],
+ "recoveries": {"<step index>": [{"skill": "<recovery skill>", "args": {}}, ...], ...},
+ "fallback": [{"skill": "<recovery skill>", "args": {}}, ...]}
+
+Rules:
+1. phenomena: list every effect of the hidden contents that could make this carry fail, using the phenomenon ids on the cards. A phenomenon that is not on the cards gets the id "NEW" and a "name". Each phenomenon appears once. Its handle is EITHER {"measure": <id of a measuring skill whose card lists this phenomenon under "measures">} OR {"unmeasurable": <reason>}. Name a skill only if its card says it measures that phenomenon; a plan that names a skill for a phenomenon it does not measure is rejected.
+2. probes: the measuring skills to run before the carry, in the order to run them, each once. Every skill in probes must be the handle of at least one phenomenon, and every skill used as a handle must be in probes. The robot runs only the probes you list, and the checker may skip a probe that its own limits do not allow.
+3. No number about the contents anywhere (no masses, no ranges, no positions): numbers are allowed only in the arguments of steps. A reply with a number outside step arguments is rejected.
+4. steps: a sequence of SEGMENTS, one object-level motion each (lift, move, place), then release as the LAST step. Exactly one place, directly before release. Use only the skills and argument ranges listed in the scene facts. All numbers are metres in the world frame.
+5. recoveries: for EVERY motion step (lift, move, place, and base_move where offered) give at least one recovery skill that is safe to run if the step has to be abandoned halfway (hold, retrace, set_down, let_go). Keys are the 0-based step indices as strings. Only the first recovery of a step is executed today; list the best one first. Letting go in the air drops the object. Recoveries take no "covers" field.
+6. fallback: 1 to 3 recovery skills to run if the whole plan is not admitted (nothing has moved yet; the object is still on its start support).
+7. The object must clear everything it passes over, must end within the goal tolerance of the task goal on the named support, and must never be dragged along a support: horizontal motion needs height above the support.
+8. You do not set speeds or accelerations; the checker admits or slows the plan.
+9. Unknown skills, unknown phenomenon ids, extra keys, missing keys or numbers outside the ranges make the whole reply invalid; it is then rejected, not repaired."""
+
+
+def system():
+    """the system prompt of the current format (schema v2 unless BIMANUAL_LEGACY_PROPOSER_V1=1)."""
+    return SYSTEM_V1 if S.legacy_v1() else SYSTEM_V2
+
+
+def __getattr__(name):                        # PR.SYSTEM is read at call time (propose.py), so the env switch applies per call
+    if name == "SYSTEM":
+        return system()
+    raise AttributeError(name)
 
 
 def user_prompt(task, facts=None, world=None):
@@ -181,6 +224,8 @@ def uncovered(belief, probe_set):
 def reask_prompt(task, plan_dict, probe_set, facts=None, world=None):
     """Rule 2: the probe set is not inside B.  Tell the model the numbers (a measurement the robot made; no hidden truth) and ask for a complete new plan whose belief and
     recoveries cover the uncovered part.  probe_set = {param: [lo, hi]} of the probed parameter(s)."""
+    if not S.legacy_v1():
+        raise NotImplementedError("the schema-v2 re-ask prompt (readings + failing rows) is build step 6; BIMANUAL_LEGACY_PROPOSER_V1=1 keeps the v1 re-ask")
     f = facts if facts is not None else scene_facts(task, world)
     unc = uncovered(plan_dict["belief"], probe_set)
     return (f"TASK_ID: {task}\n"
@@ -202,7 +247,7 @@ def rejection_prompt(task, attempts, facts=None, world=None):
     parts = [user_prompt(task, f).rsplit("\n\nReturn the JSON object now.", 1)[0], ""]
     for i, at in enumerate(attempts, 1):
         pl = at.get("plan")
-        body = (json.dumps({k: pl[k] for k in ("belief", "steps", "recoveries", "fallback") if k in pl}, sort_keys=True)
+        body = (json.dumps({k: pl[k] for k in S.reply_keys() if k in pl}, sort_keys=True)
                 if pl and pl.get("status") == "ok" else "(the reply did not parse or validate; raw reply follows)\n" + str(at.get("reply") or ""))
         parts += [f"REJECTED PLAN {i} (JSON):", body,
                   f"REJECTION {i}: stage={at['stage']}; reasons: " + json.dumps(list(at["reasons"])), ""]

@@ -20,8 +20,14 @@ TASKS = ("box", "tray6", "pot")
 
 
 @pytest.fixture(autouse=True)
-def _no_network(monkeypatch):
+def _no_network(monkeypatch, request):
+    """every test is offline.  Tests whose name contains "_v2" run the schema-v2 format (the default); all others run the 11-05..11-09 format (BIMANUAL_LEGACY_PROPOSER_V1=1),
+    which stays replayable for the old response caches."""
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
+    if "_v2" in request.node.name:
+        monkeypatch.delenv("BIMANUAL_LEGACY_PROPOSER_V1", raising=False)
+    else:
+        monkeypatch.setenv("BIMANUAL_LEGACY_PROPOSER_V1", "1")
 
 
 def sup(task):
@@ -226,3 +232,137 @@ def test_planner_refusal_is_plan_rejected_with_reason():
     with pytest.raises(S.PlanRejected) as e:
         PC.compile_plan(d, "box")
     assert e.value.stage == "planner" and any("collides" in r or "unreachable" in r or "reason=" in r for r in e.value.reasons)
+
+
+# ------------------------------------------------------------------------------------------------------------------ schema v2 (11-09)
+BEHIND = ("tray6_behind", "box_behind")
+ALL_V2 = TASKS + BEHIND
+
+
+def sup2(task):
+    return tuple(PR.task_spec(task)["supports"])
+
+
+def bad2(task, mut, plan=None):
+    d = copy.deepcopy(plan if plan is not None else MK.fixture_plan(task))
+    mut(d)
+    with pytest.raises(S.PlanRejected) as e:
+        S.validate(d, task, sup2(task))
+    assert e.value.stage == "schema"
+    return e.value.reasons
+
+
+@pytest.mark.parametrize("task", ALL_V2)
+def test_v2_fixture_validates(task):
+    assert not S.legacy_v1()
+    d = MK.fixture_plan(task)
+    assert set(d) == set(S.V2_KEYS) and "belief" not in d
+    tp = S.validate(d, task, sup2(task))
+    assert tp.schema == "v2" and tp.belief == {} and tp.probes == ["weigh"]
+    assert [p["id"] for p in tp.phenomena if "measure" in p["handle"]] == ["PH1"]
+    td = tp.to_dict()
+    assert set(td) == {"status", "task", "phenomena", "probes", "steps", "recoveries", "fallback"}
+    assert S.reply_of(dict(td, plan_id="x")) == {k: td[k] for k in S.V2_KEYS}
+    skills = [s.call.skill for s in tp.steps]
+    assert skills == (["lift", "base_move", "place", "release"] if task in BEHIND else ["lift", "move", "place", "release"])
+
+
+def test_v2_every_bad_reply_class_is_rejected_with_its_reason():
+    t = "tray6"
+    assert any("belief: not part of this format" in r for r in bad2(t, lambda d: d.update(belief=dict(fill_total_kg=[0, 1]))))
+    assert any("covers: not part of this format" in r for r in bad2(t, lambda d: d["recoveries"]["0"][0].update(covers=dict(x=[1, 2]))))
+    assert any("unknown phenomenon 'PH9'" in r for r in bad2(t, lambda d: d["phenomena"][0].update(id="PH9")))
+    assert any("duplicate phenomenon 'PH1'" in r for r in bad2(t, lambda d: d["phenomena"].append(copy.deepcopy(d["phenomena"][0]))))
+    assert any("does not measure 'PH2'" in r for r in bad2(t, lambda d: d["phenomena"][1].update(handle=dict(measure="weigh"))))
+    assert any("unknown skill 'tap'" in r for r in bad2(t, lambda d: d["phenomena"][0].update(handle=dict(measure="tap"))))
+    assert any("not built" in r for r in bad2(t, lambda d: d["phenomena"][1].update(handle=dict(measure="hold_moment"))))
+    assert any("no phenomenon names it" in r for r in bad2(t, lambda d: d["phenomena"][0].update(handle=dict(unmeasurable="skip"))))            # probe without a handle
+    assert any("is not in probes" in r for r in bad2(t, lambda d: d.update(probes=[])))                                                       # handle without a probe
+    assert any("listed twice" in r for r in bad2(t, lambda d: d["probes"].append(dict(skill="weigh"))))
+    assert any("not a built measuring skill" in r for r in bad2(t, lambda d: d["probes"].append(dict(skill="shake_listen"))))
+    assert any("exactly one of" in r for r in bad2(t, lambda d: d["phenomena"][0].update(handle=dict(measure="weigh", unmeasurable="x"))))
+    assert any("missing keys" in r for r in bad2(t, lambda d: d.pop("probes")))
+    assert any("unknown keys" in r for r in bad2(t, lambda d: d["phenomena"][0].update(mass_kg=3)))
+    assert any("a number (3.2)" in r for r in bad2(t, lambda d: d["phenomena"][0].update(handle=dict(unmeasurable=3.2))))
+    assert any("numbers are allowed only in step args" in r for r in bad2(t, lambda d: d["fallback"][0].update(args=dict(t=1))))
+    assert any("missing keys ['name']" in r for r in bad2(t, lambda d: d["phenomena"].append(dict(id="NEW", why="w", handle=dict(unmeasurable="u")))))
+    assert any("name" in r and "unknown keys" in r for r in bad2(t, lambda d: d["phenomena"][0].update(name="x")))                          # name only on NEW
+    assert any("must be a non-empty string" in r for r in bad2(t, lambda d: d["phenomena"][0].update(why="x" * 401)))
+    assert any("unknown skill 'teleport'" in r for r in bad2(t, lambda d: d["steps"].__setitem__(1, dict(skill="teleport", args={}, why="x"))))     # step rules unchanged
+    assert any("needs at least one recovery" in r for r in bad2(t, lambda d: d["recoveries"].pop("1")))
+
+
+def test_v2_new_phenomenon_is_accepted_and_recorded():
+    d = MK.fixture_plan_v2("box", "new_phenomenon")
+    tp = S.validate(d, "box", sup2("box"))
+    new = [p for p in tp.phenomena if p["id"] == "NEW"]
+    assert len(new) == 1 and new[0]["name"] == "contents shift" and "unmeasurable" in new[0]["handle"]
+    # omitted PH1 and no probe is a valid reply (PH1 then sits on its fallback)
+    tp = S.validate(MK.fixture_plan_v2("box", "omit_ph1"), "box", sup2("box"))
+    assert tp.probes == [] and all(p["id"] != "PH1" for p in tp.phenomena)
+    # 'unmeasurable' for a phenomenon that has a built skill is accepted and recorded
+    d = MK.fixture_plan("box")
+    d["phenomena"][0]["handle"] = dict(unmeasurable="I do not trust it")
+    d["probes"] = []
+    assert S.validate(d, "box", sup2("box")).phenomena[0]["handle"] == dict(unmeasurable="I do not trust it")
+
+
+@pytest.mark.parametrize("kind,frag", [("wrong_skill", "does not measure 'PH2'"), ("numeric", "belief: not part of this format"), ("narrow", "belief: not part of this format")])
+def test_v2_mock_variants_through_propose(tmp_path, kind, frag):
+    p, rec = PP.propose("box", backend_spec=f"mock:{kind}", cache_dir=tmp_path / kind)
+    assert p["status"] == "plan_rejected" and p["stage"] == "schema" and any(frag in r for r in p["reasons"]) and rec["status"] == "plan_rejected"
+
+
+def test_v2_mock_variants_that_validate(tmp_path):
+    for kind in ("fixture", "omit_ph1", "new_phenomenon"):
+        p, rec = PP.propose("pot", backend_spec=f"mock:{kind}", cache_dir=tmp_path / kind)
+        assert p["status"] == "ok" and "phenomena" in p and "belief" not in p and p["probes"] == ([] if kind == "omit_ph1" else ["weigh"])
+    p, _ = PP.propose("pot", backend_spec="mock:malformed", cache_dir=tmp_path / "m")
+    assert p["status"] == "plan_rejected" and p["stage"] in ("parse", "schema")
+
+
+def test_v2_prompt_has_no_contents_prior_no_sanity_range_no_truth():
+    from world_model.v2.stack import tasks as TK
+    for task in ALL_V2:
+        txt = PR.system() + PR.user_prompt(task)
+        assert PR.SYSTEM == PR.system() and "belief" not in txt.lower() and "sanity" not in txt.lower() and "hidden_parameters" not in txt and "prior" not in txt.lower()
+        assert "covers" in txt and "Recoveries take no" in txt                                  # the rule that forbids covers is the only mention
+        f = PR.scene_facts(task)
+        assert "hidden_parameters" not in f and f["phenomena"] and [c["id"] for c in f["measuring_skills"]] == ["weigh"]
+        lo, hi = TK.prior_box(task)                                                             # the task's contents prior box: its numbers appear in no field of the facts
+        assert f"[{lo}, {hi}]" not in txt and f"({lo}, {hi})" not in txt
+        assert PR.user_prompt(task) == PR.user_prompt(task)                                     # deterministic
+    w = SC.BoxWorld(contents_kg=3.1234, contents_xy=(0.0123, -0.0456))
+    t = PR.SYSTEM + PR.user_prompt("box", world=w)
+    for needle in ("3.1234", "0.0123", "-0.0456", "contents_mu"):
+        assert needle not in t
+    assert "0.5, 5.0" not in t and "(0.0, 20.0)" not in t and "20.0" not in PR.user_prompt("box")
+
+
+def test_v2_behind_prompt_keeps_base_move_and_scene_facts():
+    for task in BEHIND:
+        txt = PR.user_prompt(task)
+        f = PR.scene_facts(task)
+        assert "base_move" in json.dumps(f["vocabulary"]) and "Known-good route R1" in txt and "Turning in place at the pick pose hits counter 1" in txt
+        assert "R1" in json.dumps(f["task"]["base"]["routes_known_good"]) and f["phenomena"]
+    assert "base_move" not in json.dumps(PR.scene_facts("tray6")["vocabulary"])
+
+
+def test_v2_reask_prompt_is_not_built_yet_and_rejection_prompt_uses_v2_keys(tmp_path):
+    plan, _ = PP.propose("box", backend_spec="mock:fixture", cache_dir=tmp_path / "c")
+    with pytest.raises(NotImplementedError):
+        PR.reask_prompt("box", plan, {"contents_kg": [1, 2]})
+    txt = PR.rejection_prompt("box", [dict(plan=plan, reply="r", stage="planner", reasons=["x"])])
+    assert '"phenomena"' in txt and '"belief"' not in txt and "REJECTION 1: stage=planner" in txt
+
+
+def test_v2_compile_accepts_a_v2_plan_dict():
+    plan = dict(MK.fixture_plan("tray6"), status="ok", task="tray6")
+    cp = PC.compile_plan(plan, "tray6", build=False)
+    assert cp.names == ["s0_lift", "s1_move", "s2_place"] and cp.belief == {}
+
+
+def test_v1_replay_switch_still_gives_the_old_format():                       # runs under BIMANUAL_LEGACY_PROPOSER_V1=1 (no "_v2" in the name)
+    assert S.legacy_v1() and set(MK.fixture_plan("box")) == set(S.V1_KEYS)
+    assert '"belief"' in PR.SYSTEM and "sanity_range" in json.dumps(PR.scene_facts("box")) and "hidden_parameters" in PR.scene_facts("box")
+    assert "belief" not in json.dumps(PR.scene_facts("box")["vocabulary"])

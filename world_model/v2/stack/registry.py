@@ -16,6 +16,12 @@ UNIVERSES = {
 SKILLS = {
     "pregrasp": "world_model.v2.stack.skills.pregrasp:PreGrasp",
 }
+MEASURE = {                        # measuring skills of the probe-selection build (11-09): id -> adapter class; None = design only (skills/catalog.py status "design")
+    "weigh": "world_model.v2.adapters.skills_contents:Weigh",      # adapter layer (drives the carry sim); lands in build step 3
+    "hold_moment": None,
+    "shake_listen": None,
+    "watch_item": None,
+}
 PLANNERS = {
     "scripted": "world_model.v2.stack.planners.scripted:ScriptedPlanner",
     "closed_chain": "world_model.v2.stack.planners.closed_chain:ClosedChainPlanner",
@@ -38,7 +44,7 @@ CHECKERS = {                       # unified rows (11-09): each is a function re
     "goal": "world_model.v2.stack.goal:check_goal",
 }
 
-_KINDS = {"universes": UNIVERSES, "skills": SKILLS, "planners": PLANNERS, "producers": PRODUCERS, "checkers": CHECKERS}
+_KINDS = {"universes": UNIVERSES, "skills": SKILLS, "measure": MEASURE, "planners": PLANNERS, "producers": PRODUCERS, "checkers": CHECKERS}
 
 
 def get(kind: str, name: str):

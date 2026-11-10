@@ -13,7 +13,7 @@ TRUTH_WORDS = ("seed", "theta", "truth", "true_", "ground")
 
 
 class Fake(Backend):
-    """reply 0: unparsable; reply 1: a valid plan the checker refuses (planner); reply 2: a valid plan the checker accepts (a different belief => different plan id)."""
+    """reply 0: unparsable; reply 1: a valid plan the checker refuses (planner); reply 2: a valid plan the checker accepts (a different lift => different plan id)."""
     name, model = "fake", "fake-model"
 
     def __init__(self):
@@ -27,7 +27,7 @@ class Fake(Backend):
         else:
             d = MK.fixture_plan("box")
             if k >= 2:
-                d["belief"] = {p: [lo, lo + (hi - lo) * 0.99] for p, (lo, hi) in d["belief"].items()}
+                d["steps"][0]["args"]["dz"] = 0.17                    # a different step => a different plan id (schema v2 has no belief)
             reply = json.dumps(d)
         return dict(texts=[reply] * n, seconds=0.0, wall_s=0.0, cached=False, backend=self.name)
 

@@ -1,5 +1,9 @@
 """stack/proposer/schema.py -- the JSON the proposer model must return, its skill vocabulary and a STRICT validator.  SIMULATION ONLY.   (11-05)
 
+SCHEMA v2 (11-09, probe-selection build spec; default): the reply is {phenomena, probes, steps, recoveries, fallback} -- the model NAMES the hidden-contents phenomena
+(skills/catalog.py PH1..PH8 or "NEW") with a handle each ({"measure": skill id} | {"unmeasurable": reason}) and lists the probes to run, in order; it states NO number about the contents
+(no belief, no covers; 11-08: the skills supply the numbers).  The v1 format below (belief + covers) is replayable with BIMANUAL_LEGACY_PROPOSER_V1=1.
+
 USER 11-05: "The plan to be done when running should be authored by the codex gpt ones, not us."  The model writes, per task:
   belief      B = {param: [lo, hi]} over the task's hidden parameters (PARAMS[task])
   steps       [{skill, args, why}]            the high-level plan, a sequence of SEGMENTS (one object-level motion each) ending in place + release
@@ -33,9 +37,28 @@ from __future__ import annotations
 
 import json
 import math
+import os
 from dataclasses import dataclass, field
 
 from world_model.v2.stack.types import SkillCall
+
+V1_KEYS = ("belief", "steps", "recoveries", "fallback")                       # the 11-05..11-09 reply
+V2_KEYS = ("phenomena", "probes", "steps", "recoveries", "fallback")           # schema v2 (11-09): the model names phenomena and probes, no number about the contents
+
+
+def legacy_v1():
+    """BIMANUAL_LEGACY_PROPOSER_V1=1: the 11-05..11-09 format (belief + covers) -- prompts, validator and mock replies -- so the old response caches still replay."""
+    return os.environ.get("BIMANUAL_LEGACY_PROPOSER_V1") == "1"
+
+
+def reply_keys():
+    return V1_KEYS if legacy_v1() else V2_KEYS
+
+
+def reply_of(plan):
+    """the reply-format part of a plan dict (propose() output): only the keys of the current format."""
+    return {k: plan[k] for k in reply_keys() if k in plan}
+
 
 TASKS = ("box", "tray2", "tray4", "tray6", "pot", "tray6_behind", "box_behind")
 BASE_TASKS = ("tray6_behind", "box_behind")      # TaskDef.base == "swerve": the object goes to the counter BEHIND the robot; the base can move (base_move)
@@ -149,8 +172,16 @@ class TaskPlan:
     steps: list                                      # list[Step]
     fallback: list                                   # list[RecoveryCall]
     proposer: dict = field(default_factory=dict)     # model, reasoning level, caveats (bounds rule 9); filled by propose()
+    phenomena: list = field(default_factory=list)    # v2: [{id, why, handle: {measure: skill} | {unmeasurable: reason}, name? (NEW)}]
+    probes: list = field(default_factory=list)       # v2: skill ids in the order the model wants them run
+    schema: str = "v1"                               # "v1" (belief) | "v2" (phenomena / probes)
 
     def to_dict(self):
+        if self.schema == "v2":
+            return dict(status="ok", task=self.task, phenomena=self.phenomena, probes=self.probes,
+                        steps=[dict(skill=s.call.skill, args=s.call.args, why=s.why) for s in self.steps],
+                        recoveries={str(i): [dict(skill=r.skill, args=r.args) for r in s.recoveries] for i, s in enumerate(self.steps) if s.recoveries},
+                        fallback=[dict(skill=r.skill, args=r.args) for r in self.fallback])
         return dict(status="ok", task=self.task, belief=self.belief,
                     steps=[dict(skill=s.call.skill, args=s.call.args, why=s.why) for s in self.steps],
                     recoveries={str(i): [dict(skill=r.skill, args=r.args, **({"covers": r.covers} if r.covers else {})) for r in s.recoveries]
@@ -214,11 +245,16 @@ def _keys(d, required, optional, what, errs):
 
 def validate(d, task, supports=("counter", "shelf")):
     """strict validation of the parsed reply `d` for `task` -> TaskPlan, or raises PlanRejected('schema') listing EVERY problem found.  supports = the support names
-    of the scene (place(support) must name one)."""
+    of the scene (place(support) must name one).  Schema v2 (phenomena / probes, no belief) unless BIMANUAL_LEGACY_PROPOSER_V1=1 (the 11-05..11-09 format)."""
+    return validate_v1(d, task, supports) if legacy_v1() else validate_v2(d, task, supports)
+
+
+def validate_v1(d, task, supports=("counter", "shelf")):
+    """the 11-05..11-09 format: belief + steps + recoveries (with optional covers) + fallback."""
     if task not in TASKS:
         raise PlanRejected("schema", f"unknown task {task!r}")
     errs = []
-    if not _keys(d, ("belief", "steps", "recoveries", "fallback"), (), "reply", errs):
+    if not _keys(d, V1_KEYS, (), "reply", errs):
         raise PlanRejected("schema", errs)
     # belief
     P = params(task)
@@ -228,6 +264,132 @@ def validate(d, task, supports=("counter", "shelf")):
             iv = _interval(d["belief"][k], *spec["range"], f"belief.{k}", errs)
             if iv is not None:
                 belief[k] = iv
+    steps, fbl = _plan_parts(d, task, supports, belief, True, errs)
+    if errs:
+        raise PlanRejected("schema", errs)
+    return TaskPlan(task, belief, steps, [r for r in fbl if r is not None])
+
+
+def validate_v2(d, task, supports=("counter", "shelf")):
+    """schema v2 (11-09 probe-selection build spec s.3): phenomena + probes + steps + recoveries + fallback.  NO number about the contents (no belief, no covers): the
+    skills supply the numbers.  Every problem is listed; nothing is repaired, reordered or defaulted."""
+    if task not in TASKS:
+        raise PlanRejected("schema", f"unknown task {task!r}")
+    errs = []
+    if isinstance(d, dict) and "belief" in d:
+        errs.append("belief: not part of this format (no contents numbers from the model: name phenomena and probes instead)")
+    if not _keys({k: v for k, v in d.items() if k != "belief"} if isinstance(d, dict) else d, V2_KEYS, (), "reply", errs):
+        raise PlanRejected("schema", errs)
+    phen, probes = _phenomena_probes(d["phenomena"], d["probes"], errs)
+    steps, fbl = _plan_parts(d, task, supports, {}, False, errs)
+    for sec in ("phenomena", "probes", "recoveries", "fallback"):          # numbers only in step args
+        errs += [f"{sec}: a number ({x!r}) at {w}; numbers are allowed only in step args" for w, x in _numbers(d[sec], sec)]
+    if errs:
+        raise PlanRejected("schema", errs)
+    tp = TaskPlan(task, {}, steps, [r for r in fbl if r is not None])
+    tp.phenomena, tp.probes, tp.schema = phen, probes, "v2"
+    return tp
+
+
+def _numbers(x, path):
+    """(path, value) of every JSON number (not bool) in x."""
+    if isinstance(x, bool):
+        return []
+    if isinstance(x, (int, float)):
+        return [(path, x)]
+    if isinstance(x, dict):
+        return [r for k, v in x.items() for r in _numbers(v, f"{path}.{k}")]
+    if isinstance(x, list):
+        return [r for i, v in enumerate(x) for r in _numbers(v, f"{path}[{i}]")]
+    return []
+
+
+def _st(v):
+    return v.strip() if isinstance(v, str) else v
+
+
+def _text_ok(v):
+    return isinstance(v, str) and bool(v.strip()) and len(v) <= MAX_WHY
+
+
+def _phenomena_probes(raw_ph, raw_pr, errs):
+    """validate the `phenomena` and `probes` sections -> (phenomena list of normalized dicts, probe skill ids)."""
+    from world_model.v2.stack.skills import catalog as CAT
+    phen, ids, names, measured = [], set(), set(), {}
+    if not isinstance(raw_ph, list):
+        errs.append("phenomena: must be a list")
+        raw_ph = []
+    for i, p in enumerate(raw_ph):
+        w = f"phenomena[{i}]"
+        pid = p.get("id") if isinstance(p, dict) else None
+        is_new = pid == CAT.NEW
+        if not _keys(p, ("id", "why", "handle") + (("name",) if is_new else ()), (), w, errs):
+            continue
+        if not is_new and not (isinstance(pid, str) and pid in CAT.PHENOMENA):
+            errs.append(f"{w}.id: unknown phenomenon {pid!r}; have {sorted(CAT.PHENOMENA)} or \"{CAT.NEW}\"")
+            continue
+        if not is_new and pid in ids:
+            errs.append(f"{w}.id: duplicate phenomenon {pid!r}")
+        if is_new:
+            if not _text_ok(p["name"]):
+                errs.append(f"{w}.name: must be a non-empty string of at most {MAX_WHY} characters")
+            elif str(_st(p["name"])).lower() in names:
+                errs.append(f"{w}.name: duplicate NEW phenomenon name {p['name']!r}")
+            else:
+                names.add(str(_st(p["name"])).lower())
+        ids.add(pid)
+        if not _text_ok(p["why"]):
+            errs.append(f"{w}.why: must be a non-empty string of at most {MAX_WHY} characters")
+        h = p["handle"]
+        if not _keys(h, (), ("measure", "unmeasurable"), f"{w}.handle", errs):
+            continue
+        if len(h) != 1:
+            errs.append(f"{w}.handle: must have exactly one of \"measure\" or \"unmeasurable\", got {sorted(h)}")
+            continue
+        if "unmeasurable" in h:
+            if not _text_ok(h["unmeasurable"]):
+                errs.append(f"{w}.handle.unmeasurable: must be a non-empty reason string of at most {MAX_WHY} characters")
+            phen.append(dict(id=pid, why=_st(p["why"]), handle=dict(unmeasurable=_st(h["unmeasurable"])), **({"name": _st(p["name"])} if is_new else {})))
+            continue
+        sk = h["measure"]
+        s = CAT.SKILLS.get(sk) if isinstance(sk, str) else None
+        if s is None:
+            errs.append(f"{w}.handle.measure: unknown skill {sk!r}; have the built skills {sorted(CAT.built())}")
+        elif s.status != "built":
+            errs.append(f"{w}.handle.measure: skill {sk!r} is not built (design only); have {sorted(CAT.built())}")
+        elif pid not in s.measures:
+            errs.append(f"{w}.handle.measure: skill {sk!r} does not measure {pid!r} (it measures {list(s.measures)})")
+        else:
+            measured.setdefault(sk, []).append(pid)
+        phen.append(dict(id=pid, why=_st(p["why"]), handle=dict(measure=sk), **({"name": _st(p["name"])} if is_new else {})))
+    probes = []
+    if not isinstance(raw_pr, list):
+        errs.append("probes: must be a list")
+        raw_pr = []
+    for i, q in enumerate(raw_pr):
+        w = f"probes[{i}]"
+        if not _keys(q, ("skill",), (), w, errs):
+            continue
+        sk = q["skill"]
+        if not (isinstance(sk, str) and sk in CAT.SKILLS and CAT.SKILLS[sk].status == "built"):
+            errs.append(f"{w}.skill: {sk!r} is not a built measuring skill; have {sorted(CAT.built())}")
+            continue
+        if sk in probes:
+            errs.append(f"{w}.skill: {sk!r} listed twice")
+            continue
+        probes.append(sk)
+        if sk not in measured:
+            errs.append(f"{w}.skill: {sk!r} is in probes but no phenomenon names it in handle.measure")
+    for sk, pids in measured.items():
+        if sk not in probes:
+            errs.append(f"probes: skill {sk!r} is the handle of {pids} but is not in probes")
+    if len(probes) == len(raw_pr):
+        errs += CAT.order_errors(probes)
+    return phen, probes
+
+
+def _plan_parts(d, task, supports, belief, with_covers, errs):
+    """steps / recoveries / fallback validation shared by both formats.  -> (steps, fallback recovery calls); appends to errs."""
     # steps
     steps, raw = [], d["steps"]
     if not isinstance(raw, list) or not raw:
@@ -296,7 +458,7 @@ def validate(d, task, supports=("counter", "shelf")):
                 errs.append(f"recoveries.{i}: motion step {i} ({s.call.skill}) needs at least one recovery")
                 continue
             for j, r in enumerate(lst):
-                s.recoveries.append(_recovery(r, f"recoveries.{i}[{j}]", belief, errs, with_covers=True))
+                s.recoveries.append(_recovery(r, f"recoveries.{i}[{j}]", belief, errs, with_covers=with_covers))
     # fallback
     fb, fbl = d["fallback"], []
     if not isinstance(fb, list) or not fb or len(fb) > 3:
@@ -304,9 +466,7 @@ def validate(d, task, supports=("counter", "shelf")):
     else:
         for j, r in enumerate(fb):
             fbl.append(_recovery(r, f"fallback[{j}]", belief, errs, with_covers=False))
-    if errs:
-        raise PlanRejected("schema", errs)
-    return TaskPlan(task, belief, steps, [r for r in fbl if r is not None])
+    return steps, fbl
 
 
 def _route_errors(route, what):
@@ -328,6 +488,9 @@ def _route_errors(route, what):
 
 
 def _recovery(r, what, belief, errs, with_covers):
+    if isinstance(r, dict) and "covers" in r and not with_covers:
+        errs.append(f"{what}.covers: not part of this format (no contents ranges from the model; the checker tries every recovery on the whole contents set)")
+        r = {k: v for k, v in r.items() if k != "covers"}
     if not _keys(r, ("skill", "args"), ("covers",) if with_covers else (), what, errs):
         return None
     if r["skill"] not in RECOVERY_SKILLS:

@@ -20,6 +20,15 @@ from world_model.v2.stack.proposer import schema as S
 EPS = (0.0498, 0.0774)               # eps_lo, eps_free (CALIB.json, MEASURED 11-03; fixed here so the test does not read /data)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _legacy_proposer_v1():
+    """these tests drive the v1 reply (belief, probe_in_B); the schema-v2 run path is build steps 6-7.  BIMANUAL_LEGACY_PROPOSER_V1=1 for the whole module (the cache fixture is module-scoped)."""
+    mp = pytest.MonkeyPatch()
+    mp.setenv("BIMANUAL_LEGACY_PROPOSER_V1", "1")
+    yield
+    mp.undo()
+
+
 @pytest.fixture(autouse=True)
 def _no_network(monkeypatch):
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")

@@ -84,6 +84,7 @@ class TaskDef:
     routes: tuple = ()                     # base routes as data: ((name, ((kind, arg), ...)), ...); kind "line" [m] or "turn" [deg]
     obj: str = ""                          # object name in the scene
     note: str = ""
+    phenomena: tuple = ()                  # PHI(task): the checker's own list of hidden-contents phenomena that must be measured or on an approved fallback (ids of skills/catalog.PHENOMENA)
 
     def U_dict(self):
         return dict(self.U)
@@ -200,6 +201,11 @@ _CT_TILT = ("obj_tilt_deg", ub(10.0, _ASM, f"{_CT_SRC}: tray_level, tilt < 10 de
 _CT_COMMON = dict(kind="coffee_tray", backend="embodichain", goal_frame="start", obj="tray")
 
 
+# PHI per kind (probe-selection build spec 2026-11-09 s.4, rulings 11-09 Q1 = option c): PH4 liquid slosh, PH5 hidden loose item, PH6 visible loose item are OUT OF SCOPE:
+# no built skill measures them and no row covers them, so they are kept OUT of PHI and stated as a limit in every result (catalog.OUT_OF_SCOPE).
+_PHI = {"box": ("PH1", "PH2", "PH3"), "tray": ("PH1", "PH2", "PH3", "PH7"), "pot": ("PH1", "PH2", "PH3", "PH8")}
+
+
 def _carry_task(name, kind, world_ref, spec_ref, goal_support, moves, shape, rows, n_cups=0, empty_mass=None, empty_com=None, prior=None, cups=False, lid=False,
                 obj="obj", geom_tags=()):
     gx, gy = {"tray": (-0.10, 0.0), "box": (-0.20, 0.0), "pot": (-0.10, 0.0)}[kind]    # ASSUMED (user-confirmed 11-02): goal xy of the object reference relative to its start
@@ -207,7 +213,7 @@ def _carry_task(name, kind, world_ref, spec_ref, goal_support, moves, shape, row
                    goal_support=goal_support, goal_dxy=(gx, gy),
                    goal_terms=(_XY, _Z, _TILT_G) + ((_CUP_TILT_G,) if cups else ()), shape=shape, geom_tags=geom_tags, empty_mass=empty_mass, empty_com=empty_com,
                    prior=prior, rows=rows, U=_u_carry(cups, lid), R=_r_carry(cups, lid), moves=moves, obj=obj,
-                   note=f"moves: {_PLANS_SRC}")
+                   note=f"moves: {_PLANS_SRC}", phenomena=_PHI[kind])
 
 
 _TRAY_GEOM = (("shape", "MODEL", "nero/contents/objects.py:100 TRAY lx, ly (from agentchord_probe/coffee_tray/build.py geometry; ly 0.33 after 11-02)"),
@@ -241,7 +247,8 @@ _T0_KNOWN = Bound(0.0, 0.0, "MODEL", "variant known: nothing in the tray besides
 def _tray0(name, goal_terms, note):
     t = _tray(0)
     return replace(t, name=name, goal_terms=goal_terms, prior=_T0_PRIOR, variant_priors=(("unknown", _T0_PRIOR), ("known", _T0_KNOWN)), empty_mass=0.312,
-                   rows=("torque_payload", "support_dest"), U=_u_carry(False, False), R=_r_carry(False, False), note=note)
+                   rows=("torque_payload", "support_dest"), U=_u_carry(False, False), R=_r_carry(False, False), note=note,
+                   phenomena=())                      # coffee tray: out of this build (spec s.4: runs only where the task exists in the NERO sim); PH6 capsule is out of scope
 
 
 TASKS: dict[str, TaskDef] = {t.name: t for t in (

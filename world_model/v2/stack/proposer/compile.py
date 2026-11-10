@@ -85,7 +85,7 @@ def compile_plan(plan, task, world=None, build=True, level=None):
         if plan.get("status") != "ok":
             raise S.PlanRejected(plan.get("stage", "schema"), plan.get("reasons", ["not an ok plan"]))
         spec0 = PR.task_spec(task, world)
-        tp = S.validate(dict(belief=plan["belief"], steps=plan["steps"], recoveries=plan["recoveries"], fallback=plan["fallback"]), task, tuple(spec0["supports"]))
+        tp = S.validate(S.reply_of(plan), task, tuple(spec0["supports"]))
         pid = plan.get("plan_id") or S.plan_id(tp.to_dict())
     else:
         tp, pid = plan, S.plan_id(plan.to_dict())
