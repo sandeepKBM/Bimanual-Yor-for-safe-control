@@ -1,7 +1,8 @@
 """nero/base/smoke.py -- smokes of the swerve base (SIMULATION ONLY, CPU).
 
   python -m world_model.v2.nero.base.smoke nl       # (a) no load: rest drift, turn 180 deg, drive 0.5 m
-  python -m world_model.v2.nero.base.smoke light|heavy [seed] [--level L1|L2|L3] [--g0 [--video out.mp4]]   # G0: loaded route R1 at a speed level + monitor
+  python -m world_model.v2.nero.base.smoke light|heavy [seed] [--task tray6|box] [--level L1|L2|L3] [--g0 [--video out.mp4]]   # G0: loaded route R1 + monitor
+      --task box = the crate of task box_behind (BoxWorld(shelf=False), stack/tasks.py); light = prior low end, heavy = heaviest of 40 e2e seeds
   python -m world_model.v2.nero.base.smoke loaded   # (b) tray6 welded, lifted 2 cm, base turns 180 deg  (+ (c) fixed-vs-floating hold comparison)
 """
 from __future__ import annotations
@@ -29,6 +30,17 @@ DT = 0.005
 # using them as a cap is our choice); L2 = ASSUMED midpoint.
 LEVELS = dict(L1=(0.25, 0.25, 0.5, 0.5), L2=(0.5, 0.5, 1.0, 1.0), L3=(1.0, 1.0, 1.57, 1.57))
 
+# G0 base U flags (USER 11-09 accepted the proposal "U flags for base tilt and unfinished route"):
+#   wheel_liftoff      MODEL: >= 2 wheels have no floor contact for LIFTOFF_STEPS consecutive steps: the base stands on <= 2 wheels, i.e. it pivots about a
+#                      support edge (tip onset).  One wheel off is NOT flagged: a rigid 4-wheel base on a plane often stands on 3 wheels (seen 11-09 at
+#                      0.01 deg base tilt).  The base angle is reported, not thresholded.
+#   base_world_contact MODEL: a base/torso geom (robot, not an arm) penetrates a world geom other than the floor
+#   load_world_contact MODEL: the carried object or a mug penetrates a world geom (after the lift, nothing may touch it during the route)
+#   route_unfinished   ASSUMED tolerance: base end pose after the last rest gap off the nominal end of the route by more than ROUTE_TOL_M / ROUTE_TOL_DEG
+LIFTOFF_STEPS = 10        # ASSUMED: 0.05 s debounce of single-step contact flicker
+ROUTE_TOL_M = 0.02        # ASSUMED m (raised to the user 11-09; the place step has no base-error correction yet)
+ROUTE_TOL_DEG = 2.0       # ASSUMED deg
+
 
 def level_limits(level="L1"):
     v, a, w, al = LEVELS[level]
@@ -54,9 +66,10 @@ def bad_contacts(m, d, ag, obj=None):
     return sorted(out)
 
 
-def make_ep(world, base="swerve", second_table=True):
+def make_ep(world, base="swerve", second_table=True, strict_claw=True):
+    """strict_claw=True (default since 11-09): the per-claw payload row |Fz| > (3 kg - gripper) g is in U, as in same_worlds (both methods)."""
     with BS.use_swerve_scene(second_table=second_table, base=base):
-        ep = CA.CarryEpisode(world)
+        ep = CA.CarryEpisode(world, strict_claw=strict_claw)
     ep.set_belief(float(ep.truth0["contents_mass"]))          # the payload feed-forward uses the TRUE contents mass (smoke of the base, not of the belief)
     return ep
 
@@ -145,6 +158,9 @@ class G0Monitor:
         self.load_g = {g for g in range(m.ngeom) if m.geom_bodyid[g] in self.load_b}
         self.world_g = {g for g in range(m.ngeom) if m.geom_bodyid[g] == 0}
         self.floor_g = {g for g in self.world_g if m.geom_type[g] == mujoco.mjtGeom.mjGEOM_PLANE}
+        self.wheel_g = {g: i for i, h in enumerate(sb.hub) for g in range(m.ngeom) if m.geom_bodyid[g] == h and (m.geom_contype[g] | m.geom_conaffinity[g])}
+        self.off_floor = np.zeros(4, int)                  # consecutive steps without floor contact, per wheel
+        self.flagged = set()                               # base U flags already emitted (one entry per kind)
         self.R0 = ep.d.xmat[self.base_id].reshape(3, 3).copy()
         self.on = False
         self.rows, self.phases, self.contact_events, self.viol_log = [], [], {}, []
@@ -174,6 +190,12 @@ class G0Monitor:
         ref = d.site_xpos[m.site("obj_ref").id]
         self.rel0 = [(d.xmat[ep.obj].reshape(3, 3).T @ (d.xpos[b] - ref)) for b in ep.cups]
 
+    def _flag(self, kind, t, **kw):
+        """a base U flag: emitted once per kind through ep._viol (so it is in U_first / U_all like every carry monitor)."""
+        if kind not in self.flagged:
+            self.flagged.add(kind)
+            self.ep._viol(kind, t, **kw)
+
     def _pid(self, name):
         return self._phase_ix.setdefault(name, len(self._phase_ix))
 
@@ -185,9 +207,9 @@ class G0Monitor:
         ref = d.site_xpos[m.site("obj_ref").id]
         Ro = d.xmat[ep.obj].reshape(3, 3)
         rel = [Ro.T @ (d.xpos[b] - ref) for b in ep.cups]
-        slide = [1e3 * float(np.linalg.norm((r - r0)[:2])) for r, r0 in zip(rel, self.rel0)]
+        slide = [1e3 * float(np.linalg.norm((r - r0)[:2])) for r, r0 in zip(rel, self.rel0)] or [0.0]
         off = sum(abs(r[0]) > self.world.tray_lx / 2 or abs(r[1]) > self.world.tray_ly / 2 or r[2] < -0.005 for r in rel)
-        cup_tilt = [CA._tilt_deg(d.xmat[b].reshape(3, 3)) for b in ep.cups]
+        cup_tilt = [CA._tilt_deg(d.xmat[b].reshape(3, 3)) for b in ep.cups] or [0.0]
         Fz = [abs(float(ep.claw_wrench(s)[0][2])) for s in C.SIDES]
         v = np.zeros(6)
         mujoco.mj_objectVelocity(m, d, mujoco.mjtObj.mjOBJ_BODY, ep.obj, v, 0)
@@ -201,10 +223,20 @@ class G0Monitor:
         if tr > self.tau_seen + 1e-12:
             self.tau_seen, self.tau_t, self.tau_ph = tr, t - self.t0, ph
         self.rows.append([t - self.t0, self._pid(ph), *pose, *self.sb._v, *v[3:], CA._tilt_deg(Ro), max(cup_tilt), max(slide), off, max(Fz), np.degrees(fwd), np.degrees(lat), np.degrees(np.arccos(np.clip(Rb[2, 2], -1, 1)))])
+        on_floor = np.zeros(4, bool)
         for c in d.contact[:d.ncon]:
+            g1, g2 = int(c.geom1), int(c.geom2)
+            for a, b in ((g1, g2), (g2, g1)):
+                if a in self.wheel_g and b in self.floor_g:
+                    on_floor[self.wheel_g[a]] = True
+            if c.dist < 0.0:
+                for a, b in ((g1, g2), (g2, g1)):
+                    if b in self.world_g and b not in self.floor_g and a in self.robot_g and a not in self.arm_g and a not in self.wheel_g:
+                        self._flag("base_world_contact", t, geom=m.geom(a).name or m.body(m.geom_bodyid[a]).name, world=m.geom(b).name)
+                    elif b in self.world_g and a in self.load_g:
+                        self._flag("load_world_contact", t, geom=m.geom(a).name or m.body(m.geom_bodyid[a]).name, world=m.geom(b).name)
             if c.dist > 1e-4:
                 continue
-            g1, g2 = int(c.geom1), int(c.geom2)
             for a, b in ((g1, g2), (g2, g1)):
                 if b in self.world_g and b not in self.floor_g:
                     kind = "tray_mug_world" if a in self.load_g else ("arm_world" if a in self.arm_g else ("base_world" if a in self.robot_g else None))
@@ -222,6 +254,11 @@ class G0Monitor:
                     ev["n"] += 1
                     ev["min_dist_mm"] = min(ev["min_dist_mm"], 1e3 * float(c.dist))
                 break
+        self.off_floor = np.where(on_floor, 0, self.off_floor + 1)
+        n_off = int((self.off_floor >= LIFTOFF_STEPS).sum())
+        self.max_off = max(getattr(self, "max_off", 0), n_off)
+        if n_off >= 2:
+            self._flag("wheel_liftoff", t, wheels_off=n_off, base_tilt_deg=float(self.rows[-1][-1]))
         if self.video and t - self.t0 >= self.next_frame_t:
             self.next_frame_t += 1.0 / 30.0
             self.rend.update_scene(d, self.cam)
@@ -338,7 +375,7 @@ def run_loaded(world, base="swerve", turn=True, T_lift=1.0, dz=0.02, level="L1",
     with the base still (base='fixed', or turn=False).  Returns the metrics of the post-lift window."""
     ep = make_ep(world, base=base)
     sb = SW.SwerveBase(ep.m, ep.d, level_limits(level)) if base == "swerve" else None
-    out = dict(F_cap=ep.F_cap, mass_total=ep.truth0["total_mass"], fills_kg=list(map(float, world.layout()[1])))
+    out = dict(F_cap=ep.F_cap, mass_total=ep.truth0["total_mass"], fills_kg=list(map(float, world.layout()[1])) if hasattr(world, "layout") else None, contents_kg=_contents_kg(world))
     if sb is not None:
         drv = _prep(ep, sb, True)
     ep.run_phases([("move", (0, 0, dz), T_lift), ("hold", 0.5)])
@@ -377,25 +414,45 @@ def run_loaded(world, base="swerve", turn=True, T_lift=1.0, dz=0.02, level="L1",
         pb = sb.pose()
         out["base_end_pose"] = pb.round(4).tolist(); out["base_start_pose"] = p0.round(4).tolist()
     rel = [d.xmat[ep.obj].reshape(3, 3).T @ (d.xpos[b] - d.site_xpos[m.site("obj_ref").id]) for b in ep.cups]
-    out["mugs_off_tray"] = int(sum(abs(r[0]) > world.tray_lx / 2 or abs(r[1]) > world.tray_ly / 2 or r[2] < -0.005 for r in rel))
+    out["mugs_off_tray"] = int(sum(abs(r[0]) > world.tray_lx / 2 or abs(r[1]) > world.tray_ly / 2 or r[2] < -0.005 for r in rel)) if ep.cups else None
     out["obj_end_xyz"] = d.xpos[ep.obj].round(4).tolist()
     if mon is not None:
         n = BS.RETREAT_M + BS.ADVANCE_M          # nominal end of R1: start + R(yaw0) [-(retreat+advance), 0], yaw0 + pi
         nom = np.array([p0[0] - n * np.cos(p0[2]), p0[1] - n * np.sin(p0[2]), p0[2] + np.pi])
         dyaw = (pb[2] - nom[2] + np.pi) % (2 * np.pi) - np.pi
-        out["g0"] = dict(level=level, route_end_err_mm=1e3 * float(np.linalg.norm(pb[:2] - nom[:2])), route_end_yaw_err_deg=float(np.degrees(dyaw)),
-                         U_first=tr["viol"], **mon.finalize(sb.lim, ep.F_cap, "ep.track tau_ratio = commanded joint torque / config.tau_limit() (100 Nm per joint, USER 11-05)"))
+        e_m, e_deg = float(np.linalg.norm(pb[:2] - nom[:2])), float(np.degrees(dyaw))
+        if e_m > ROUTE_TOL_M or abs(e_deg) > ROUTE_TOL_DEG:
+            mon._flag("route_unfinished", ep.k * DT, err_mm=1e3 * e_m, yaw_err_deg=e_deg, tol=f"{1e3 * ROUTE_TOL_M:.0f} mm / {ROUTE_TOL_DEG} deg ASSUMED")
+        out["g0"] = dict(level=level, route_end_err_mm=1e3 * e_m, route_end_yaw_err_deg=e_deg, strict_claw=ep.strict_claw,
+                         U_first=tr["viol"], U_base_flags=sorted(mon.flagged), wheels_off_max=getattr(mon, "max_off", 0), **mon.finalize(sb.lim, ep.F_cap, "ep.track tau_ratio = commanded joint torque / config.tau_limit() (100 Nm per joint, USER 11-05)"))
         if video:
             import imageio
             imageio.mimwrite(video, mon.frames, fps=30, macro_block_size=1)
     return out
 
 
-def heaviest_seed(n=40):
+def _contents_kg(w):
+    return float(sum(w.layout()[1])) if hasattr(w, "n_cups") else float(w.contents_kg)
+
+
+def task_world(task, seed=None):
+    """smoke world of a table-behind task: tray6 -> TrayWorld (6 mugs), box -> BoxWorld(shelf=False) (task box_behind: no wall shelf).
+    seed None = light (tray: default fills; box: the prior low end); else probe._world(task, seed) (the e2e world list)."""
+    from dataclasses import replace
+    if task == "tray6":
+        return SC.TrayWorld(n_cups=6) if seed is None else PR._world("tray6", seed)
+    if task == "box":
+        from ...stack import tasks as TK
+        w = SC.BoxWorld(shelf=False, contents_kg=TK.prior_box("box")[0]) if seed is None else PR._world("box", seed)
+        return replace(w, **dict(TK.task("box_behind").world_kw))
+    raise ValueError(task)
+
+
+def heaviest_seed(n=40, task="tray6"):
     best = (-1.0, None)
     for sd in range(n):
-        w = PR._world("tray6", sd)
-        f = float(sum(w.layout()[1]))
+        w = PR._world(task, sd)
+        f = _contents_kg(w)
         if f > best[0]:
             best = (f, sd)
     return best
@@ -415,6 +472,7 @@ def _opt(name, default=None):
 
 if __name__ == "__main__":
     LEVEL = _opt("--level", "L1")                      # {L1, L2, L3}; default L1 = today's limits
+    TASK = _opt("--task", "tray6")                     # tray6 | box
     assert LEVEL in LEVELS, LEVEL
     G0 = "--g0" in sys.argv
     if G0:
@@ -428,8 +486,5 @@ if __name__ == "__main__":
     elif which in ("light", "heavy", "heavy_still", "light_still", "heavy_fixed", "light_fixed"):
         kind = which.split("_")[0]
         mode = which.split("_")[1] if "_" in which else "turn"
-        if kind == "light":
-            w = SC.TrayWorld(n_cups=6)
-        else:
-            w = PR._world("tray6", int(sys.argv[2]) if len(sys.argv) > 2 else heaviest_seed()[1])
+        w = task_world(TASK, None if kind == "light" else (int(sys.argv[2]) if len(sys.argv) > 2 else heaviest_seed(task=TASK)[1]))
         print(json.dumps(run_loaded(w, base=("fixed" if mode == "fixed" else "swerve"), turn=(mode == "turn"), dz=DZ, level=LEVEL, g0=G0, video=VIDEO), indent=1, default=float))

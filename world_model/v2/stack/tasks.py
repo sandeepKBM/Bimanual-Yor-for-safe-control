@@ -58,6 +58,7 @@ class TaskDef:
     kind: str                              # "tray" | "box" | "pot" | "pan" | "coffee_tray"  (replaces plan_key / closed_chain.kind_of)
     backend: str                           # sim backend: "carry" | "pan" | "embodichain"
     world_ref: str = ""                    # "module:Class" of the carry world (lazy import via build_world)
+    world_kw: tuple = ()                   # ((field, value), ...) passed to the world class (box_behind: shelf=False)
     n_cups: int = 0                        # tray: number of mugs (visible, ASSUMED)
     spec_ref: str = ""                     # "module:callable" building the ObjectSpec (contents set) -- see checks/admit.spec_for
     start_support: str = ""
@@ -79,6 +80,8 @@ class TaskDef:
     reader: tuple = ()                     # ((name, Bound), ...) thresholds a state reader needs (adapters read them from here)
     moves: tuple = ()                      # scripted (legacy carry.PLANS) moves: ((segment, (dx, dy, dz)), ...)
     segments: tuple = ()                   # pan: segment names in order
+    base: str = ""                         # "" = fixed base (every task before 11-09); "swerve" = the base drives (nero/base: swerve wheels, two-table scene)
+    routes: tuple = ()                     # base routes as data: ((name, ((kind, arg), ...)), ...); kind "line" [m] or "turn" [deg]
     obj: str = ""                          # object name in the scene
     note: str = ""
 
@@ -272,8 +275,27 @@ TASKS: dict[str, TaskDef] = {t.name: t for t in (
             **_CT_COMMON),
 )}
 
-# goal xy offset by kind: the ONE copy (closed_chain.GOAL_DXY deleted 11-09)
-GOAL_DXY = {t.kind: t.goal_dxy for t in TASKS.values() if t.backend == "carry"}
+
+# ---- table-behind tasks (USER 11-09: the base moves the object to the table BEHIND the robot; box added 11-09 "go, recommendations accepted")
+# Scene: nero/base/scene.py (swerve base; counter2 = the 180-deg mirror of the counter about the mid-point of route R1 -> SAME height).
+# goal_dxy = scene.place_pose_xy(world) - world.obj_xy (MODEL; adapters/tests/test_tasks_match_nero.py recomputes it from the scene).
+_BEHIND_DXY = (-1.76, 0.0209)
+_R1 = ("R1", (("line", -0.50), ("turn", 180.0), ("line", 0.50)))      # ASSUMED (nero/base/scene.py RETREAT_M / ADVANCE_M, smoke route)
+_BEHIND_NOTE = "table-behind (docs/status/table_behind_design_2026-11-09.md); moves = none: the base route carries it, plans come from the planner"
+
+
+def _behind(t: TaskDef, name, note):
+    return replace(t, name=name, base="swerve", routes=(_R1,), goal_support="counter2", goal_dxy=_BEHIND_DXY, moves=(), note=f"{_BEHIND_NOTE}; {note}")
+
+
+TASKS.update({t.name: t for t in (
+    _behind(TASKS["tray6"], "tray6_behind", "tray of 6 mugs"),
+    _behind(replace(TASKS["box"], world_kw=(("shelf", False),)), "box_behind",
+            "crate; BoxWorld(shelf=False): no wall shelf, the goal is counter2 at counter height (USER 11-09)"),
+)})
+
+# goal xy offset by kind: the ONE copy (closed_chain.GOAL_DXY deleted 11-09).  Fixed-base tasks only (the table-behind rows have their own goal_dxy).
+GOAL_DXY = {t.kind: t.goal_dxy for t in TASKS.values() if t.backend == "carry" and not t.base}
 
 
 def task(name: str) -> TaskDef:

@@ -36,7 +36,18 @@ def test_plans_and_goal_dxy():
         t = TK.task(n)
         assert [(s, tuple(d)) for s, d in CR.plan_moves(t.kind if t.kind != "tray" else "tray")] == [(s, tuple(d)) for s, d in t.moves]
         assert not hasattr(CCP, "GOAL_DXY")                                           # deleted 11-09: stack/tasks.py is the one copy
-    assert TK.GOAL_DXY == {t.kind: t.goal_dxy for t in TK.TASKS.values() if t.backend == "carry"}
+    assert TK.GOAL_DXY == {t.kind: t.goal_dxy for t in TK.TASKS.values() if t.backend == "carry" and not t.base}
+
+
+def test_behind_goal_matches_scene():
+    from world_model.v2.nero.base import scene as BS
+    from world_model.v2.nero.contents import scenes as SC
+    for n, w in (("tray6_behind", SC.TrayWorld(n_cups=6)), ("box_behind", SC.BoxWorld(shelf=False))):
+        t = TK.task(n)
+        d = BS.place_pose_xy(w) - np.asarray(w.obj_xy)
+        assert t.base == "swerve" and t.goal_support == "counter2" and t.moves == ()
+        assert np.allclose(t.goal_dxy, d, atol=1e-4), (n, t.goal_dxy, d)
+        assert CS.build_world(n) == w                               # the builder makes the same world (box: no shelf)
 
 
 def test_prior_has_one_copy_and_matches_contents():

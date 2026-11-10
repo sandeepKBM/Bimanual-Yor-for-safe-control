@@ -21,7 +21,8 @@ def build_world(task: str):
     """the default world object of a carry task (the static admission's)."""
     t = TK.task(task)
     cls = resolve(t.world_ref)
-    return cls(n_cups=t.n_cups) if t.n_cups else cls()
+    kw = dict(t.world_kw)
+    return cls(n_cups=t.n_cups, **kw) if t.n_cups else cls(**kw)
 
 
 def empty_props(task: str):
