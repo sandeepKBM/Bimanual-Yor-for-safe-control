@@ -89,6 +89,12 @@ class BaseDriver:
             self.pf = SW.PathFollower(self.sb)
             (self.pf.drive_line if kind == "line" else self.pf.turn_in_place)(a)
 
+    def abort(self):
+        """drop the rest of the route; while still active, __call__ rate-limits the twist to 0 at the level's a / alpha (PathFollower._limit).
+        The next route references the actual heading (yaw_nom cleared), not the aborted segment's goal."""
+        self.queue, self.pf, self.last, self.gap_left, self._pend = [], None, None, 0.0, False
+        self.sb.yaw_nom = None
+
     def phase(self):
         if not self.active or self.seg_idx < 0:
             return "pre" if self.active else "post"
