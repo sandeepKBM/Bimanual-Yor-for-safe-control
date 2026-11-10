@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from world_model.v2.stack.checks import coverage as COV
 from world_model.v2.stack.checks import open_content as OCN
 from world_model.v2.stack.checks import payload as PAY
 from world_model.v2.stack.checks import support as SUP
@@ -68,7 +69,12 @@ def path_offsets(t: TaskDef, moves=None):
     return offs, per_seg
 
 
-def admit(t: TaskDef, spec, path: PathSamples, backend, support, a_nom: float = A_NOM) -> Admission:
+def admit(t: TaskDef, spec, path: PathSamples, backend, support, a_nom: float = A_NOM, coverage=None) -> Admission:
+    """coverage (11-09, probe-selection step 5): a checks.coverage.Coverage.  Given, an UNCOVERED phenomenon (enforce mode) refuses before any row ("refuse (uncovered)",
+    a missing `coverage` row); covered, the coverage row is listed with the others.  The caller builds `spec` on the coverage's Theta_t (coverage.contents_mass).
+    None (default) = the pre-11-09 behaviour, rows unchanged (golden)."""
+    if coverage is not None and coverage.refuses:
+        return refused_uncovered(t, spec, coverage)
     env = backend.make_envelope(spec, path.cap, path.offs)
     cont = spec.contents
     a_open = OCN.a_open_of(spec)
@@ -92,6 +98,8 @@ def admit(t: TaskDef, spec, path: PathSamples, backend, support, a_nom: float = 
     dest = np.asarray(backend.o_ref(), float)[:2] + np.asarray(path.disp, float)[:2]
     sup_row = SUP.support_row(t, dest, support[0], support[1], spec.empty_mass, spec.empty_com, cont)
     rows.append(sup_row)
+    if coverage is not None:
+        rows.append(COV.row(coverage))
     if action != "refuse" and not sup_row.ok:
         action, a_adm = "refuse (placement)", None
     seg_rows = _seg_rows(rows, list(path.per_seg), sup_row)
@@ -134,3 +142,11 @@ def refused(t: TaskDef, spec, why: str, planner: str = "closed_chain") -> Admiss
     r = missing("plan", why)
     return Admission(combine([r], "admit"), "refuse (unreachable)", None, float(OCN.a_open_of(spec)), float("inf"), float("inf"), [r],
                      contents_m=(float(cont.m_lo), float(cont.m_hi)), planner=planner, why=why)
+
+
+def refused_uncovered(t: TaskDef, spec, coverage) -> Admission:
+    """a phenomenon of PHI(task) is neither measured nor on an approved fallback (enforce mode): refuse; the coverage row is MISSING (never admits)."""
+    cont = spec.contents
+    r = COV.row(coverage)
+    return Admission(combine([r], "admit"), "refuse (uncovered)", None, float(OCN.a_open_of(spec)), float("inf"), float("inf"), [r],
+                     contents_m=(float(cont.m_lo), float(cont.m_hi)), planner="coverage", why=r.why)

@@ -26,6 +26,7 @@ from world_model.v2.stack.proposer import prompt as PR
 from world_model.v2.stack.proposer import schema as S
 
 DEFAULT_SPEC = LLM.DEFAULT                  # "codex:gpt-5.6-sol:high" (USER 11-05)
+MAX_IDENTICAL_REJECTED = 3                  # ASSUMED (11-09, not a re-ask cap): stop when the model returns the SAME rejected reply this many times (it ignores the feedback; a livelock, seen with a mock)
 MAX_NEW_TOKENS = 4096                       # part of the cache key; Codex ignores it (its own limits)
 
 
@@ -113,25 +114,68 @@ def propose(task, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache
     return _finish("plan", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]))
 
 
-def reask(task, plan, probe_set, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None):
-    """Rule 2: `plan` (a status-ok plan dict) was written for B; the probe set `probe_set` = {param: [lo, hi]} is not inside it.  Ask for a complete new plan that covers the
-    uncovered part.  The prompt carries the probe's numbers only.  -> (new plan dict, record); record["probe_set"], record["uncovered"] say what was asked."""
+def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None):
+    """Rule 2 re-ask.  `plan` = a status-ok plan dict.  Schema v2 (default): `evidence` = the dict of nero/contents/probe_select ({trigger T1|T2, readings, probes_skipped,
+    failing_rows, worst, ...}, prompt.reask_evidence_block); ask for a complete new plan; record["evidence"], record["trigger"] say what was asked.  BIMANUAL_LEGACY_PROPOSER_V1=1:
+    `evidence` = probe_set {param: [lo, hi]} that is not inside B (11-05 Rule 2); record["probe_set"], record["uncovered"].  -> (new plan dict, record)."""
     if plan.get("status") != "ok":
         raise ValueError("reask needs a plan that validated (status ok)")
     f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
     be = make_backend(backend_spec, cache_dir, offline)
-    user = PR.reask_prompt(task, plan, probe_set, f)
+    user = PR.reask_prompt(task, plan, evidence, f)
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
-    return _finish("reask", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]),
-                   dict(probe_set=probe_set, uncovered=PR.uncovered(plan["belief"], probe_set), previous_plan_id=plan.get("plan_id")))
+    extra = (dict(probe_set=evidence, uncovered=PR.uncovered(plan["belief"], evidence), previous_plan_id=plan.get("plan_id")) if S.legacy_v1()
+             else dict(trigger=evidence.get("trigger"), evidence=evidence, previous_plan_id=plan.get("plan_id")))
+    return _finish("reask", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]), extra)
 
 
-def reask_rejected(task, attempts, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None):
+def reask_rule2_until_accepted(task, plan, evidence, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None):
+    """Rule 2 re-ask (schema v2) whose new plan must also be ACCEPTED (validated + compiled by `check`, as propose_until_accepted): the first request is the Rule 2 prompt (plan +
+    evidence); every rejection of the new plan is fed back (rejection_prompt with the evidence block kept as its prefix) and the model is asked again, NO cap (user 11-09).
+    -> (plan, accepted, rec, info); info = dict(n_asks (Rule 2 request + rejection re-asks), attempts (every REJECTED attempt), proposer_error, wall_s).
+    A proposer ERROR (backend exception; ProposerCacheMiss re-raised) ends the loop: plan = plan_rejected stage "proposer", accepted None."""
+    t0 = time.time()
+    rejected, hist = [], []
+    f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
+    prefix = PR.reask_evidence_block(evidence)
+    n_asks = 0
+    while True:
+        n_asks += 1
+        try:
+            if not rejected:
+                new, rec = reask(task, plan, evidence, f, backend_spec, cache_dir, offline, image, world)
+            else:
+                new, rec = reask_rejected(task, rejected, f, backend_spec, cache_dir, offline, image, world, prefix=prefix)
+        except ProposerCacheMiss:
+            raise
+        except Exception as e:
+            err = f"{type(e).__name__}: {e}"
+            return (dict(status="plan_rejected", stage="proposer", reasons=[err], task=task), None, dict(kind="proposer_error", task=task, spec=backend_spec, status="plan_rejected",
+                    stage="proposer", reasons=[err]), dict(n_asks=n_asks, attempts=hist, proposer_error=err, wall_s=round(time.time() - t0, 2)))
+        accepted, rej = None, None
+        if new.get("status") != "ok":
+            rej = dict(stage=new.get("stage"), reasons=list(new.get("reasons") or []))
+        else:
+            try:
+                accepted = check(new)
+            except S.PlanRejected as e:
+                rej = dict(stage=e.stage, reasons=list(e.reasons))
+        if rej is None:
+            return new, accepted, rec, dict(n_asks=n_asks, attempts=hist, proposer_error=None, wall_s=round(time.time() - t0, 2))
+        hist.append(dict(attempt=n_asks, plan_id=new.get("plan_id"), request_hash=rec.get("request_hash"), **rej))
+        rejected.append(dict(plan=new, reply=rec.get("reply_text"), **rej))
+        if sum(r["reply"] == rec.get("reply_text") for r in rejected) >= MAX_IDENTICAL_REJECTED:
+            err = f"the model returned an identical rejected reply {MAX_IDENTICAL_REJECTED} times"
+            return (dict(status="plan_rejected", stage="proposer", reasons=[err], task=task), None, dict(kind="proposer_error", task=task, spec=backend_spec, status="plan_rejected",
+                    stage="proposer", reasons=[err]), dict(n_asks=n_asks, attempts=hist, proposer_error=err, wall_s=round(time.time() - t0, 2)))
+
+
+def reask_rejected(task, attempts, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, prefix=None):
     """Re-ask after a REJECTED plan (schema / compile / planner).  attempts = [{"plan", "reply", "stage", "reasons"}, ...] oldest first (prompt.rejection_prompt).
     The feedback text is part of the request, hence of the cache key: replays are deterministic and --offline works.  -> (plan dict, record)."""
     f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
     be = make_backend(backend_spec, cache_dir, offline)
-    user = PR.rejection_prompt(task, attempts, f)
+    user = PR.rejection_prompt(task, attempts, f, prefix=prefix)
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
     return _finish("reask_rejected", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]),
                    dict(previous_plan_id=(attempts[-1].get("plan") or {}).get("plan_id"), n_prior_rejections=len(attempts)))
@@ -173,6 +217,11 @@ def propose_until_accepted(task, check, scene_facts=None, image=None, backend_sp
             return plan, accepted, rec, info
         hist.append(dict(attempt=attempt, plan_id=plan.get("plan_id"), request_hash=rec.get("request_hash"), **rej))
         rejected.append(dict(plan=plan, reply=rec.get("reply_text"), **rej))
+        if sum(r["reply"] == rec.get("reply_text") for r in rejected) >= MAX_IDENTICAL_REJECTED:
+            err = f"the model returned an identical rejected reply {MAX_IDENTICAL_REJECTED} times"
+            plan = dict(status="plan_rejected", stage="proposer", reasons=[err], task=task)
+            info = dict(n_reasks=len(rejected), attempts=hist, accepted_plan_id=None, proposer_wall_s=round(time.time() - t0, 2), proposer_error=err, final="proposer_error")
+            return plan, None, dict(kind="proposer_error", task=task, spec=backend_spec, status="plan_rejected", stage="proposer", reasons=[err]), info
 
 
 def main(argv=None):

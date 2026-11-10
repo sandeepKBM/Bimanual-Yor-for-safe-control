@@ -82,6 +82,9 @@ def behind_job(args, method=None, adaptive=True):
     seed = None
     try:
         seed, w = SM.behind_world(task, i)
+        from world_model.v2.nero.contents import probe_select as PS
+        if PS.is_v2(plan):                                   # schema-v2 plan (11-09): the LLM's probes -> coverage -> Rule 1 + base level -> Rule 2 re-ask -> carry
+            return v2_job(task, i, seed, w, eps_lo, eps_free, plan, method, adaptive)
         wp0 = plan["wp"]
         ep = CR.CarryEpisode(w, m_hat=0.0, fric_comp=True, weld_solref=CC.WELD_STIFF, wp=wp0, base="swerve", goal_support=TK.task(task).goal_support)
         M = P.true_mass(ep)
@@ -156,6 +159,34 @@ def behind_job(args, method=None, adaptive=True):
                            route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_deg=[b.get("err_deg") for b in bl],
                            U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()])
         rec["first_U"] = _first_viol(ep, probe_viol)
+        rec["wall_s"] = round(time.time() - t0, 1)
+        return rec
+    except Exception as e:
+        import traceback
+        return dict(task=task, i=i, seed=seed, error=repr(e), tb=traceback.format_exc()[-1200:])
+
+
+def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True, make_skills=None):
+    """the schema-v2 per-world run for a table-behind task (probe_select.run_world with this module's static rows, base level pick and compile-at-level) + the base summary."""
+    from world_model.v2.nero.contents import probe_select as PS
+    bt = base_task(task)
+    t0 = time.time()
+    try:
+        wp0 = plan["wp"]
+        ep = CR.CarryEpisode(w, m_hat=0.0, fric_comp=True, weld_solref=CC.WELD_STIFF, wp=wp0, base="swerve", goal_support=TK.task(task).goal_support)
+        ctx = PS.Ctx(task=task, pt=bt, i=i, seed=seed, ep=ep, world=w, plan=plan, eps_lo=eps_lo, eps_free=eps_free,
+                     static=lambda lo, hi, wp: _static(task, lo, hi, w, wp), cmax=lambda wp: c_admit_max(task, wp),
+                     check=lambda pl: PC.compile_plan(pl, task, level="L1"), method=method, adaptive=adaptive, behind=True,
+                     level=lambda lo, hi: BE.pick_level(task, P.interval_spec(bt, lo, hi), LEVELS, SOURCE),
+                     at_level=lambda pd, lvl: PC.compile_plan(pd, task, build=False, level=lvl).wp, rows_json=_rows_json, make_skills=make_skills)
+        rec = PS.run_world(ctx)
+        rec["base_source"] = SOURCE
+        bl = getattr(ep, "base_log", [])
+        fl = set(ep.bmon.flagged)
+        rec["base"] = dict(level=rec["base_level"], n_base_edges=len(bl), n_aborted=sum(1 for b in bl if b.get("aborted")),
+                           route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_deg=[b.get("err_deg") for b in bl],
+                           U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()])
+        rec["first_U"] = _first_viol(ep, rec["probe_viol"])
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec
     except Exception as e:

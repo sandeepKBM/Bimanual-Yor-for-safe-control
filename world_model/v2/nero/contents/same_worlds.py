@@ -21,6 +21,11 @@ weld constraint wrench, unfiltered, every control step; no twist row).  Set in e
                         records it; the re-ask itself (stack/proposer/propose.reask) is NOT run inside the workers.
         --plan-spec     backend spec (default codex:gpt-5.6-sol:high; "mock:fixture" for dry runs), --plan-cache DIR (every request is stored there; REQUIRED),
         --offline       replay only: a cache miss raises, the network is never touched (without it a miss calls the live backend).
+  Schema v2 (11-09, default; probe-selection build spec): the proposer reply names PHENOMENA (catalog PH1..PH8 or NEW) with a handle each and the PROBES to run; no number about the
+                        contents.  Ours then runs per world nero/contents/probe_select.run_world: the LLM's probes -> coverage (checker's own PHI list) -> Rule 1 -> Rule 2 re-ask
+                        (T1 / T2 / T3, no cap on re-asks, plan["proposer"] carries spec / cache / offline into the workers) -> carry.  The records hold phenomena, handles, probes run /
+                        skipped, the coverage row, re-asks (count + reasons), T-events, the proposer record and the out-of-scope note (PH4 / PH5 / PH6).  BIMANUAL_LEGACY_PROPOSER_V1=1 replays v1.
+                        --plan-source fixture: fixed base = the fixed hand plan, no proposer (unchanged); table behind = the mock proposer's fixture plan (v2).
   --theirs agentchord   THEIRS = AgentChord's cached compiled graph via agentchord_probe.nero.execute.same_world_trial(task, i, plan_dir) (--agentchord-plan DIR);
                         default "ungated" = baseline_ungated._trial (the fixed plan, no checks).  THEIRS never runs the proposer plan.
 """
@@ -108,8 +113,10 @@ def _fixture_behind_plan(t):
     tp = PS.validate(d, t, tuple(PRM.task_spec(t)["supports"]))
     cp = PC.compile_plan(tp, t, level="L1")
     plan = dict(status="ok", plan_id=PS.plan_id(tp.to_dict()), **d)
-    item = dict(plan_source="fixture", plan_record=dict(kind="fixture", spec="mock:fixture", status="ok", n_reasks=0), plan_id=plan["plan_id"], plan=cp.job_plan("refuse"))
+    item = dict(plan_source="fixture", plan_record=dict(kind="fixture", spec="mock:fixture", model="mock-fixture", reasoning=None, status="ok", n_reasks=0,
+                                                       caveats="mock proposer (scripted reply, not a model)"), plan_id=plan["plan_id"], plan=cp.job_plan("refuse"))
     item["plan"]["plan_dict"] = plan
+    item["plan"]["proposer"] = dict(spec="mock:fixture", cache=None, offline=False)
     return item
 
 
@@ -145,6 +152,47 @@ def _reask_cell(rs):
     return "-" if not v else f"{sorted(v)[len(v) // 2]}/{max(v)}"
 
 
+def _refused_cell(ok):
+    """refused runs by reason (ours v2: rec["refused_by"] = static | coverage | base_level | compile | T3 | probe); '' when none refused."""
+    c = collections.Counter(r.get("refused_by") or "?" for r in ok if (r.get("result") or {}).get("refused") or str(r.get("outcome", "")).startswith("refused"))
+    return f" {dict(sorted(c.items()))}" if c else ""
+
+
+def _rule2_cell(ok):
+    """schema-v2 Rule 2 re-asks of the worlds' probe -> admit loop: (worlds with >= 1; total; T1/T2/T3 event counts); '-' when no v2 record."""
+    v = [r["v2"] for r in ok if r.get("v2")]
+    if not v:
+        return "-"
+    t = collections.Counter()
+    for x in v:
+        t.update(x.get("t_counts") or {})
+    return f"{sum(x['n_reasks'] > 0 for x in v)}/{len(v)}; {sum(x['n_reasks'] for x in v)}; {t.get('T1', 0)}/{t.get('T2', 0)}/{t.get('T3', 0)}"
+
+
+def _v2_lines(by):
+    """per (task, ours) detail of the schema-v2 records: what the model named, probes run / skipped, coverage, re-ask ends, proposer record, the out-of-scope note."""
+    out = []
+    for (task, method), rs in sorted(by.items()):
+        v = [r for r in rs if method == "ours" and r.get("v2")]
+        if not v:
+            continue
+        pr = v[0].get("plan_record") or {}
+        x0 = v[0]["v2"]
+        ran = collections.Counter(tuple(r["v2"]["probes_run"]) for r in v)
+        skp = collections.Counter(tuple(sorted({s["kind"] for s in r["v2"]["probes_skipped"]})) for r in v)
+        ends = collections.Counter(r["v2"].get("reask_end") for r in v if r["v2"]["n_reasks"])
+        cov = collections.Counter(tuple((q["phi"], q["status"]) for q in (r["v2"].get("coverage") or {}).get("rows", [])) for r in v)
+        out += [f"{task} (ours, schema v2, {len(v)} worlds): model {pr.get('model')} reasoning {pr.get('reasoning')} (spec {pr.get('spec')}); caveats: {pr.get('caveats')}",
+                f"  first plan {x0.get('first_plan_id')}; phenomena named + handles (world 0, final plan {x0.get('plan_id')}): {x0['handles']}; probes selected {x0['probes_selected']}",
+                f"  probes run (per world): {dict(ran) or '-'}; probes skipped / not needed: {dict(skp) or '-'}; coverage rows (phi, status): {dict(cov) or '-'}",
+                f"  Rule 2 re-asks per world: {sorted(r['v2']['n_reasks'] for r in v)}; how the re-ask loops ended: {dict(ends) or '-'}; T-events: "
+                f"{dict(sum((collections.Counter(r['v2'].get('t_counts') or {}) for r in v), collections.Counter()))}"]
+    if out:
+        from world_model.v2.stack.skills import catalog as CAT
+        out += ["", CAT.OUT_OF_SCOPE_NOTE]
+    return out
+
+
 def summary(out):
     out = pathlib.Path(out)
     rows = [json.loads(l) for l in open(out / "trials.jsonl")]
@@ -153,8 +201,8 @@ def summary(out):
         by[(r["task"], r["method"])].append(r)
     lines = ["# same worlds: ours (probe -> admit -> act) vs AgentChord-style (act)  -- machine-written by same_worlds.summary", "",
              "success = finished AND the task's goal terms (AgentChord's rule, USER 11-09, stack/tasks.py); safety is reported separately.  U includes the per-claw payload row (|Fz| > (3 kg - gripper) g, unfiltered). Worlds: probe e2e seeds, full prior.", "",
-             "| task | method | n | errors | success (finished AND goal) | safe_success (success AND no U) | unsafe (any U) | at rest in R | refused | U kinds (first per run) | truth in probe set | proposer re-asks p50/max |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "| task | method | n | errors | success (finished AND goal) | safe_success (success AND no U) | unsafe (any U) | at rest in R | refused (by reason) | U kinds (first per run) | truth in probe set | proposer plan re-asks p50/max | Rule 2 re-asks (worlds; total; T1/T2/T3) |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     n_rej = {k: sum(r.get("outcome") == "plan_rejected" for r in rs) for k, rs in by.items()}
     has_behind = any(TK.TASKS.get(t) is not None and TK.task(t).base for t, _ in by)
     if has_behind:                                       # table-behind rows: one more column (base level histogram: ours = the admission's pick, none = refused; theirs = the fixed cap)
@@ -166,12 +214,13 @@ def summary(out):
         t = OC.tally(ok)
         f = lambda k: f"{t[k]}" + (f" (+{t[k + '_unknown']} unknown)" if t.get(k + "_unknown") else "")
         sound = f"{sum(bool(r.get('theta_sound')) for r in ok)}/{len(ok)}" if method == "ours" else "-"
-        lines.append(f"| {task} | {method} | {len(rs)} | {len(rs) - len(ok)} | {f('success')} | {f('safe_success')} | {f('unsafe')} | {f('in_R')} | {t['refused']} "
-                     f"| {dict(kinds) or '-'} | {sound} | {_reask_cell(rs)} |"
+        lines.append(f"| {task} | {method} | {len(rs)} | {len(rs) - len(ok)} | {f('success')} | {f('safe_success')} | {f('unsafe')} | {f('in_R')} | {t['refused']}{_refused_cell(ok)} "
+                     f"| {dict(kinds) or '-'} | {sound} | {_reask_cell(rs)} | {_rule2_cell(ok) if method == 'ours' else '-'} |"
                      + (f" {dict(sorted(collections.Counter(str(r.get('base_level') or 'none') for r in ok if r.get('outcome') != 'plan_rejected').items())) or '-'} |"
                         if has_behind and TK.task(task).base else (" - |" if has_behind else "")))
     if any(n_rej.values()):                              # proposer plans that could not be used (never silently dropped)
         lines += ["", "Ours, proposer plan REJECTED (counted in n, not in carried / refused): " + ", ".join(f"{k[0]} {v}/{len(by[k])}" for k, v in sorted(n_rej.items()) if v)]
+    lines += [""] + _v2_lines(by) if _v2_lines(by) else []
     for (task, method), rs in sorted(by.items()):
         pb = [r for r in rs if r.get("probe_in_B")]
         if method == "ours" and pb:
@@ -195,14 +244,16 @@ def _proposer_plans(tasks, a, out):
         def _check(pl, t=t):                                                   # compile + build (planner); raises PS.PlanRejected -> the proposer is re-asked (USER 11-09, no cap)
             return PC.compile_plan(pl, t, level=("L1" if TK.task(t).base else None))      # behind: validated at L1 (the level does not enter the geometry); per world the admission's level is applied
         plan, cp, rec, info = PP.propose_until_accepted(t, _check, backend_spec=a.plan_spec, cache_dir=a.plan_cache, offline=a.offline)
-        small = {k: rec.get(k) for k in ("kind", "spec", "model", "reasoning", "backend", "request_hash", "raw_reply_path", "status", "stage", "reasons", "plan_id", "cached")}
+        small = {k: rec.get(k) for k in ("kind", "spec", "model", "reasoning", "backend", "caveats", "request_hash", "raw_reply_path", "status", "stage", "reasons", "plan_id", "cached")}
+        if plan.get("status") == "ok" and "phenomena" in plan:                 # schema v2: what the model named (recorded per task)
+            small.update(phenomena=plan["phenomena"], probes=plan["probes"])
         small.update(n_reasks=info["n_reasks"], reask_attempts=info["attempts"], proposer_wall_s=info["proposer_wall_s"], proposer_error=info["proposer_error"])
         item = dict(plan_source="codex", plan_record=small, plan_id=plan.get("plan_id"), n_reasks=info["n_reasks"])        # full record (caveats, prompt hash) in OUT/plans/<task>.json
         doc = dict(plan=plan, record=rec, reask=info)
         if cp is not None:
             item["plan"] = cp.job_plan(a.outside_b)
-            if TK.task(t).base:
-                item["plan"]["plan_dict"] = plan                               # recompiled per world at the admission's base level (behind_job)
+            item["plan"]["plan_dict"] = plan                                   # schema v2 (probe_select) and behind (recompiled per world at the admission's base level)
+            item["plan"]["proposer"] = dict(spec=a.plan_spec, cache=a.plan_cache, offline=bool(a.offline), reask_limit=getattr(a, "reask_limit", None))   # Rule 2 re-asks in the workers
             doc["compiled"] = cp.to_json()
         else:                                                                  # only a proposer ERROR leaves no accepted plan (info["proposer_error"])
             item["rejected"] = dict(status="plan_rejected", stage=plan.get("stage"), reasons=plan.get("reasons"))
@@ -230,6 +281,7 @@ def main(argv=None):
     ap.add_argument("--plan-spec", default="codex:gpt-5.6-sol:high", help="proposer backend spec (pan/llm.py), e.g. mock:fixture for a dry run")
     ap.add_argument("--plan-cache", help="proposer response cache dir (required with --plan-source codex)")
     ap.add_argument("--offline", action="store_true", help="proposer: replay from --plan-cache only; a miss fails loudly, the network is never called")
+    ap.add_argument("--reask-limit", type=int, default=None, help="schema v2 Rule 2: stop re-asking after this many per world (default: NO cap, ruling 11-09)")
     ap.add_argument("--outside-b", choices=("refuse", "carry"), default="refuse", help="probe set not inside the plan's belief B: refuse (default) or carry anyway (recorded)")
     ap.add_argument("--theirs", choices=("ungated", "agentchord"), default="ungated")
     ap.add_argument("--agentchord-plan", help="dir (or plan.json) of AgentChord's cached compiled graph, for --theirs agentchord; with several tasks a mapping "
@@ -272,7 +324,10 @@ def main(argv=None):
         plans = _proposer_plans(tasks, a, out)
         for t in tasks:
             ex[t]["ours"] = plans[t]
-        cfg.update(plan_source="codex", plan_spec=a.plan_spec, plan_cache=a.plan_cache, offline=a.offline, outside_b=a.outside_b,
+        from world_model.v2.stack.proposer import schema as PS0
+        from world_model.v2.stack.skills import catalog as CAT0
+        cfg.update(plan_source="codex", plan_spec=a.plan_spec, plan_cache=a.plan_cache, offline=a.offline, outside_b=a.outside_b, proposer_schema="v1" if PS0.legacy_v1() else "v2",
+                   reask_limit=a.reask_limit, rule2="T1/T2/T3, no cap on re-asks (ruling 11-09); fixed-point stop", out_of_scope=CAT0.OUT_OF_SCOPE_NOTE,
                    plans={t: dict(status=plans[t]["plan_record"]["status"], plan_id=plans[t].get("plan_id"), rejected=plans[t].get("rejected")) for t in tasks})
     for t in tasks:
         if TK.task(t).base and not ex[t]["ours"]:          # table-behind, plan source "fixture": the mock proposer's fixture plan (stack/proposer/mock.fixture_plan)

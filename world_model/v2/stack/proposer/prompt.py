@@ -221,11 +221,20 @@ def uncovered(belief, probe_set):
     return out
 
 
-def reask_prompt(task, plan_dict, probe_set, facts=None, world=None):
-    """Rule 2: the probe set is not inside B.  Tell the model the numbers (a measurement the robot made; no hidden truth) and ask for a complete new plan whose belief and
-    recoveries cover the uncovered part.  probe_set = {param: [lo, hi]} of the probed parameter(s)."""
+def reask_prompt(task, plan_dict, evidence, facts=None, world=None):
+    """Rule 2 re-ask.  Schema v2 (default): `evidence` = the dict nero/contents/probe_select builds ({trigger: "T1"|"T2", readings, probes_skipped, failing_rows, worst,
+    phenomena_shown, coverage}); see reask_evidence_block.  BIMANUAL_LEGACY_PROPOSER_V1=1: the v1 prompt, `evidence` = probe_set {param: [lo, hi]} of the probed parameter(s)
+    (Rule 2 as of 11-05: the probe set is not inside B)."""
     if not S.legacy_v1():
-        raise NotImplementedError("the schema-v2 re-ask prompt (readings + failing rows) is build step 6; BIMANUAL_LEGACY_PROPOSER_V1=1 keeps the v1 re-ask")
+        f = facts if facts is not None else scene_facts(task, world)
+        return (f"TASK_ID: {task}\n"
+                f"TASK: {f['task']['instruction']}\n\n"
+                f"SCENE FACTS (JSON):\n{json.dumps(f, sort_keys=True)}\n\n"
+                "YOUR PREVIOUS PLAN (JSON):\n" + json.dumps(S.reply_of(plan_dict), sort_keys=True) + "\n\n"
+                + reask_evidence_block(evidence) + "\n"
+                "Return a COMPLETE new plan in the same JSON format (phenomena, probes, steps, recoveries, fallback). Name the phenomena and the probes again; "
+                "change the steps and recoveries to what the evidence above requires. Return the JSON object now.")
+    probe_set = evidence
     f = facts if facts is not None else scene_facts(task, world)
     unc = uncovered(plan_dict["belief"], probe_set)
     return (f"TASK_ID: {task}\n"
@@ -240,14 +249,42 @@ def reask_prompt(task, plan_dict, probe_set, facts=None, world=None):
             "Return the JSON object now.")
 
 
-def rejection_prompt(task, attempts, facts=None, world=None):
+REASK_MARK = "RULE 2 RE-ASK"          # the mock proposer keys on it (mock.py)
+
+
+def reask_evidence_block(ev):
+    """the schema-v2 Rule 2 evidence as prompt text (T1: a reading showed a phenomenon the plan did not name; T2: no recovery of the plan is viable on the current set).  Only what
+    the robot measured and the checker computed: readings (sound intervals), the probes the checker skipped (with the failing own-limit rows), the failing admission rows, the worst
+    vertex of the binding row.  No hidden truth, no world seed."""
+    trig = ev.get("trigger", "T2")
+    head = {"T1": f"{REASK_MARK} (T1): a probe reading shows a phenomenon your plan did not name.",
+            "T2": f"{REASK_MARK} (T2): no recovery of your plan is viable on the parameter set the probes left (the checker refuses the plan on it)."}[trig]
+    parts = [head]
+    parts.append("READINGS (the robot's measurements; treat as correct; a one-sided reading has hi = null, i.e. only a lower bound was read):\n"
+                 + json.dumps(ev.get("readings", []), sort_keys=True))
+    if ev.get("probes_skipped"):
+        parts.append("PROBES THE CHECKER DID NOT RUN (probe, why, failing limit rows):\n" + json.dumps(ev["probes_skipped"], sort_keys=True))
+    if ev.get("phenomena_shown"):
+        parts.append("PHENOMENA SHOWN BY A READING AND NOT NAMED IN YOUR PLAN:\n" + json.dumps(ev["phenomena_shown"], sort_keys=True))
+    if ev.get("failing_rows"):
+        parts.append("FAILING CHECKER ROWS ON THE CURRENT SET:\n" + json.dumps(ev["failing_rows"], sort_keys=True))
+    if ev.get("worst"):
+        parts.append("WORST VERTEX OF THE BINDING ROW (contents mass m [kg], contents COM c [m], waypoint wp):\n" + json.dumps(ev["worst"], sort_keys=True))
+    if ev.get("coverage"):
+        parts.append("COVERAGE (the checker's own phenomenon list: measured, on an approved fallback, or uncovered):\n" + json.dumps(ev["coverage"], sort_keys=True))
+    return "\n\n".join(parts) + "\n"
+
+
+def rejection_prompt(task, attempts, facts=None, world=None, prefix=None):
     """Rule 2 re-ask after a REJECTED plan (user 11-09: no cap on re-asks).  attempts = [{"plan": <validated plan dict or None>, "reply": <raw reply text>, "stage", "reasons"}, ...]
     oldest first.  The prompt = the original prompt + every rejected plan with the checker's structured rejection.  Only what the checker said: no truth, no world seed."""
     f = facts if facts is not None else scene_facts(task, world)
     parts = [user_prompt(task, f).rsplit("\n\nReturn the JSON object now.", 1)[0], ""]
+    if prefix:                                               # a Rule 2 re-ask whose new plan was rejected: the evidence block stays in the request (it is part of the cache key)
+        parts += [prefix, ""]
     for i, at in enumerate(attempts, 1):
         pl = at.get("plan")
-        body = (json.dumps({k: pl[k] for k in S.reply_keys() if k in pl}, sort_keys=True)
+        body = (json.dumps(S.reply_of(pl), sort_keys=True)
                 if pl and pl.get("status") == "ok" else "(the reply did not parse or validate; raw reply follows)\n" + str(at.get("reply") or ""))
         parts += [f"REJECTED PLAN {i} (JSON):", body,
                   f"REJECTION {i}: stage={at['stage']}; reasons: " + json.dumps(list(at["reasons"])), ""]

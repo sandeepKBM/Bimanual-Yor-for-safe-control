@@ -285,6 +285,9 @@ def probe_in_belief(task, belief, c_lo, c_hi, tol=1e-9):
     Theta_0.  The reply is never repaired: B is kept as written and the check uses B_eff = B intersected with Theta_0 (the prior box of the
     probed parameter, ASSUMED: probe.prior_contents minus the probe offset).  covers_prior = B_eff is all of Theta_0: then no sound probe set
     can fall outside B and Rule 2 cannot trigger; reports must say so instead of counting `inside`.  B disjoint from Theta_0 -> inside False."""
+    if not S.legacy_v1():
+        raise RuntimeError("probe_in_belief is the v1 Rule 2 (numeric belief); retired from the schema-v2 path (11-09): see nero/contents/probe_select.py (T1/T2/T3). "
+                           "BIMANUAL_LEGACY_PROPOSER_V1=1 keeps it.")
     from world_model.v2.nero.contents import probe as PR
     name, off = S.probe_offset(task)
     lo, hi = float(c_lo) - off, float(c_hi) - off

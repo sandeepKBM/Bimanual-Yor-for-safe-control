@@ -57,7 +57,10 @@ def reply_keys():
 
 def reply_of(plan):
     """the reply-format part of a plan dict (propose() output): only the keys of the current format."""
-    return {k: plan[k] for k in reply_keys() if k in plan}
+    d = {k: plan[k] for k in reply_keys() if k in plan}
+    if isinstance(d.get("probes"), list):                     # a plan dict (TaskPlan.to_dict) lists probe skill ids; the reply format is [{"skill": id}] (11-09: the round trip was missing)
+        d["probes"] = [{"skill": q} if isinstance(q, str) else q for q in d["probes"]]
+    return d
 
 
 TASKS = ("box", "tray2", "tray4", "tray6", "pot", "tray6_behind", "box_behind")

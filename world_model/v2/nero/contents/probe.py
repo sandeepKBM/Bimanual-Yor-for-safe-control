@@ -585,9 +585,13 @@ def calibrate_summary(rows):
 def _e2e_job(args, method=None, adaptive=True):
     """args = (task, i, eps_lo, eps_free[, plan]).  plan (11-05, same_worlds --plan-source codex): dict(wp = closed_chain.WaypointPlan, fallback = tuple of recovery
     skills, belief = {param: [lo, hi]} | None, outside_b = "refuse" | "carry"): the proposer's compiled plan replaces the default one in the static admission, the
-    carry (its segments and recoveries) and the refuse path (its fallback).  Without it: unchanged.  method: probe method (None -> PROBE_METHOD)."""
+    carry (its segments and recoveries) and the refuse path (its fallback).  Without it: unchanged.  method: probe method (None -> PROBE_METHOD).
+    A schema-v2 plan (plan["plan_dict"] with phenomena + probes) runs probe_select.fixed_job instead; a v1 plan (numeric belief, BIMANUAL_LEGACY_PROPOSER_V1=1) runs the code below."""
     task, i, eps_lo, eps_free, *rest = args
     plan = rest[0] if rest else None
+    from . import probe_select as PS
+    if PS.is_v2(plan):                                       # schema-v2 plan (11-09): the LLM's probes -> coverage -> Rule 1 -> Rule 2 re-ask -> carry (probe_select.run_world)
+        return PS.fixed_job((task, i, eps_lo, eps_free, plan), method=method, adaptive=adaptive)
     wp = plan["wp"] if plan else None
     seed = _seed("e2e", task, i)
     t0 = time.time()

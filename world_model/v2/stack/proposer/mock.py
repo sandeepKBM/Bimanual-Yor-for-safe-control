@@ -11,8 +11,10 @@ spec "mock:<kind>":
   wrong_skill    the fixture plan that claims `weigh` measures PH2 (a skill that does not measure it)
   new_phenomenon the fixture plan plus a phenomenon "NEW" (named, unmeasurable)
   numeric        the fixture plan plus a numeric contents belief and a `covers` range (v1 fields): rejected in v2
+  t2_reask       first reply = the omit_ph1 plan (no probe, PH1 on its fallback: the checker refuses it on the whole prior -> Rule 2 T2); the Rule 2 re-ask ("RULE 2 RE-ASK") is
+                 answered with the fixture plan (PH1 -> weigh), which the checker then admits or refuses on the weigh's reading
 fixture / narrow follow the format of the mode (narrow is always the v1 belief reply).
-A re-ask prompt ("NEW MEASUREMENT") is answered with the fixture plan whose belief is the sanity ranges.
+A v1 re-ask prompt ("NEW MEASUREMENT") is answered with the fixture plan whose belief is the sanity ranges; a v2 Rule 2 re-ask ("RULE 2 RE-ASK") with the fixture v2 plan.
 """
 from __future__ import annotations
 
@@ -22,7 +24,7 @@ import re
 from world_model.v2.house.lang.backend import Backend
 from world_model.v2.stack.proposer import schema as S
 
-KINDS = ("fixture", "malformed", "unknown_skill", "narrow", "omit_ph1", "wrong_skill", "new_phenomenon", "numeric")
+KINDS = ("fixture", "malformed", "unknown_skill", "narrow", "omit_ph1", "wrong_skill", "new_phenomenon", "numeric", "t2_reask")
 
 
 def _motion(task):
@@ -108,8 +110,10 @@ class MockProposer(Backend):
         self.calls += 1
         m = re.search(r"TASK_ID: (\w+)", text)
         task = m.group(1)
-        if "NEW MEASUREMENT" in text:
+        if "NEW MEASUREMENT" in text or "RULE 2 RE-ASK" in text:
             reply = json.dumps(fixture_plan(task))
+        elif self.kind == "t2_reask":
+            reply = json.dumps(fixture_plan_v2(task, "omit_ph1"))
         elif self.kind == "malformed":
             reply = "Sure, here is my plan: {\"belief\": {\"contents_kg\": [0, 5]}, \"steps\": [ lift the thing"
         elif self.kind in ("omit_ph1", "wrong_skill", "new_phenomenon", "numeric"):

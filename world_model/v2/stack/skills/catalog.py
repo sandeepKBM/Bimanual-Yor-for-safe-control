@@ -210,6 +210,15 @@ def cards(task):
                 skills=[dict(s.card) for _, s in sorted(built().items())])
 
 
+# ----------------------------------------------------------------------------------------------------------------------- coverage (checks/coverage.py is pure: it gets the catalog's data here)
+def coverage(task, run=None, theta0=None, phi_override=None, fallbacks=None, mode="enforce", named=None, new_names=None):
+    """checks.coverage.check on PHI(task) (override: tests) with this catalog's fallbacks (override {phi: Fallback}) and built skills."""
+    from world_model.v2.stack.checks import coverage as COV
+    fb = (lambda p: fallbacks.get(p)) if fallbacks is not None else (lambda p: fallback(task, p))
+    return COV.check(task, run, theta0, phi=phi(task) if phi_override is None else tuple(phi_override), fallback=fb,
+                     measures=lambda p: next((s for s, e in built().items() if p in e.measures), "-"), mode=mode, named=named, new_names=new_names, out_of_scope=OUT_OF_SCOPE_NOTE)
+
+
 # ----------------------------------------------------------------------------------------------------------------------- audit helpers (tests)
 def all_bounds():
     """(owner, Bound) for every number in the catalog."""

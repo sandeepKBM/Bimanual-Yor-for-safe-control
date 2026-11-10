@@ -262,7 +262,7 @@ def test_v2_fixture_validates(task):
     assert [p["id"] for p in tp.phenomena if "measure" in p["handle"]] == ["PH1"]
     td = tp.to_dict()
     assert set(td) == {"status", "task", "phenomena", "probes", "steps", "recoveries", "fallback"}
-    assert S.reply_of(dict(td, plan_id="x")) == {k: td[k] for k in S.V2_KEYS}
+    assert S.reply_of(dict(td, plan_id="x")) == dict({k: td[k] for k in S.V2_KEYS}, probes=[{"skill": q} for q in td["probes"]])      # reply format: probes are objects (round trip fixed 11-09)
     skills = [s.call.skill for s in tp.steps]
     assert skills == (["lift", "base_move", "place", "release"] if task in BEHIND else ["lift", "move", "place", "release"])
 
@@ -348,10 +348,9 @@ def test_v2_behind_prompt_keeps_base_move_and_scene_facts():
     assert "base_move" not in json.dumps(PR.scene_facts("tray6")["vocabulary"])
 
 
-def test_v2_reask_prompt_is_not_built_yet_and_rejection_prompt_uses_v2_keys(tmp_path):
+def test_v2_reask_prompt_is_built_and_rejection_prompt_uses_v2_keys(tmp_path):
     plan, _ = PP.propose("box", backend_spec="mock:fixture", cache_dir=tmp_path / "c")
-    with pytest.raises(NotImplementedError):
-        PR.reask_prompt("box", plan, {"contents_kg": [1, 2]})
+    assert PR.REASK_MARK in PR.reask_prompt("box", plan, dict(trigger="T2", readings=[]))          # build step 6 (11-09); full tests in test_coverage.py
     txt = PR.rejection_prompt("box", [dict(plan=plan, reply="r", stage="planner", reasons=["x"])])
     assert '"phenomena"' in txt and '"belief"' not in txt and "REJECTION 1: stage=planner" in txt
 
