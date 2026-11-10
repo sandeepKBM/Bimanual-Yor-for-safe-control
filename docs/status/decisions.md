@@ -9,6 +9,8 @@ Earlier rulings (before 10-15) are history in `docs/design/MASTER.md`.
 
 | Since | Question | Where |
 |---|---|---|
+| 11-09 | Base-move ASSUMED values (0021839, 53a0cc5): sweep sampling 1 cm / 2 deg; base_move ranges <= 4 segments, abs(line) <= 1.0 m, abs(turn) <= 180 deg; sweep tracking margin 0 mm (no MEASURED base path error); default level L1 when no level is given; rest gap 0.5 s per segment + 0.5 s settle; load may touch only counter/counter2 while the base stands and nothing while it moves. | `stack/planners/base_route.py`, `adapters/base_sweep.py`, `nero/base/drive.py`, `nero/contents/carry.py` |
+| 11-09 | A set_down recovery on a move AFTER the base move retraces only to the start of the post-base moves and lets go there (object not back on counter 1); no base retrace exists. Accept as the semantics, or have the checker refuse such recoveries? | `stack/planners/closed_chain.py` (53a0cc5) |
 | 11-09 | Table-behind ASSUMED values: speed levels L1-L3 (`nero/base/smoke.LEVELS`), route R1 (0.5 m back, turn 180 deg, 0.5 m forward), route-finished tolerance 20 mm / 2 deg, wheel lift-off debounce 0.05 s. | `nero/base/smoke.py`, `stack/tasks.py` `_R1` |
 | 11-09 | Swerve controller ASSUMED gains (2a57b8f): wheel friction 0.8 (torque cap), wheel integral 30/s clamp 6 rad/s leak 3/s, steer gate 0.3/0.9 rad floor 0.05, soft stop 0.15 s, steer rate 4 rad/s, follower kp 1/s. | `nero/base/swerve.py` `Limits` |
 | 11-09 | Base tip row: admission picks the highest level whose tip row passes, on the MEASURED base card (max over n = 4 runs per level, in-sample; guarantee sampled). The command caps are contradicted by the card (achieved > command) and are reported only. | `stack/checks/base_tip.py`, `adapters/base_tip_model.py`, design §3e |
