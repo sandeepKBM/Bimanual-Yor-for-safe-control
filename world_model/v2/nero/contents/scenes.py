@@ -12,7 +12,10 @@ Hidden contents:
     The fill is a solid cylinder resting on the mug's inner bottom: right total mass and COM.  LIQUID SLOSH IS NOT MODELLED
     (the fill is rigid and rides with the mug); a mug is a solid cylinder (its COM sits at H/2, no hollow).
   * box: free body `contents` (box of half size contents_half) on the box floor.
-object_truth() convention: "empty object" = tray alone / box shell; "contents" = mugs (incl. their fills) / the block.
+  * pot (11-05): the covered pot of pan/covered.py (PLA pot body `obj` with two side handles, handle_len 0.11 m ASSUMED, as the `obj` body so the tab
+    grasp points / hold pose are reused), a LOOSE LID (free body `lid`, same geometry as covered.py, friction x lid_mu_scale) and ONE hidden puck
+    (free body `contents`).  Solid contents: no spill row.
+object_truth() convention: "empty object" = tray alone / box shell / pot + lid; "contents" = mugs (incl. their fills) / the block / the puck.
 Labels per AGENTS.md: MEASURED (source), MODEL (derived), ASSUMED (a number we chose).
 """
 from __future__ import annotations
@@ -25,6 +28,7 @@ import mujoco
 from .. import config as C
 from .. import build_variant as BV
 from ..pan import scene as PS
+from ..pan import covered as CV
 from .objects import TRAY, CUP
 
 G = 9.81
@@ -60,6 +64,11 @@ class Common:
     @property
     def counter_top(self):
         return self.counter_centre[2] + self.counter_half[2]
+
+    @property
+    def counter2_top(self):
+        """table-behind scene (nero/base/scene.build_spec): counter2 = the point mirror of the counter, same height. MODEL."""
+        return self.counter_top
 
 
 @dataclass
@@ -112,6 +121,88 @@ class BoxWorld(Common):
     shelf_top: float = 0.97           # ASSUMED (11-02: counter top + 0.15; a 20 cm lift misses the right arm by 18 mm, 18 cm reaches)
     shelf_t: float = 0.02             # ASSUMED
     shelf_mu: float = 0.6             # ASSUMED
+
+
+POT_HANDLE_LEN = 0.11   # ASSUMED m: stack/universes/pot.py NOMINAL (the THETA box has 0.09..0.13; 0.12-0.13 has no passing right pre-grasp with the NYU gripper, 11-04)
+
+
+@dataclass
+class PotWorld(Common):
+    """covered pot (pan/covered.py geometry) with two side handles, a loose lid and one hidden puck.  Frames: obj frame = pan body frame (origin = centre
+    of the underside, axes = world axes at the start, handle 1 along +y = left arm)."""
+    handle_len: float = POT_HANDLE_LEN        # ASSUMED (see POT_HANDLE_LEN); fixed, not sampled
+    puck_kg: float = CV.ASSUMED_COVERED["hidden_mass"]   # ASSUMED (covered.py default 0.20 kg); the cert samples THETA "mass" 0.02..1.5 (ASSUMED)
+    puck_uw: tuple = (0.0, 0.0)               # puck centre (u, w) in the PAN frame [m] (u along handle 1 = +y, w = z x u = -x); MODEL box: C_R = 0.06 disc
+    lid: bool = True
+    lid_mu_scale: float = 1.0                 # THETA "lid_mu_scale" 0.5..1.0 (ASSUMED, wet lid) x the pot friction (pan_mu 0.6, ASSUMED)
+    mu_scale: float = 1.0                     # THETA "mu_scale" 0.4..1.2 (ASSUMED): scales the friction of pot, lid, puck and counter
+
+    @property
+    def contents_xy(self):
+        u, w = self.puck_uw
+        return (-float(w), float(u))          # obj frame (x, y): u -> +y, w -> -x
+
+    def pan_params(self):
+        return PS.PanParams(handle_len=self.handle_len, handle2_len=self.handle_len, food_n=0, with_spatula=False, with_plate=False)
+
+
+def _vol(g_type, size):
+    if g_type == mujoco.mjtGeom.mjGEOM_BOX:
+        return 8.0 * float(np.prod(size[:3]))
+    return float(np.pi * size[0] ** 2 * 2.0 * size[1])      # cylinder: size = [r, half height, 0]
+
+
+def pot_parts(world):
+    """(pot geoms, lid geoms): lists of dict(name, type, size, pos [obj frame], quat, density).  The lid origin sits on the rim (z_lid)."""
+    p = world.pan_params()
+    a = CV.ASSUMED_COVERED
+    geoms, _ = PS._pan_local(p)
+    pot = [dict(g, density=p.pla_density) for g in geoms]
+    lid = []
+    if world.lid:
+        R, t = p.pan_radius, p.pan_wall_t
+        z_lid = p.pan_bottom_t + p.pan_wall_h + a["lid_t"] / 2 + 1e-4
+        lid.append(dict(name="lid_disk", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[R + t, a["lid_t"] / 2, 0], pos=[0, 0, 0], quat=[1, 0, 0, 0],
+                        density=p.pla_density))
+        tx, ty, th = a["lid_tab"]
+        for i in range(4):
+            ang = np.pi / 4 + i * np.pi / 2
+            c = np.array([np.cos(ang), np.sin(ang)]) * (R - tx - 0.001)
+            q = np.zeros(4); mujoco.mju_axisAngle2Quat(q, [0, 0, 1], ang)
+            lid.append(dict(name=f"lid_tab{i}", type=mujoco.mjtGeom.mjGEOM_BOX, size=[tx, ty, th / 2], pos=[c[0], c[1], -a["lid_t"] / 2 - th / 2], quat=q,
+                            density=p.pla_density))
+        kr, kh = a["lid_knob"]
+        lid.append(dict(name="lid_knob", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[kr, kh / 2, 0], pos=[0, 0, a["lid_t"] / 2 + kh / 2], quat=[1, 0, 0, 0],
+                        density=p.pla_density))
+        for g in lid:
+            g["z_lid"] = z_lid
+    return pot, lid
+
+
+def pot_empty_props(world=None):
+    """MODEL: mass [kg] and COM (obj frame [m]) of pot + lid without the puck, from geom volume x density (the same geoms the scene is built from)."""
+    world = world or PotWorld()
+    pot, lid = pot_parts(world)
+    ms, cs = [], []
+    for g in pot:
+        ms.append(g["density"] * _vol(g["type"], g["size"])); cs.append(np.asarray(g["pos"], float))
+    for g in lid:
+        ms.append(g["density"] * _vol(g["type"], g["size"])); cs.append(np.asarray(g["pos"], float) + np.array([0, 0, g["z_lid"]]))
+    ms = np.array(ms)
+    return float(ms.sum()), (ms[:, None] * np.array(cs)).sum(0) / ms.sum()
+
+
+POT_CONTENTS_KG = (0.02, 1.5)   # ASSUMED: pan/theta.py THETA "mass" (0.02 = an almost empty pot)
+
+
+def pot_spec(c_lo=POT_CONTENTS_KG[0], c_hi=POT_CONTENTS_KG[1], world=None):
+    """ObjectSpec of the covered pot: empty = pot + lid (MODEL, pot_empty_props), contents mass in [c_lo, c_hi] with the COM anywhere in the inner volume
+    (circumscribed 16-gon of the inner radius: a SUPERSET of the THETA c_r disc C_R = 0.06 m), loose-lid slide limit a_max = mu_lid_min g (objects.pan_like)."""
+    from .objects import pan_like
+    m_e, c_e = pot_empty_props(world)
+    sp = pan_like("pot", m_e, c_e, m_hi_sim=float(c_hi), m_lo_sim=float(c_lo))
+    sp.sim_box = dict(m=(POT_CONTENTS_KG[0], POT_CONTENTS_KG[1]), r_com=0.06, note="pan/theta.py THETA (ASSUMED); c_r disc C_R = 0.06 m (MODEL puck)")
+    return sp
 
 
 def sample_tray_world(n, rng, fill_max=0.25, **kw):
@@ -206,6 +297,32 @@ def build_spec(world):
                 h = f / (WATER * np.pi * CUP_RIN ** 2)          # MODEL: fill height of a rigid cylinder of water
                 cb.add_geom(name=f"cup{i}_fill", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[CUP_RIN, h / 2, 0],
                             pos=[0, 0, CUP_BOT + h / 2], mass=f, contype=0, conaffinity=0, rgba=[0.4, 0.25, 0.1, 0.6])
+    elif isinstance(world, PotWorld):
+        w = world
+        pot, lid = pot_parts(w)
+        pm = w.mu_scale
+        for g in pot:
+            b.add_geom(name=g["name"], type=g["type"], size=g["size"], pos=g["pos"], quat=g["quat"], density=g["density"],
+                       friction=[PS.ASSUMED["pan_mu"] * pm, *FRIC], contype=1, conaffinity=1,
+                       rgba=[0.2, 0.45, 0.8, 1] if not g["name"].startswith("pan_handle") else [0.15, 0.3, 0.6, 1])
+        for g in list(W.geoms):                                                  # counter friction scaled with mu_scale (THETA mu_scale)
+            if g.name == "counter":
+                g.friction = [c.counter_mu * pm, *FRIC]
+        a = CV.ASSUMED_COVERED
+        pp = w.pan_params()
+        if lid:
+            z0 = c.counter_top + c.drop_eps
+            lb = W.add_body(name="lid", pos=[c.obj_xy[0], c.obj_xy[1], z0 + lid[0]["z_lid"]])
+            lb.add_freejoint(name="lid_free")
+            for g in lid:
+                lb.add_geom(name=g["name"], type=g["type"], size=g["size"], pos=g["pos"], quat=g["quat"], density=g["density"],
+                            friction=[PS.ASSUMED["pan_mu"] * pm * w.lid_mu_scale, *FRIC], priority=1, contype=1, conaffinity=1,
+                            rgba=[0.2, 0.45, 0.8, 0.95])
+        cx, cy = w.contents_xy
+        cb = W.add_body(name="contents", pos=[c.obj_xy[0] + cx, c.obj_xy[1] + cy, c.counter_top + c.drop_eps + pp.pan_bottom_t + a["puck_h"] / 2 + 1e-3])
+        cb.add_freejoint(name="contents_free")
+        cb.add_geom(name="contents_geom", type=mujoco.mjtGeom.mjGEOM_CYLINDER, size=[a["puck_r"], a["puck_h"] / 2, 0], mass=float(w.puck_kg),
+                    friction=[a["puck_mu"] * pm, *FRIC], contype=1, conaffinity=1, rgba=[0.55, 0.3, 0.15, 1])
     else:
         w = world
         X, Y, Z = w.box_outer; t = w.wall_t
@@ -248,7 +365,7 @@ def settle(m, d, seconds=1.0):
 
 
 def _free_bodies(m):
-    return [m.body("obj").id] + [b for b in range(m.nbody) if (m.body(b).name.startswith("cup") or m.body(b).name == "contents")]
+    return [m.body("obj").id] + [b for b in range(m.nbody) if (m.body(b).name.startswith("cup") or m.body(b).name in ("contents", "lid"))]
 
 
 def object_truth(m, d):
@@ -257,6 +374,11 @@ def object_truth(m, d):
     R = d.xmat[ob].reshape(3, 3); o = d.site_xpos[m.site("obj_ref").id]
     to_obj = lambda p: R.T @ (np.asarray(p) - o)
     m_e, c_e = float(m.body_mass[ob]), to_obj(d.xipos[ob])
+    lid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "lid")
+    if lid >= 0:                                               # pot: the loose lid belongs to the empty object
+        ml = float(m.body_mass[lid])
+        c_e = (m_e * c_e + ml * to_obj(d.xipos[lid])) / (m_e + ml)
+        m_e += ml
     cb = [b for b in range(m.nbody) if m.body(b).name.startswith("cup") or m.body(b).name == "contents"]
     ms = np.array([m.body_mass[b] for b in cb]); cs = np.array([to_obj(d.xipos[b]) for b in cb]).reshape(-1, 3)
     m_c = float(ms.sum()); c_c = (ms[:, None] * cs).sum(0) / m_c if m_c > 0 else np.zeros(3)

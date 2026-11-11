@@ -1,0 +1,1174 @@
+{
+ "meta": {
+  "git_sha": "cac058c0718bea5f6c64e36068d2466e9d2a0b15",
+  "git_branch": "contents-armside-2026-11-02",
+  "git_dirty_tracked": false,
+  "date": "2026-11-09 14:35:43",
+  "python": "3.12.13",
+  "env_flags": {
+   "MKL_NUM_THREADS": "1",
+   "MUJOCO_GL": "osmesa",
+   "NUMBA_NUM_THREADS": "1",
+   "OMP_NUM_THREADS": "1",
+   "OPENBLAS_NUM_THREADS": "1"
+  },
+  "make_golden": "world_model/v2/stack/tests/golden/make_golden.py",
+  "source": "pristine export of cac058c (rsync of the worktree + tracked files restored from the commit, plan_cache cleared), run from there"
+ },
+ "data": {
+  "episodes": [
+   {
+    "tag": "pan_corner",
+    "world": {
+     "placement": "far_left",
+     "hidden_mass": 0.4,
+     "perturb": {
+      "dx": 0.015,
+      "dy": -0.015,
+      "yaw_deg": 8.0,
+      "mu_scale": 0.6
+     }
+    },
+    "obj": "pan",
+    "steps": [
+     {
+      "seg": "pinch",
+      "status": [
+       "done",
+       {
+        "snaps": []
+       }
+      ],
+      "success": false,
+      "track": {
+       "margin": 0.3127077042943694,
+       "worst": {
+        "tilt": [
+         0.9988,
+         1.495
+        ],
+        "lid": [
+         0.9994,
+         0.5
+        ],
+        "drop": [
+         0.9998,
+         1.495
+        ],
+        "spill": [
+         1.0,
+         0.5
+        ],
+        "edge": [
+         1.0,
+         0.5
+        ],
+        "joint": [
+         0.3127,
+         0.5
+        ],
+        "effort": [
+         1.0,
+         0.5
+        ],
+        "coll": [
+         1.0,
+         0.5
+        ]
+       },
+       "viol": null
+      },
+      "in_R_v1_noreach": [
+       true,
+       {
+        "tilt": 0.9939,
+        "dz": 0.9989,
+        "lid": 0.9988,
+        "spill": 1.0,
+        "rim": 1.0,
+        "support": 1.0,
+        "pan_v": 1.0,
+        "arm_v": 1.0,
+        "yaw": 0.0588,
+        "released": 1.0
+       },
+       {
+        "yaw_deg": 8.0,
+        "lid_v_mm_s": 0.0,
+        "tilt": 0.018,
+        "lid_mm": 0.006,
+        "spill": false,
+        "dz_mm": -0.003,
+        "com_in": 0.096,
+        "rim_in": 0.012,
+        "v": 0.0
+       }
+      ],
+      "in_R_v2_noreach": [
+       true,
+       {
+        "tilt": 0.9939,
+        "dz": 0.9989,
+        "lid": 0.9988,
+        "spill": 1.0,
+        "support": 1.0,
+        "pan_v": 1.0,
+        "arm_v": 1.0,
+        "released": 1.0,
+        "stable": 1.0
+       },
+       {
+        "yaw_deg": 8.0,
+        "lid_v_mm_s": 0.0,
+        "tilt": 0.018,
+        "lid_mm": 0.006,
+        "spill": false,
+        "dz_mm": -0.003,
+        "com_in": 0.096,
+        "rim_in": 0.012,
+        "v": 0.0
+       }
+      ],
+      "pan_state": {
+       "tilt": 0.018419167980365848,
+       "lid_mm": 0.005938381828812335,
+       "spill": false,
+       "dz_mm": -0.0032906822673428593,
+       "com_in": 0.09637002961327484,
+       "rim_in": 0.012499941917301166,
+       "v": 1.0020347901215996e-07
+      },
+      "monitor_samples": []
+     },
+     {
+      "seg": "push",
+      "status": [
+       "done",
+       {
+        "snaps": []
+       }
+      ],
+      "success": false,
+      "track": {
+       "margin": 0.312707705951566,
+       "worst": {
+        "tilt": [
+         0.9918,
+         2.4
+        ],
+        "lid": [
+         0.8254,
+         2.01
+        ],
+        "drop": [
+         0.9996,
+         1.72
+        ],
+        "spill": [
+         1.0,
+         1.5
+        ],
+        "edge": [
+         1.0,
+         1.5
+        ],
+        "joint": [
+         0.3127,
+         1.5
+        ],
+        "effort": [
+         1.0,
+         1.5
+        ],
+        "coll": [
+         1.0,
+         1.5
+        ]
+       },
+       "viol": null
+      },
+      "in_R_v1_noreach": [
+       false,
+       {
+        "tilt": 0.9864,
+        "dz": 0.9676,
+        "lid": 0.7306,
+        "spill": 1.0,
+        "rim": -4.6632,
+        "support": 1.0,
+        "pan_v": 0.1029,
+        "arm_v": 0.577,
+        "yaw": 0.4198,
+        "released": 1.0
+       },
+       {
+        "yaw_deg": 4.93,
+        "lid_v_mm_s": 0.097,
+        "tilt": 0.041,
+        "lid_mm": 1.347,
+        "spill": false,
+        "dz_mm": 0.097,
+        "com_in": 0.04,
+        "rim_in": -0.047,
+        "v": 0.004
+       }
+      ],
+      "in_R_v2_noreach": [
+       true,
+       {
+        "tilt": 0.9864,
+        "dz": 0.9676,
+        "lid": 0.7306,
+        "spill": 1.0,
+        "support": 1.0,
+        "pan_v": 0.1029,
+        "arm_v": 0.577,
+        "released": 1.0,
+        "stable": 1.0
+       },
+       {
+        "yaw_deg": 4.93,
+        "lid_v_mm_s": 0.097,
+        "tilt": 0.041,
+        "lid_mm": 1.347,
+        "spill": false,
+        "dz_mm": 0.097,
+        "com_in": 0.04,
+        "rim_in": -0.047,
+        "v": 0.004
+       }
+      ],
+      "pan_state": {
+       "tilt": 0.04094580298780913,
+       "lid_mm": 1.347021418385621,
+       "spill": false,
+       "dz_mm": 0.09714291768536665,
+       "com_in": 0.04018890214021442,
+       "rim_in": -0.04663199535572202,
+       "v": 0.004485727888846896
+      },
+      "monitor_samples": [
+       {
+        "call": 400,
+        "t": 1.995,
+        "tau_ratio": 0.07907454779333017,
+        "pan_state": {
+         "tilt": 0.1128482726625545,
+         "lid_mm": 1.4537287493380655,
+         "spill": false,
+         "dz_mm": 0.39792068112276535,
+         "com_in": 0.09121694020389848,
+         "rim_in": 0.0069528117031493475,
+         "v": 0.048510317595909576
+        },
+        "contacts": {
+         "support": 9.030267352344515,
+         "coll": null,
+         "fz": {
+          "left": 0.0,
+          "right": 0.0
+         },
+         "squeeze": {
+          "left": 0.0,
+          "right": 0.0
+         }
+        },
+        "out": {
+         "margin": 0.312707705951566,
+         "worst": {
+          "tilt": [
+           0.9918,
+           2.4
+          ],
+          "lid": [
+           0.8254,
+           2.01
+          ],
+          "drop": [
+           0.9996,
+           1.72
+          ],
+          "spill": [
+           1.0,
+           1.5
+          ],
+          "edge": [
+           1.0,
+           1.5
+          ],
+          "joint": [
+           0.3127,
+           1.5
+          ],
+          "effort": [
+           1.0,
+           1.5
+          ],
+          "coll": [
+           1.0,
+           1.5
+          ]
+         },
+         "viol": null
+        }
+       }
+      ]
+     }
+    ],
+    "refused": null,
+    "R_start_noreach": [
+     true,
+     {
+      "tilt": 0.9939,
+      "dz": 0.9989,
+      "lid": 0.9988,
+      "spill": 1.0,
+      "support": 1.0,
+      "pan_v": 1.0,
+      "arm_v": 1.0,
+      "released": 1.0,
+      "stable": 1.0
+     },
+     {
+      "yaw_deg": 8.0,
+      "lid_v_mm_s": 0.0,
+      "tilt": 0.018,
+      "lid_mm": 0.006,
+      "spill": false,
+      "dz_mm": -0.003,
+      "com_in": 0.096,
+      "rim_in": 0.012,
+      "v": 0.0
+     }
+    ],
+    "R_start_reach_v1": [
+     false,
+     {
+      "tilt": 0.9939,
+      "dz": 0.9989,
+      "lid": 0.9988,
+      "spill": 1.0,
+      "rim": 1.0,
+      "support": 1.0,
+      "pan_v": 1.0,
+      "arm_v": 1.0,
+      "yaw": 0.0588,
+      "released": 1.0,
+      "reach": -1.0
+     },
+     {
+      "yaw_deg": 8.0,
+      "lid_v_mm_s": 0.0,
+      "tilt": 0.018,
+      "lid_mm": 0.006,
+      "spill": false,
+      "dz_mm": -0.003,
+      "com_in": 0.096,
+      "rim_in": 0.012,
+      "v": 0.0
+     }
+    ]
+   },
+   {
+    "tag": "pot_nominal",
+    "world": {
+     "placement": [
+      0.0,
+      0.0
+     ],
+     "hidden_mass": 0.2,
+     "handle_len": 0.11,
+     "perturb": {
+      "dx": 0.0,
+      "dy": 0.0,
+      "yaw_deg": 0.0,
+      "mu_scale": 1.0,
+      "lid_mu_scale": 1.0
+     }
+    },
+    "obj": "pot",
+    "steps": [
+     {
+      "seg": "pinch",
+      "status": [
+       "done",
+       {
+        "snaps": []
+       }
+      ],
+      "success": false,
+      "track": {
+       "margin": 0.47364104321935613,
+       "worst": {
+        "tilt": [
+         1.0,
+         2.195
+        ],
+        "lid": [
+         0.9995,
+         0.5
+        ],
+        "drop": [
+         1.0,
+         0.5
+        ],
+        "spill": [
+         1.0,
+         0.5
+        ],
+        "edge": [
+         1.0,
+         0.5
+        ],
+        "joint": [
+         0.4736,
+         1.25
+        ],
+        "effort": [
+         1.0,
+         0.5
+        ],
+        "coll": [
+         1.0,
+         0.5
+        ]
+       },
+       "viol": null
+      },
+      "in_R_v1_noreach": [
+       true,
+       {
+        "tilt": 0.9999,
+        "dz": 0.9986,
+        "lid": 0.999,
+        "spill": 1.0,
+        "rim": 1.0,
+        "support": 1.0,
+        "pan_v": 0.9989,
+        "arm_v": 0.9995,
+        "yaw": 1.0,
+        "released": 1.0
+       },
+       {
+        "yaw_deg": -0.0,
+        "lid_v_mm_s": 0.046,
+        "tilt": 0.0,
+        "lid_mm": 0.005,
+        "spill": false,
+        "dz_mm": 0.004,
+        "com_in": 0.12,
+        "rim_in": 0.027,
+        "v": 0.0
+       }
+      ],
+      "in_R_v2_noreach": [
+       true,
+       {
+        "tilt": 0.9999,
+        "dz": 0.9986,
+        "lid": 0.999,
+        "spill": 1.0,
+        "support": 1.0,
+        "pan_v": 0.9989,
+        "arm_v": 0.9995,
+        "released": 1.0,
+        "stable": 1.0
+       },
+       {
+        "yaw_deg": -0.0,
+        "lid_v_mm_s": 0.046,
+        "tilt": 0.0,
+        "lid_mm": 0.005,
+        "spill": false,
+        "dz_mm": 0.004,
+        "com_in": 0.12,
+        "rim_in": 0.027,
+        "v": 0.0
+       }
+      ],
+      "pan_state": {
+       "tilt": 0.00015005785318071224,
+       "lid_mm": 0.004952342530963091,
+       "spill": false,
+       "dz_mm": 0.0041866997136930095,
+       "com_in": 0.11999995022303989,
+       "rim_in": 0.02749998106111054,
+       "v": 5.580095631146834e-06
+      },
+      "monitor_samples": [
+       {
+        "call": 400,
+        "t": 1.995,
+        "tau_ratio": 0.07731351656197978,
+        "pan_state": {
+         "tilt": 0.00015335400383283002,
+         "lid_mm": 0.004952169224719098,
+         "spill": false,
+         "dz_mm": 0.0035354046017399554,
+         "com_in": 0.1199999072782908,
+         "rim_in": 0.027499976996542358,
+         "v": 3.1346821665741356e-07
+        },
+        "contacts": {
+         "support": 5.704948661094278,
+         "coll": null,
+         "fz": {
+          "left": 0.0,
+          "right": 0.0
+         },
+         "squeeze": {
+          "left": 0.0,
+          "right": 0.0
+         }
+        },
+        "out": {
+         "margin": 0.47364104321935613,
+         "worst": {
+          "tilt": [
+           1.0,
+           2.195
+          ],
+          "lid": [
+           0.9995,
+           0.5
+          ],
+          "drop": [
+           1.0,
+           0.5
+          ],
+          "spill": [
+           1.0,
+           0.5
+          ],
+          "edge": [
+           1.0,
+           0.5
+          ],
+          "joint": [
+           0.4736,
+           1.25
+          ],
+          "effort": [
+           1.0,
+           0.5
+          ],
+          "coll": [
+           1.0,
+           0.5
+          ]
+         },
+         "viol": null
+        }
+       }
+      ]
+     },
+     {
+      "seg": "push",
+      "status": [
+       "done",
+       {
+        "snaps": []
+       }
+      ],
+      "success": false,
+      "track": {
+       "margin": 1.0,
+       "worst": {},
+       "viol": null
+      },
+      "in_R_v1_noreach": [
+       true,
+       {
+        "tilt": 0.9999,
+        "dz": 0.9986,
+        "lid": 0.999,
+        "spill": 1.0,
+        "rim": 1.0,
+        "support": 1.0,
+        "pan_v": 0.9989,
+        "arm_v": 0.9995,
+        "yaw": 1.0,
+        "released": 1.0
+       },
+       {
+        "yaw_deg": -0.0,
+        "lid_v_mm_s": 0.046,
+        "tilt": 0.0,
+        "lid_mm": 0.005,
+        "spill": false,
+        "dz_mm": 0.004,
+        "com_in": 0.12,
+        "rim_in": 0.027,
+        "v": 0.0
+       }
+      ],
+      "in_R_v2_noreach": [
+       true,
+       {
+        "tilt": 0.9999,
+        "dz": 0.9986,
+        "lid": 0.999,
+        "spill": 1.0,
+        "support": 1.0,
+        "pan_v": 0.9989,
+        "arm_v": 0.9995,
+        "released": 1.0,
+        "stable": 1.0
+       },
+       {
+        "yaw_deg": -0.0,
+        "lid_v_mm_s": 0.046,
+        "tilt": 0.0,
+        "lid_mm": 0.005,
+        "spill": false,
+        "dz_mm": 0.004,
+        "com_in": 0.12,
+        "rim_in": 0.027,
+        "v": 0.0
+       }
+      ],
+      "pan_state": {
+       "tilt": 0.00015005785318071224,
+       "lid_mm": 0.004952342530963091,
+       "spill": false,
+       "dz_mm": 0.0041866997136930095,
+       "com_in": 0.11999995022303989,
+       "rim_in": 0.02749998106111054,
+       "v": 5.580095631146834e-06
+      },
+      "monitor_samples": []
+     },
+     {
+      "seg": "clamp",
+      "status": [
+       "done",
+       {
+        "snaps": []
+       }
+      ],
+      "success": false,
+      "track": {
+       "margin": 1.0,
+       "worst": {},
+       "viol": null
+      },
+      "in_R_v1_noreach": [
+       true,
+       {
+        "tilt": 0.9999,
+        "dz": 0.9986,
+        "lid": 0.999,
+        "spill": 1.0,
+        "rim": 1.0,
+        "support": 1.0,
+        "pan_v": 0.9989,
+        "arm_v": 0.9995,
+        "yaw": 1.0,
+        "released": 1.0
+       },
+       {
+        "yaw_deg": -0.0,
+        "lid_v_mm_s": 0.046,
+        "tilt": 0.0,
+        "lid_mm": 0.005,
+        "spill": false,
+        "dz_mm": 0.004,
+        "com_in": 0.12,
+        "rim_in": 0.027,
+        "v": 0.0
+       }
+      ],
+      "in_R_v2_noreach": [
+       true,
+       {
+        "tilt": 0.9999,
+        "dz": 0.9986,
+        "lid": 0.999,
+        "spill": 1.0,
+        "support": 1.0,
+        "pan_v": 0.9989,
+        "arm_v": 0.9995,
+        "released": 1.0,
+        "stable": 1.0
+       },
+       {
+        "yaw_deg": -0.0,
+        "lid_v_mm_s": 0.046,
+        "tilt": 0.0,
+        "lid_mm": 0.005,
+        "spill": false,
+        "dz_mm": 0.004,
+        "com_in": 0.12,
+        "rim_in": 0.027,
+        "v": 0.0
+       }
+      ],
+      "pan_state": {
+       "tilt": 0.00015005785318071224,
+       "lid_mm": 0.004952342530963091,
+       "spill": false,
+       "dz_mm": 0.0041866997136930095,
+       "com_in": 0.11999995022303989,
+       "rim_in": 0.02749998106111054,
+       "v": 5.580095631146834e-06
+      },
+      "monitor_samples": []
+     },
+     {
+      "seg": "lift",
+      "status": [
+       "done",
+       {
+        "snaps": []
+       }
+      ],
+      "success": true,
+      "track": {
+       "margin": 0.2820989767070714,
+       "worst": {
+        "tilt": [
+         0.6477,
+         3.85
+        ],
+        "lid": [
+         0.9995,
+         5.695
+        ],
+        "drop": [
+         1.0004,
+         2.2
+        ],
+        "spill": [
+         1.0,
+         2.2
+        ],
+        "edge": [
+         1.0,
+         2.2
+        ],
+        "joint": [
+         0.2821,
+         5.695
+        ],
+        "effort": [
+         1.0,
+         2.2
+        ],
+        "coll": [
+         1.0,
+         2.2
+        ]
+       },
+       "viol": null
+      },
+      "in_R_v1_noreach": [
+       false,
+       {
+        "tilt": -0.4162,
+        "dz": -13.4533,
+        "lid": 0.9989,
+        "spill": 1.0,
+        "rim": 1.0,
+        "support": -9.0,
+        "pan_v": 0.93,
+        "arm_v": 0.7895,
+        "yaw": 0.9948,
+        "released": 1.0
+       },
+       {
+        "yaw_deg": -0.04,
+        "lid_v_mm_s": 0.486,
+        "tilt": 4.249,
+        "lid_mm": 0.005,
+        "spill": false,
+        "dz_mm": 43.36,
+        "com_in": 0.119,
+        "rim_in": 0.025,
+        "v": 0.0
+       }
+      ],
+      "in_R_v2_noreach": [
+       false,
+       {
+        "tilt": -0.4162,
+        "dz": -13.4533,
+        "lid": 0.9989,
+        "spill": 1.0,
+        "support": -9.0,
+        "pan_v": 0.93,
+        "arm_v": 0.7895,
+        "released": 1.0,
+        "stable": 1.0
+       },
+       {
+        "yaw_deg": -0.04,
+        "lid_v_mm_s": 0.486,
+        "tilt": 4.249,
+        "lid_mm": 0.005,
+        "spill": false,
+        "dz_mm": 43.36,
+        "com_in": 0.119,
+        "rim_in": 0.025,
+        "v": 0.0
+       }
+      ],
+      "pan_state": {
+       "tilt": 4.248583845906572,
+       "lid_mm": 0.005424915250650528,
+       "spill": false,
+       "dz_mm": 43.35990899424613,
+       "com_in": 0.11926709320013612,
+       "rim_in": 0.025124336774916017,
+       "v": 0.0003497660336911631
+      },
+      "monitor_samples": [
+       {
+        "call": 800,
+        "t": 3.995,
+        "tau_ratio": 0.08117782079544458,
+        "pan_state": {
+         "tilt": 5.264940744963619,
+         "lid_mm": 0.004900954924692832,
+         "spill": false,
+         "dz_mm": 42.766764982450134,
+         "com_in": 0.11870269355401747,
+         "rim_in": 0.024191664449099454,
+         "v": 0.0025952297732684546
+        },
+        "contacts": {
+         "support": 0.0,
+         "coll": null,
+         "fz": {
+          "left": 0.0,
+          "right": 0.0
+         },
+         "squeeze": {
+          "left": 0.0,
+          "right": 0.0
+         }
+        },
+        "out": {
+         "margin": 0.3694090183380017,
+         "worst": {
+          "tilt": [
+           0.6477,
+           3.85
+          ],
+          "lid": [
+           0.9995,
+           5.695
+          ],
+          "drop": [
+           1.0004,
+           2.2
+          ],
+          "spill": [
+           1.0,
+           2.2
+          ],
+          "edge": [
+           1.0,
+           2.2
+          ],
+          "joint": [
+           0.2821,
+           5.695
+          ],
+          "effort": [
+           1.0,
+           2.2
+          ],
+          "coll": [
+           1.0,
+           2.2
+          ]
+         },
+         "viol": null
+        }
+       }
+      ]
+     }
+    ],
+    "refused": null,
+    "R_start_noreach": [
+     true,
+     {
+      "tilt": 0.9998,
+      "dz": 1.0,
+      "lid": 0.999,
+      "spill": 1.0,
+      "support": 0.9912,
+      "pan_v": 1.0,
+      "arm_v": 1.0,
+      "released": 1.0,
+      "stable": 1.0
+     },
+     {
+      "yaw_deg": -0.0,
+      "lid_v_mm_s": 0.0,
+      "tilt": 0.001,
+      "lid_mm": 0.005,
+      "spill": false,
+      "dz_mm": 0.0,
+      "com_in": 0.12,
+      "rim_in": 0.027,
+      "v": 0.0
+     }
+    ],
+    "R_start_reach_v1": [
+     false,
+     {
+      "tilt": 0.9998,
+      "dz": 1.0,
+      "lid": 0.999,
+      "spill": 1.0,
+      "rim": 1.0,
+      "support": 0.9912,
+      "pan_v": 1.0,
+      "arm_v": 1.0,
+      "yaw": 1.0,
+      "released": 1.0,
+      "reach": -1.0
+     },
+     {
+      "yaw_deg": -0.0,
+      "lid_v_mm_s": 0.0,
+      "tilt": 0.001,
+      "lid_mm": 0.005,
+      "spill": false,
+      "dz_mm": 0.0,
+      "com_in": 0.12,
+      "rim_in": 0.027,
+      "v": 0.0
+     }
+    ],
+    "theta": {
+     "dx": 0.0,
+     "dy": 0.0,
+     "yaw_deg": 0.0,
+     "mu_scale": 1.0,
+     "mass": 0.2,
+     "c_r": 0.0,
+     "c_phi": 0.0,
+     "lid_mu_scale": 1.0,
+     "handle_len": 0.11
+    }
+   }
+  ],
+  "certify": {
+   "source": "world_model/v2/nero/results/pan_cert_v2_2026-10-29/smokeB2/raw",
+   "files": {
+    "I03.json": {
+     "sha256": "4129353699ce55ec2b6b9ac72315e2a7068fe184e376843d5c89297fba23052a",
+     "bytes": 37868
+    },
+    "V10.json": {
+     "sha256": "5fadb096865bb307dced64ce55240b1d0bfce4713792f2b2e69ab895fa07aa9c",
+     "bytes": 42537
+    },
+    "V11.json": {
+     "sha256": "c3f36e6c467720300ac6b9fd34980c7c989b69a1ec07692516230f5d0aa4554d",
+     "bytes": 39999
+    }
+   },
+   "certify": {
+    "clamp": {
+     "family": [
+      0.03,
+      0.01
+     ],
+     "conf_0_95": {
+      "ok": true,
+      "seg": "clamp",
+      "backup_retreat": 0.03,
+      "n_worlds": 3,
+      "guarantee": "sampled (n = 3 worlds)",
+      "eps_upper": 0.6316,
+      "eps_conf": 0.95
+     },
+     "conf_0_9": {
+      "ok": true,
+      "seg": "clamp",
+      "backup_retreat": 0.03,
+      "n_worlds": 3,
+      "guarantee": "sampled (n = 3 worlds)",
+      "eps_upper": 0.5358,
+      "eps_conf": 0.9
+     }
+    },
+    "lift": {
+     "family": [
+      0.03,
+      0.01
+     ],
+     "conf_0_95": {
+      "ok": false,
+      "seg": "lift",
+      "best_retreat": 0.03,
+      "n_worlds": 3,
+      "counterexamples": [
+       {
+        "tag": "I03",
+        "theta": null,
+        "where": "backup",
+        "t": 5.5,
+        "why": "lid"
+       },
+       {
+        "tag": "V10",
+        "theta": null,
+        "where": "backup",
+        "t": 6.8,
+        "why": "lid"
+       }
+      ],
+      "guarantee": "refuted (counterexample among n = 3 worlds)",
+      "eps_upper": 0.983,
+      "eps_conf": 0.95
+     },
+     "conf_0_9": {
+      "ok": false,
+      "seg": "lift",
+      "best_retreat": 0.03,
+      "n_worlds": 3,
+      "counterexamples": [
+       {
+        "tag": "I03",
+        "theta": null,
+        "where": "backup",
+        "t": 5.5,
+        "why": "lid"
+       },
+       {
+        "tag": "V10",
+        "theta": null,
+        "where": "backup",
+        "t": 6.8,
+        "why": "lid"
+       }
+      ],
+      "guarantee": "refuted (counterexample among n = 3 worlds)",
+      "eps_upper": 0.9655,
+      "eps_conf": 0.9
+     }
+    },
+    "pinch": {
+     "family": [
+      0.03,
+      0.01
+     ],
+     "conf_0_95": {
+      "ok": true,
+      "seg": "pinch",
+      "backup_retreat": 0.03,
+      "n_worlds": 3,
+      "guarantee": "sampled (n = 3 worlds)",
+      "eps_upper": 0.6316,
+      "eps_conf": 0.95
+     },
+     "conf_0_9": {
+      "ok": true,
+      "seg": "pinch",
+      "backup_retreat": 0.03,
+      "n_worlds": 3,
+      "guarantee": "sampled (n = 3 worlds)",
+      "eps_upper": 0.5358,
+      "eps_conf": 0.9
+     }
+    },
+    "push": {
+     "family": [
+      0.03,
+      0.01
+     ],
+     "conf_0_95": {
+      "ok": true,
+      "seg": "push",
+      "backup_retreat": 0.03,
+      "n_worlds": 3,
+      "guarantee": "sampled (n = 3 worlds)",
+      "eps_upper": 0.6316,
+      "eps_conf": 0.95
+     },
+     "conf_0_9": {
+      "ok": true,
+      "seg": "push",
+      "backup_retreat": 0.03,
+      "n_worlds": 3,
+      "guarantee": "sampled (n = 3 worlds)",
+      "eps_upper": 0.5358,
+      "eps_conf": 0.9
+     }
+    }
+   },
+   "segments_in_records": {
+    "I03": [
+     [
+      "pinch",
+      "done",
+      null
+     ],
+     [
+      "push",
+      "done",
+      null
+     ],
+     [
+      "clamp",
+      "done",
+      null
+     ],
+     [
+      "lift",
+      "done",
+      null
+     ]
+    ],
+    "V10": [
+     [
+      "pinch",
+      "done",
+      null
+     ],
+     [
+      "push",
+      "done",
+      null
+     ],
+     [
+      "clamp",
+      "done",
+      null
+     ],
+     [
+      "lift",
+      "done",
+      null
+     ]
+    ],
+    "V11": [
+     [
+      "pinch",
+      "done",
+      null
+     ],
+     [
+      "push",
+      "done",
+      null
+     ],
+     [
+      "clamp",
+      "done",
+      null
+     ],
+     [
+      "lift",
+      "done",
+      null
+     ]
+    ]
+   }
+  }
+ }
+}

@@ -2,7 +2,7 @@
 
 User-approved 11-02 (relayed: "approved for those go"):
   * claw twist cap T_cap = 1.30 Nm per claw (ASSUMED, envelope.T_CAP) so "one arm or two" is a real decision under the weld;
-  * admission margin: admit only when the MODEL utilisation <= 0.9 (ASSUMED, envelope.U_ADMIT), to be sized from sim runs;
+  * admission margin: admit only when the MODEL utilisation <= envelope.U_ADMIT (1.0 MODEL since USER 11-09; was 0.9 ASSUMED);
   * heavier loads: coffee tray with 2 / 4 / 6 mugs (hidden fill 0..250 ml each + hidden placement), box of cans 0.5..5 kg onto a
     shelf (objects.boxed, scenes.BoxWorld);
   * a_nom 0.5 m/s^2, mug 300 g / 250 ml / >= 1 cm freeboard, action order one arm -> two arms -> slow -> set down -> refuse, and
@@ -150,8 +150,8 @@ def run(out_dir=RESULTS, procs=8):
         grasp="ASSUMED rigid weld once closed (user 11-01)",
         T_cap=f"v2 only: ASSUMED {E.T_CAP} Nm per claw (2-norm; LP uses the inscribed box) = vizcoast claw_capacity fit extrapolated "
               f"to 40 N.  v1 and v3 (current): no claw rows",
-        u_admit=f"v2, v3: ASSUMED admit at MODEL u <= {E.U_ADMIT} (controller feedback margin; to be sized from sim)",
-        tau_lim="MEASURED-spec 16 Nm MIT command range (fw >= 1.11)",
+        u_admit=f"v2, v3: admit at MODEL u <= {E.U_ADMIT} (rated limits, USER 11-09; was 0.9 ASSUMED)",
+        tau_lim=f"{float(C.tau_limit()[0])} Nm (config.tau_limit; MJCF by default, USER 11-05)",
         payload=f"MEASURED-spec {E.PAYLOAD_KG} kg (NERO manual) minus gripper 0.5 kg (MJCF), vertical",
         a_nom=f"ASSUMED {E.A_NOM} m/s^2 per axis", quasi_static="ASSUMED (Coriolis dropped, object level, translation only)",
         waypoints=dict(pan_pot=E.WAYPOINTS, tray=TRAY_WPS, box=BOX_WPS),

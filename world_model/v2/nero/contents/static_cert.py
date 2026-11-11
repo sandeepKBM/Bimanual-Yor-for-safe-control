@@ -28,7 +28,7 @@ from . import objects as OB
 
 SIDES = ("left", "right")
 N_PER_MOVE = 6          # design: path samples per planned move (plus the start)
-GUAR_TORQUE = ("proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, 16 Nm MIT command range, 3 kg payload) over the "
+GUAR_TORQUE = ("proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque (MJCF 100 Nm default, USER 11-05), 3 kg payload) over the "
                "contents polytope x acceleration box at {n} planned path samples; between samples and placement error not covered")
 
 
@@ -90,7 +90,7 @@ def episode_object(ep):
     return spec, o0, R0
 
 
-def static_rows(ep, seg, belief, a_cap=None, tau_preset="mit_fw_ge_1.11"):
+def static_rows(ep, seg, belief, a_cap=None, tau_preset=None):
     """exact static rows for segment `seg` of Episode `ep` under `belief` (cert/belief.Belief).  -> dict(ok, rows, assumptions)."""
     from ..pan.cert import model_check as MC
     phases = ep.segment_phases(seg)
@@ -104,7 +104,7 @@ def static_rows(ep, seg, belief, a_cap=None, tau_preset="mit_fw_ge_1.11"):
     if holding and any(ph[0] == "move" for ph in phases):
         cap, offsets = planned_path(ep, phases, holding)
         arms = E.Arms(cap, model=ep.m)
-        env = E.Envelope(spec, arms, o0, R0, holding, tau_lim=C.tau_limits(tau_preset), grip_mass=float(
+        env = E.Envelope(spec, arms, o0, R0, holding, tau_lim=C.tau_limit(tau_preset), grip_mass=float(
             ep.m.body_subtreemass[ep.m.body("left_arm_gripper_base").id]), offsets=offsets)
         mode = "two_share" if len(holding) == 2 else "one"          # what our controller commands (primary row)
         a_use = a_plan if a_cap is None else a_cap
@@ -129,6 +129,6 @@ def static_rows(ep, seg, belief, a_cap=None, tau_preset="mit_fw_ge_1.11"):
                                 guarantee="proof under MODEL (Coulomb lid / quasi-static liquid; slosh and impacts not covered)")
     ok = all(r["ok"] for r in rows.values())
     return dict(ok=ok, seg=seg, rows=rows, assumptions=dict(
-        grasp="ASSUMED rigid weld once closed (user 11-01)", torque=f"{tau_preset} (MEASURED-spec command range)",
+        grasp="ASSUMED rigid weld once closed (user 11-01)", torque=f"{tau_preset or 'config.tau_limit'} {float(C.tau_limit(tau_preset)[0])} Nm",
         payload=f"{E.PAYLOAD_KG} kg per arm (MEASURED-spec) minus gripper", contents="belief contents polytope (cert/belief.py)",
         z_range=f"contents COM height {OB.PAN_BOTTOM_T}..{OB.PAN_BOTTOM_T + OB.PAN_WALL_H} m (MODEL)"))

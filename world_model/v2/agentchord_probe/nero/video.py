@@ -77,7 +77,7 @@ def record(plan, task, cell_idx, i, out, seeds="baseline", fps=25, w=640, h=480)
             st["r"].close()
     imageio.mimsave(out, st["frames"], fps=fps, codec="libx264", quality=7, macro_block_size=8)
     summ = dict(out=out, task=task, cell=list(cell), i=i, seed=rec.get("seed"), outcome=rec.get("outcome"), reason=rec.get("reason"),
-                ac_success=rec.get("ac_success"), success_ours=rec.get("success_ours"), any_U=rec.get("any_U"), R_fail=rec.get("R_fail"),
+                result=rec.get("result"), goal=rec.get("measured"), any_U=rec.get("any_U"), R_fail=rec.get("R_fail"),
                 theta=rec.get("theta"), n_frames=len(st["frames"]), plan=plan)
     with open(os.path.splitext(out)[0] + ".json", "w") as f:
         json.dump(summ, f, indent=1, default=float)

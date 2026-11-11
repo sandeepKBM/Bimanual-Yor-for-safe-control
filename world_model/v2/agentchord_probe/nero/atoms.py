@@ -30,6 +30,7 @@ import types
 
 import numpy as np
 
+from world_model.v2.stack import tasks as TK
 from .env import SIDES, NeroEnv
 from .sim_imports import CR, SC
 
@@ -173,7 +174,7 @@ def _delta(cmd, env):
 
 def _support(env, x, y):
     w = env.ep.world
-    if env.task == "box" and getattr(w, "shelf", False):
+    if TK.of_kind(env.task).goal_support == "shelf" and getattr(w, "shelf", False):
         x0, x1 = w.shelf_x
         if x0 <= x <= x1 and abs(y - w.shelf_yc) <= w.shelf_yhalf:
             return "shelf", w.shelf_top

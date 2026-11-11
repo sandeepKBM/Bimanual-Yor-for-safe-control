@@ -42,7 +42,10 @@ def worlds(kind):
     """(tag, world) lists.  full = the 62 same worlds as results/pan_fair_box_2026-10-29 (32 vertices + 30 i.i.d. interior);
     overload = 0.8 kg far-centre puck (outside the 0-0.4 kg prior): 16 corners of (dx, dy, yaw, mu) + 10 interior;
     iid = 70 more i.i.d. draws from the prior box (seed 29), for the failure-rate bound together with the 30 interior of `full`."""
-    from .vizcoast_faithful.run_baseline import worlds as W
+    try:
+        from .vizcoast_faithful.run_baseline import worlds as W
+    except ImportError as e:      # USER 11-09: history pan code lives on branch archive/pan-history-2026-11-09
+        raise ImportError("segcert.worlds needs nero/pan/vizcoast_faithful, moved to branch archive/pan-history-2026-11-09") from e
     from .observe_eval import _random_thetas
     import itertools
     if kind == "full":

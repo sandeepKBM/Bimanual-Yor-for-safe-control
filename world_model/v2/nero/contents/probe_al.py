@@ -24,6 +24,8 @@ import time
 
 import numpy as np
 
+from world_model.v2.stack import tasks as TK
+
 from . import envelope as E
 from . import probe as PR
 
@@ -323,10 +325,10 @@ def _job(a):
     from . import carry_cert as CC
     t0 = time.time()
     try:
-        w = CC.sample_world(task, PR.PRIOR[task], np.random.default_rng(seed))
+        w = CC.sample_world(task, TK.prior_box(task), np.random.default_rng(seed))
         ep = PR._episode(w)
         M = PR.true_mass(ep)
-        pr = PR.Probe(ep, task, eps[0], eps[1], rng=np.random.default_rng(seed + 1), noise=True)
+        pr = PR.make_probe(ep, task, eps[0], eps[1], rng=np.random.default_rng(seed + 1), noise=True, method="ladder")   # AL chooses push-ladder rung forces: ladder only
         lik = Lik(lik_params)
         ctx = Ctx(task, lik, ceil_c, eps[0], eps[1], m_umax(task))
         bel = Belief(pr.M_lo, pr.M_hi, prior, iv, M) if objective != "fixed" else Belief(pr.M_lo, pr.M_hi, "flat")
@@ -407,7 +409,7 @@ def _run(a):
     import multiprocessing as mp
     out = pathlib.Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    cal = json.loads(pathlib.Path(a.calib).read_text())["eps"]
+    cal = PR.load_calib(a.calib, "ladder")["eps"]            # AL = ladder only
     eps = (cal["EPS_LO"], cal["EPS_FREE"])
     ceil = json.loads(pathlib.Path(a.ceilings).read_text())["c_admit_max"]
     lik_params = fit_likelihood([json.loads(l) for l in open(a.calib_rows)])

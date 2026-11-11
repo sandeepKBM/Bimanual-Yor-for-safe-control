@@ -7,7 +7,7 @@ import mujoco
 import numpy as np
 
 RIGHT_APPROACH, RIGHT_JAW = np.array([0.0, 1.0, 0.0]), np.array([0.0, 0.0, 1.0])   # from the far side towards the pan, fingers above/below
-APPROACH_IN = 0.08            # design: stand-off distance the right claw travels in [m]
+APPROACH_IN = 0.04            # ASSUMED (11-04, was design 0.08): stand-off distance the right claw travels in [m].  With the NYU gripper the 8 cm stand-off pose has 0 IK solutions (tilt 0-30 deg, checked 11-04); 4 cm is the largest tried that has solutions
 EDGE_CLEAR = 0.006            # design: right fingertips stop this far short of the stove edge [m]
 
 

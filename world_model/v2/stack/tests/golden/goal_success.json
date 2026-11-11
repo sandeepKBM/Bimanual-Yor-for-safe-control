@@ -1,0 +1,381 @@
+{
+ "meta": {
+  "git_sha": "cac058c0718bea5f6c64e36068d2466e9d2a0b15",
+  "git_branch": "contents-armside-2026-11-02",
+  "git_dirty_tracked": false,
+  "date": "2026-11-09 14:45:30",
+  "python": "3.12.13",
+  "env_flags": {
+   "MKL_NUM_THREADS": "1",
+   "MUJOCO_GL": "osmesa",
+   "NUMBA_NUM_THREADS": "1",
+   "OMP_NUM_THREADS": "1",
+   "OPENBLAS_NUM_THREADS": "1"
+  },
+  "make_golden": "world_model/v2/stack/tests/golden/make_golden.py",
+  "note": "ac_success is an inline expression in execute.run_world; replicated here with AC_XY_TOL/AC_Z_TOL. harness_outcome replicates stack/eval/harness._contents_job's inline expression on the carry record (ours only).",
+  "source": "pristine export of cac058c (rsync of the worktree + tracked files restored from the commit, plan_cache cleared), run from there"
+ },
+ "data": [
+  {
+   "method": "ours",
+   "task": "box",
+   "i": 0,
+   "error": null,
+   "inputs": {
+    "task": "box",
+    "done": false,
+    "okR": true,
+    "viol": null,
+    "pre_hold_viol": null,
+    "gc": {
+     "xy_err": 0.1998,
+     "z_err": 0.15,
+     "tilt_deg": 0.06,
+     "mug_tilt_deg": 0.0,
+     "goal_support": "shelf"
+    }
+   },
+   "goal_check": {
+    "xy_err": 0.1998,
+    "z_err": 0.15,
+    "tilt_deg": 0.06,
+    "mug_tilt_deg": 0.0,
+    "goal_support": "shelf"
+   },
+   "goal_ok": false,
+   "success_ours": false,
+   "any_U": false,
+   "ac_success": false,
+   "probe_outcome": "refused_in_R",
+   "harness_outcome": null,
+   "end_pose": {
+    "obj_pos": [
+     0.3797520397717805,
+     -0.21982289474942587,
+     0.8191682245490923
+    ],
+    "z0": 0.8191681747393685,
+    "world_obj_xy": [
+     0.38,
+     -0.21999999999999997
+    ]
+   }
+  },
+  {
+   "method": "ours",
+   "task": "tray2",
+   "i": 0,
+   "error": null,
+   "inputs": {
+    "task": "tray2",
+    "done": true,
+    "okR": true,
+    "viol": null,
+    "pre_hold_viol": null,
+    "gc": {
+     "xy_err": 0.0007,
+     "z_err": 0.0,
+     "tilt_deg": 0.03,
+     "mug_tilt_deg": 0.03,
+     "goal_support": "counter"
+    }
+   },
+   "goal_check": {
+    "xy_err": 0.0007,
+    "z_err": 0.0,
+    "tilt_deg": 0.03,
+    "mug_tilt_deg": 0.03,
+    "goal_support": "counter"
+   },
+   "goal_ok": true,
+   "success_ours": true,
+   "any_U": false,
+   "ac_success": true,
+   "probe_outcome": "carried",
+   "harness_outcome": "ok",
+   "end_pose": {
+    "obj_pos": [
+     0.27925487142619443,
+     -0.22002160352753214,
+     0.819664347775686
+    ],
+    "z0": 0.8196643200200161,
+    "world_obj_xy": [
+     0.38,
+     -0.21999999999999997
+    ]
+   }
+  },
+  {
+   "method": "ours",
+   "task": "tray4",
+   "i": 0,
+   "error": null,
+   "inputs": {
+    "task": "tray4",
+    "done": true,
+    "okR": true,
+    "viol": null,
+    "pre_hold_viol": null,
+    "gc": {
+     "xy_err": 0.0008,
+     "z_err": 0.0,
+     "tilt_deg": 0.02,
+     "mug_tilt_deg": 0.02,
+     "goal_support": "counter"
+    }
+   },
+   "goal_check": {
+    "xy_err": 0.0008,
+    "z_err": 0.0,
+    "tilt_deg": 0.02,
+    "mug_tilt_deg": 0.02,
+    "goal_support": "counter"
+   },
+   "goal_ok": true,
+   "success_ours": true,
+   "any_U": false,
+   "ac_success": true,
+   "probe_outcome": "carried",
+   "harness_outcome": "ok",
+   "end_pose": {
+    "obj_pos": [
+     0.27922403352946445,
+     -0.2200164911982465,
+     0.8194648494050645
+    ],
+    "z0": 0.8194648508488894,
+    "world_obj_xy": [
+     0.38,
+     -0.21999999999999997
+    ]
+   }
+  },
+  {
+   "method": "ours",
+   "task": "tray6",
+   "i": 0,
+   "error": null,
+   "inputs": {
+    "task": "tray6",
+    "done": true,
+    "okR": true,
+    "viol": null,
+    "pre_hold_viol": null,
+    "gc": {
+     "xy_err": 0.001,
+     "z_err": 0.0,
+     "tilt_deg": 0.01,
+     "mug_tilt_deg": 0.01,
+     "goal_support": "counter"
+    }
+   },
+   "goal_check": {
+    "xy_err": 0.001,
+    "z_err": 0.0,
+    "tilt_deg": 0.01,
+    "mug_tilt_deg": 0.01,
+    "goal_support": "counter"
+   },
+   "goal_ok": true,
+   "success_ours": true,
+   "any_U": false,
+   "ac_success": true,
+   "probe_outcome": "carried",
+   "harness_outcome": "ok",
+   "end_pose": {
+    "obj_pos": [
+     0.27900537373390094,
+     -0.2199445621980481,
+     0.8194010686868968
+    ],
+    "z0": 0.8194010598335544,
+    "world_obj_xy": [
+     0.38,
+     -0.21999999999999997
+    ]
+   }
+  },
+  {
+   "method": "ours",
+   "task": "pot",
+   "i": 0,
+   "error": null,
+   "inputs": {
+    "task": "pot",
+    "done": true,
+    "okR": true,
+    "viol": null,
+    "pre_hold_viol": null,
+    "gc": {
+     "xy_err": 0.0006,
+     "z_err": 0.0,
+     "tilt_deg": 0.0,
+     "mug_tilt_deg": 0.0,
+     "goal_support": "counter"
+    }
+   },
+   "goal_check": {
+    "xy_err": 0.0006,
+    "z_err": 0.0,
+    "tilt_deg": 0.0,
+    "mug_tilt_deg": 0.0,
+    "goal_support": "counter"
+   },
+   "goal_ok": true,
+   "success_ours": true,
+   "any_U": false,
+   "ac_success": true,
+   "probe_outcome": "carried",
+   "harness_outcome": "ok",
+   "end_pose": {
+    "obj_pos": [
+     0.2794538577041683,
+     -0.21991464880779082,
+     0.8197497632859979
+    ],
+    "z0": 0.8197546308396712,
+    "world_obj_xy": [
+     0.38,
+     -0.21999999999999997
+    ]
+   }
+  },
+  {
+   "method": "theirs",
+   "task": "box",
+   "i": 0,
+   "error": null,
+   "inputs": {
+    "task": "box",
+    "done": true,
+    "okR": true,
+    "viol": null,
+    "pre_hold_viol": null,
+    "gc": {
+     "xy_err": 0.0006,
+     "z_err": 0.0,
+     "tilt_deg": 0.09,
+     "mug_tilt_deg": 0.0,
+     "goal_support": "shelf"
+    }
+   },
+   "goal_check": {
+    "xy_err": 0.0006,
+    "z_err": 0.0,
+    "tilt_deg": 0.09,
+    "mug_tilt_deg": 0.0,
+    "goal_support": "shelf"
+   },
+   "goal_ok": true,
+   "success_ours": true,
+   "any_U": false,
+   "ac_success": true,
+   "probe_outcome": null,
+   "harness_outcome": null,
+   "end_pose": {
+    "obj_pos": [
+     0.17941840746819884,
+     -0.2201172277610549,
+     0.9691598774794695
+    ],
+    "z0": 0.8191681747393685,
+    "world_obj_xy": [
+     0.38,
+     -0.21999999999999997
+    ]
+   }
+  },
+  {
+   "method": "theirs",
+   "task": "tray6",
+   "i": 0,
+   "error": null,
+   "inputs": {
+    "task": "tray6",
+    "done": true,
+    "okR": true,
+    "viol": null,
+    "pre_hold_viol": null,
+    "gc": {
+     "xy_err": 0.0013,
+     "z_err": 0.0,
+     "tilt_deg": 0.01,
+     "mug_tilt_deg": 0.01,
+     "goal_support": "counter"
+    }
+   },
+   "goal_check": {
+    "xy_err": 0.0013,
+    "z_err": 0.0,
+    "tilt_deg": 0.01,
+    "mug_tilt_deg": 0.01,
+    "goal_support": "counter"
+   },
+   "goal_ok": true,
+   "success_ours": true,
+   "any_U": false,
+   "ac_success": true,
+   "probe_outcome": null,
+   "harness_outcome": null,
+   "end_pose": {
+    "obj_pos": [
+     0.278853669779075,
+     -0.21943142549706007,
+     0.819401115604335
+    ],
+    "z0": 0.8194010598335544,
+    "world_obj_xy": [
+     0.38,
+     -0.21999999999999997
+    ]
+   }
+  },
+  {
+   "method": "ours",
+   "task": "box",
+   "i": 2,
+   "error": null,
+   "inputs": {
+    "task": "box",
+    "done": true,
+    "okR": true,
+    "viol": null,
+    "pre_hold_viol": null,
+    "gc": {
+     "xy_err": 0.0023,
+     "z_err": 0.0001,
+     "tilt_deg": 0.02,
+     "mug_tilt_deg": 0.0,
+     "goal_support": "shelf"
+    }
+   },
+   "goal_check": {
+    "xy_err": 0.0023,
+    "z_err": 0.0001,
+    "tilt_deg": 0.02,
+    "mug_tilt_deg": 0.0,
+    "goal_support": "shelf"
+   },
+   "goal_ok": true,
+   "success_ours": true,
+   "any_U": false,
+   "ac_success": true,
+   "probe_outcome": "carried",
+   "harness_outcome": "ok",
+   "end_pose": {
+    "obj_pos": [
+     0.17769439591223057,
+     -0.21979587235115924,
+     0.969457762492411
+    ],
+    "z0": 0.8195499386575781,
+    "world_obj_xy": [
+     0.38,
+     -0.21999999999999997
+    ]
+   }
+  }
+ ]
+}

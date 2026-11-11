@@ -127,17 +127,22 @@ class CachedVLM(Backend):
         f = self.dir / f"{k}.json"
         if f.exists():
             d = json.loads(f.read_text())
+            rr, cur = d.get("reasoning"), getattr(self.inner, "reasoning", None)
+            if rr is not None and cur is not None and rr != cur:
+                # the key does not hash the reasoning level (kept so old caches replay); a record made at another level is NOT this request
+                raise KeyError(f"cache record {k} was made with reasoning={rr!r}, this request asks reasoning={cur!r}")
             self.n_hit += 1
             out = dict(texts=d["response"]["texts"], seconds=d["response"].get("seconds", 0.0), wall_s=0.0, cached=True, backend=self.name,
                        orig_wall_s=d["response"].get("wall_s"))
-            self.trace.append(dict(key=k, cached=True, seconds=out["seconds"], wall_s=0.0))
+            self.trace.append(dict(key=k, cached=True, seconds=out["seconds"], wall_s=0.0,
+                                   reasoning_checked=rr is not None and cur is not None))      # False: legacy record (before 11-09) or no level
             return out
         if self.mode == "ro":
             raise KeyError(f"cache miss in read-only mode: {k}")
         t0 = time.time()
         o = self.inner.ask(text, images=images, system=system, max_new_tokens=max_new_tokens, temperature=temperature, n=n)
         self.n_miss += 1
-        rec = dict(key=k, model=self.inner.model, backend=self.inner.name, t_unix=time.time(),
+        rec = dict(key=k, model=self.inner.model, backend=self.inner.name, reasoning=getattr(self.inner, "reasoning", None), t_unix=time.time(),
                    request=dict(text=text, system=system, max_new_tokens=max_new_tokens, temperature=temperature, n=n, image_hashes=[_file_hash(p) for p in images],
                                 image_names=[Path(p).name for p in images]),
                    response=dict(texts=o["texts"], seconds=o.get("seconds"), wall_s=o.get("wall_s", time.time() - t0)))

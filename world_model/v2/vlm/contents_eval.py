@@ -64,7 +64,8 @@ VIEWS = {   # MuJoCo free camera (lookat, distance, azimuth, elevation); the obj
 }
 TASKS = ("tray2", "tray4", "tray6", "box")
 # ASSUMED full-prior boxes (carry_cert cells): per-mug fill kg, box contents kg
-PRIOR_FILL, PRIOR_BOX = (0.0, 0.25), (0.5, 5.0)
+from world_model.v2.stack import tasks as _TK
+PRIOR_FILL, PRIOR_BOX = _TK.prior_box("tray2"), _TK.prior_box("box")      # one copy: stack/tasks.py (11-09)
 
 
 # ------------------------------------------------------------------ facts / truth

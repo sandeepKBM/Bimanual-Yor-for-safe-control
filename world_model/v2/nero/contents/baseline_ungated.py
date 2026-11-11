@@ -45,13 +45,12 @@ def _trial(args):
     try:
         ep = CR.CarryEpisode(w, a_plan=E.A_NOM, m_hat=m_hat, fric_comp=fc, weld_solref=ws)
         ep.run_phases([("hold", 0.4)])
+        pre_hold_viol = ep.track["viol"]                     # a U entry during the load-transfer hold counts (R1 unsafe)
         segs, mon = [], dict(fired=False, max_step_m=0.0)
         rel_prev = None
-        orig = ep._step
 
-        def step_with_monitor():
+        def step_with_monitor(_ep):
             nonlocal rel_prev
-            orig()
             d = ep.d
             rel = d.xmat[ep.gb["left"]].reshape(3, 3).T @ (d.xpos[ep.obj] - d.xpos[ep.gb["left"]])
             if rel_prev is not None:
@@ -59,7 +58,7 @@ def _trial(args):
                 mon["max_step_m"] = max(mon["max_step_m"], dd)
                 mon["fired"] = mon["fired"] or dd > MON_STEP
             rel_prev = rel
-        ep._step = step_with_monitor
+        ep.step_hooks.append(step_with_monitor)
         for seg in CR.SEGS:
             ep.reset_track()
             ep.run_phases(ep.segment_phases(seg))
@@ -73,6 +72,10 @@ def _trial(args):
                  end_in_R=ep.in_R(), dz_end=round(float(dest), 4), any_U=any(s["viol"] for s in segs),
                  first_U=next((dict(seg=s["seg"], **s["viol"]) for s in segs if s["viol"]), None),
                  truth_total_kg=round(float(tr["total_mass"]), 3), wall_s=round(time.time() - t0, 1))
+        from world_model.v2.adapters import outcome_carry as OCC      # the ONE goal + success rule (same as ours and AgentChord)
+        r.update(pre_hold_viol=pre_hold_viol, **OCC.measure(ep, task, True, bool(r["any_U"]) or pre_hold_viol is not None, pre_hold_viol, end_in_R=tuple(r["end_in_R"])))
+        if ep.planner != "scripted":
+            r["planner"] = ep.planner
     except Exception as e:
         r = dict(task=task, cell=list(cell), i=i, seed=seed, error=repr(e))
     return r
@@ -89,7 +92,12 @@ def main(argv=None):
     ap.add_argument("--fric-comp", action=argparse.BooleanOptionalAction, default=None, help="default = config.carry_physics()")
     ap.add_argument("--weld-stiff", action=argparse.BooleanOptionalAction, default=None,
                     help=f"weld solref {CC.WELD_STIFF} (as carry_cert --weld-stiff); default = config.carry_physics()")
+    ap.add_argument("--planner", choices=CR.PLANNERS, default=None,
+                    help="plan executed (default: env BIMANUAL_PLANNER, else scripted = legacy PLANS)")
     a = ap.parse_args(argv)
+    if a.planner is not None:
+        import os
+        os.environ["BIMANUAL_PLANNER"] = a.planner                  # inherited by the spawned workers
     cp = CC.C.carry_physics()                                # 11-03 item 6: one source for the physics defaults
     a.fric_comp = bool(cp["fric_comp"]) if a.fric_comp is None else a.fric_comp
     ws = (cp["weld_solref"] if a.weld_stiff is None else (CC.WELD_STIFF if a.weld_stiff else None))

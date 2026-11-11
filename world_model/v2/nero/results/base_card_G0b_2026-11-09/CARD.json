@@ -1,0 +1,116 @@
+{
+ "source": "/common/users/ss5772/bimanual_data/contents/table_behind_G0b_2026-11-09 (code 2a57b8f, smoke G0, tray6 + box x light + heavy, sim truth base pose)",
+ "filter": "0.05 s moving average of the finite-differenced base-centre velocity (smoke.G0Monitor); max over ALL runs of the level",
+ "runs_rule": "all runs kept, including the runs that tipped (their peaks include the fall); review 11-09: dropping them shrank the L3 box by exactly the runs the row must predict",
+ "caveat": "MEASURED in sim, small n, the same runs the tip row is compared with (in-sample); max over n, not a bound; row guarantee = sampled",
+ "levels": {
+  "L1": {
+   "n": 4,
+   "a_lin": 0.8472,
+   "alpha": 1.7736,
+   "filter": "0.05 s moving average of the finite-differenced base-centre velocity (smoke.G0Monitor); max over ALL runs of the level",
+   "runs": [
+    {
+     "run": "box_heavy_L1",
+     "a_lin": 0.5174,
+     "alpha": 1.7736,
+     "pitch_max_deg": 0.021,
+     "tipped": false
+    },
+    {
+     "run": "box_light_L1",
+     "a_lin": 0.7553,
+     "alpha": 1.5335,
+     "pitch_max_deg": 0.018,
+     "tipped": false
+    },
+    {
+     "run": "tray6_heavy_L1",
+     "a_lin": 0.5943,
+     "alpha": 1.5785,
+     "pitch_max_deg": 0.022,
+     "tipped": false
+    },
+    {
+     "run": "tray6_light_L1",
+     "a_lin": 0.8472,
+     "alpha": 1.6461,
+     "pitch_max_deg": 0.017,
+     "tipped": false
+    }
+   ]
+  },
+  "L2": {
+   "n": 4,
+   "a_lin": 1.146,
+   "alpha": 2.8896,
+   "filter": "0.05 s moving average of the finite-differenced base-centre velocity (smoke.G0Monitor); max over ALL runs of the level",
+   "runs": [
+    {
+     "run": "box_heavy_L2",
+     "a_lin": 0.9443,
+     "alpha": 2.7449,
+     "pitch_max_deg": 0.423,
+     "tipped": false
+    },
+    {
+     "run": "box_light_L2",
+     "a_lin": 1.146,
+     "alpha": 2.6799,
+     "pitch_max_deg": 0.017,
+     "tipped": false
+    },
+    {
+     "run": "tray6_heavy_L2",
+     "a_lin": 0.9606,
+     "alpha": 2.3927,
+     "pitch_max_deg": 0.027,
+     "tipped": false
+    },
+    {
+     "run": "tray6_light_L2",
+     "a_lin": 0.9398,
+     "alpha": 2.8896,
+     "pitch_max_deg": 0.019,
+     "tipped": false
+    }
+   ]
+  },
+  "L3": {
+   "n": 4,
+   "a_lin": 6.6742,
+   "alpha": 29.4428,
+   "filter": "0.05 s moving average of the finite-differenced base-centre velocity (smoke.G0Monitor); max over ALL runs of the level",
+   "runs": [
+    {
+     "run": "box_heavy_L3",
+     "a_lin": 6.6742,
+     "alpha": 16.9084,
+     "pitch_max_deg": 21.269,
+     "tipped": true
+    },
+    {
+     "run": "box_light_L3",
+     "a_lin": 1.6975,
+     "alpha": 3.8206,
+     "pitch_max_deg": 0.067,
+     "tipped": false
+    },
+    {
+     "run": "tray6_heavy_L3",
+     "a_lin": 6.2225,
+     "alpha": 29.4428,
+     "pitch_max_deg": 23.491,
+     "tipped": true
+    },
+    {
+     "run": "tray6_light_L3",
+     "a_lin": 2.6808,
+     "alpha": 3.6564,
+     "pitch_max_deg": 3.244,
+     "tipped": false
+    }
+   ]
+  }
+ }
+}

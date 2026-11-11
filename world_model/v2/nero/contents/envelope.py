@@ -15,7 +15,7 @@ arm model, the listed waypoints).  NOT covered: configurations between waypoints
 joint friction, sensor error, dynamic slosh.  Those are sampled in sim or stated as conditions.
 
 Limits (labels):
-    tau_lim  16 Nm all joints  MEASURED-spec: AgileX pyAgxArm firmware_reference (fw >= 1.11) MIT t_ff COMMAND range; binding when the
+    tau_lim  config.tau_limit() (MJCF 100 Nm since USER 11-05; was 16 Nm =  AgileX pyAgxArm firmware_reference (fw >= 1.11) MIT t_ff COMMAND range; binding when the
                                arm is torque-commanded (our controller).  Not a motor rating (none published).  URDF 100 Nm = placeholder.
     F_cap    (3.0 kg - gripper mass) g per arm, vertical   MEASURED-spec: NERO user manual payload 3 kg ("controlled test environment").
     a_nom    0.5 m/s^2 box per axis   ASSUMED (cert/model_check.A_MAX)
@@ -25,8 +25,9 @@ Limits (labels):
              DROPPED 11-02 pm (USER: "make grasp something we do not care about ... arm joint angles causing issues"): admission
              uses arm-side rows only (tau_lim, F_cap); T_CAP is kept only to reproduce the 11-02 am runs.
              In the LP the ball is replaced by an inner polytope (hull of 26 unit directions; conservative: u* can only rise).
-    u_admit  0.9: admit only when the MODEL utilisation <= 0.9   ASSUMED (user-approved 11-02): margin for the controller's feedback
-             torque above the model (11-01 smoke: sim 0.548 vs model 0.507 at the true contents, +8%); to be sized from sim runs.
+    u_admit  1.0: admit only when the MODEL utilisation <= 1.0 = the rated motor and payload limits   MODEL (USER 11-09: "the limit is motor and physical limits,
+             that is the only one that matters"; no extra margin).  Was 0.9 ASSUMED (user-approved 11-02: margin for the controller's feedback torque
+             above the model; 11-01 smoke: sim 0.548 vs model 0.507 at the true contents, +8%): with 1.0 that feedback excess is NOT covered by a margin.
 """
 from __future__ import annotations
 
@@ -46,11 +47,11 @@ from ..democ import kin as K
 from . import objects as OB
 
 G_VEC = np.array([0.0, 0.0, -OB.G])
-TAU_LIM = C.tau_limits("mit_fw_ge_1.11")          # 16 Nm, see module doc
+TAU_LIM = C.tau_limit()                           # config.tau_limit(): MJCF 100 Nm (USER 11-05); BIMANUAL_TAU_MIT16=1 -> 16 Nm
 PAYLOAD_KG = C.MANUAL["payload_kg"]                # 3.0 kg, NERO manual
 A_NOM = 0.5                                        # m/s^2, ASSUMED
 T_CAP = 1.30                                       # Nm per claw, ASSUMED, DROPPED 11-02 pm (old-rule reproduction only; module doc)
-U_ADMIT = 0.9                                      # ASSUMED admission margin on the MODEL utilisation (see module doc)
+U_ADMIT = 1.0                                      # MODEL: the rated limits themselves (joint torque config.tau_limit(); per-arm payload 3 kg MEASURED-spec minus gripper); USER 11-09: no extra margin (was 0.9 ASSUMED, USER 11-02)
 # waypoints: offsets of the object (and both TCPs) from the grasp pose [m]  (ASSUMED plan)
 # carry is TOWARD the robot (-x): +x 10 cm is out of the right arm's reach at the pot grasp (IK error 105 mm, 11-01 probe)
 WAYPOINTS = {"W0_liftoff": (0, 0, 0.0), "W1_lift5cm": (0, 0, 0.05), "W2_carry10cm": (-0.10, 0, 0.05), "W3_shelf25cm": (-0.10, 0, 0.25)}
@@ -406,7 +407,7 @@ def run(out_dir=RESULTS, presets=("mit_fw_ge_1.11", "urdf_effort"), procs=6):
     res = dict(assumptions=dict(
         grasp="ASSUMED rigid weld once closed (user 11-01; wrist cameras + low-level control handle grasping)",
         quasi_static="ASSUMED: joint-velocity (Coriolis) terms dropped; translation only, object level",
-        tau_lim="MEASURED-spec 16 Nm (MIT t_ff command range, fw>=1.11); urdf_effort 100 Nm = placeholder (sensitivity only)",
+        tau_lim=f"{float(TAU_LIM[0])} Nm (config.tau_limit: MJCF forcerange by default, USER 11-05)",
         payload=f"MEASURED-spec {PAYLOAD_KG} kg (NERO manual) minus gripper {caps['pot']['gripper_mass']:.3f} kg (MJCF), vertical force",
         a_nom=f"ASSUMED {A_NOM} m/s^2 per axis (box)", waypoints=f"ASSUMED plan offsets {WAYPOINTS}; IK miss > {IK_TOL} m = unreachable",
         q="MODEL: nominal placement, the robot's own pre-grasp IK (segments.Episode, grasp_frac 0.85) + continuation IK",

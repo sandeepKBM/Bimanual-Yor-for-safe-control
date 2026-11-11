@@ -17,6 +17,8 @@ from __future__ import annotations
 import numpy as np
 import torch
 
+from world_model.v2.stack import tasks as TK
+
 from .sim_imports import CR, E, SC, mujoco   # noqa: F401  (re-export)
 
 SIDES = ("left", "right")
@@ -58,7 +60,7 @@ class NeroEnv:
         self.carried = ep.task                                       # "tray" | "box"
         m = ep.m
         self.mugs = [f"mug_{i}" for i in range(len(ep.cups))]
-        self.names = [self.carried, "counter"] + (["shelf"] if ep.task == "box" and getattr(ep.world, "shelf", False) else []) + self.mugs
+        self.names = [self.carried, "counter"] + (["shelf"] if TK.of_kind(ep.task).goal_support == "shelf" and getattr(ep.world, "shelf", False) else []) + self.mugs
         self.sim = _Sim(self)
         self.mon_period_steps = max(1, int(round(mon_period / CR.DT)))
         self.obj_info = {}

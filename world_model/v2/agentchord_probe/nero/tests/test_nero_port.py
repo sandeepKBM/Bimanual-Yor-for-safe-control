@@ -53,7 +53,7 @@ def test_two_arm_plan_executes(tmp_path):
     st = [e["status"] for e in r["edges"]]
     assert st == ["executed"] * 4
     assert r["edges"][0]["info"]["note"].startswith("no-op")           # grasp under the scripted weld
-    assert r["goal"]["xy_err"] < 0.05 and "tau_ratio" in r["track"]
+    assert r["measured"]["xy_err"] < 0.05 and "tau_ratio" in r["track"]
 
 
 def test_one_arm_edge_rejected(tmp_path):
@@ -61,7 +61,7 @@ def test_one_arm_edge_rejected(tmp_path):
     r = _run(meta, "tray2")
     assert r["outcome"] == "plan_rejected" and r["reason"] == "rejected_one_arm"
     assert r["n_edges_executed"] == 2 and r["n_rejected"] == 1         # grasp + lift ran, the carry edge did not, nothing after it
-    assert len(r["edges"]) == 3 and not r["ac_success"]
+    assert len(r["edges"]) == 3 and r["result"]["success"] is False
 
 
 def test_rotate_eef_rejected(tmp_path):
@@ -95,3 +95,53 @@ def test_arms_move_independently_after_release():
     assert r["n_rejected"] == 0
     e6 = next(e for e in r["edges"] if e["edge_id"] == "e06_withdraw_grippers")
     assert e6["info"].get("released") is True
+
+
+def test_pot_prompt_and_canned_plan(tmp_path):
+    text, facts = T.task_prompt("pot")
+    assert "'pot'" in text and "'counter'" in text and facts in text and "lid" in facts
+    meta = _plan(tmp_path, "two_arm", "pot")
+    g = json.loads((tmp_path / "plan_two_arm" / "agent_task_graph.json").read_text())
+    assert g["edges"][0]["left_arm_action"]["kwargs"]["obj_name"] == "pot" and meta["task"] == "pot"
+    from world_model.v2.stack import goal as GL
+    x, y = GL.goal_xy("pot", T.rep_world("pot"))
+    assert 0.0 < x < 0.38 and abs(x - (T.rep_world("pot").obj_xy[0] - 0.10)) < 1e-9
+
+
+def test_model_config_recorded(tmp_path):
+    from world_model.v2.agentchord_probe.nero.plan import resolve_proposer
+    assert resolve_proposer("codex") == ("gpt-5.6-sol", "high")
+    assert resolve_proposer("codex", legacy=True) == ("gpt-5.6-terra", None)
+    assert resolve_proposer("codex", "gpt-5.6-terra", "default") == ("gpt-5.6-terra", None)
+    meta = _plan(tmp_path, "two_arm", "tray2")
+    assert meta["proposer"]["backend"] == "canned" and "proposer" in json.loads((tmp_path / "plan_two_arm" / "plan.json").read_text())
+
+
+@pytest.mark.parametrize("task", ["box", "tray6", "pot"])
+def test_same_world_trial(tmp_path, task):
+    from world_model.v2.agentchord_probe.nero.execute import same_world_trial
+    from world_model.v2.nero.contents import probe as PR
+    _plan(tmp_path, "two_arm", task)
+    r = same_world_trial(task, 0, tmp_path / "plan_two_arm")
+    assert r["method"] == "theirs" and r["seed_e2e"] == PR._seed("e2e", task, 0)
+    assert r["outcome"] in ("completed", "plan_rejected", "graph_error", "budget"), (r.get("reason"), r.get("tb"))
+    for k in ("any_U", "first_U", "outcome", "goal", "measured", "result", "plan_id", "plan_model"):
+        assert k in r
+    assert {"success", "unsafe", "in_R", "safe_success"} <= set(r["result"]) and r["result"]["unsafe"] == r["any_U"] if r["outcome"] != "error" else True
+    assert r["plan_model"] == "canned" and (r["first_U"] is None) == (not r["any_U"])
+    assert r["any_U"] is False or {"seg", "kind"} <= set(r["first_U"])
+    from world_model.v2.nero.contents import carry as CR
+    assert getattr(CR.CarryEpisode, "_same_worlds_strict", False)            # payload row in U
+    print(task, {k: r[k] for k in ("outcome", "any_U", "first_U", "result")})
+
+
+def test_goal_from_task_spec_and_tau_note():
+    """11-07 (clarity report (f)9, (f)10): the goal comes from the task spec (same numbers as the scripted plan), the torque note from config."""
+    from world_model.v2.agentchord_probe.nero.execute import ASSUMPTIONS
+    from world_model.v2.nero import config as NC
+    from world_model.v2.nero.contents import carry as CR
+    for task in ("tray6", "box", "pot"):
+        w = T.rep_world(task)
+        d = np.sum([np.asarray(dl, float) for _, dl in CR.plan_moves(T.kind(task))], axis=0)
+        assert np.allclose(__import__("world_model.v2.stack.goal", fromlist=["x"]).goal_xy(task, w), (w.obj_xy[0] + d[0], w.obj_xy[1] + d[1]), atol=1e-12)
+    assert f"{float(NC.tau_limit()[0]):g} Nm" in ASSUMPTIONS["controller"] and "16 Nm box" not in ASSUMPTIONS["controller"]

@@ -1,4 +1,5 @@
-"""hold_test.py -- 5 s static bimanual tray hold on the YOR-NERO variant with the UNMODIFIED FL-MPC (NV=7).
+"""hold_test.py -- 5 s static bimanual tray hold on the YOR-NERO variant with the BASIC FL-MPC skill (NV=7; USER 11-09: flmpc_basic only,
+no safety rows, safety lives in the checker; world_model/v2/flmpc/basic.py).
 
 Mirrors world_model/v2/house/phase1.carry: tray welded between the two gripper_base bodies (captured relpose), ball on the
 tray, arm position servos disabled, torque applied via qfrc_applied = FLMPC.step output, mj_forward before the controller.
@@ -22,23 +23,42 @@ from . import ik as IK
 FL_KW = dict(NC=4, L=8, W_POS_EGO=3000.0, W_VEL_EGO=15.0)       # == house/phase1.FL_KW (== latent_hj.scenario.FL_KW)
 
 
+class _MeasureOnlyPairs:
+    """Callers still write `self.pairs(d)`; the basic tracker has no clearance rows, so calling returns [] (nothing is built or passed).
+    `.min_h(d)` etc. delegate to a lazily built A.PairBarriers (MEASUREMENT only, e.g. hold_test's min proxy distance)."""
+
+    def __init__(self, m):
+        self._m, self._pb = m, None
+
+    def __call__(self, d):
+        return []
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        if self._pb is None:
+            self._pb = A.PairBarriers(self._m)
+        return getattr(self._pb, name)
+
+
 class Ctl:
-    """Driver around the unmodified FLMPC (NV=7): holds q_hold for both arms."""
+    """Driver around the BASIC FL-MPC skill (flmpc.basic.FLMPCBasic, NV=7): holds q_hold for both arms."""
 
     def __init__(self, m, hold_q, tau_vec, **kw):
-        from world_model.v2.flmpc import mpc_fl  # 2026-11-03: package (was sys.path `import mpc_fl`)
+        from world_model.v2.flmpc.basic import FLMPCBasic  # the only FL-MPC entry the research stack may use (USER 11-09)
         self.m = m
         self.lq, self.ld = A.arm_addrs(m, "left")
         self.rq, self.rd = A.arm_addrs(m, "right")
         k = dict(FL_KW)
+        k["qd_max"] = np.radians(np.asarray(C.MANUAL["joint_speed_deg_s"], float))   # OFFICIAL config.MANUAL (NERO manual), rad/s; the tracker has no default
         k.update(kw)
         from . import fl_log as FLL
-        self.fl = FLL.recording_class(mpc_fl.FLMPC)(m, NV=C.N_ARM, tau_max_vec=tau_vec, **k)   # 11-03 F2: logging subclass, step() logic unchanged
+        self.fl = FLL.recording_class(FLMPCBasic)(m, NV=C.N_ARM, tau_max_vec=tau_vec, **k)   # 11-03 F2: logging subclass, step() logic unchanged
         NP = self.fl.NP
         self.qe_ref = np.tile(np.array(hold_q["left"]), (NP + 1, 1))
         self.qi_ref = np.tile(np.array(hold_q["right"]), (NP + 1, 1))
         self.z = np.zeros((NP + 1, C.N_ARM))
-        self.pairs = A.PairBarriers(m)
+        self.pairs = _MeasureOnlyPairs(m)
         self.n_infeasible = 0
         self.n_fallback = 0
         self.rec = self.fl._rec = FLL.FLRecorder(m, self.fl, tau_vec)   # 11-03 F2: fallback counters + true residuals (logging only)
@@ -114,7 +134,8 @@ def run(seconds=5.0, tau_preset=None, gravcomp=False, lift=False, hold_cache=Non
         config=dict(seconds=seconds, tau_preset=tau_preset or C.TORQUE_PRESET, tau_limits=tau.tolist(), gravcomp=gravcomp, lift=lift,
                     dt=float(m.opt.timestep), FL_KW={**FL_KW, **fl_kw}, NV=C.N_ARM),
         hold=dict(hold_q=info["hold_q"], ik_err=info["ik_err"], min_limit_margin=info["min_limit_margin"], min_pair_h_at_hold=info["min_pair_h"]),
-        n_steps=n, n_infeasible=ctl.n_infeasible, n_fallback=ctl.n_fallback, n_taumax_relaxed=ctl.fl.n_taumax_relaxed,
+        n_steps=n, n_infeasible=ctl.n_infeasible, n_fallback=ctl.n_fallback, n_taumax_relaxed=ctl.fl.n_taumax_relaxed, n_sat_steps=ctl.fl.n_sat_steps, n_tau_clipped=ctl.fl.n_tau_clipped,
+        n_speed_binding_steps=ctl.fl.n_speed_binding_steps, n_a_bound_steps=ctl.fl.n_a_bound_steps,
         ball_stays=bool(lost_at is None), lost_at_s=lost_at, max_ball_offset_xy_m=maxoff, min_ball_z_above_tray_m=min_bz,
         max_tray_tilt_deg=max_tilt, max_tray_drift_m=drift, max_joint_dev_rad=max_dq,
         contacts_by_class_sum=pair_tot, min_proxy_h_sampled_m=min_h,

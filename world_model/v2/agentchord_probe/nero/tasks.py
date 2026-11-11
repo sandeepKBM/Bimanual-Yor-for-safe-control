@@ -6,8 +6,9 @@ import hashlib
 
 import numpy as np
 
-TASKS = ("tray2", "tray4", "tray6", "box")
-PRIOR = {"tray": (0.0, 0.25), "box": (0.5, 5.0)}            # ASSUMED prior boxes (contents_eval.PRIOR_FILL / PRIOR_BOX)
+from world_model.v2.stack import goal as GL, tasks as TK
+
+TASKS = ("tray2", "tray4", "tray6", "box", "pot")
 
 TRAY_TEXT = (
     "Use the robot's two arms together to carry the coffee tray (object name 'tray') on the counter (object name 'counter', top surface at "
@@ -22,16 +23,25 @@ BOX_TEXT = (
     "shelf with its reference point at x = {x1:.2f} m, y = {y1:.2f} m, then let go of it. "
     "Positions are world coordinates in metres (x forward, y left, z up).\n"
     "Known facts about the load: {facts}")
+POT_TEXT = (
+    "Use the robot's two arms together to carry the covered pot (object name 'pot', a pot with a loose lid and two side handles; the two "
+    "grippers take one handle each) on the counter block (object name 'counter', top surface at z = {counter_top:.2f} m). The pot's reference "
+    "point (centre of its underside) is now at x = {x0:.2f} m, y = {y0:.2f} m. Carry it {dx:.2f} m toward the robot (x decreases by {dx:.2f} m, "
+    "y unchanged) and set it down on the counter at x = {x1:.2f} m, y = {y1:.2f} m, then let go of it. "
+    "Positions are world coordinates in metres (x forward, y left, z up).\n"
+    "Known facts about the load: {facts}")
 
 
 def kind(task):
-    return "tray" if task.startswith("tray") else "box"
+    return "tray" if task.startswith("tray") else ("pot" if task == "pot" else "box")
 
 
-def goal_xy(task, world):
-    from .sim_imports import CR
-    d = np.sum([np.asarray(dl, float) for _, dl in CR.PLANS[kind(task)]], axis=0)
-    return (world.obj_xy[0] + d[0], world.obj_xy[1] + d[1])
+def pot_facts():
+    """facts text of the pot (contents_eval.facts_and_truth has no pot branch and is not edited here): empty mass MODEL (scenes.pot_empty_props),
+    contents unknown; same style as the box text (no mass range, no truth)."""
+    from world_model.v2.nero.contents import scenes as SC
+    return (f"a covered cooking pot with two side handles and a loose lid (empty pot with lid {SC.pot_empty_props()[0]:.2f} kg), "
+            "holding hidden contents as one load.")
 
 
 def cell_list(task):
@@ -49,16 +59,18 @@ def world_for(task, cell, i, seeds="cert"):
 def rep_world(task):
     """representative world for the planner's image / facts: seed 0 over the FULL prior box (the facts text does not depend on the hidden fill)."""
     from world_model.v2.nero.contents import carry_cert as CC
-    return CC.sample_world(task, PRIOR[kind(task)], np.random.default_rng(0))
+    return CC.sample_world(task, TK.prior_box(task), np.random.default_rng(0))
 
 
 def task_prompt(task, world=None):
     """-> (text, facts).  facts = vlm.contents_eval.facts_and_truth(...)[0]  (the same text our VLM gets; truth/prior are NOT put in the prompt)."""
     from world_model.v2.vlm import contents_eval as CE
     w = world or rep_world(task)
-    facts = CE.facts_and_truth(task, w)[0]
-    x1, y1 = goal_xy(task, w)
+    facts = pot_facts() if task == "pot" else CE.facts_and_truth(task, w)[0]
+    x1, y1 = GL.goal_xy(task, w)
     common = dict(counter_top=w.counter_top, x0=w.obj_xy[0], y0=w.obj_xy[1], x1=x1, y1=y1, facts=facts)
+    if kind(task) == "pot":
+        return POT_TEXT.format(dx=w.obj_xy[0] - x1, **common), facts
     if kind(task) == "tray":
         return TRAY_TEXT.format(dx=w.obj_xy[0] - x1, **common), facts
     sy = (w.shelf_yc - w.shelf_yhalf, w.shelf_yc + w.shelf_yhalf)

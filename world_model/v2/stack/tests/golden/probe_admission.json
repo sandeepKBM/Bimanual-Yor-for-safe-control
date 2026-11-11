@@ -1,0 +1,7983 @@
+{
+ "meta": {
+  "git_sha": "cac058c0718bea5f6c64e36068d2466e9d2a0b15",
+  "git_branch": "contents-armside-2026-11-02",
+  "git_dirty_tracked": false,
+  "date": "2026-11-09 14:42:09",
+  "python": "3.12.13",
+  "env_flags": {
+   "MKL_NUM_THREADS": "1",
+   "MUJOCO_GL": "osmesa",
+   "NUMBA_NUM_THREADS": "1",
+   "OMP_NUM_THREADS": "1",
+   "OPENBLAS_NUM_THREADS": "1"
+  },
+  "make_golden": "world_model/v2/stack/tests/golden/make_golden.py",
+  "source": "pristine export of cac058c (rsync of the worktree + tracked files restored from the commit, plan_cache cleared), run from there"
+ },
+ "data": {
+  "consts": {
+   "U_ADMIT": 0.9,
+   "A_NOM": 0.5,
+   "O_MAX": 1.0
+  },
+  "rung_torque_u": {
+   "box|scripted": {
+    "task": "box",
+    "planner": "scripted",
+    "empty_mass": 0.25,
+    "prior": [
+     0.5,
+     5.0
+    ],
+    "m": [
+     {
+      "m_ff": 0.25,
+      "u": 0.07913526987702367
+     },
+     {
+      "m_ff": 0.5,
+      "u": 0.12753242023394726
+     },
+     {
+      "m_ff": 0.75,
+      "u": 0.206045201566221
+     },
+     {
+      "m_ff": 1.2,
+      "u": 0.3473682079643138
+     },
+     {
+      "m_ff": 1.875,
+      "u": 0.5593527175614529
+     },
+     {
+      "m_ff": 3.0,
+      "u": 0.9126602335566847
+     },
+     {
+      "m_ff": 4.125,
+      "u": 1.2659677495519168
+     },
+     {
+      "m_ff": 5.25,
+      "u": 1.6192752655471487
+     }
+    ]
+   },
+   "tray2|scripted": {
+    "task": "tray2",
+    "planner": "scripted",
+    "empty_mass": 0.3,
+    "prior": [
+     0.6,
+     1.1
+    ],
+    "m": [
+     {
+      "m_ff": 0.3,
+      "u": 0.0796103499223478
+     },
+     {
+      "m_ff": 0.6,
+      "u": 0.14815716053474606
+     },
+     {
+      "m_ff": 0.9,
+      "u": 0.23749076053428442
+     },
+     {
+      "m_ff": 0.95,
+      "u": 0.25237969386754083
+     },
+     {
+      "m_ff": 1.0,
+      "u": 0.2672686272007972
+     },
+     {
+      "m_ff": 1.025,
+      "u": 0.2747130938674254
+     },
+     {
+      "m_ff": 1.15,
+      "u": 0.31193542720056644
+     },
+     {
+      "m_ff": 1.275,
+      "u": 0.3491577605337074
+     },
+     {
+      "m_ff": 1.4,
+      "u": 0.38638009386684846
+     }
+    ]
+   },
+   "tray4|scripted": {
+    "task": "tray4",
+    "planner": "scripted",
+    "empty_mass": 0.3,
+    "prior": [
+     1.2,
+     2.2
+    ],
+    "m": [
+     {
+      "m_ff": 0.3,
+      "u": 0.0796103499223478
+     },
+     {
+      "m_ff": 0.9,
+      "u": 0.23749076053428442
+     },
+     {
+      "m_ff": 1.0,
+      "u": 0.2672686272007972
+     },
+     {
+      "m_ff": 1.5,
+      "u": 0.4161579605333612
+     },
+     {
+      "m_ff": 1.6,
+      "u": 0.445935827199874
+     },
+     {
+      "m_ff": 1.75,
+      "u": 0.4906026271996431
+     },
+     {
+      "m_ff": 2.0,
+      "u": 0.5650472998846673
+     },
+     {
+      "m_ff": 2.25,
+      "u": 0.6394919745545958
+     },
+     {
+      "m_ff": 2.5,
+      "u": 0.7139366492245243
+     }
+    ]
+   },
+   "tray6|scripted": {
+    "task": "tray6",
+    "planner": "scripted",
+    "empty_mass": 0.3,
+    "prior": [
+     1.7999999999999998,
+     3.3000000000000003
+    ],
+    "m": [
+     {
+      "m_ff": 0.3,
+      "u": 0.0796103499223478
+     },
+     {
+      "m_ff": 1.0,
+      "u": 0.2672686272007972
+     },
+     {
+      "m_ff": 1.2,
+      "u": 0.3268243605338228
+     },
+     {
+      "m_ff": 2.1,
+      "u": 0.5948251697526387
+     },
+     {
+      "m_ff": 2.25,
+      "u": 0.6394919745545958
+     },
+     {
+      "m_ff": 2.475,
+      "u": 0.7064921817575313
+     },
+     {
+      "m_ff": 2.85,
+      "u": 0.818159193762424
+     },
+     {
+      "m_ff": 3.225,
+      "u": 0.9298262057673168
+     },
+     {
+      "m_ff": 3.6,
+      "u": 1.0414932177722094
+     }
+    ]
+   },
+   "pot|scripted": {
+    "task": "pot",
+    "planner": "scripted",
+    "empty_mass": 0.38162598953516286,
+    "prior": [
+     0.02,
+     1.5
+    ],
+    "m": [
+     {
+      "m_ff": 0.3816,
+      "u": 0.08038592726032233
+     },
+     {
+      "m_ff": 0.3916,
+      "u": 0.08052012934175695
+     },
+     {
+      "m_ff": 0.4016,
+      "u": 0.08065468111695046
+     },
+     {
+      "m_ff": 0.5496,
+      "u": 0.12006442768084863
+     },
+     {
+      "m_ff": 0.7716,
+      "u": 0.17984953511435048
+     },
+     {
+      "m_ff": 1.0,
+      "u": 0.24135817717656594
+     },
+     {
+      "m_ff": 1.1416,
+      "u": 0.27949138083685365
+     },
+     {
+      "m_ff": 1.5116,
+      "u": 0.3791332265593568
+     },
+     {
+      "m_ff": 1.8816,
+      "u": 0.47877507228186
+     }
+    ]
+   },
+   "box|closed_chain": {
+    "task": "box",
+    "planner": "closed_chain",
+    "empty_mass": 0.25,
+    "prior": [
+     0.5,
+     5.0
+    ],
+    "m": [
+     {
+      "m_ff": 0.25,
+      "u": 0.07913526987702367
+     },
+     {
+      "m_ff": 0.5,
+      "u": 0.12753242023394726
+     },
+     {
+      "m_ff": 0.75,
+      "u": 0.206045201566221
+     },
+     {
+      "m_ff": 1.2,
+      "u": 0.3473682079643138
+     },
+     {
+      "m_ff": 1.875,
+      "u": 0.5593527175614529
+     },
+     {
+      "m_ff": 3.0,
+      "u": 0.9126602335566847
+     },
+     {
+      "m_ff": 4.125,
+      "u": 1.2659677495519168
+     },
+     {
+      "m_ff": 5.25,
+      "u": 1.6192752655471487
+     }
+    ]
+   },
+   "tray2|closed_chain": {
+    "task": "tray2",
+    "planner": "closed_chain",
+    "empty_mass": 0.3,
+    "prior": [
+     0.6,
+     1.1
+    ],
+    "m": [
+     {
+      "m_ff": 0.3,
+      "u": 0.0796103499223478
+     },
+     {
+      "m_ff": 0.6,
+      "u": 0.14815716053474606
+     },
+     {
+      "m_ff": 0.9,
+      "u": 0.23749076053428442
+     },
+     {
+      "m_ff": 0.95,
+      "u": 0.25237969386754083
+     },
+     {
+      "m_ff": 1.0,
+      "u": 0.2672686272007972
+     },
+     {
+      "m_ff": 1.025,
+      "u": 0.2747130938674254
+     },
+     {
+      "m_ff": 1.15,
+      "u": 0.31193542720056644
+     },
+     {
+      "m_ff": 1.275,
+      "u": 0.3491577605337074
+     },
+     {
+      "m_ff": 1.4,
+      "u": 0.38638009386684846
+     }
+    ]
+   },
+   "tray4|closed_chain": {
+    "task": "tray4",
+    "planner": "closed_chain",
+    "empty_mass": 0.3,
+    "prior": [
+     1.2,
+     2.2
+    ],
+    "m": [
+     {
+      "m_ff": 0.3,
+      "u": 0.0796103499223478
+     },
+     {
+      "m_ff": 0.9,
+      "u": 0.23749076053428442
+     },
+     {
+      "m_ff": 1.0,
+      "u": 0.2672686272007972
+     },
+     {
+      "m_ff": 1.5,
+      "u": 0.4161579605333612
+     },
+     {
+      "m_ff": 1.6,
+      "u": 0.445935827199874
+     },
+     {
+      "m_ff": 1.75,
+      "u": 0.4906026271996431
+     },
+     {
+      "m_ff": 2.0,
+      "u": 0.5650472998846673
+     },
+     {
+      "m_ff": 2.25,
+      "u": 0.6394919745545958
+     },
+     {
+      "m_ff": 2.5,
+      "u": 0.7139366492245243
+     }
+    ]
+   },
+   "tray6|closed_chain": {
+    "task": "tray6",
+    "planner": "closed_chain",
+    "empty_mass": 0.3,
+    "prior": [
+     1.7999999999999998,
+     3.3000000000000003
+    ],
+    "m": [
+     {
+      "m_ff": 0.3,
+      "u": 0.0796103499223478
+     },
+     {
+      "m_ff": 1.0,
+      "u": 0.2672686272007972
+     },
+     {
+      "m_ff": 1.2,
+      "u": 0.3268243605338228
+     },
+     {
+      "m_ff": 2.1,
+      "u": 0.5948251697526387
+     },
+     {
+      "m_ff": 2.25,
+      "u": 0.6394919745545958
+     },
+     {
+      "m_ff": 2.475,
+      "u": 0.7064921817575313
+     },
+     {
+      "m_ff": 2.85,
+      "u": 0.818159193762424
+     },
+     {
+      "m_ff": 3.225,
+      "u": 0.9298262057673168
+     },
+     {
+      "m_ff": 3.6,
+      "u": 1.0414932177722094
+     }
+    ]
+   },
+   "pot|closed_chain": {
+    "task": "pot",
+    "planner": "closed_chain",
+    "empty_mass": 0.38162598953516286,
+    "prior": [
+     0.02,
+     1.5
+    ],
+    "m": [
+     {
+      "m_ff": 0.3816,
+      "u": 0.08038592726032233
+     },
+     {
+      "m_ff": 0.3916,
+      "u": 0.08052012934175695
+     },
+     {
+      "m_ff": 0.4016,
+      "u": 0.08065468111695046
+     },
+     {
+      "m_ff": 0.5496,
+      "u": 0.12006442768084863
+     },
+     {
+      "m_ff": 0.7716,
+      "u": 0.17984953511435048
+     },
+     {
+      "m_ff": 1.0,
+      "u": 0.24135817717656594
+     },
+     {
+      "m_ff": 1.1416,
+      "u": 0.27949138083685365
+     },
+     {
+      "m_ff": 1.5116,
+      "u": 0.3791332265593568
+     },
+     {
+      "m_ff": 1.8816,
+      "u": 0.47877507228186
+     }
+    ]
+   }
+  },
+  "admissible": {
+   "box|scripted": {
+    "task": "box",
+    "planner": "scripted",
+    "rows": [
+     {
+      "M_lo": 0.75,
+      "m_to": 0.75,
+      "admissible": true,
+      "detail": {
+       "u": 0.206,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 0.75,
+      "m_to": 1.25,
+      "admissible": true,
+      "detail": {
+       "u": 0.3631,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 0.75,
+      "m_to": 1.75,
+      "admissible": true,
+      "detail": {
+       "u": 0.5201,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 0.75,
+      "m_to": 2.25,
+      "admissible": false,
+      "detail": {
+       "u": 0.6771,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 3.0,
+      "m_to": 3.0,
+      "admissible": false,
+      "detail": {
+       "u": 0.9127,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 3.0,
+      "m_to": 3.5,
+      "admissible": false,
+      "detail": {
+       "u": 1.0697,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 3.0,
+      "m_to": 4.0,
+      "admissible": false,
+      "detail": {
+       "u": 1.2267,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 3.0,
+      "m_to": 4.5,
+      "admissible": false,
+      "detail": {
+       "u": 1.3837,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   },
+   "tray2|scripted": {
+    "task": "tray2",
+    "planner": "scripted",
+    "rows": [
+     {
+      "M_lo": 0.8999999999999999,
+      "m_to": 0.8999999999999999,
+      "admissible": true,
+      "detail": {
+       "u": 0.2375,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 0.8999999999999999,
+      "m_to": 1.4,
+      "admissible": true,
+      "detail": {
+       "u": 0.3864,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 0.8999999999999999,
+      "m_to": 1.9,
+      "admissible": true,
+      "detail": {
+       "u": 0.5353,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 0.8999999999999999,
+      "m_to": 2.4,
+      "admissible": false,
+      "detail": {
+       "u": 0.6842,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 1.15,
+      "m_to": 1.15,
+      "admissible": true,
+      "detail": {
+       "u": 0.3119,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 1.15,
+      "m_to": 1.65,
+      "admissible": true,
+      "detail": {
+       "u": 0.4608,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 1.15,
+      "m_to": 2.15,
+      "admissible": true,
+      "detail": {
+       "u": 0.6097,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 1.15,
+      "m_to": 2.65,
+      "admissible": false,
+      "detail": {
+       "u": 0.7586,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   },
+   "tray4|scripted": {
+    "task": "tray4",
+    "planner": "scripted",
+    "rows": [
+     {
+      "M_lo": 1.5,
+      "m_to": 1.5,
+      "admissible": true,
+      "detail": {
+       "u": 0.4162,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 1.5,
+      "m_to": 2.0,
+      "admissible": true,
+      "detail": {
+       "u": 0.565,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 1.5,
+      "m_to": 2.5,
+      "admissible": true,
+      "detail": {
+       "u": 0.7139,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 1.5,
+      "m_to": 3.0,
+      "admissible": false,
+      "detail": {
+       "u": 0.8628,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 2.0,
+      "m_to": 2.0,
+      "admissible": true,
+      "detail": {
+       "u": 0.565,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 2.0,
+      "m_to": 2.5,
+      "admissible": true,
+      "detail": {
+       "u": 0.7139,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 2.0,
+      "m_to": 3.0,
+      "admissible": true,
+      "detail": {
+       "u": 0.8628,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 2.0,
+      "m_to": 3.5,
+      "admissible": false,
+      "detail": {
+       "u": 1.0117,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   },
+   "tray6|scripted": {
+    "task": "tray6",
+    "planner": "scripted",
+    "rows": [
+     {
+      "M_lo": 2.0999999999999996,
+      "m_to": 2.0999999999999996,
+      "admissible": true,
+      "detail": {
+       "u": 0.5948,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 2.0999999999999996,
+      "m_to": 2.5999999999999996,
+      "admissible": true,
+      "detail": {
+       "u": 0.7437,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 2.0999999999999996,
+      "m_to": 3.0999999999999996,
+      "admissible": true,
+      "detail": {
+       "u": 0.8926,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 2.0999999999999996,
+      "m_to": 3.5999999999999996,
+      "admissible": false,
+      "detail": {
+       "u": 1.0415,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 2.8499999999999996,
+      "m_to": 2.8499999999999996,
+      "admissible": true,
+      "detail": {
+       "u": 0.8182,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 2.8499999999999996,
+      "m_to": 3.3499999999999996,
+      "admissible": false,
+      "detail": {
+       "u": 0.967,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 2.8499999999999996,
+      "m_to": 3.8499999999999996,
+      "admissible": false,
+      "detail": {
+       "u": 1.1159,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 2.8499999999999996,
+      "m_to": 4.35,
+      "admissible": false,
+      "detail": {
+       "u": 1.2648,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   },
+   "pot|scripted": {
+    "task": "pot",
+    "planner": "scripted",
+    "rows": [
+     {
+      "M_lo": 0.4016259895351629,
+      "m_to": 0.4016259895351629,
+      "admissible": true,
+      "detail": {
+       "u": 0.0807,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 0.4016259895351629,
+      "m_to": 0.9016259895351628,
+      "admissible": true,
+      "detail": {
+       "u": 0.2149,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 0.4016259895351629,
+      "m_to": 1.4016259895351628,
+      "admissible": true,
+      "detail": {
+       "u": 0.3495,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 0.4016259895351629,
+      "m_to": 1.9016259895351628,
+      "admissible": false,
+      "detail": {
+       "u": 0.4842,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 1.1416259895351628,
+      "m_to": 1.1416259895351628,
+      "admissible": true,
+      "detail": {
+       "u": 0.2795,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 1.1416259895351628,
+      "m_to": 1.6416259895351628,
+      "admissible": true,
+      "detail": {
+       "u": 0.4141,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 1.1416259895351628,
+      "m_to": 2.1416259895351626,
+      "admissible": true,
+      "detail": {
+       "u": 0.5488,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 1.1416259895351628,
+      "m_to": 2.6416259895351626,
+      "admissible": false,
+      "detail": {
+       "u": 0.6835,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   },
+   "box|closed_chain": {
+    "task": "box",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "M_lo": 0.75,
+      "m_to": 0.75,
+      "admissible": true,
+      "detail": {
+       "u": 0.206,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 0.75,
+      "m_to": 1.25,
+      "admissible": true,
+      "detail": {
+       "u": 0.3631,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 0.75,
+      "m_to": 1.75,
+      "admissible": true,
+      "detail": {
+       "u": 0.5201,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 0.75,
+      "m_to": 2.25,
+      "admissible": false,
+      "detail": {
+       "u": 0.6771,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 3.0,
+      "m_to": 3.0,
+      "admissible": false,
+      "detail": {
+       "u": 0.9127,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 3.0,
+      "m_to": 3.5,
+      "admissible": false,
+      "detail": {
+       "u": 1.0697,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 3.0,
+      "m_to": 4.0,
+      "admissible": false,
+      "detail": {
+       "u": 1.2267,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 3.0,
+      "m_to": 4.5,
+      "admissible": false,
+      "detail": {
+       "u": 1.3837,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   },
+   "tray2|closed_chain": {
+    "task": "tray2",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "M_lo": 0.8999999999999999,
+      "m_to": 0.8999999999999999,
+      "admissible": true,
+      "detail": {
+       "u": 0.2375,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 0.8999999999999999,
+      "m_to": 1.4,
+      "admissible": true,
+      "detail": {
+       "u": 0.3864,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 0.8999999999999999,
+      "m_to": 1.9,
+      "admissible": true,
+      "detail": {
+       "u": 0.5353,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 0.8999999999999999,
+      "m_to": 2.4,
+      "admissible": false,
+      "detail": {
+       "u": 0.6842,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 1.15,
+      "m_to": 1.15,
+      "admissible": true,
+      "detail": {
+       "u": 0.3119,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 1.15,
+      "m_to": 1.65,
+      "admissible": true,
+      "detail": {
+       "u": 0.4608,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 1.15,
+      "m_to": 2.15,
+      "admissible": true,
+      "detail": {
+       "u": 0.6097,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 1.15,
+      "m_to": 2.65,
+      "admissible": false,
+      "detail": {
+       "u": 0.7586,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   },
+   "tray4|closed_chain": {
+    "task": "tray4",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "M_lo": 1.5,
+      "m_to": 1.5,
+      "admissible": true,
+      "detail": {
+       "u": 0.4162,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 1.5,
+      "m_to": 2.0,
+      "admissible": true,
+      "detail": {
+       "u": 0.565,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 1.5,
+      "m_to": 2.5,
+      "admissible": true,
+      "detail": {
+       "u": 0.7139,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 1.5,
+      "m_to": 3.0,
+      "admissible": false,
+      "detail": {
+       "u": 0.8628,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 2.0,
+      "m_to": 2.0,
+      "admissible": true,
+      "detail": {
+       "u": 0.565,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 2.0,
+      "m_to": 2.5,
+      "admissible": true,
+      "detail": {
+       "u": 0.7139,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 2.0,
+      "m_to": 3.0,
+      "admissible": true,
+      "detail": {
+       "u": 0.8628,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 2.0,
+      "m_to": 3.5,
+      "admissible": false,
+      "detail": {
+       "u": 1.0117,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   },
+   "tray6|closed_chain": {
+    "task": "tray6",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "M_lo": 2.0999999999999996,
+      "m_to": 2.0999999999999996,
+      "admissible": true,
+      "detail": {
+       "u": 0.5948,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 2.0999999999999996,
+      "m_to": 2.5999999999999996,
+      "admissible": true,
+      "detail": {
+       "u": 0.7437,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 2.0999999999999996,
+      "m_to": 3.0999999999999996,
+      "admissible": true,
+      "detail": {
+       "u": 0.8926,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 2.0999999999999996,
+      "m_to": 3.5999999999999996,
+      "admissible": false,
+      "detail": {
+       "u": 1.0415,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 2.8499999999999996,
+      "m_to": 2.8499999999999996,
+      "admissible": true,
+      "detail": {
+       "u": 0.8182,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 2.8499999999999996,
+      "m_to": 3.3499999999999996,
+      "admissible": false,
+      "detail": {
+       "u": 0.967,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 2.8499999999999996,
+      "m_to": 3.8499999999999996,
+      "admissible": false,
+      "detail": {
+       "u": 1.1159,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 2.8499999999999996,
+      "m_to": 4.35,
+      "admissible": false,
+      "detail": {
+       "u": 1.2648,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   },
+   "pot|closed_chain": {
+    "task": "pot",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "M_lo": 0.4016259895351629,
+      "m_to": 0.4016259895351629,
+      "admissible": true,
+      "detail": {
+       "u": 0.0807,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 0.4016259895351629,
+      "m_to": 0.9016259895351628,
+      "admissible": true,
+      "detail": {
+       "u": 0.2149,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 0.4016259895351629,
+      "m_to": 1.4016259895351628,
+      "admissible": true,
+      "detail": {
+       "u": 0.3495,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 0.4016259895351629,
+      "m_to": 1.9016259895351628,
+      "admissible": false,
+      "detail": {
+       "u": 0.4842,
+       "overshoot": 1.5
+      }
+     },
+     {
+      "M_lo": 1.1416259895351628,
+      "m_to": 1.1416259895351628,
+      "admissible": true,
+      "detail": {
+       "u": 0.2795,
+       "overshoot": 0.0
+      }
+     },
+     {
+      "M_lo": 1.1416259895351628,
+      "m_to": 1.6416259895351628,
+      "admissible": true,
+      "detail": {
+       "u": 0.4141,
+       "overshoot": 0.5
+      }
+     },
+     {
+      "M_lo": 1.1416259895351628,
+      "m_to": 2.1416259895351626,
+      "admissible": true,
+      "detail": {
+       "u": 0.5488,
+       "overshoot": 1.0
+      }
+     },
+     {
+      "M_lo": 1.1416259895351628,
+      "m_to": 2.6416259895351626,
+      "admissible": false,
+      "detail": {
+       "u": 0.6835,
+       "overshoot": 1.5
+      }
+     }
+    ]
+   }
+  },
+  "interval": {
+   "box|scripted": {
+    "task": "box",
+    "planner": "scripted",
+    "rows": [
+     {
+      "c_lo": 0.5,
+      "c_hi": 2.75,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "box",
+       "empty_mass": 0.25,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.075
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.5,
+        "m_hi": 2.75,
+        "P": [
+         [
+          -0.095,
+          -0.145,
+          0.005
+         ],
+         [
+          0.095,
+          -0.145,
+          0.005
+         ],
+         [
+          0.095,
+          0.145,
+          0.005
+         ],
+         [
+          -0.095,
+          0.145,
+          0.005
+         ],
+         [
+          -0.095,
+          -0.145,
+          0.145
+         ],
+         [
+          0.095,
+          -0.145,
+          0.145
+         ],
+         [
+          0.095,
+          0.145,
+          0.145
+         ],
+         [
+          -0.095,
+          0.145,
+          0.145
+         ]
+        ],
+        "labels": {
+         "m": "ASSUMED 0.5..2.75 kg (user-approved 11-02)",
+         "P": "MODEL (conservative): the contents COM lies anywhere inside the box interior (the sim block is a subset)"
+        }
+       },
+       "open_limits": [],
+       "sim_box": {
+        "note": "scenes.BoxWorld: one free block, half (0.04, 0.06, 0.05), on the box floor"
+       },
+       "plausible": {
+        "note": "box of cans / jars: 0.5..5 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "box",
+       "cell": [
+        0.5,
+        2.75
+       ],
+       "contents_m": [
+        0.5,
+        2.75
+       ],
+       "action": "refuse",
+       "a_admit": null,
+       "a_open": Infinity,
+       "u_nom": Infinity,
+       "worst_nom": {
+        "wp": "p6",
+        "m": 0.5,
+        "c": [
+         -0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "u_one_nom": Infinity,
+       "worst_one": {
+        "wp": "p11",
+        "m": 0.5,
+        "c": [
+         -0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": Infinity,
+          "u_best_split": Infinity,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 0.5,
+           "c": [
+            -0.095,
+            -0.145,
+            0.005
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            -0.5
+           ]
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": Infinity,
+          "u_best_split": Infinity,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 0.5,
+           "c": [
+            -0.095,
+            -0.145,
+            0.005
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            -0.5
+           ]
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": Infinity,
+          "u_best_split": Infinity,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p12",
+           "m": 0.5,
+           "c": [
+            -0.095,
+            -0.145,
+            0.005
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            -0.5
+           ]
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0029,
+          "worst": {
+           "m": 2.75,
+           "c": [
+            0.095,
+            -0.145,
+            0.005
+           ]
+          },
+          "support": {
+           "top": 0.97,
+           "x": [
+            0.06,
+            0.27
+           ],
+           "y": [
+            -0.36,
+            -0.07999999999999996
+           ]
+          },
+          "region": [
+           [
+            0.07999565093583241,
+            0.27
+           ],
+           [
+            -0.36,
+            -0.07999999999999996
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0029,
+          "worst": {
+           "m": 2.75,
+           "c": [
+            0.095,
+            -0.145,
+            0.005
+           ]
+          },
+          "support": {
+           "top": 0.97,
+           "x": [
+            0.06,
+            0.27
+           ],
+           "y": [
+            -0.36,
+            -0.07999999999999996
+           ]
+          },
+          "region": [
+           [
+            0.07999565093583241,
+            0.27
+           ],
+           [
+            -0.36,
+            -0.07999999999999996
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     },
+     {
+      "c_lo": 2.75,
+      "c_hi": 5.0,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "box",
+       "empty_mass": 0.25,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.075
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 2.75,
+        "m_hi": 5.0,
+        "P": [
+         [
+          -0.095,
+          -0.145,
+          0.005
+         ],
+         [
+          0.095,
+          -0.145,
+          0.005
+         ],
+         [
+          0.095,
+          0.145,
+          0.005
+         ],
+         [
+          -0.095,
+          0.145,
+          0.005
+         ],
+         [
+          -0.095,
+          -0.145,
+          0.145
+         ],
+         [
+          0.095,
+          -0.145,
+          0.145
+         ],
+         [
+          0.095,
+          0.145,
+          0.145
+         ],
+         [
+          -0.095,
+          0.145,
+          0.145
+         ]
+        ],
+        "labels": {
+         "m": "ASSUMED 2.75..5.0 kg (user-approved 11-02)",
+         "P": "MODEL (conservative): the contents COM lies anywhere inside the box interior (the sim block is a subset)"
+        }
+       },
+       "open_limits": [],
+       "sim_box": {
+        "note": "scenes.BoxWorld: one free block, half (0.04, 0.06, 0.05), on the box floor"
+       },
+       "plausible": {
+        "note": "box of cans / jars: 0.5..5 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "box",
+       "cell": [
+        2.75,
+        5.0
+       ],
+       "contents_m": [
+        2.75,
+        5.0
+       ],
+       "action": "refuse",
+       "a_admit": null,
+       "a_open": Infinity,
+       "u_nom": Infinity,
+       "worst_nom": {
+        "wp": "p6",
+        "m": 2.75,
+        "c": [
+         -0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "u_one_nom": Infinity,
+       "worst_one": {
+        "wp": "p11",
+        "m": 2.75,
+        "c": [
+         -0.095,
+         -0.145,
+         0.005
+        ]
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": Infinity,
+          "u_best_split": Infinity,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 2.75,
+           "c": [
+            -0.095,
+            -0.145,
+            0.005
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            -0.5
+           ]
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": Infinity,
+          "u_best_split": Infinity,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 2.75,
+           "c": [
+            -0.095,
+            -0.145,
+            0.005
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            -0.5
+           ]
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": Infinity,
+          "u_best_split": Infinity,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p12",
+           "m": 2.75,
+           "c": [
+            -0.095,
+            -0.145,
+            0.005
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            -0.5
+           ]
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "support_dest": {
+          "ok": false,
+          "margin_m": -0.0005,
+          "worst": {
+           "m": 5.0,
+           "c": [
+            0.095,
+            -0.145,
+            0.005
+           ]
+          },
+          "support": {
+           "top": 0.97,
+           "x": [
+            0.06,
+            0.27
+           ],
+           "y": [
+            -0.36,
+            -0.07999999999999996
+           ]
+          },
+          "region": [
+           [
+            0.07999565093583241,
+            0.27
+           ],
+           [
+            -0.36,
+            -0.07999999999999996
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": false,
+          "margin_m": -0.0005,
+          "worst": {
+           "m": 5.0,
+           "c": [
+            0.095,
+            -0.145,
+            0.005
+           ]
+          },
+          "support": {
+           "top": 0.97,
+           "x": [
+            0.06,
+            0.27
+           ],
+           "y": [
+            -0.36,
+            -0.07999999999999996
+           ]
+          },
+          "region": [
+           [
+            0.07999565093583241,
+            0.27
+           ],
+           [
+            -0.36,
+            -0.07999999999999996
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     }
+    ]
+   },
+   "box|closed_chain": {
+    "task": "box",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "c_lo": 0.5,
+      "c_hi": 2.75,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "box",
+       "empty_mass": 0.25,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.075
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.5,
+        "m_hi": 2.75,
+        "P": [
+         [
+          -0.095,
+          -0.145,
+          0.005
+         ],
+         [
+          0.095,
+          -0.145,
+          0.005
+         ],
+         [
+          0.095,
+          0.145,
+          0.005
+         ],
+         [
+          -0.095,
+          0.145,
+          0.005
+         ],
+         [
+          -0.095,
+          -0.145,
+          0.145
+         ],
+         [
+          0.095,
+          -0.145,
+          0.145
+         ],
+         [
+          0.095,
+          0.145,
+          0.145
+         ],
+         [
+          -0.095,
+          0.145,
+          0.145
+         ]
+        ],
+        "labels": {
+         "m": "ASSUMED 0.5..2.75 kg (user-approved 11-02)",
+         "P": "MODEL (conservative): the contents COM lies anywhere inside the box interior (the sim block is a subset)"
+        }
+       },
+       "open_limits": [],
+       "sim_box": {
+        "note": "scenes.BoxWorld: one free block, half (0.04, 0.06, 0.05), on the box floor"
+       },
+       "plausible": {
+        "note": "box of cans / jars: 0.5..5 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "box",
+       "cell": [
+        0.5,
+        2.75
+       ],
+       "contents_m": [
+        0.5,
+        2.75
+       ],
+       "action": "refuse",
+       "a_admit": null,
+       "a_open": Infinity,
+       "u_nom": 0.9592,
+       "worst_nom": {
+        "wp": "p12",
+        "m": 2.75,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "Fz": {
+         "left": 6.936,
+         "right": 23.994
+        },
+        "twist": {
+         "left": 1.428,
+         "right": 1.428
+        }
+       },
+       "u_one_nom": 1.2364,
+       "worst_one": {
+        "wp": "p0",
+        "m": 2.75,
+        "c": [
+         -0.095,
+         -0.145,
+         0.005
+        ],
+        "worst_joint": 5,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 0.9592,
+          "u_best_split": 0.6182,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p1",
+           "m": 2.75,
+           "c": [
+            0.095,
+            -0.145,
+            0.145
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 6.936,
+            "right": 23.994
+           },
+           "twist": {
+            "left": 1.428,
+            "right": 1.428
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 0.9592,
+          "u_best_split": 0.6182,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p12",
+           "m": 2.75,
+           "c": [
+            0.095,
+            -0.145,
+            0.145
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 6.936,
+            "right": 23.994
+           },
+           "twist": {
+            "left": 1.428,
+            "right": 1.428
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 0.9592,
+          "u_best_split": 0.6182,
+          "a": 0.5,
+          "n_samples": 4,
+          "worst": {
+           "wp": "p12",
+           "m": 2.75,
+           "c": [
+            0.095,
+            -0.145,
+            0.145
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 6.936,
+            "right": 23.994
+           },
+           "twist": {
+            "left": 1.428,
+            "right": 1.428
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 4 path samples"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0029,
+          "worst": {
+           "m": 2.75,
+           "c": [
+            0.095,
+            -0.145,
+            0.005
+           ]
+          },
+          "support": {
+           "top": 0.97,
+           "x": [
+            0.06,
+            0.27
+           ],
+           "y": [
+            -0.36,
+            -0.07999999999999996
+           ]
+          },
+          "region": [
+           [
+            0.07999565093583241,
+            0.27
+           ],
+           [
+            -0.36,
+            -0.07999999999999996
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0029,
+          "worst": {
+           "m": 2.75,
+           "c": [
+            0.095,
+            -0.145,
+            0.005
+           ]
+          },
+          "support": {
+           "top": 0.97,
+           "x": [
+            0.06,
+            0.27
+           ],
+           "y": [
+            -0.36,
+            -0.07999999999999996
+           ]
+          },
+          "region": [
+           [
+            0.07999565093583241,
+            0.27
+           ],
+           [
+            -0.36,
+            -0.07999999999999996
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     },
+     {
+      "c_lo": 2.75,
+      "c_hi": 5.0,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "box",
+       "empty_mass": 0.25,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.075
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 2.75,
+        "m_hi": 5.0,
+        "P": [
+         [
+          -0.095,
+          -0.145,
+          0.005
+         ],
+         [
+          0.095,
+          -0.145,
+          0.005
+         ],
+         [
+          0.095,
+          0.145,
+          0.005
+         ],
+         [
+          -0.095,
+          0.145,
+          0.005
+         ],
+         [
+          -0.095,
+          -0.145,
+          0.145
+         ],
+         [
+          0.095,
+          -0.145,
+          0.145
+         ],
+         [
+          0.095,
+          0.145,
+          0.145
+         ],
+         [
+          -0.095,
+          0.145,
+          0.145
+         ]
+        ],
+        "labels": {
+         "m": "ASSUMED 2.75..5.0 kg (user-approved 11-02)",
+         "P": "MODEL (conservative): the contents COM lies anywhere inside the box interior (the sim block is a subset)"
+        }
+       },
+       "open_limits": [],
+       "sim_box": {
+        "note": "scenes.BoxWorld: one free block, half (0.04, 0.06, 0.05), on the box floor"
+       },
+       "plausible": {
+        "note": "box of cans / jars: 0.5..5 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "box",
+       "cell": [
+        2.75,
+        5.0
+       ],
+       "contents_m": [
+        2.75,
+        5.0
+       ],
+       "action": "refuse",
+       "a_admit": null,
+       "a_open": Infinity,
+       "u_nom": 1.7018,
+       "worst_nom": {
+        "wp": "p12",
+        "m": 5.0,
+        "c": [
+         0.095,
+         -0.145,
+         0.145
+        ],
+        "Fz": {
+         "left": 11.556,
+         "right": 42.572
+        },
+        "twist": {
+         "left": 2.594,
+         "right": 2.594
+        }
+       },
+       "u_one_nom": 2.1638,
+       "worst_one": {
+        "wp": "p0",
+        "m": 5.0,
+        "c": [
+         -0.095,
+         -0.145,
+         0.005
+        ],
+        "worst_joint": 5,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 1.7018,
+          "u_best_split": 1.0819,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p1",
+           "m": 5.0,
+           "c": [
+            0.095,
+            -0.145,
+            0.145
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 11.556,
+            "right": 42.572
+           },
+           "twist": {
+            "left": 2.594,
+            "right": 2.594
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 1.7018,
+          "u_best_split": 1.0819,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p12",
+           "m": 5.0,
+           "c": [
+            0.095,
+            -0.145,
+            0.145
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 11.556,
+            "right": 42.572
+           },
+           "twist": {
+            "left": 2.594,
+            "right": 2.594
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 1.7018,
+          "u_best_split": 1.0819,
+          "a": 0.5,
+          "n_samples": 4,
+          "worst": {
+           "wp": "p12",
+           "m": 5.0,
+           "c": [
+            0.095,
+            -0.145,
+            0.145
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 11.556,
+            "right": 42.572
+           },
+           "twist": {
+            "left": 2.594,
+            "right": 2.594
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 4 path samples"
+         },
+         "support_dest": {
+          "ok": false,
+          "margin_m": -0.0005,
+          "worst": {
+           "m": 5.0,
+           "c": [
+            0.095,
+            -0.145,
+            0.005
+           ]
+          },
+          "support": {
+           "top": 0.97,
+           "x": [
+            0.06,
+            0.27
+           ],
+           "y": [
+            -0.36,
+            -0.07999999999999996
+           ]
+          },
+          "region": [
+           [
+            0.07999565093583241,
+            0.27
+           ],
+           [
+            -0.36,
+            -0.07999999999999996
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": false,
+          "margin_m": -0.0005,
+          "worst": {
+           "m": 5.0,
+           "c": [
+            0.095,
+            -0.145,
+            0.005
+           ]
+          },
+          "support": {
+           "top": 0.97,
+           "x": [
+            0.06,
+            0.27
+           ],
+           "y": [
+            -0.36,
+            -0.07999999999999996
+           ]
+          },
+          "region": [
+           [
+            0.07999565093583241,
+            0.27
+           ],
+           [
+            -0.36,
+            -0.07999999999999996
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     }
+    ]
+   },
+   "tray2|scripted": {
+    "task": "tray2",
+    "planner": "scripted",
+    "rows": [
+     {
+      "c_lo": 0.6,
+      "c_hi": 0.8500000000000001,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.6,
+        "m_hi": 0.8500000000000001,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 0.600..0.850 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "2 mugs: 0.60..1.10 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray2",
+       "cell": [
+        0.6,
+        0.85
+       ],
+       "contents_m": [
+        0.6,
+        0.8500000000000001
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.3278,
+       "worst_nom": {
+        "wp": "p6",
+        "m": 0.85,
+        "c": [
+         -0.07,
+         0.125,
+         0.028
+        ],
+        "Fz": {
+         "left": 8.201,
+         "right": 3.656
+        },
+        "twist": {
+         "left": 0.311,
+         "right": 0.311
+        }
+       },
+       "u_one_nom": 0.474,
+       "worst_one": {
+        "wp": "p0",
+        "m": 0.85,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.3278,
+          "u_best_split": 0.237,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 8.201,
+            "right": 3.656
+           },
+           "twist": {
+            "left": 0.311,
+            "right": 0.311
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.3278,
+          "u_best_split": 0.237,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 8.201,
+            "right": 3.656
+           },
+           "twist": {
+            "left": 0.311,
+            "right": 0.311
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.3278,
+          "u_best_split": 0.237,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p13",
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 8.201,
+            "right": 3.656
+           },
+           "twist": {
+            "left": 0.311,
+            "right": 0.311
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0576,
+          "worst": {
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0576,
+          "worst": {
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     },
+     {
+      "c_lo": 0.8500000000000001,
+      "c_hi": 1.1,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.8500000000000001,
+        "m_hi": 1.1,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 0.850..1.100 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "2 mugs: 0.60..1.10 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray2",
+       "cell": [
+        0.85,
+        1.1
+       ],
+       "contents_m": [
+        0.8500000000000001,
+        1.1
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.4061,
+       "worst_nom": {
+        "wp": "p6",
+        "m": 1.1,
+        "c": [
+         -0.07,
+         0.125,
+         0.028
+        ],
+        "Fz": {
+         "left": 10.158,
+         "right": 4.276
+        },
+        "twist": {
+         "left": 0.402,
+         "right": 0.402
+        }
+       },
+       "u_one_nom": 0.577,
+       "worst_one": {
+        "wp": "p0",
+        "m": 1.1,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.4061,
+          "u_best_split": 0.2885,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 10.158,
+            "right": 4.276
+           },
+           "twist": {
+            "left": 0.402,
+            "right": 0.402
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.4061,
+          "u_best_split": 0.2885,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 10.158,
+            "right": 4.276
+           },
+           "twist": {
+            "left": 0.402,
+            "right": 0.402
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.4061,
+          "u_best_split": 0.2885,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p13",
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 10.158,
+            "right": 4.276
+           },
+           "twist": {
+            "left": 0.402,
+            "right": 0.402
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0518,
+          "worst": {
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0518,
+          "worst": {
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     }
+    ]
+   },
+   "tray2|closed_chain": {
+    "task": "tray2",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "c_lo": 0.6,
+      "c_hi": 0.8500000000000001,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.6,
+        "m_hi": 0.8500000000000001,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 0.600..0.850 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "2 mugs: 0.60..1.10 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray2",
+       "cell": [
+        0.6,
+        0.85
+       ],
+       "contents_m": [
+        0.6,
+        0.8500000000000001
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.3278,
+       "worst_nom": {
+        "wp": "p0",
+        "m": 0.85,
+        "c": [
+         -0.07,
+         0.125,
+         0.028
+        ],
+        "Fz": {
+         "left": 8.201,
+         "right": 3.656
+        },
+        "twist": {
+         "left": 0.311,
+         "right": 0.311
+        }
+       },
+       "u_one_nom": 0.474,
+       "worst_one": {
+        "wp": "p0",
+        "m": 0.85,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.3278,
+          "u_best_split": 0.237,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p0",
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 8.201,
+            "right": 3.656
+           },
+           "twist": {
+            "left": 0.311,
+            "right": 0.311
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.3278,
+          "u_best_split": 0.237,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p5",
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 8.201,
+            "right": 3.656
+           },
+           "twist": {
+            "left": 0.311,
+            "right": 0.311
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.3278,
+          "u_best_split": 0.237,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p16",
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 8.201,
+            "right": 3.656
+           },
+           "twist": {
+            "left": 0.311,
+            "right": 0.311
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0576,
+          "worst": {
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0576,
+          "worst": {
+           "m": 0.85,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     },
+     {
+      "c_lo": 0.8500000000000001,
+      "c_hi": 1.1,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.8500000000000001,
+        "m_hi": 1.1,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 0.850..1.100 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "2 mugs: 0.60..1.10 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray2",
+       "cell": [
+        0.85,
+        1.1
+       ],
+       "contents_m": [
+        0.8500000000000001,
+        1.1
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.4061,
+       "worst_nom": {
+        "wp": "p0",
+        "m": 1.1,
+        "c": [
+         -0.07,
+         0.125,
+         0.028
+        ],
+        "Fz": {
+         "left": 10.158,
+         "right": 4.276
+        },
+        "twist": {
+         "left": 0.402,
+         "right": 0.402
+        }
+       },
+       "u_one_nom": 0.577,
+       "worst_one": {
+        "wp": "p0",
+        "m": 1.1,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.4061,
+          "u_best_split": 0.2885,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p0",
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 10.158,
+            "right": 4.276
+           },
+           "twist": {
+            "left": 0.402,
+            "right": 0.402
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.4061,
+          "u_best_split": 0.2885,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p5",
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 10.158,
+            "right": 4.276
+           },
+           "twist": {
+            "left": 0.402,
+            "right": 0.402
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.4061,
+          "u_best_split": 0.2885,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p16",
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 10.158,
+            "right": 4.276
+           },
+           "twist": {
+            "left": 0.402,
+            "right": 0.402
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0518,
+          "worst": {
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0518,
+          "worst": {
+           "m": 1.1,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     }
+    ]
+   },
+   "tray4|scripted": {
+    "task": "tray4",
+    "planner": "scripted",
+    "rows": [
+     {
+      "c_lo": 1.2,
+      "c_hi": 1.7000000000000002,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 1.2,
+        "m_hi": 1.7000000000000002,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 1.200..1.700 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "4 mugs: 1.20..2.20 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray4",
+       "cell": [
+        1.2,
+        1.7
+       ],
+       "contents_m": [
+        1.2,
+        1.7000000000000002
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.5938,
+       "worst_nom": {
+        "wp": "p6",
+        "m": 1.7,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "Fz": {
+         "left": 5.765,
+         "right": 14.855
+        },
+        "twist": {
+         "left": 0.62,
+         "right": 0.62
+        }
+       },
+       "u_one_nom": 0.8243,
+       "worst_one": {
+        "wp": "p0",
+        "m": 1.7,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5938,
+          "u_best_split": 0.4121,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 1.7,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 5.765,
+            "right": 14.855
+           },
+           "twist": {
+            "left": 0.62,
+            "right": 0.62
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5938,
+          "u_best_split": 0.4121,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 1.7,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 5.765,
+            "right": 14.855
+           },
+           "twist": {
+            "left": 0.62,
+            "right": 0.62
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5938,
+          "u_best_split": 0.4121,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p18",
+           "m": 1.7,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 5.765,
+            "right": 14.855
+           },
+           "twist": {
+            "left": 0.62,
+            "right": 0.62
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0437,
+          "worst": {
+           "m": 1.7,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0437,
+          "worst": {
+           "m": 1.7,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     },
+     {
+      "c_lo": 1.7000000000000002,
+      "c_hi": 2.2,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 1.7000000000000002,
+        "m_hi": 2.2,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 1.700..2.200 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "4 mugs: 1.20..2.20 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray4",
+       "cell": [
+        1.7,
+        2.2
+       ],
+       "contents_m": [
+        1.7000000000000002,
+        2.2
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.7503,
+       "worst_nom": {
+        "wp": "p6",
+        "m": 2.2,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "Fz": {
+         "left": 7.005,
+         "right": 18.77
+        },
+        "twist": {
+         "left": 0.803,
+         "right": 0.803
+        }
+       },
+       "u_one_nom": 1.0304,
+       "worst_one": {
+        "wp": "p0",
+        "m": 2.2,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 5,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.7503,
+          "u_best_split": 0.5152,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 2.2,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.005,
+            "right": 18.77
+           },
+           "twist": {
+            "left": 0.803,
+            "right": 0.803
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.7503,
+          "u_best_split": 0.5152,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 2.2,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.005,
+            "right": 18.77
+           },
+           "twist": {
+            "left": 0.803,
+            "right": 0.803
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.7503,
+          "u_best_split": 0.5152,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p18",
+           "m": 2.2,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.005,
+            "right": 18.77
+           },
+           "twist": {
+            "left": 0.803,
+            "right": 0.803
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.04,
+          "worst": {
+           "m": 2.2,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.04,
+          "worst": {
+           "m": 2.2,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     }
+    ]
+   },
+   "tray4|closed_chain": {
+    "task": "tray4",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "c_lo": 1.2,
+      "c_hi": 1.7000000000000002,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 1.2,
+        "m_hi": 1.7000000000000002,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 1.200..1.700 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "4 mugs: 1.20..2.20 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray4",
+       "cell": [
+        1.2,
+        1.7
+       ],
+       "contents_m": [
+        1.2,
+        1.7000000000000002
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.5938,
+       "worst_nom": {
+        "wp": "p11",
+        "m": 1.7,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "Fz": {
+         "left": 5.765,
+         "right": 14.855
+        },
+        "twist": {
+         "left": 0.62,
+         "right": 0.62
+        }
+       },
+       "u_one_nom": 0.8243,
+       "worst_one": {
+        "wp": "p0",
+        "m": 1.7,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5938,
+          "u_best_split": 0.4121,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p2",
+           "m": 1.7,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 5.765,
+            "right": 14.855
+           },
+           "twist": {
+            "left": 0.62,
+            "right": 0.62
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5938,
+          "u_best_split": 0.4121,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p11",
+           "m": 1.7,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 5.765,
+            "right": 14.855
+           },
+           "twist": {
+            "left": 0.62,
+            "right": 0.62
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5938,
+          "u_best_split": 0.4121,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p11",
+           "m": 1.7,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 5.765,
+            "right": 14.855
+           },
+           "twist": {
+            "left": 0.62,
+            "right": 0.62
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0437,
+          "worst": {
+           "m": 1.7,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0437,
+          "worst": {
+           "m": 1.7,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     },
+     {
+      "c_lo": 1.7000000000000002,
+      "c_hi": 2.2,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 1.7000000000000002,
+        "m_hi": 2.2,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 1.700..2.200 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "4 mugs: 1.20..2.20 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray4",
+       "cell": [
+        1.7,
+        2.2
+       ],
+       "contents_m": [
+        1.7000000000000002,
+        2.2
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.7503,
+       "worst_nom": {
+        "wp": "p11",
+        "m": 2.2,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "Fz": {
+         "left": 7.005,
+         "right": 18.77
+        },
+        "twist": {
+         "left": 0.803,
+         "right": 0.803
+        }
+       },
+       "u_one_nom": 1.0304,
+       "worst_one": {
+        "wp": "p0",
+        "m": 2.2,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 5,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.7503,
+          "u_best_split": 0.5152,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p2",
+           "m": 2.2,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.005,
+            "right": 18.77
+           },
+           "twist": {
+            "left": 0.803,
+            "right": 0.803
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.7503,
+          "u_best_split": 0.5152,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p11",
+           "m": 2.2,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.005,
+            "right": 18.77
+           },
+           "twist": {
+            "left": 0.803,
+            "right": 0.803
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.7503,
+          "u_best_split": 0.5152,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p11",
+           "m": 2.2,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.005,
+            "right": 18.77
+           },
+           "twist": {
+            "left": 0.803,
+            "right": 0.803
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.04,
+          "worst": {
+           "m": 2.2,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.04,
+          "worst": {
+           "m": 2.2,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     }
+    ]
+   },
+   "tray6|scripted": {
+    "task": "tray6",
+    "planner": "scripted",
+    "rows": [
+     {
+      "c_lo": 1.7999999999999998,
+      "c_hi": 2.55,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 1.7999999999999998,
+        "m_hi": 2.55,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 1.800..2.550 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "6 mugs: 1.80..3.30 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray6",
+       "cell": [
+        1.8,
+        2.55
+       ],
+       "contents_m": [
+        1.7999999999999998,
+        2.55
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.8599,
+       "worst_nom": {
+        "wp": "p6",
+        "m": 2.55,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "Fz": {
+         "left": 7.874,
+         "right": 21.51
+        },
+        "twist": {
+         "left": 0.932,
+         "right": 0.932
+        }
+       },
+       "u_one_nom": 1.1746,
+       "worst_one": {
+        "wp": "p0",
+        "m": 2.55,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 5,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.8599,
+          "u_best_split": 0.5873,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 2.55,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.874,
+            "right": 21.51
+           },
+           "twist": {
+            "left": 0.932,
+            "right": 0.932
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.8599,
+          "u_best_split": 0.5873,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 2.55,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.874,
+            "right": 21.51
+           },
+           "twist": {
+            "left": 0.932,
+            "right": 0.932
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.8599,
+          "u_best_split": 0.5873,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p18",
+           "m": 2.55,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.874,
+            "right": 21.51
+           },
+           "twist": {
+            "left": 0.932,
+            "right": 0.932
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0382,
+          "worst": {
+           "m": 2.55,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0382,
+          "worst": {
+           "m": 2.55,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     },
+     {
+      "c_lo": 2.55,
+      "c_hi": 3.3000000000000003,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 2.55,
+        "m_hi": 3.3000000000000003,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 2.550..3.300 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "6 mugs: 1.80..3.30 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray6",
+       "cell": [
+        2.55,
+        3.3
+       ],
+       "contents_m": [
+        2.55,
+        3.3000000000000003
+       ],
+       "action": "refuse",
+       "a_admit": null,
+       "a_open": 5.895515390494968,
+       "u_nom": 1.0946,
+       "worst_nom": {
+        "wp": "p6",
+        "m": 3.3,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "Fz": {
+         "left": 9.735,
+         "right": 27.381
+        },
+        "twist": {
+         "left": 1.206,
+         "right": 1.206
+        }
+       },
+       "u_one_nom": 1.4837,
+       "worst_one": {
+        "wp": "p0",
+        "m": 3.3,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 5,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 1.0946,
+          "u_best_split": 0.7419,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 3.3,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 9.735,
+            "right": 27.381
+           },
+           "twist": {
+            "left": 1.206,
+            "right": 1.206
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 1.0946,
+          "u_best_split": 0.7419,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 3.3,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 9.735,
+            "right": 27.381
+           },
+           "twist": {
+            "left": 1.206,
+            "right": 1.206
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 1.0946,
+          "u_best_split": 0.7419,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p18",
+           "m": 3.3,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 9.735,
+            "right": 27.381
+           },
+           "twist": {
+            "left": 1.206,
+            "right": 1.206
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0354,
+          "worst": {
+           "m": 3.3,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0354,
+          "worst": {
+           "m": 3.3,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     }
+    ]
+   },
+   "tray6|closed_chain": {
+    "task": "tray6",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "c_lo": 1.7999999999999998,
+      "c_hi": 2.55,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 1.7999999999999998,
+        "m_hi": 2.55,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 1.800..2.550 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "6 mugs: 1.80..3.30 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray6",
+       "cell": [
+        1.8,
+        2.55
+       ],
+       "contents_m": [
+        1.7999999999999998,
+        2.55
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 5.895515390494968,
+       "u_nom": 0.8599,
+       "worst_nom": {
+        "wp": "p11",
+        "m": 2.55,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "Fz": {
+         "left": 7.874,
+         "right": 21.51
+        },
+        "twist": {
+         "left": 0.932,
+         "right": 0.932
+        }
+       },
+       "u_one_nom": 1.1746,
+       "worst_one": {
+        "wp": "p0",
+        "m": 2.55,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 5,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.8599,
+          "u_best_split": 0.5873,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p1",
+           "m": 2.55,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.874,
+            "right": 21.51
+           },
+           "twist": {
+            "left": 0.932,
+            "right": 0.932
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.8599,
+          "u_best_split": 0.5873,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p11",
+           "m": 2.55,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.874,
+            "right": 21.51
+           },
+           "twist": {
+            "left": 0.932,
+            "right": 0.932
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.8599,
+          "u_best_split": 0.5873,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p11",
+           "m": 2.55,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.874,
+            "right": 21.51
+           },
+           "twist": {
+            "left": 0.932,
+            "right": 0.932
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0382,
+          "worst": {
+           "m": 2.55,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0382,
+          "worst": {
+           "m": 2.55,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     },
+     {
+      "c_lo": 2.55,
+      "c_hi": 3.3000000000000003,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "coffee_tray",
+       "empty_mass": 0.3,
+       "empty_com": [
+        0.0,
+        0.0,
+        0.004
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 2.55,
+        "m_hi": 3.3000000000000003,
+        "P": [
+         [
+          -0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          -0.125,
+          0.028
+         ],
+         [
+          0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          0.125,
+          0.028
+         ],
+         [
+          -0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          -0.125,
+          0.0555
+         ],
+         [
+          0.07,
+          0.125,
+          0.0555
+         ],
+         [
+          -0.07,
+          0.125,
+          0.0555
+         ]
+        ],
+        "labels": {
+         "m": "probe interval 2.550..3.300 kg",
+         "P": "MODEL (conservative): combined COM inside the convex hull of possible cup centres (rect); real set is smaller (no overlap)"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "cup_spill",
+         "a_max": 5.895515390494968,
+         "formula": "a_max = g 2 (H - h) / D, one mug holding the whole fill hi",
+         "labels": {}
+        }
+       ],
+       "sim_box": {
+        "note": "no NERO tray scene yet (step 2)"
+       },
+       "plausible": {
+        "note": "6 mugs: 1.80..3.30 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "tray6",
+       "cell": [
+        2.55,
+        3.3
+       ],
+       "contents_m": [
+        2.55,
+        3.3000000000000003
+       ],
+       "action": "refuse",
+       "a_admit": null,
+       "a_open": 5.895515390494968,
+       "u_nom": 1.0946,
+       "worst_nom": {
+        "wp": "p11",
+        "m": 3.3,
+        "c": [
+         0.07,
+         -0.125,
+         0.0555
+        ],
+        "Fz": {
+         "left": 9.735,
+         "right": 27.381
+        },
+        "twist": {
+         "left": 1.206,
+         "right": 1.206
+        }
+       },
+       "u_one_nom": 1.4837,
+       "worst_one": {
+        "wp": "p0",
+        "m": 3.3,
+        "c": [
+         -0.07,
+         -0.125,
+         0.028
+        ],
+        "worst_joint": 5,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 1.0946,
+          "u_best_split": 0.7419,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p1",
+           "m": 3.3,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 9.735,
+            "right": 27.381
+           },
+           "twist": {
+            "left": 1.206,
+            "right": 1.206
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 1.0946,
+          "u_best_split": 0.7419,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p11",
+           "m": 3.3,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 9.735,
+            "right": 27.381
+           },
+           "twist": {
+            "left": 1.206,
+            "right": 1.206
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": false,
+          "u_max": 1.0946,
+          "u_best_split": 0.7419,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p11",
+           "m": 3.3,
+           "c": [
+            0.07,
+            -0.125,
+            0.0555
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 9.735,
+            "right": 27.381
+           },
+           "twist": {
+            "left": 1.206,
+            "right": 1.206
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 5.8955,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0354,
+          "worst": {
+           "m": 3.3,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0354,
+          "worst": {
+           "m": 3.3,
+           "c": [
+            -0.07,
+            0.125,
+            0.028
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.16999565093583247,
+            0.38999565093583244
+           ],
+           [
+            -0.37,
+            -0.06999999999999998
+           ]
+          ],
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     }
+    ]
+   },
+   "pot|scripted": {
+    "task": "pot",
+    "planner": "scripted",
+    "rows": [
+     {
+      "c_lo": 0.02,
+      "c_hi": 0.76,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "pot",
+       "empty_mass": 0.38162598953516286,
+       "empty_com": [
+        -8.878147405904125e-19,
+        -1.7756294811808253e-20,
+        0.026787407849854866
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.02,
+        "m_hi": 0.76,
+        "P": [
+         [
+          0.09,
+          0.01790211306416922,
+          0.0025
+         ],
+         [
+          0.07629831585203162,
+          0.05098090476154693,
+          0.0025
+         ],
+         [
+          0.050980904761546944,
+          0.07629831585203162,
+          0.0025
+         ],
+         [
+          0.017902113064169226,
+          0.09,
+          0.0025
+         ],
+         [
+          -0.017902113064169212,
+          0.09,
+          0.0025
+         ],
+         [
+          -0.05098090476154691,
+          0.07629831585203163,
+          0.0025
+         ],
+         [
+          -0.07629831585203162,
+          0.05098090476154693,
+          0.0025
+         ],
+         [
+          -0.09,
+          0.01790211306416925,
+          0.0025
+         ],
+         [
+          -0.09,
+          -0.01790211306416923,
+          0.0025
+         ],
+         [
+          -0.07629831585203163,
+          -0.05098090476154691,
+          0.0025
+         ],
+         [
+          -0.05098090476154693,
+          -0.07629831585203162,
+          0.0025
+         ],
+         [
+          -0.017902113064169257,
+          -0.08999999999999998,
+          0.0025
+         ],
+         [
+          0.017902113064169223,
+          -0.09,
+          0.0025
+         ],
+         [
+          0.0509809047615469,
+          -0.07629831585203163,
+          0.0025
+         ],
+         [
+          0.07629831585203162,
+          -0.05098090476154693,
+          0.0025
+         ],
+         [
+          0.08999999999999998,
+          -0.01790211306416926,
+          0.0025
+         ],
+         [
+          0.09,
+          0.01790211306416922,
+          0.0425
+         ],
+         [
+          0.07629831585203162,
+          0.05098090476154693,
+          0.0425
+         ],
+         [
+          0.050980904761546944,
+          0.07629831585203162,
+          0.0425
+         ],
+         [
+          0.017902113064169226,
+          0.09,
+          0.0425
+         ],
+         [
+          -0.017902113064169212,
+          0.09,
+          0.0425
+         ],
+         [
+          -0.05098090476154691,
+          0.07629831585203163,
+          0.0425
+         ],
+         [
+          -0.07629831585203162,
+          0.05098090476154693,
+          0.0425
+         ],
+         [
+          -0.09,
+          0.01790211306416925,
+          0.0425
+         ],
+         [
+          -0.09,
+          -0.01790211306416923,
+          0.0425
+         ],
+         [
+          -0.07629831585203163,
+          -0.05098090476154691,
+          0.0425
+         ],
+         [
+          -0.05098090476154693,
+          -0.07629831585203162,
+          0.0425
+         ],
+         [
+          -0.017902113064169257,
+          -0.08999999999999998,
+          0.0425
+         ],
+         [
+          0.017902113064169223,
+          -0.09,
+          0.0425
+         ],
+         [
+          0.0509809047615469,
+          -0.07629831585203163,
+          0.0425
+         ],
+         [
+          0.07629831585203162,
+          -0.05098090476154693,
+          0.0425
+         ],
+         [
+          0.08999999999999998,
+          -0.01790211306416926,
+          0.0425
+         ]
+        ],
+        "labels": {
+         "m": "ASSUMED box 0.02..0.76 kg (hardworlds.THETA mass 0.02..1.5)",
+         "P": "MODEL: any contents COM lies inside the inner wall (r <= 0.09 m, circumscribed 16-gon), 0..wall height"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "lid_slide",
+         "a_max": 4.905,
+         "formula": "a_max = mu_lid_min * g (Coulomb, quasi-static)",
+         "labels": {
+          "mu": "ASSUMED 0.5 (lower end of lid_mu_scale box x MJCF mu 1.0)"
+         }
+        }
+       ],
+       "sim_box": {
+        "m": [
+         0.02,
+         1.5
+        ],
+        "r_com": 0.06,
+        "note": "pan/theta.py THETA (ASSUMED); c_r disc C_R = 0.06 m (MODEL puck)"
+       },
+       "plausible": {
+        "volume_L": 1.017876019763093,
+        "water_full_kg": 1.017876019763093,
+        "note": "MODEL: inner volume pi r^2 h; denser food (rho 1.2) -> 1.22 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "pot",
+       "cell": [
+        0.02,
+        0.76
+       ],
+       "contents_m": [
+        0.02,
+        0.76
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 4.905,
+       "u_nom": 0.2937,
+       "worst_nom": {
+        "wp": "p12",
+        "m": 0.76,
+        "c": [
+         -0.0179,
+         0.09,
+         0.0025
+        ],
+        "Fz": {
+         "left": 7.348,
+         "right": 4.422
+        },
+        "twist": {
+         "left": 0.078,
+         "right": 0.078
+        }
+       },
+       "u_one_nom": 0.4705,
+       "worst_one": {
+        "wp": "p0",
+        "m": 0.76,
+        "c": [
+         -0.09,
+         -0.0179,
+         0.0025
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.2937,
+          "u_best_split": 0.2353,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 0.76,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.348,
+            "right": 4.422
+           },
+           "twist": {
+            "left": 0.078,
+            "right": 0.078
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.2937,
+          "u_best_split": 0.2353,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p12",
+           "m": 0.76,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.348,
+            "right": 4.422
+           },
+           "twist": {
+            "left": 0.078,
+            "right": 0.078
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.2937,
+          "u_best_split": 0.2353,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p12",
+           "m": 0.76,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.348,
+            "right": 4.422
+           },
+           "twist": {
+            "left": 0.078,
+            "right": 0.078
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0314,
+          "worst": {
+           "m": 0.76,
+           "c": [
+            -0.0763,
+            -0.051,
+            0.0025
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.18749565093583245,
+            0.3724956509358325
+           ],
+           [
+            -0.3124976086407547,
+            -0.12749760864075468
+           ]
+          ],
+          "disc": {
+           "centre": [
+            0.28,
+            -0.22
+           ],
+           "radius": 0.0925
+          },
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0314,
+          "worst": {
+           "m": 0.76,
+           "c": [
+            -0.0763,
+            -0.051,
+            0.0025
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.18749565093583245,
+            0.3724956509358325
+           ],
+           [
+            -0.3124976086407547,
+            -0.12749760864075468
+           ]
+          ],
+          "disc": {
+           "centre": [
+            0.28,
+            -0.22
+           ],
+           "radius": 0.0925
+          },
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     },
+     {
+      "c_lo": 0.76,
+      "c_hi": 1.5,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "pot",
+       "empty_mass": 0.38162598953516286,
+       "empty_com": [
+        -8.878147405904125e-19,
+        -1.7756294811808253e-20,
+        0.026787407849854866
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.76,
+        "m_hi": 1.5,
+        "P": [
+         [
+          0.09,
+          0.01790211306416922,
+          0.0025
+         ],
+         [
+          0.07629831585203162,
+          0.05098090476154693,
+          0.0025
+         ],
+         [
+          0.050980904761546944,
+          0.07629831585203162,
+          0.0025
+         ],
+         [
+          0.017902113064169226,
+          0.09,
+          0.0025
+         ],
+         [
+          -0.017902113064169212,
+          0.09,
+          0.0025
+         ],
+         [
+          -0.05098090476154691,
+          0.07629831585203163,
+          0.0025
+         ],
+         [
+          -0.07629831585203162,
+          0.05098090476154693,
+          0.0025
+         ],
+         [
+          -0.09,
+          0.01790211306416925,
+          0.0025
+         ],
+         [
+          -0.09,
+          -0.01790211306416923,
+          0.0025
+         ],
+         [
+          -0.07629831585203163,
+          -0.05098090476154691,
+          0.0025
+         ],
+         [
+          -0.05098090476154693,
+          -0.07629831585203162,
+          0.0025
+         ],
+         [
+          -0.017902113064169257,
+          -0.08999999999999998,
+          0.0025
+         ],
+         [
+          0.017902113064169223,
+          -0.09,
+          0.0025
+         ],
+         [
+          0.0509809047615469,
+          -0.07629831585203163,
+          0.0025
+         ],
+         [
+          0.07629831585203162,
+          -0.05098090476154693,
+          0.0025
+         ],
+         [
+          0.08999999999999998,
+          -0.01790211306416926,
+          0.0025
+         ],
+         [
+          0.09,
+          0.01790211306416922,
+          0.0425
+         ],
+         [
+          0.07629831585203162,
+          0.05098090476154693,
+          0.0425
+         ],
+         [
+          0.050980904761546944,
+          0.07629831585203162,
+          0.0425
+         ],
+         [
+          0.017902113064169226,
+          0.09,
+          0.0425
+         ],
+         [
+          -0.017902113064169212,
+          0.09,
+          0.0425
+         ],
+         [
+          -0.05098090476154691,
+          0.07629831585203163,
+          0.0425
+         ],
+         [
+          -0.07629831585203162,
+          0.05098090476154693,
+          0.0425
+         ],
+         [
+          -0.09,
+          0.01790211306416925,
+          0.0425
+         ],
+         [
+          -0.09,
+          -0.01790211306416923,
+          0.0425
+         ],
+         [
+          -0.07629831585203163,
+          -0.05098090476154691,
+          0.0425
+         ],
+         [
+          -0.05098090476154693,
+          -0.07629831585203162,
+          0.0425
+         ],
+         [
+          -0.017902113064169257,
+          -0.08999999999999998,
+          0.0425
+         ],
+         [
+          0.017902113064169223,
+          -0.09,
+          0.0425
+         ],
+         [
+          0.0509809047615469,
+          -0.07629831585203163,
+          0.0425
+         ],
+         [
+          0.07629831585203162,
+          -0.05098090476154693,
+          0.0425
+         ],
+         [
+          0.08999999999999998,
+          -0.01790211306416926,
+          0.0425
+         ]
+        ],
+        "labels": {
+         "m": "ASSUMED box 0.76..1.5 kg (hardworlds.THETA mass 0.02..1.5)",
+         "P": "MODEL: any contents COM lies inside the inner wall (r <= 0.09 m, circumscribed 16-gon), 0..wall height"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "lid_slide",
+         "a_max": 4.905,
+         "formula": "a_max = mu_lid_min * g (Coulomb, quasi-static)",
+         "labels": {
+          "mu": "ASSUMED 0.5 (lower end of lid_mu_scale box x MJCF mu 1.0)"
+         }
+        }
+       ],
+       "sim_box": {
+        "m": [
+         0.02,
+         1.5
+        ],
+        "r_com": 0.06,
+        "note": "pan/theta.py THETA (ASSUMED); c_r disc C_R = 0.06 m (MODEL puck)"
+       },
+       "plausible": {
+        "volume_L": 1.017876019763093,
+        "water_full_kg": 1.017876019763093,
+        "note": "MODEL: inner volume pi r^2 h; denser food (rho 1.2) -> 1.22 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "pot",
+       "cell": [
+        0.76,
+        1.5
+       ],
+       "contents_m": [
+        0.76,
+        1.5
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 4.905,
+       "u_nom": 0.5032,
+       "worst_nom": {
+        "wp": "p12",
+        "m": 1.5,
+        "c": [
+         -0.0179,
+         0.09,
+         0.0025
+        ],
+        "Fz": {
+         "left": 12.587,
+         "right": 6.812
+        },
+        "twist": {
+         "left": 0.152,
+         "right": 0.152
+        }
+       },
+       "u_one_nom": 0.7755,
+       "worst_one": {
+        "wp": "p0",
+        "m": 1.5,
+        "c": [
+         -0.09,
+         -0.0179,
+         0.0025
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5032,
+          "u_best_split": 0.3878,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p6",
+           "m": 1.5,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 12.587,
+            "right": 6.812
+           },
+           "twist": {
+            "left": 0.152,
+            "right": 0.152
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5032,
+          "u_best_split": 0.3878,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p12",
+           "m": 1.5,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 12.587,
+            "right": 6.812
+           },
+           "twist": {
+            "left": 0.152,
+            "right": 0.152
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5032,
+          "u_best_split": 0.3878,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p12",
+           "m": 1.5,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 12.587,
+            "right": 6.812
+           },
+           "twist": {
+            "left": 0.152,
+            "right": 0.152
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0193,
+          "worst": {
+           "m": 1.5,
+           "c": [
+            -0.09,
+            -0.0179,
+            0.0025
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.18749565093583245,
+            0.3724956509358325
+           ],
+           [
+            -0.3124976086407547,
+            -0.12749760864075468
+           ]
+          ],
+          "disc": {
+           "centre": [
+            0.28,
+            -0.22
+           ],
+           "radius": 0.0925
+          },
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0193,
+          "worst": {
+           "m": 1.5,
+           "c": [
+            -0.09,
+            -0.0179,
+            0.0025
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.18749565093583245,
+            0.3724956509358325
+           ],
+           [
+            -0.3124976086407547,
+            -0.12749760864075468
+           ]
+          ],
+          "disc": {
+           "centre": [
+            0.28,
+            -0.22
+           ],
+           "radius": 0.0925
+          },
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       }
+      }
+     }
+    ]
+   },
+   "pot|closed_chain": {
+    "task": "pot",
+    "planner": "closed_chain",
+    "rows": [
+     {
+      "c_lo": 0.02,
+      "c_hi": 0.76,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "pot",
+       "empty_mass": 0.38162598953516286,
+       "empty_com": [
+        -8.878147405904125e-19,
+        -1.7756294811808253e-20,
+        0.026787407849854866
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.02,
+        "m_hi": 0.76,
+        "P": [
+         [
+          0.09,
+          0.01790211306416922,
+          0.0025
+         ],
+         [
+          0.07629831585203162,
+          0.05098090476154693,
+          0.0025
+         ],
+         [
+          0.050980904761546944,
+          0.07629831585203162,
+          0.0025
+         ],
+         [
+          0.017902113064169226,
+          0.09,
+          0.0025
+         ],
+         [
+          -0.017902113064169212,
+          0.09,
+          0.0025
+         ],
+         [
+          -0.05098090476154691,
+          0.07629831585203163,
+          0.0025
+         ],
+         [
+          -0.07629831585203162,
+          0.05098090476154693,
+          0.0025
+         ],
+         [
+          -0.09,
+          0.01790211306416925,
+          0.0025
+         ],
+         [
+          -0.09,
+          -0.01790211306416923,
+          0.0025
+         ],
+         [
+          -0.07629831585203163,
+          -0.05098090476154691,
+          0.0025
+         ],
+         [
+          -0.05098090476154693,
+          -0.07629831585203162,
+          0.0025
+         ],
+         [
+          -0.017902113064169257,
+          -0.08999999999999998,
+          0.0025
+         ],
+         [
+          0.017902113064169223,
+          -0.09,
+          0.0025
+         ],
+         [
+          0.0509809047615469,
+          -0.07629831585203163,
+          0.0025
+         ],
+         [
+          0.07629831585203162,
+          -0.05098090476154693,
+          0.0025
+         ],
+         [
+          0.08999999999999998,
+          -0.01790211306416926,
+          0.0025
+         ],
+         [
+          0.09,
+          0.01790211306416922,
+          0.0425
+         ],
+         [
+          0.07629831585203162,
+          0.05098090476154693,
+          0.0425
+         ],
+         [
+          0.050980904761546944,
+          0.07629831585203162,
+          0.0425
+         ],
+         [
+          0.017902113064169226,
+          0.09,
+          0.0425
+         ],
+         [
+          -0.017902113064169212,
+          0.09,
+          0.0425
+         ],
+         [
+          -0.05098090476154691,
+          0.07629831585203163,
+          0.0425
+         ],
+         [
+          -0.07629831585203162,
+          0.05098090476154693,
+          0.0425
+         ],
+         [
+          -0.09,
+          0.01790211306416925,
+          0.0425
+         ],
+         [
+          -0.09,
+          -0.01790211306416923,
+          0.0425
+         ],
+         [
+          -0.07629831585203163,
+          -0.05098090476154691,
+          0.0425
+         ],
+         [
+          -0.05098090476154693,
+          -0.07629831585203162,
+          0.0425
+         ],
+         [
+          -0.017902113064169257,
+          -0.08999999999999998,
+          0.0425
+         ],
+         [
+          0.017902113064169223,
+          -0.09,
+          0.0425
+         ],
+         [
+          0.0509809047615469,
+          -0.07629831585203163,
+          0.0425
+         ],
+         [
+          0.07629831585203162,
+          -0.05098090476154693,
+          0.0425
+         ],
+         [
+          0.08999999999999998,
+          -0.01790211306416926,
+          0.0425
+         ]
+        ],
+        "labels": {
+         "m": "ASSUMED box 0.02..0.76 kg (hardworlds.THETA mass 0.02..1.5)",
+         "P": "MODEL: any contents COM lies inside the inner wall (r <= 0.09 m, circumscribed 16-gon), 0..wall height"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "lid_slide",
+         "a_max": 4.905,
+         "formula": "a_max = mu_lid_min * g (Coulomb, quasi-static)",
+         "labels": {
+          "mu": "ASSUMED 0.5 (lower end of lid_mu_scale box x MJCF mu 1.0)"
+         }
+        }
+       ],
+       "sim_box": {
+        "m": [
+         0.02,
+         1.5
+        ],
+        "r_com": 0.06,
+        "note": "pan/theta.py THETA (ASSUMED); c_r disc C_R = 0.06 m (MODEL puck)"
+       },
+       "plausible": {
+        "volume_L": 1.017876019763093,
+        "water_full_kg": 1.017876019763093,
+        "note": "MODEL: inner volume pi r^2 h; denser food (rho 1.2) -> 1.22 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "pot",
+       "cell": [
+        0.02,
+        0.76
+       ],
+       "contents_m": [
+        0.02,
+        0.76
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 4.905,
+       "u_nom": 0.2937,
+       "worst_nom": {
+        "wp": "p5",
+        "m": 0.76,
+        "c": [
+         -0.0179,
+         0.09,
+         0.0025
+        ],
+        "Fz": {
+         "left": 7.348,
+         "right": 4.422
+        },
+        "twist": {
+         "left": 0.078,
+         "right": 0.078
+        }
+       },
+       "u_one_nom": 0.4705,
+       "worst_one": {
+        "wp": "p0",
+        "m": 0.76,
+        "c": [
+         -0.09,
+         -0.0179,
+         0.0025
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.2937,
+          "u_best_split": 0.2353,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p5",
+           "m": 0.76,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.348,
+            "right": 4.422
+           },
+           "twist": {
+            "left": 0.078,
+            "right": 0.078
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.2937,
+          "u_best_split": 0.2353,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p5",
+           "m": 0.76,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.348,
+            "right": 4.422
+           },
+           "twist": {
+            "left": 0.078,
+            "right": 0.078
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.2937,
+          "u_best_split": 0.2353,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p16",
+           "m": 0.76,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 7.348,
+            "right": 4.422
+           },
+           "twist": {
+            "left": 0.078,
+            "right": 0.078
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0314,
+          "worst": {
+           "m": 0.76,
+           "c": [
+            -0.0763,
+            -0.051,
+            0.0025
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.18749565093583245,
+            0.3724956509358325
+           ],
+           [
+            -0.3124976086407547,
+            -0.12749760864075468
+           ]
+          ],
+          "disc": {
+           "centre": [
+            0.28,
+            -0.22
+           ],
+           "radius": 0.0925
+          },
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0314,
+          "worst": {
+           "m": 0.76,
+           "c": [
+            -0.0763,
+            -0.051,
+            0.0025
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.18749565093583245,
+            0.3724956509358325
+           ],
+           [
+            -0.3124976086407547,
+            -0.12749760864075468
+           ]
+          ],
+          "disc": {
+           "centre": [
+            0.28,
+            -0.22
+           ],
+           "radius": 0.0925
+          },
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     },
+     {
+      "c_lo": 0.76,
+      "c_hi": 1.5,
+      "interval_spec": {
+       "__class__": "ObjectSpec",
+       "name": "pot",
+       "empty_mass": 0.38162598953516286,
+       "empty_com": [
+        -8.878147405904125e-19,
+        -1.7756294811808253e-20,
+        0.026787407849854866
+       ],
+       "contents": {
+        "__class__": "Contents",
+        "m_lo": 0.76,
+        "m_hi": 1.5,
+        "P": [
+         [
+          0.09,
+          0.01790211306416922,
+          0.0025
+         ],
+         [
+          0.07629831585203162,
+          0.05098090476154693,
+          0.0025
+         ],
+         [
+          0.050980904761546944,
+          0.07629831585203162,
+          0.0025
+         ],
+         [
+          0.017902113064169226,
+          0.09,
+          0.0025
+         ],
+         [
+          -0.017902113064169212,
+          0.09,
+          0.0025
+         ],
+         [
+          -0.05098090476154691,
+          0.07629831585203163,
+          0.0025
+         ],
+         [
+          -0.07629831585203162,
+          0.05098090476154693,
+          0.0025
+         ],
+         [
+          -0.09,
+          0.01790211306416925,
+          0.0025
+         ],
+         [
+          -0.09,
+          -0.01790211306416923,
+          0.0025
+         ],
+         [
+          -0.07629831585203163,
+          -0.05098090476154691,
+          0.0025
+         ],
+         [
+          -0.05098090476154693,
+          -0.07629831585203162,
+          0.0025
+         ],
+         [
+          -0.017902113064169257,
+          -0.08999999999999998,
+          0.0025
+         ],
+         [
+          0.017902113064169223,
+          -0.09,
+          0.0025
+         ],
+         [
+          0.0509809047615469,
+          -0.07629831585203163,
+          0.0025
+         ],
+         [
+          0.07629831585203162,
+          -0.05098090476154693,
+          0.0025
+         ],
+         [
+          0.08999999999999998,
+          -0.01790211306416926,
+          0.0025
+         ],
+         [
+          0.09,
+          0.01790211306416922,
+          0.0425
+         ],
+         [
+          0.07629831585203162,
+          0.05098090476154693,
+          0.0425
+         ],
+         [
+          0.050980904761546944,
+          0.07629831585203162,
+          0.0425
+         ],
+         [
+          0.017902113064169226,
+          0.09,
+          0.0425
+         ],
+         [
+          -0.017902113064169212,
+          0.09,
+          0.0425
+         ],
+         [
+          -0.05098090476154691,
+          0.07629831585203163,
+          0.0425
+         ],
+         [
+          -0.07629831585203162,
+          0.05098090476154693,
+          0.0425
+         ],
+         [
+          -0.09,
+          0.01790211306416925,
+          0.0425
+         ],
+         [
+          -0.09,
+          -0.01790211306416923,
+          0.0425
+         ],
+         [
+          -0.07629831585203163,
+          -0.05098090476154691,
+          0.0425
+         ],
+         [
+          -0.05098090476154693,
+          -0.07629831585203162,
+          0.0425
+         ],
+         [
+          -0.017902113064169257,
+          -0.08999999999999998,
+          0.0425
+         ],
+         [
+          0.017902113064169223,
+          -0.09,
+          0.0425
+         ],
+         [
+          0.0509809047615469,
+          -0.07629831585203163,
+          0.0425
+         ],
+         [
+          0.07629831585203162,
+          -0.05098090476154693,
+          0.0425
+         ],
+         [
+          0.08999999999999998,
+          -0.01790211306416926,
+          0.0425
+         ]
+        ],
+        "labels": {
+         "m": "ASSUMED box 0.76..1.5 kg (hardworlds.THETA mass 0.02..1.5)",
+         "P": "MODEL: any contents COM lies inside the inner wall (r <= 0.09 m, circumscribed 16-gon), 0..wall height"
+        }
+       },
+       "open_limits": [
+        {
+         "__class__": "OpenLimit",
+         "name": "lid_slide",
+         "a_max": 4.905,
+         "formula": "a_max = mu_lid_min * g (Coulomb, quasi-static)",
+         "labels": {
+          "mu": "ASSUMED 0.5 (lower end of lid_mu_scale box x MJCF mu 1.0)"
+         }
+        }
+       ],
+       "sim_box": {
+        "m": [
+         0.02,
+         1.5
+        ],
+        "r_com": 0.06,
+        "note": "pan/theta.py THETA (ASSUMED); c_r disc C_R = 0.06 m (MODEL puck)"
+       },
+       "plausible": {
+        "volume_L": 1.017876019763093,
+        "water_full_kg": 1.017876019763093,
+        "note": "MODEL: inner volume pi r^2 h; denser food (rho 1.2) -> 1.22 kg"
+       },
+       "labels": {}
+      },
+      "static_interval": {
+       "task": "pot",
+       "cell": [
+        0.76,
+        1.5
+       ],
+       "contents_m": [
+        0.76,
+        1.5
+       ],
+       "action": "two arms",
+       "a_admit": 0.5,
+       "a_open": 4.905,
+       "u_nom": 0.5032,
+       "worst_nom": {
+        "wp": "p5",
+        "m": 1.5,
+        "c": [
+         -0.0179,
+         0.09,
+         0.0025
+        ],
+        "Fz": {
+         "left": 12.587,
+         "right": 6.812
+        },
+        "twist": {
+         "left": 0.152,
+         "right": 0.152
+        }
+       },
+       "u_one_nom": 0.7755,
+       "worst_one": {
+        "wp": "p0",
+        "m": 1.5,
+        "c": [
+         -0.09,
+         -0.0179,
+         0.0025
+        ],
+        "worst_joint": 3,
+        "binding": "payload"
+       },
+       "T_cap": null,
+       "rows": {
+        "lift": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5032,
+          "u_best_split": 0.3878,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p5",
+           "m": 1.5,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 12.587,
+            "right": 6.812
+           },
+           "twist": {
+            "left": 0.152,
+            "right": 0.152
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "carry": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5032,
+          "u_best_split": 0.3878,
+          "a": 0.5,
+          "n_samples": 7,
+          "worst": {
+           "wp": "p5",
+           "m": 1.5,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 12.587,
+            "right": 6.812
+           },
+           "twist": {
+            "left": 0.152,
+            "right": 0.152
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 7 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         }
+        },
+        "place": {
+         "torque_payload": {
+          "ok": true,
+          "u_max": 0.5032,
+          "u_best_split": 0.3878,
+          "a": 0.5,
+          "n_samples": 6,
+          "worst": {
+           "wp": "p16",
+           "m": 1.5,
+           "c": [
+            -0.0179,
+            0.09,
+            0.0025
+           ],
+           "a": [
+            -0.5,
+            -0.5,
+            0.5
+           ],
+           "Fz": {
+            "left": 12.587,
+            "right": 6.812
+           },
+           "twist": {
+            "left": 0.152,
+            "right": 0.152
+           }
+          },
+          "guarantee": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 0.9 ASSUMED) over the cell x acceleration box at 6 path samples"
+         },
+         "open_content": {
+          "ok": true,
+          "a_plan": 0.5,
+          "a_open": 4.905,
+          "guarantee": "proof under MODEL (quasi-static liquid surface; slosh NOT covered)"
+         },
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0193,
+          "worst": {
+           "m": 1.5,
+           "c": [
+            -0.09,
+            -0.0179,
+            0.0025
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.18749565093583245,
+            0.3724956509358325
+           ],
+           [
+            -0.3124976086407547,
+            -0.12749760864075468
+           ]
+          ],
+          "disc": {
+           "centre": [
+            0.28,
+            -0.22
+           ],
+           "radius": 0.0925
+          },
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        },
+        "release": {
+         "support_dest": {
+          "ok": true,
+          "margin_m": 0.0193,
+          "worst": {
+           "m": 1.5,
+           "c": [
+            -0.09,
+            -0.0179,
+            0.0025
+           ]
+          },
+          "support": {
+           "top": 0.8200000000000001,
+           "x": [
+            0.13,
+            0.53
+           ],
+           "y": [
+            -0.37,
+            -0.06999999999999998
+           ]
+          },
+          "region": [
+           [
+            0.18749565093583245,
+            0.3724956509358325
+           ],
+           [
+            -0.3124976086407547,
+            -0.12749760864075468
+           ]
+          ],
+          "disc": {
+           "centre": [
+            0.28,
+            -0.22
+           ],
+           "radius": 0.0925
+          },
+          "guarantee": "proof under MODEL (rigid object on a flat support: at rest iff the total COM is over the contact rectangle (pot: bottom disc); placement at the nominal destination, placement error NOT covered)"
+         }
+        }
+       },
+       "planner": "closed_chain"
+      }
+     }
+    ]
+   }
+  }
+ }
+}

@@ -142,14 +142,23 @@ def test_carry_cert_counts_pre_hold_viol():
     assert ce2["ok"] is True and ce2["n_pre_hold_viol"] == 0
 
 
-def test_agentchord_success_ours_checks_goal_and_pre_hold():
-    from world_model.v2.agentchord_probe.nero import execute as X
-    good = dict(xy_err=0.01, z_err=0.005)
-    assert X.success_ours(True, True, None, None, good) == (True, True, False)
-    assert X.success_ours(True, True, None, None, dict(xy_err=X.GOAL_TOL_M + 0.01, z_err=0.0))[1] is False      # wrong place, otherwise clean
-    assert X.success_ours(True, True, None, None, dict(xy_err=0.0, z_err=X.GOAL_TOL_M + 0.01))[1] is False
-    assert X.success_ours(True, True, None, dict(kind="tau_sat"), good) == (True, False, True)                 # U entry in the pre-hold phase
-    assert X.success_ours(False, True, None, None, good)[1] is False
+def test_one_success_rule_goal_and_pre_hold():
+    """R1 (USER 11-09): success = finished AND goal (AgentChord's terms); a U entry (incl. pre-hold) lowers safe_success only."""
+    from world_model.v2.stack import goal as GL, outcome as OC
+    from world_model.v2.stack.checks.row import Row
+    g = GL.Goal("box", tuple(GL.GoalTerm(q, b) for q, b in __import__("world_model.v2.stack.tasks", fromlist=["x"]).task("box").goal_terms))
+    def goal(xy, z, tilt=0.0):
+        now = dict(xy_err=xy, z_err=z, obj_tilt_deg=tilt)
+        return GL.check_goal(g, GL.StepState(0.0, now, now))
+    R = Row("R", True, guarantee="runtime")
+    assert OC.classify(True, goal(0.01, 0.005), False, False, R).safe_success is True
+    assert OC.classify(True, goal(0.049, 0.019), False, False, R).success is True              # inside the AgentChord 5 / 2 cm tolerances
+    assert OC.classify(True, goal(0.06, 0.0), False, False, R).success is False                # wrong place
+    assert OC.classify(True, goal(0.0, 0.03), False, False, R).success is False
+    assert OC.classify(True, goal(0.0, 0.0, 45.0), False, False, R).success is False           # tilt < 45 strict
+    o = OC.classify(True, goal(0.01, 0.005), False, True, R)                                   # U entry in the pre-hold phase
+    assert (o.success, o.unsafe, o.safe_success) == (True, True, False)
+    assert OC.classify(False, goal(0.01, 0.005), False, False, R).success is False
 
 
 def test_extract_json_takes_the_last_object():

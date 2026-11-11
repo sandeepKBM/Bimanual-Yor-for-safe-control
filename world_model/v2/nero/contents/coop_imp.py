@@ -102,8 +102,6 @@ def split_wrench(W, h_o, h_I_cmd, Q=None):
 
 
 class CoopImpCtl(CR.LeverCtl):
-    SAFE = False                          # True in CoopImpSafeCtl: wrench goes to FL-MPC as payload feedforward (see below)
-
     def __init__(self, *a, gains=None, **kw):
         super().__init__(*a, **kw)
         self.g = dict(GAINS, **(gains or {}))
@@ -162,7 +160,7 @@ class CoopImpCtl(CR.LeverCtl):
         Jb = np.zeros((14, 12))
         Jb[:7, :6], Jb[7:, 6:] = Js["left"].T, Js["right"].T
         b = np.concatenate([arm["left"], arm["right"]])
-        lim = np.concatenate([CR.E.TAU_LIM, CR.E.TAU_LIM])      # MODEL: 16 Nm per joint (MIT command range)
+        lim = np.concatenate([CR.E.TAU_LIM, CR.E.TAU_LIM])      # config.tau_limit() per joint (MJCF 100 Nm by default)
         A0, r0 = Jb @ N, b + Jb @ hp
         zsq = N.T @ h_sq
         z = zsq.copy()
@@ -211,7 +209,7 @@ class CoopImpCtl(CR.LeverCtl):
         w_d = a_cl["left"][2]
         e_p, e_v = p_d - o, v_d - v_o
         e_R, e_w = rot_err(Ro, R_d), w_d - w_o
-        acc = (-np.asarray(m.opt.gravity, float)) if self.SAFE else (a_d - np.asarray(m.opt.gravity, float))   # SAFE: gravity hold only, FL-MPC supplies M a
+        acc = a_d - np.asarray(m.opt.gravity, float)
         S = self.mass * (Ro @ self.c_rel_nom)
         h_o = object_wrench(self.mass, S, acc, g, e_p, e_v, e_R, e_w)
         Js = {s_: self._jac(d, s_, dofs) for s_, dofs in (("left", self.ld), ("right", self.rd))}
@@ -276,28 +274,4 @@ class CoopImpCtl(CR.LeverCtl):
         self.log = dict(ci_F_int=max(F_i), ci_T_int=max(T_i), ci_e_p_mm=1e3 * float(np.linalg.norm(e_p)),
                         ci_e_R_deg=float(np.degrees(np.linalg.norm(e_R))),
                         ci_tau_cmd=float(max(np.max(np.abs(out[s_])) for s_ in SIDES) / float(CR.E.TAU_LIM[0])))   # pre-clip command / 16 Nm
-        if self.SAFE:
-            return self._safe_finish(d, hs, Js)
         return out["left"], out["right"]            # the caller clips to the torque box
-
-
-class CoopImpSafeCtl(CoopImpCtl):
-    """"coopimp_safe" (11-03, opt-in): the coopimp object wrench goes THROUGH FL-MPC, so the QP rows (arm-arm clearance, torque box 16 Nm, and with
-    rules='full' the table-top and joint position/speed rows) apply to it.
-        h_o*  = [M_hat (-g) + Kp e_p + Dp e_v ; S x (-g) + Ko e_R + Do e_w]     (gravity hold only: FL-MPC's M_extra a + its tracking cost carry the
-                planned acceleration; adding a_d - g here as well would count it twice)
-        h*    = W^+ h_o* + (I - W^+ W) h_I*            (same split and internal-wrench PI as coopimp; f_sq = config.coop_f_sq())
-        bias_extra_i = J_i^T h_i* + f tanh(qdot_cmd,i / v_s)        (Coulomb term of the friction wrapper, inside the torque rows; no kp/ki)
-        M_extra_i    = LeverCtl's point-mass share (unchanged)
-    tau_i = M_i a_i + c_i + bias_extra_i with a_i from the QP.  The caller skips the friction wrapper and the post-clip (a guard counts clip hits)."""
-    SAFE = True
-
-    def _safe_finish(self, d, hs, Js):
-        fr = (self.ref_in or {}).get("fric") or {}
-        terms = self.terms(d)                                   # LeverCtl point-mass shares (bias part replaced below)
-        t = {}
-        for i, s_ in enumerate(SIDES):
-            t[s_] = (terms[s_][0], Js[s_].T @ hs[6 * i:6 * i + 6] + np.asarray(fr.get(s_, np.zeros(7)), float))
-        te, ti = self._fl(d, t)
-        self.log["ci_tau_cmd"] = float(max(np.max(np.abs(te)), np.max(np.abs(ti))) / float(CR.E.TAU_LIM[0]))
-        return te, ti

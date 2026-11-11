@@ -1,0 +1,97 @@
+{
+ "method": "poslift",
+ "per_task": {
+  "box": {
+   "n": 20,
+   "n_free": 9,
+   "n_error": 0,
+   "free_res_max_abs": 0.0316,
+   "free_res_p50": 0.0053,
+   "on_res_max": 0.0518,
+   "n_viol": 0,
+   "rise_mm_max": 9.14,
+   "tilt_max": 2.12,
+   "spill_max": 0.0,
+   "not_free": [
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible"
+   ]
+  },
+  "pot": {
+   "n": 20,
+   "n_free": 20,
+   "n_error": 0,
+   "free_res_max_abs": 0.0307,
+   "free_res_p50": 0.0174,
+   "on_res_max": 0.0505,
+   "n_viol": 0,
+   "rise_mm_max": 8.12,
+   "tilt_max": 1.06,
+   "spill_max": 0.0,
+   "not_free": []
+  },
+  "tray6": {
+   "n": 20,
+   "n_free": 19,
+   "n_error": 0,
+   "free_res_max_abs": 0.0273,
+   "free_res_p50": -0.0,
+   "on_res_max": 0.0766,
+   "n_viol": 0,
+   "rise_mm_max": 11.92,
+   "tilt_max": 1.76,
+   "spill_max": 0.047,
+   "not_free": [
+    "rung_not_admissible"
+   ]
+  }
+ },
+ "eps": {
+  "EPS_FREE": 0.0316,
+  "EPS_LO": 0.0766,
+  "label": "MEASURED: max over n calibration worlds (noise-free reads; the ASSUMED torque-noise bound is added per read)"
+ },
+ "variant": "poslift",
+ "date": "2026-11-09",
+ "n_per_task": 20,
+ "wall_s": 233,
+ "assumptions": {
+  "DZ": "0.001 m ASSUMED",
+  "Z_MAX": "0.02 m ASSUMED",
+  "FREE_TOL": "0.05 kg ASSUMED",
+  "T_MOVE": "0.3 s design",
+  "T_HOLD_POSLIFT": "1.2 s ASSUMED",
+  "N_FREE_CONFIRM": "2 ASSUMED",
+  "physics": "tracker = carry.LeverCtl (FL-MPC, pre-11-07, the existing tracker); U includes the per-claw payload row (strict_claw); claw rise = encoders+FK, object rise = sim truth, peak_u = sim-truth weld wrench / F_cap",
+  "TAU_NOISE": "+-0.05 Nm/joint ASSUMED uniform",
+  "grasp": "ASSUMED rigid weld (user 11-01), stiff solref (0.004, 1)",
+  "controller": "LeverCtl + FRIC_COMP (ASSUMED gains)",
+  "rows": "arm-side static rows (user 11-02 pm), U_ADMIT 0.9 ASSUMED",
+  "worlds": "uniform on the full prior per task",
+  "tracker": "carry.LeverCtl (FL-MPC, pre-11-07)"
+ },
+ "dL": {
+  "dL_flat_max": 0.043,
+  "dL_moving_min": 0.0019,
+  "dL_moving_p10": 0.0453,
+  "n_flat": 48,
+  "n_moving": 452
+ },
+ "DL_STEP_MAX": {
+  "value": 0.9332,
+  "n": 349,
+  "n_worlds": 60,
+  "unit": "kg",
+  "label": "MEASURED: max per-rung load increase dL = L_k - L_{k-1} over rungs with L < M_true - 0.05 (still on the counter), all tasks pooled (box 0.9332 n=140, tray6 0.7209 n=139, pot 0.4 n=70)",
+  "file": "/common/users/ss5772/bimanual_data/contents/probe_liftoff_2026-11-09/slow/poslift/calibrate.jsonl"
+ }
+}

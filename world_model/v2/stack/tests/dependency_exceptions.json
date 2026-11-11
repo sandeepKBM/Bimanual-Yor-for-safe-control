@@ -1,0 +1,182 @@
+[
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/execute.py",
+  "imported": "world_model.v2.nero.contents.objects",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/execute.py",
+  "imported": "world_model.v2.nero.contents.probe",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/execute.py",
+  "imported": "world_model.v2.nero.contents.same_worlds",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/sim_imports.py",
+  "imported": "world_model.v2.nero.contents.carry",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/sim_imports.py",
+  "imported": "world_model.v2.nero.contents.envelope",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/sim_imports.py",
+  "imported": "world_model.v2.nero.contents.scenes",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/tasks.py",
+  "imported": "world_model.v2.nero.contents.baseline_ungated",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/tasks.py",
+  "imported": "world_model.v2.nero.contents.carry_cert",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/tasks.py",
+  "imported": "world_model.v2.nero.contents.scenes",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "agentchord_nero_no_contents",
+  "importer": "agentchord_probe/nero/video.py",
+  "imported": "world_model.v2.nero.contents.carry",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "nero_contents_no_forbidden",
+  "importer": "nero/contents/same_worlds.py",
+  "imported": "world_model.v2.agentchord_probe.nero.execute",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "single_llm_backend",
+  "importer": "stack/proposer/mock.py",
+  "imported": "world_model.v2.house.lang.backend",
+  "reason": "two LLM backends; unify later"
+ },
+ {
+  "rule": "single_llm_backend",
+  "importer": "stack/proposer/propose.py",
+  "imported": "world_model.v2.house.lang.backend",
+  "reason": "two LLM backends; unify later"
+ },
+ {
+  "rule": "single_llm_backend",
+  "importer": "stack/proposer/propose.py",
+  "imported": "world_model.v2.nero.pan.llm",
+  "reason": "two LLM backends; unify later"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/eval/harness.py",
+  "imported": "world_model.v2.adapters.outcome_carry",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/eval/harness.py",
+  "imported": "world_model.v2.nero.contents.carry",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/eval/harness.py",
+  "imported": "world_model.v2.nero.contents.carry_cert",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/executor.py",
+  "imported": "world_model.v2.nero.contents.carry",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/planners/scripted.py",
+  "imported": "world_model.v2.nero.contents.carry",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/producers.py",
+  "imported": "world_model.v2.house.ocs.state",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/producers.py",
+  "imported": "world_model.v2.nero.contents.objects",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/producers.py",
+  "imported": "world_model.v2.stack.universes.contents",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/proposer/compile.py",
+  "imported": "world_model.v2.nero.contents.probe",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/proposer/prompt.py",
+  "imported": "world_model.v2.nero.contents.carry_cert",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/proposer/prompt.py",
+  "imported": "world_model.v2.nero.contents.objects",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/proposer/schema.py",
+  "imported": "world_model.v2.nero.contents.objects",
+  "reason": "pre-unification 11-09; remove in switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/skills/pregrasp.py",
+  "imported": "world_model.v2.nero.adapters",
+  "reason": "file predates the 11-09 unification (written 11-04; untracked until d98dc04: .gitignore hid skills/); move behind an adapter in the switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/skills/pregrasp.py",
+  "imported": "world_model.v2.nero.democ.kin",
+  "reason": "file predates the 11-09 unification (written 11-04; untracked until d98dc04: .gitignore hid skills/); move behind an adapter in the switch step"
+ },
+ {
+  "rule": "stack_engine_no_episode",
+  "importer": "stack/skills/pregrasp.py",
+  "imported": "world_model.v2.nero.gripper",
+  "reason": "file predates the 11-09 unification (written 11-04; untracked until d98dc04: .gitignore hid skills/); move behind an adapter in the switch step"
+ },
+ {
+  "rule": "stack_pure_no_outside",
+  "importer": "stack/types.py",
+  "imported": "world_model.v2.house.ocs.state",
+  "reason": "pre-unification 11-09; remove in switch step"
+ }
+]
