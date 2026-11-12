@@ -98,6 +98,7 @@ def test_parse_arm():
     assert (a.kind, a.probe, a.reask, a.theta_mode) == ("ours", None, True, None)
     a = DR.parse_arm("ours:probe=poslift_ff:reask=off")
     assert (a.probe, a.reask) == ("poslift_ff", False)
+    assert DR.parse_arm("oracle_mass").reask is False and DR.parse_arm("estimate").reask is False and DR.parse_arm("estimate:reask=on").reask is True
     assert DR.parse_arm("oracle_theta").theta_mode == "oracle_theta" and DR.parse_arm("no_probe").theta_mode == "no_probe" and DR.parse_arm("estimate:probe=claw_guard").probe == "claw_guard"
     a = DR.parse_arm("checker_off:L2")
     assert (a.kind, a.level) == ("checker_off", "L2")

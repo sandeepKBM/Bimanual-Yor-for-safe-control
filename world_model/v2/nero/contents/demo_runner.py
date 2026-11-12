@@ -13,8 +13,9 @@ World list JSON (frozen: its sha256 is written to OUT/WORLDS.sha256 and a later 
                                                                  contents_xy), then the task's world_kw: shelf=False); seed = f(id) (probe noise only).  Tray: NotImplementedError.
 Arms (string ids; "kind[:LEVEL][:key=value ...]"):
   ours[:probe=<method>][:reask=off]    today's v2 path (behind_job.v2_job -> probe_select.run_world): probe -> Theta -> coverage -> static rows + base level -> carry / refuse.  Default probe
-                                       poslift; any other name goes to probe.make_probe (unknown -> raises).  reask=off: Rule 2 re-asks are not run (a refusal ends the run).  Otherwise re-asks
-                                       replay from the plan cache (offline; a miss ends the loop as reask_error, the network is never touched).
+                                       poslift; any other name goes to probe.make_probe (unknown -> raises).  reask=off: Rule 2 re-asks are not run (a refusal ends the run).  Default: on for `ours`, OFF for
+                                       the other ours-family arms (their re-ask evidence differs from every cached request).  A re-ask replays from the plan cache; an offline cache
+                                       miss RAISES (ProposerCacheMiss -> an error record, retried on resume); the network is never touched.
   oracle_mass                          NO probe; Theta = the TRUE contents point [c, c]; the load position is unknown (COM set = the whole box interior).  Coverage in report mode.
   oracle_theta                         NO probe; true mass AND true load position: the COM set P of the static rows and of the base rows is the ONE point scenes.object_truth(...)["contents_com"]
                                        (objects.boxed(com=), probe.interval_spec(com=), behind_job._static(com=)).  Box only.  An ORACLE: its admission is for this world, not a deployable bound.
@@ -201,7 +202,8 @@ def parse_arm(s):
         raise ValueError(f"arm {s!r}: agentchord needs plan=<dir>")
     if opts.get("reask", "on") not in ("on", "off"):
         raise ValueError(f"arm {s!r}: reask=on|off")
-    return Arm(raw=s, kind=kind, level=level, probe=opts.get("probe"), reask=opts.get("reask", "on") != "off", plan=opts.get("plan"))
+    reask = (kind == "ours") if "reask" not in opts else opts["reask"] == "on"          # default: only `ours` re-asks (its evidence = the source run's, so the cache can hold the reply)
+    return Arm(raw=s, kind=kind, level=level, probe=opts.get("probe"), reask=reask, plan=opts.get("plan"))
 
 
 def parse_arms(spec):
