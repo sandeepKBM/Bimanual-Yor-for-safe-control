@@ -284,3 +284,52 @@ def test_resume_skips_finished_and_retries_errors(tmp_path):
     f.write_text(json.dumps(dict(world_id="a", arm="ours", outcome="carried")) + "\n" + json.dumps(dict(world_id="b", arm="ours", error="x")) + "\n{broken\n")
     (tmp_path / "trials_shard1of2.jsonl").write_text(json.dumps(dict(world_id="c", arm="oracle_mass")) + "\n")
     assert DR.read_done(tmp_path) == {("a", "ours"), ("c", "oracle_mass")}
+
+
+# ------------------------------------------------------------------------------------------------------------------------------ the theta modes in probe_select.run_world (fixed-base box, mock proposer, dry: stops at the admission)
+class FakeWeigh:
+    id = "weigh"
+
+    def __init__(self, weigh, lo=1.0, hi=1.4):
+        self.w, self.lo, self.hi = weigh, lo, hi
+
+    def limit_rows(self, th):
+        return []
+
+    def run(self, th):
+        from world_model.v2.stack import probing as PB
+        self.w.why = "free"
+        return PB.Reading("weigh", {"contents_mass_kg": (self.lo, self.hi)}, "interval", dict(why="free", shows=["PH1"]))
+
+
+@pytest.mark.parametrize("mode", [None, "estimate", "oracle_mass", "no_probe"])
+def test_theta_modes_dry(mode, tmp_path, monkeypatch):
+    from world_model.v2.nero.contents import carry_cert as CC, probe as P, probe_select as PS, same_worlds as SW
+    from world_model.v2.stack.proposer import compile as PC
+    monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
+    monkeypatch.setattr(P, "PROBE_METHOD", "poslift")
+    plan = SW._proposer_plans(["box"], argparse.Namespace(plan_spec="mock:fixture", plan_cache=str(tmp_path / "c"), offline=False, outside_b="refuse"), tmp_path)["box"]["plan"]
+    seed = P._seed("e2e", "box", 0)
+    w = P._world("box", seed)
+    ep = P._episode(w, plan["wp"])
+    phases = []
+    ctx = PS.Ctx(task="box", pt="box", i=0, seed=seed, ep=ep, world=w, plan=plan, eps_lo=0.0766, eps_free=0.0316, static=lambda lo, hi, wp, w_=w: P.static_interval("box", lo, hi, w_, wp=wp),
+                 cmax=lambda wp: P.c_admit_max("box", wp=wp), check=lambda pl: PC.compile_plan(pl, "box"), method="poslift", theta_mode=mode, dry=True, on_phase=phases.append,
+                 coverage_mode="report" if mode in ("no_probe", "oracle_mass") else "enforce", make_skills=lambda wg: {"weigh": FakeWeigh(wg)})
+    r = PS.run_world(ctx)
+    assert r["dry"] is True and phases == ["probe"]                    # dry: stops before ramp_hold
+    th = tuple(r["theta_t"]["contents_mass_kg"])
+    c_true = P.true_mass(ep) - P.empty_mass("box")
+    if mode is None:
+        assert th == pytest.approx((1.0, 1.4)) and r["estimate"] is None
+    elif mode == "estimate":
+        assert th == pytest.approx((1.2, 1.2)) and r["estimate"]["interval"] == pytest.approx([1.0, 1.4]) and r["estimate"]["point"] == pytest.approx(1.2)
+    elif mode == "oracle_mass":
+        assert th == pytest.approx((c_true, c_true))
+    else:
+        assert th == pytest.approx(tuple(P.prior_contents("box")))
+    if mode in ("oracle_mass", "no_probe", "estimate"):
+        assert r["theta_mode"] == mode
+    if mode in ("oracle_mass", "no_probe"):
+        assert r["why_probe"] == "no_probe_selected" if "why_probe" in r else True
+    assert r["decision"] is not None and r["decision"]["contents"] == pytest.approx(list(th))
