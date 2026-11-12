@@ -1,0 +1,55 @@
+{
+ "source": "/common/users/ss5772/bimanual_data/contents/kstep_calib_2026-11-09/calib/calibrate.jsonl",
+ "sha256": "5dc631d670d81e7bd67d4bdd5025762880b4eba5ddb2d9f6b48d443bb7ec042e",
+ "code": "frozen 6b2a6c7 + overlay.diff (kstep_calib_2026-11-09/code), variant poslift_mixed (dz drawn from 1/0.5/0.25/0.1 mm), noise-free reads, tracker flmpc_basic + NERO speed",
+ "label": "MEASURED: max over all height rungs (dL not None) of the per-rung load increase dL = L_k - L_{k-1} [kg], per task; n = rungs, n_worlds = calibration worlds (seeds probe._seed('calib', task, i), i = 0..19). Max over n, not a bound.",
+ "per_task": {
+  "box": {
+   "value": 0.7104,
+   "n": 328,
+   "n_worlds": 20,
+   "on_counter_max": 0.7104,
+   "n_on_counter": 236,
+   "p95": 0.4893,
+   "by_dz_mm": {
+    "0.1": 0.7104,
+    "0.25": 0.6855,
+    "0.5": 0.5591,
+    "1.0": 0.6147
+   }
+  },
+  "tray6": {
+   "value": 0.5964,
+   "n": 345,
+   "n_worlds": 20,
+   "on_counter_max": 0.5964,
+   "n_on_counter": 208,
+   "p95": 0.4867,
+   "by_dz_mm": {
+    "0.1": 0.5938,
+    "0.25": 0.5407,
+    "0.5": 0.5964,
+    "1.0": 0.5556
+   }
+  },
+  "pot": {
+   "value": 0.2974,
+   "n": 285,
+   "n_worlds": 20,
+   "on_counter_max": 0.2708,
+   "n_on_counter": 133,
+   "p95": 0.212,
+   "by_dz_mm": {
+    "0.1": 0.2574,
+    "0.25": 0.2708,
+    "0.5": 0.237,
+    "1.0": 0.2974
+   }
+  }
+ },
+ "pooled": {
+  "value": 0.7104,
+  "n": 958,
+  "label": "max over the three tasks; used for a task without its own entry (MEASURED on other tasks: transfer ASSUMED)"
+ }
+}

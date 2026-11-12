@@ -36,6 +36,7 @@ import functools
 import json
 import os
 import pathlib
+import re
 import time
 
 import mujoco
@@ -59,7 +60,7 @@ N_READ = 40          # design: readings averaged over the last N_READ control st
 FREE_RATIO = 0.2     # ASSUMED: "free" when the read grows by less than FREE_RATIO x the push step (one rung; calibrated)
 TAU_NOISE = 0.05     # ASSUMED: joint-torque reading noise, uniform +-TAU_NOISE per joint [Nm] (real NERO value unknown)
 PROBE_METHOD = os.environ.get("BIMANUAL_PROBE", "poslift")   # "poslift" (default, option A, user 11-09) | "ladder" (11-03 push ladder); make_probe(method=) overrides
-METHODS = ("poslift", "ladder")
+METHODS = ("poslift", "ladder", "poslift_ff", "claw_guard")     # poslift_ff, claw_guard: Stage 0b (11-12), opt-in only; poslift stays the default
 # poslift constants (option A, "lift by position, read while holding"; env PL_* kept from the 11-09 prototype runs)
 DZ = float(os.environ.get("PL_DZ", 0.001))               # ASSUMED, USER-approved 11-09 (poslift): height step between rungs [m]
 Z_MAX = float(os.environ.get("PL_Z_MAX", 0.020))         # ASSUMED, USER-approved 11-09 (poslift): hard cap on the commanded claw rise [m]
@@ -70,11 +71,25 @@ N_FREE_CONFIRM = 2                                       # ASSUMED, USER-approve
 DZ_MIN = float(os.environ.get("PL_DZ_MIN", 0.0001))      # ASSUMED, USER-approved 11-09: smallest adaptive height step [m]; below it the probe stops (rung_not_admissible)
 POSLIFT_CALIB = pathlib.Path(__file__).resolve().parents[1] / "results" / "probe_calib_poslift_adaptive_2026-11-09" / "CALIB.json"   # MEASURED n=20/task, tracker flmpc_basic, adaptive step K_STEP (README next to it; the 11-09 fixed-step FL-MPC file is probe_calib_poslift_2026-11-09)
 LADDER_CALIB = "/data/local/ss5772/contents/probe_calib_2026-11-03/CALIB.json"                                              # MEASURED 11-03 (ladder only)
+# Stage 0b (11-12): two opt-in methods next to poslift (bug B6: the adaptive height step stops at headroom < K_STEP x DZ_MIN = 0.71 kg, so the
+# probe cannot resolve loads above ~2.4 kg box / ~2.6 kg tray6).  New numbers below need user approval before any claim rests on them.
+DM_FINE = float(os.environ.get("PL_DM_FINE", 0.1))                 # ASSUMED (proposal, needs approval): poslift_ff finish-phase feed-forward step [kg]
+FF_FREE_RATIO = float(os.environ.get("PL_FF_FREE_RATIO", FREE_RATIO))   # ASSUMED (needs approval): finish-phase free test dL < FF_FREE_RATIO x DM_FINE (the 11-03 ladder rule, FREE_RATIO reused)
+FF_T_HOLD = float(os.environ.get("PL_FF_T_HOLD", T_HOLD_POSLIFT))   # ASSUMED (needs approval): hold per finish rung [s] = the poslift height-rung hold (USER-approved 11-09 for height rungs), reused
+_RESULTS = pathlib.Path(__file__).resolve().parents[1] / "results"
+JUMP_FILE = _RESULTS / "probe_jump_2026-11-12" / "JUMP.json"       # MEASURED per-task max per-rung load jump of the height ladder (kstep_calib_2026-11-09, n=20/task); not a bound
+NEW_CALIB = {"poslift_ff": _RESULTS / "probe_calib_poslift_ff_2026-11-12" / "CALIB.json",          # written by the PROBE_FIX_RUN.md recipe (not yet run)
+             "claw_guard": _RESULTS / "probe_calib_claw_guard_2026-11-12" / "CALIB.json"}
 
 
 # ------------------------------------------------------------------------------------------------- specs and static verdicts
 def n_cups(task):
-    return int(task[4:]) if task.startswith("tray") else 0
+    """number of mugs of a tray task key: "tray6" -> 6; a table-behind key ("tray6_behind") parses the same way (11-12 fix, B11: int('6_behind') raised).
+    Keys that parsed before give the same value."""
+    if not task.startswith("tray"):
+        return 0
+    m = re.match(r"tray(\d+)", task)
+    return int(m.group(1)) if m else int(task[4:])
 
 
 def empty_mass(task):
@@ -214,11 +229,12 @@ class Probe:
             ep._step()
         self.m_ff = m_to
 
-    def rung(self, m_to):
+    def rung(self, m_to, t_hold=None):
+        """t_hold None -> T_HOLD (the 11-03 ladder; unchanged).  poslift_ff's finish phase passes FF_T_HOLD."""
         ep = self.ep
         self._ramp(m_to, T_RAMP)
         reads, nbs = [], []
-        nh = int(round(T_HOLD / CR.DT))
+        nh = int(round((T_HOLD if t_hold is None else t_hold) / CR.DT))
         for i in range(nh):
             ep._step()
             if i >= nh - N_READ:
@@ -321,6 +337,7 @@ class PosLiftProbe(Probe):
         ep.ctl.mass = 0.0
         ep.run_phases([("hold", 0.3)])
         z_rest, k0 = self._claw_z(), ep.k
+        self._z_rest = z_rest                               # read by the Stage 0b finish phase (poslift_ff); no effect on poslift
         self.m_ff = 0.0
         zc, idx, prev_L, flat_mm, why, last_nb = 0.0, 0, None, 0.0, None, 0.0
         try:
@@ -334,11 +351,11 @@ class PosLiftProbe(Probe):
                     break
                 dz_k, headroom = DZ, None
                 if prev_L is not None and self.adaptive:    # adaptive step: largest dz whose predicted load stays admissible (robot-side numbers only)
-                    headroom = l_admit_max(self.task) - (prev_L + self.eps_lo + last_nb)
+                    headroom = self._headroom(prev_L, last_nb)
                     dz_k = adaptive_dz(headroom, self.k_step)
-                    if dz_k < self.dz_min - 1e-12:
+                    if dz_k < self.dz_min - 1e-12 or self._switch(headroom):
                         self.guard_events.append(dict(kind="pre_check", headroom=round(headroom, 4), dz_k=round(dz_k, 6)))
-                        why = "rung_not_admissible"
+                        why = self._after_height(prev_L, last_nb, M_stop)     # poslift: "rung_not_admissible" (unchanged); poslift_ff: the force-step finish
                         break
                 elif prev_L is not None:                    # fixed step: predictive pre-check of the load the claws carry AFTER the next height step
                     L_pred = prev_L + self.dl_step_max + self.eps_lo + last_nb
@@ -367,7 +384,7 @@ class PosLiftProbe(Probe):
                 dL = None if prev_L is None else L - prev_L
                 rate = None if dL is None else dL / (dz_k * 1e3)               # [kg/mm]
                 flat_mm, free = flat_update(flat_mm, dL, dz_k)
-                u_read = rung_torque_u(self.task, L)                          # static u at the READ load (robot-side)
+                u_read = self._u_read(L)                                      # static u at the READ load (robot-side); claw_guard: per-claw reads
                 self.u_read_max = max(self.u_read_max, u_read)
                 guard = u_read > E.U_ADMIT
                 if guard:                                                     # lower bound only: the claws carry more than the payload row admits
@@ -382,6 +399,7 @@ class PosLiftProbe(Probe):
                            peak_u=round(peak_u, 4), u_read=round(u_read, 4), **rows, free=free,
                            dz_mm=round(1e3 * dz_k, 5), rate_kg_per_mm=None if rate is None else round(rate, 4),
                            headroom=None if headroom is None else round(headroom, 4))
+                self._rec_extra(rec)
                 self.peak_u = max(self.peak_u, peak_u)
                 if free:
                     e = self.eps_free + nb
@@ -414,7 +432,30 @@ class PosLiftProbe(Probe):
             dzs = [r["dz_mm"] for r in self.rungs[1:]]
             self.summary = dict(adaptive=self.adaptive, n_rungs=len(self.rungs), min_dz_mm=min(dzs) if dzs else None, z_used_mm=round(1e3 * zc, 4),
                                 probe_time_s=self.probe_time_s, k_step=self.k_step, dz_min_mm=1e3 * self.dz_min)
+            self.summary.update(self._summary_extra())
         return why
+
+    # ---- hooks (Stage 0b, 11-12).  The poslift versions below are the expressions the loop used before (bit-identical).
+    def _headroom(self, prev_L, last_nb):
+        """load [kg] the next height step may add before the guard row: total load at the worst COM (MODEL l_admit_max) minus read + eps + noise bound."""
+        return l_admit_max(self.task) - (prev_L + self.eps_lo + last_nb)
+
+    def _switch(self, headroom):
+        """poslift: never (the dz < DZ_MIN rule alone stops the height ladder)."""
+        return False
+
+    def _after_height(self, prev_L, last_nb, M_stop):
+        """what happens when the height ladder stops for headroom.  poslift: stop, lower bound only."""
+        return "rung_not_admissible"
+
+    def _u_read(self, L):
+        return rung_torque_u(self.task, L)
+
+    def _rec_extra(self, rec):
+        pass
+
+    def _summary_extra(self):
+        return {}
 
 
 def adaptive_dz(headroom, k_step, dz_max=None):
@@ -474,14 +515,361 @@ def poslift_dl_step_max():
     return float(json.loads(pathlib.Path(_calib_path()).read_text())["DL_STEP_MAX"]["value"])
 
 
+# ------------------------------------------------------------------------------------------------- Stage 0b (11-12): poslift_ff and claw_guard
+def _base_key(task):
+    """calibration files are keyed by the probe's base task ("box_behind" -> "box")."""
+    return task[:-len("_behind")] if task.endswith("_behind") else task
+
+
+def jump_max(task):
+    """(per-task max per-rung load jump of the height ladder [kg], label).  MEASURED, JUMP_FILE (kstep_calib_2026-11-09: n = 20 worlds/task, any dz, noise-free
+    reads); max over n, NOT a bound.  A task without an entry uses the pooled max (transfer ASSUMED).  Env PL_JUMP_FILE: read-only override."""
+    f = pathlib.Path(os.environ.get("PL_JUMP_FILE") or JUMP_FILE)
+    c = json.loads(f.read_text())
+    k = _base_key(task)
+    if k in c["per_task"]:
+        v = c["per_task"][k]
+        return float(v["value"]), f"MEASURED {k}: max over n={v['n']} height rungs, {v['n_worlds']} worlds ({f})"
+    return float(c["pooled"]["value"]), f"MEASURED pooled max over n={c['pooled']['n']} rungs ({f}); transfer to {task!r} ASSUMED"
+
+
+def ff_switch(headroom, jump):
+    """poslift_ff: leave the height ladder when the next height step's worst-case jump (the MEASURED per-task max, any dz) would breach the guard."""
+    return headroom < jump
+
+
+def ff_precheck(task, L_prev, nb_prev, eps_lo, dm):
+    """finish-phase pre-check: (ok, L_pred, u_pred), L_pred = L_prev + dm + eps_lo + nb, ok = u(L_pred) <= U_ADMIT (worst COM, rest pose).
+    MODEL behind it (quasi-static, rigid counter contact): while the object rests on the counter its height and so the position loop's force are fixed by the
+    contact, so a feed-forward step dm raises the arms' load by dm; once it hangs, the load settles at M whatever the feed-forward.  The ramp transient is
+    not covered by the model; the calibration MEASURES it (finish-phase dL - dm)."""
+    L_pred = L_prev + dm + eps_lo + nb_prev
+    u = rung_torque_u(task, L_pred)
+    return u <= E.U_ADMIT, L_pred, u
+
+
+def ff_flat(dL, dm, ratio=None):
+    """finish-phase free test = the 11-03 ladder rule on the commanded step (one rung): the read grows by less than ratio x dm (ratio FF_FREE_RATIO, ASSUMED)."""
+    return dL < (FF_FREE_RATIO if ratio is None else ratio) * dm
+
+
+class PosLiftFFProbe(PosLiftProbe):
+    """poslift_ff (Stage 0b, 11-12): hybrid finish.  SIMULATION ONLY.
+    Height ladder = poslift (adaptive) unchanged, except that it also leaves the ladder when the headroom is below JUMP (MEASURED per-task max per-rung jump,
+    any dz; jump_max) -- the K_STEP x dz model does not describe the per-rung jump (B6).  Then the finish phase: the claws hold their height, the feed-forward
+    ramps DM_FINE above its current value (Probe.rung, the 11-03 ladder mechanism; hold FF_T_HOLD) and the load is read.  Per finish rung, in this order:
+      decided_refuse      M_lo > M_stop
+      rung_not_admissible ff_precheck fails (u(L_prev + DM_FINE + eps_lo + nb) > U_ADMIT), or Probe.admissible(m_ff + DM_FINE) fails (u of the ff itself, O_MAX)
+      read                L; flat = L - L_prev < FF_FREE_RATIO x DM_FINE (ff_flat)
+      load_guard          u(read L) > U_ADMIT -> lower bound only (as poslift)
+      free                interval [L - eps_free - nb, L + eps_free + nb]; otherwise M_lo <- max(M_lo, L - eps_lo - nb) and the next rung
+    On leaving, the feed-forward is ramped back to M_lo if above it (poslift's invariant ff = M_lo), then run()'s finally moves the claws down as for poslift.
+    The eps must come from this method's own calibration (load_calib(.., "poslift_ff"))."""
+    method = "poslift_ff"
+
+    def __init__(self, *a, dm_fine=None, ff_free_ratio=None, ff_t_hold=None, jump=None, **k):
+        super().__init__(*a, **k)
+        self.dm_fine = DM_FINE if dm_fine is None else float(dm_fine)
+        self.ff_free_ratio = FF_FREE_RATIO if ff_free_ratio is None else float(ff_free_ratio)
+        self.ff_t_hold = FF_T_HOLD if ff_t_hold is None else float(ff_t_hold)
+        self.jump, self.jump_src = jump_max(self.task) if jump is None else (float(jump), "argument")
+        self.ff = None                                   # finish-phase record once it started
+
+    def _switch(self, headroom):
+        return ff_switch(headroom, self.jump)
+
+    def _after_height(self, prev_L, last_nb, M_stop):
+        ep = self.ep
+        self.ff = dict(start_rung=len(self.rungs), L0=round(prev_L, 4), m_ff0=round(self.m_ff, 4), M_lo0=round(self.M_lo, 4), n=0, why=None)
+        L_prev, nb_prev, why = prev_L, last_nb, None
+        while True:
+            if M_stop is not None and self.M_lo > M_stop:
+                why = "decided_refuse"
+                break
+            m_next = self.m_ff + self.dm_fine
+            ok_u, L_pred, u_pred = ff_precheck(self.task, L_prev, nb_prev, self.eps_lo, self.dm_fine)
+            ok_a, rows = self.admissible(m_next)
+            if not (ok_u and ok_a):
+                self.guard_events.append(dict(kind="ff_pre_check", L_pred=round(L_pred, 4), u_pred=round(u_pred, 4), **rows))
+                why = "rung_not_admissible"
+                break
+            fz0, ep.track["Fz_max"] = ep.track["Fz_max"], 0.0
+            L, nb, _ = self.rung(m_next, t_hold=self.ff_t_hold)          # Probe.rung: ramp T_RAMP, hold, mean of the last N_READ reads; tracks rise/tilt/spill
+            peak_u = ep.track["Fz_max"] / ep.F_cap
+            ep.track["Fz_max"] = max(fz0, ep.track["Fz_max"])
+            dL = L - L_prev
+            free = ff_flat(dL, self.dm_fine, self.ff_free_ratio)
+            u_read = self._u_read(L)
+            self.u_read_max = max(self.u_read_max, u_read)
+            guard = u_read > E.U_ADMIT
+            if guard:
+                free = False
+            rise_obj = 1e3 * (float(ep.d.xpos[ep.obj][2]) - ep.z0)
+            rec = dict(phase="ff", m_ff=round(self.m_ff, 4), dm_cmd=round(self.dm_fine, 4), z_cmd_mm=self.rungs[-1]["z_cmd_mm"] if self.rungs else 0.0,
+                       claw_rise_mm=round(1e3 * (self._claw_z() - self._z_rest), 3), rise_mm=round(rise_obj, 3), L=round(L, 4), dL=round(dL, 4),
+                       noise_bound=round(nb, 4), peak_u=round(peak_u, 4), u_read=round(u_read, 4), **rows, L_pred=round(L_pred, 4), u_pred=round(u_pred, 4),
+                       free=free, dz_mm=0.0)
+            self._rec_extra(rec)
+            self.peak_u = max(self.peak_u, peak_u)
+            if free:
+                e = self.eps_free + nb
+                self.M_lo, self.M_hi = max(self.M_lo, L - e), min(self.M_hi, L + e)
+            else:
+                self.M_lo = max(self.M_lo, L - self.eps_lo - nb)
+            rec["Theta"] = [round(self.M_lo, 4), round(self.M_hi, 4)]
+            self.rungs.append(rec)
+            self.ff["n"] += 1
+            if ep.track["viol"]:                                          # sim-truth DIAGNOSTIC only (never a decision)
+                rec["sim_abort"] = ep.track["viol"]
+                if self.sim_abort is None:
+                    self.sim_abort = dict(rung=len(self.rungs) - 1, **ep.track["viol"])
+            if guard:
+                self.guard_events.append(dict(kind="load_guard", rung=len(self.rungs) - 1, L=round(L, 4), u_read=round(u_read, 4)))
+                why = "load_guard"
+                break
+            if free:
+                why = "free"
+                break
+            L_prev, nb_prev = L, nb
+        if self.m_ff > self.M_lo:                                         # back to poslift's invariant ff = M_lo before the claws go down
+            self._ramp_during(self.M_lo, T_RAMP)
+        self.ff["why"] = why
+        return why
+
+    def _summary_extra(self):
+        return dict(ff=self.ff, dm_fine=self.dm_fine, ff_free_ratio=self.ff_free_ratio, ff_t_hold=self.ff_t_hold, jump=self.jump, jump_src=self.jump_src)
+
+
+def claw_cap_kg(task):
+    """per-claw vertical load limit [kg] = the static rows' F_cap / g (envelope: NERO payload rating 3 kg MEASURED-spec minus the gripper mass, per arm; MODEL)."""
+    return float(_rest_envelope(_base_key(task)).F_cap / G)
+
+
+def rung_tau_u(task, L):
+    """joint-torque part only of rung_torque_u: worst over the COM set P of max_j |tau_j| / tau_lim_j at the rest pose, total mass L, lever split (MODEL;
+    the envelope's tau detail is rounded to 1e-3 Nm)."""
+    tk = _base_key(task)
+    c = max(L - empty_mass(tk), 0.0)
+    env = _rest_envelope(tk)
+    best = 0.0
+    for pi in OB.Contents(c, c, interval_spec(tk, *prior_contents(tk)).contents.P).pi_vertices():
+        _, det = env.u("p0", pi, np.zeros(3), "two_lever")
+        best = max(best, max(float(np.max(np.abs(np.asarray(v, float)) / env.tau_lim)) for v in det["tau"].values()))
+    return best
+
+
+_L_TAU = {}
+
+
+def l_tau_admit_max(task, hi=30.0):
+    """largest total load with rung_tau_u <= U_ADMIT (bisection; MODEL).  Cached."""
+    tk = _base_key(task)
+    if tk not in _L_TAU:
+        lo = empty_mass(tk)
+        if rung_tau_u(tk, hi) <= E.U_ADMIT:
+            _L_TAU[tk] = hi
+        elif rung_tau_u(tk, lo) > E.U_ADMIT:
+            _L_TAU[tk] = lo
+        else:
+            for _ in range(40):
+                mid = 0.5 * (lo + hi)
+                lo, hi = (mid, hi) if rung_tau_u(tk, mid) <= E.U_ADMIT else (lo, mid)
+            _L_TAU[tk] = lo
+    return _L_TAU[tk]
+
+
+def claw_u(L_sides, cap_kg):
+    """per-claw payload utilisation of a read: max over claws of read load / limit (the static payload row applied to the reads, not to a model split)."""
+    return max(float(v) for v in L_sides.values()) / cap_kg
+
+
+def claw_headroom(L_sides, nb_sides, eps_claw, cap_kg):
+    """load [kg] the next step may add to the most loaded claw: min over claws of cap - (read + eps_claw + noise bound)."""
+    return min(cap_kg - (float(L_sides[s]) + eps_claw + float(nb_sides[s])) for s in L_sides)
+
+
+def split_position(L_l, L_r, e_l, e_r, width):
+    """where the arms' vertical load sits along the claw axis, by the lever rule (MODEL): fraction f = L_l / (L_l + L_r) on the left claw, offset
+    (f - 1/2) width [m] from the claw midpoint, + toward the left claw.  Interval from the per-claw error bounds e (exact interval arithmetic; f is
+    increasing in L_l and decreasing in L_r).  None where a denominator is not positive.  It is the arms' load split, not the contents COM: equal only when
+    hanging free with no internal moment between the claws (the closed chain's split is set by the controller)."""
+    tot = L_l + L_r
+    if tot <= 0:
+        return None
+    f = L_l / tot
+    d_lo = (L_l - e_l) + (L_r + e_r)
+    d_hi = (L_l + e_l) + (L_r - e_r)
+    f_lo = (L_l - e_l) / d_lo if d_lo > 0 else None
+    f_hi = (L_l + e_l) / d_hi if d_hi > 0 else None
+    off = lambda x: None if x is None else round((min(max(x, 0.0), 1.0) - 0.5) * width, 5)
+    return dict(frac_left=round(f, 4), offset_m=off(f), offset_lo_m=off(f_lo), offset_hi_m=off(f_hi), width_m=round(width, 5))
+
+
+def _claw_calib():
+    """MEASURED per-claw values of the claw_guard calibration (EPS_CLAW, K_STEP_CLAW), {} when the file is absent.  Env PL_CLAW_CALIB: read-only override."""
+    f = pathlib.Path(os.environ.get("PL_CLAW_CALIB") or NEW_CALIB["claw_guard"])
+    if not f.exists():
+        return {}
+    c = json.loads(f.read_text()).get("CLAW", {})
+    return {k: (float(c[k]["value"]), f"MEASURED {f} ({c[k].get('label', '')[:80]})") for k in ("EPS_CLAW", "K_STEP_CLAW") if k in c}
+
+
+class ClawGuardProbe(PosLiftProbe):
+    """claw_guard (Stage 0b, 11-12): the poslift height ladder, with the guard and headroom on each claw's own read load against that claw's limit
+    (claw_cap_kg, the static rows' F_cap) instead of the total load at the worst COM (rung_torque_u over the whole COM set).  SIMULATION ONLY.
+      read      per claw s: L_s = e_z . (J_s^T)^+ (tau_cmd,s - bias_s) / g (the two terms Probe.read sums; same noise draws), noise bound nb_s (MODEL of ASSUMED TAU_NOISE)
+      guard     u_read = max(max_s L_s / cap, u_tau(L)) > U_ADMIT -> load_guard (u_tau = joint-torque rows at the worst COM, kept from today's row)
+      headroom  min(min_s cap - (L_s + EPS_CLAW + nb_s), l_tau_admit_max - (L + eps_lo + nb)); step dz = min(DZ, headroom / K_STEP_CLAW); stop when dz < DZ_MIN
+      admissible (top of each rung) after the first read: max_s (L_s + EPS_CLAW + nb_s) / cap and u_tau(M_lo) <= U_ADMIT, overshoot <= O_MAX; before it: today's row
+    EPS_CLAW: the claw_guard CALIB's MEASURED per-claw read residual; without that file the total-load eps_lo stands in (ASSUMED); 0 when eps_lo = 0 (calibration).
+    K_STEP_CLAW: MEASURED per-claw max dL_s/dz (claw_guard CALIB); without it the pooled total K_STEP (transfer ASSUMED).
+    Per rung (rec["claw"]) and in the summary: the per-claw reads, noise bounds, sim-truth per-claw loads (claw_wrench; DIAGNOSTIC, never a decision input)
+    and split_position (the arms' load position along the claw axis + its interval).  The checker does not use the split yet."""
+    method = "claw_guard"
+
+    def __init__(self, *a, eps_claw=None, k_step_claw=None, **k):
+        super().__init__(*a, **k)
+        cal = _claw_calib()
+        if eps_claw is not None:
+            self.eps_claw, self.eps_claw_src = float(eps_claw), "argument"
+        elif self.eps_lo == 0.0:
+            self.eps_claw, self.eps_claw_src = 0.0, "0 (eps_lo = 0: calibration run)"
+        elif "EPS_CLAW" in cal:
+            self.eps_claw, self.eps_claw_src = cal["EPS_CLAW"]
+        else:
+            self.eps_claw, self.eps_claw_src = self.eps_lo, "ASSUMED = eps_lo (total-load residual; per-claw residual not yet MEASURED)"
+        if k_step_claw is not None:
+            self.k_step, self.k_step_src = float(k_step_claw), "argument"
+        elif self.adaptive and "K_STEP_CLAW" in cal:
+            self.k_step, self.k_step_src = cal["K_STEP_CLAW"]
+        else:
+            self.k_step_src = "pooled total K_STEP (CALIB of poslift); transfer to the per-claw load ASSUMED"
+        self.cap_kg = claw_cap_kg(self.task)
+        self._buf, self._last_sides, self._last_u, self._last_h = [], None, None, None
+
+    def read(self):
+        """Probe.read with the per-claw terms kept (same rng draws, same summation order -> the same total); + sim-truth per-claw loads (diagnostic)."""
+        ep, m, d = self.ep, self.ep.m, self.ep.d
+        mujoco.mj_forward(m, d)
+        Fz, nb, parts = 0.0, 0.0, {}
+        for s in CR.SIDES:
+            dofs = ep.dofs[s]
+            jp, jr = np.zeros((3, m.nv)), np.zeros((3, m.nv))
+            mujoco.mj_jacSite(m, d, jp, jr, ep.site[s])
+            Pz = np.linalg.pinv(np.vstack([jp[:, dofs], jr[:, dofs]]).T)[2]
+            r = self.tau[s] - d.qfrc_bias[dofs]
+            if self.noise:
+                r = r + self.rng.uniform(-TAU_NOISE, TAU_NOISE, size=7)
+            f, b = float(Pz @ r), float(np.abs(Pz).sum()) * TAU_NOISE
+            Fz += f
+            nb += b
+            parts[s] = (f / G, b / G)
+        truth = {s: float(ep.claw_wrench(s)[0][2]) / G for s in CR.SIDES}
+        self._buf.append((parts, truth))
+        return Fz / G, nb / G
+
+    def _consume(self):
+        buf, self._buf = self._buf, []
+        if not buf:
+            return self._last_sides
+        self._last_sides = dict(L={s: float(np.mean([p[s][0] for p, _ in buf])) for s in CR.SIDES},
+                                nb={s: float(max(p[s][1] for p, _ in buf)) for s in CR.SIDES},
+                                truth={s: float(np.mean([t[s] for _, t in buf])) for s in CR.SIDES})
+        return self._last_sides
+
+    def _u_read(self, L):
+        sd = self._consume()
+        u_c, u_t = claw_u(sd["L"], self.cap_kg), rung_tau_u(self.task, L)
+        self._last_u = (u_c, u_t)
+        return max(u_c, u_t)
+
+    def _headroom(self, prev_L, last_nb):
+        sd = self._last_sides
+        h_c = claw_headroom(sd["L"], sd["nb"], self.eps_claw, self.cap_kg)
+        h_t = l_tau_admit_max(self.task) - (prev_L + self.eps_lo + last_nb)
+        self._last_h = (h_c, h_t)
+        return min(h_c, h_t)
+
+    def admissible(self, m_to):
+        if self._last_sides is None:
+            return super().admissible(m_to)                  # before the first read: today's row (worst COM)
+        sd = self._last_sides
+        u_c = max((sd["L"][s] + self.eps_claw + sd["nb"][s]) / self.cap_kg for s in CR.SIDES)
+        u_t = rung_tau_u(self.task, m_to)
+        over = m_to - self.M_lo
+        u = max(u_c, u_t)
+        return (u <= E.U_ADMIT and over <= O_MAX + 1e-9), dict(u=round(u, 4), overshoot=round(over, 4), u_claw=round(u_c, 4), u_tau=round(u_t, 4))
+
+    def _width(self):
+        mujoco.mj_forward(self.ep.m, self.ep.d)
+        pl, pr = (self.ep.d.site_xpos[self.ep.site[s]].copy() for s in ("left", "right"))
+        return pl, pr
+
+    def _split(self, sd):
+        pl, pr = self._width()
+        e = {s: self.eps_claw + sd["nb"][s] for s in CR.SIDES}
+        return split_position(sd["L"]["left"], sd["L"]["right"], e["left"], e["right"], float(np.linalg.norm(pl - pr)))
+
+    def _rec_extra(self, rec):
+        sd = self._last_sides
+        if sd is None:
+            return
+        rec["claw"] = dict(L={s: round(v, 4) for s, v in sd["L"].items()}, nb={s: round(v, 4) for s, v in sd["nb"].items()},
+                           truth={s: round(v, 4) for s, v in sd["truth"].items()},
+                           u_claw=None if self._last_u is None else round(self._last_u[0], 4), u_tau=None if self._last_u is None else round(self._last_u[1], 4),
+                           headroom_claw=None if self._last_h is None else round(self._last_h[0], 4),
+                           headroom_tau=None if self._last_h is None else round(self._last_h[1], 4), split=self._split(sd))
+
+    def _com_truth_offset(self):
+        """sim-truth offset [m] of the carried bodies' COM from the claw midpoint along the claw axis (+ toward left).  DIAGNOSTIC only."""
+        ep, d = self.ep, self.ep.d
+        ms = np.array([ep.m.body_mass[b] for b in ep.carried])
+        com = (ms[:, None] * np.array([d.xipos[b] for b in ep.carried])).sum(0) / ms.sum()
+        pl, pr = self._width()
+        ax = (pl - pr) / np.linalg.norm(pl - pr)
+        return round(float(np.dot(com - 0.5 * (pl + pr), ax)), 5)
+
+    def _summary_extra(self):
+        last = self.rungs[-1].get("claw") if self.rungs else None
+        return dict(claw=dict(cap_kg=round(self.cap_kg, 4), eps_claw=self.eps_claw, eps_claw_src=self.eps_claw_src, k_step=self.k_step,
+                              k_step_src=getattr(self, "k_step_src", None), l_tau_admit_max=round(l_tau_admit_max(self.task), 4),
+                              split_last=None if last is None else last["split"], split_last_free=bool(self.rungs and self.rungs[-1]["free"]),
+                              com_truth_offset_m=self._com_truth_offset()))
+
+
+def _new_method_assumptions(method):
+    a = method_assumptions("poslift")
+    a["probe_method"] = method
+    a["U_ADMIT"] = f"{E.U_ADMIT} MODEL (rated limits, USER 11-09)"
+    if method == "poslift_ff":
+        try:
+            j = {t: jump_max(t)[0] for t in ("box", "tray6", "pot")}
+        except Exception as e:                       # noqa: BLE001 -- report, do not invent
+            j = f"unavailable ({e})"
+        a.update(JUMP=f"MEASURED per-task max per-rung height-ladder jump {j} kg ({JUMP_FILE}); max over n=20 worlds/task, not a bound; switch to the finish when headroom < JUMP",
+                 DM_FINE=f"{DM_FINE} kg ASSUMED (proposal 11-12, needs user approval): finish-phase feed-forward step",
+                 FF_FREE_RATIO=f"{FF_FREE_RATIO} ASSUMED (needs approval): finish-phase free test dL < ratio x DM_FINE (11-03 ladder rule, FREE_RATIO reused)",
+                 FF_T_HOLD=f"{FF_T_HOLD} s ASSUMED (needs approval): hold per finish rung (= poslift hold, reused)",
+                 T_RAMP=f"{T_RAMP} s design (Probe.rung)", O_MAX=f"{O_MAX} kg ASSUMED (11-03 ladder, Probe.admissible)",
+                 ff_precheck="MODEL quasi-static: a feed-forward step dm adds <= dm to the arms' load while the object rests on the counter; ramp transient MEASURED in calibration only")
+    else:
+        cal = _claw_calib()
+        a.update(claw_cap="MODEL: per-claw F_cap / g of the static rows ((3 kg NERO payload rating, MEASURED-spec) - gripper mass)",
+                 EPS_CLAW=(f"{cal['EPS_CLAW'][0]} kg {cal['EPS_CLAW'][1]}" if "EPS_CLAW" in cal else "ASSUMED = eps_lo until the claw_guard calibration MEASURES the per-claw read residual"),
+                 K_STEP_CLAW=(f"{cal['K_STEP_CLAW'][0]} kg/mm {cal['K_STEP_CLAW'][1]}" if "K_STEP_CLAW" in cal else "pooled total K_STEP; transfer to per-claw ASSUMED until MEASURED"),
+                 torque_rows="MODEL: joint-torque rows kept at the worst COM (rung_tau_u)",
+                 split="MODEL lever rule on the per-claw reads; interval from EPS_CLAW + per-claw noise bound (ASSUMED TAU_NOISE); the arms' load split, not the COM")
+    return a
+
+
 def make_probe(ep, task, eps_lo, eps_free, rng=None, noise=True, method=None, adaptive=True):
     """the one place a Probe is built.  method None -> PROBE_METHOD (env BIMANUAL_PROBE, default "poslift").  "ladder" returns the module's `Probe`
     (looked up now, so probe_variants / probe_liftoff, which patch P.Probe, keep working)."""
     method = PROBE_METHOD if method is None else method
     if method not in METHODS:
         raise ValueError(f"probe method {method!r} not in {METHODS}")
-    cls = PosLiftProbe if method == "poslift" else Probe
-    pr = cls(ep, task, eps_lo, eps_free, rng=rng, noise=noise, **(dict(adaptive=adaptive) if cls is PosLiftProbe else {}))
+    cls = {"poslift": PosLiftProbe, "poslift_ff": PosLiftFFProbe, "claw_guard": ClawGuardProbe}.get(method) or Probe
+    pr = cls(ep, task, eps_lo, eps_free, rng=rng, noise=noise, **(dict(adaptive=adaptive) if method != "ladder" else {}))
     pr.method = method
     return pr
 
@@ -491,8 +879,12 @@ def method_of(pr):
 
 
 def default_calib(method=None):
-    """CALIB.json of the method's eps (the eps must match the method): poslift -> the repo copy; ladder -> the 11-03 file."""
-    return str(POSLIFT_CALIB) if (PROBE_METHOD if method is None else method) == "poslift" else LADDER_CALIB
+    """CALIB.json of the method's eps (the eps must match the method): poslift -> the repo copy; ladder -> the 11-03 file; poslift_ff / claw_guard ->
+    NEW_CALIB (the repo copy of the PROBE_FIX_RUN.md calibration; absent until that run is done and copied)."""
+    m = PROBE_METHOD if method is None else method
+    if m == "poslift":
+        return str(POSLIFT_CALIB)
+    return str(NEW_CALIB[m]) if m in NEW_CALIB else LADDER_CALIB
 
 
 def _k_step_note():
@@ -505,6 +897,8 @@ def _k_step_note():
 
 def method_assumptions(method=None):
     method = PROBE_METHOD if method is None else method
+    if method in ("poslift_ff", "claw_guard"):
+        return _new_method_assumptions(method)
     if method == "poslift":
         return dict(probe_method="poslift", DZ=f"{DZ} m ASSUMED, USER-approved 11-09", Z_MAX=f"{Z_MAX} m ASSUMED, USER-approved 11-09",
                     FREE_TOL=f"{FREE_TOL} kg ASSUMED, USER-approved 11-09", T_HOLD=f"{T_HOLD_POSLIFT} s ASSUMED, USER-approved 11-09",
@@ -556,9 +950,14 @@ def _calib_job(args, method=None):
         return dict(task=task, i=i, seed=seed, probe_method=method_of(pr), M_true=M, why=why, rungs=pr.rungs,
                     res_free=(free[-1]["L"] - M) if free else None,
                     res_on_max=max((r["L"] - M for r in on), default=None),
-                    viol=ep.track["viol"], **pr.track, wall_s=round(time.time() - t0, 1))
+                    viol=ep.track["viol"], **pr.track, wall_s=round(time.time() - t0, 1),
+                    **({} if method_of(pr) in ("poslift", "ladder") else      # Stage 0b methods only (additive; poslift/ladder records unchanged)
+                       dict(probe_time_s=getattr(pr, "probe_time_s", None), peak_u=round(getattr(pr, "peak_u", 0.0), 4), interval=[pr.M_lo, pr.M_hi],
+                            truth_inside=bool(pr.M_lo - 1e-9 <= M <= pr.M_hi + 1e-9), probe_summary=getattr(pr, "summary", None),
+                            guard_events=list(getattr(pr, "guard_events", [])), u_read_max=round(float(getattr(pr, "u_read_max", 0.0)), 4))))
     except Exception as e:
-        return dict(task=task, i=i, seed=seed, error=repr(e))
+        import traceback
+        return dict(task=task, i=i, seed=seed, error=repr(e), tb=traceback.format_exc()[-1500:])
 
 
 def calibrate_summary(rows):
