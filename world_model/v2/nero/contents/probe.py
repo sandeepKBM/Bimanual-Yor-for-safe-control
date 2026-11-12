@@ -94,13 +94,15 @@ def prior_contents(task):
     return OB.BOX_CONTENTS_KG
 
 
-def interval_spec(task, c_lo, c_hi):
+def interval_spec(task, c_lo, c_hi, com=None):
     """ObjectSpec for contents mass in [c_lo, c_hi].  Tray: the total fill is known only as a total, so one mug may hold all of
     it: per-mug fill <= min(fill_max, total fill hi) sets the spill limit (MODEL, conservative)."""
+    if com is not None and task != "box":
+        raise NotImplementedError(f"a point COM (oracle_theta) is built for the box only, not {task!r}")
     if task == "pot":
         return SC.pot_spec(c_lo, c_hi)                       # solid puck: no spill row; the loose-lid slide limit (mu_lid_min g) is the open-content row
     if not task.startswith("tray"):
-        return OB.boxed(c_lo, c_hi)
+        return OB.boxed(c_lo, c_hi, com=com)
     n = n_cups(task)
     sp = OB.coffee_tray(n)
     sp.contents = OB.Contents(c_lo, c_hi, sp.contents.P, dict(sp.contents.labels, m=f"probe interval {c_lo:.3f}..{c_hi:.3f} kg"))
