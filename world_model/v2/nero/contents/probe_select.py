@@ -31,6 +31,7 @@ from typing import Callable
 import numpy as np
 
 from world_model.v2.adapters import outcome_carry as OCC, skills_contents as SK
+from world_model.v2.stack import u_groups as _UG
 from world_model.v2.nero.contents import carry as CR, probe as P
 from world_model.v2.stack import probing as PB
 from world_model.v2.stack.proposer import compile as PC, propose as PP, schema as S
@@ -261,11 +262,16 @@ def run_world(c: Ctx):
         okR, whyR = ep.in_R()
         rec["refuse_end_in_R"] = [okR, whyR]
         rec["outcome"] = "refused_in_R" if okR and not ep.track["viol"] else "refused_bad"
-    rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", [])))
+    rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", []))
+                        or rec.get("carry", {}).get("pre_hold_viol"))            # 11-12 B12: the ramp / hold between probe and carry
+    rec["recovery"] = _UG.recovery_of(rec.get("carry", {}).get("segments"))                 # 11-12 B4 step 1: recorded, not in the outcome
+    rec["recovery_bad"] = _UG.recovery_bad(rec["recovery"])
     carried = "carry" in rec
     rec.update(OCC.measure(ep, task, carried, rec["any_U"], rec["carry"]["pre_hold_viol"] if carried else None, refused=not carried, reason=rec["outcome"],
                            end_in_R=tuple(rec["carry"]["end_in_R"] if carried else rec["refuse_end_in_R"])))
     rec["refused_by"] = None if carried else ("T3" if stopped else (decision or {}).get("refused_by") or "probe")
+    if end_reason == "reask_error" and not carried and not stopped:      # 11-12 B7: a proposer error ended the Rule 2 loop (not a static refusal)
+        rec["refused_by"] = "proposer_error"
     counts = Counter(t["kind"] for t in t_events)
     final_pd = cur_pd
     rec["v2"] = clean(dict(

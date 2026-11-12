@@ -142,3 +142,30 @@ def test_t1_phenomenon_shown_and_not_named_reasks(tmp_path):
     v = r["v2"]
     assert v["t_counts"].get("T1") == 1 and v["reasks"][0]["trigger"] == "T1" and v["attempts"][0]["t1_shown"] == ["PH2"]
     assert v["n_reasks"] >= 1
+
+
+def test_reask_error_is_refused_by_proposer_error_not_static(tmp_path, monkeypatch):
+    """11-12 B7: the re-ask raises (proposer error) -> the Rule 2 loop ends with reask_error and the run is refused_by 'proposer_error' (was 'static'); no carry."""
+    plan = plan_for("box", tmp_path)
+
+    def boom(task, cur_pd, ev, check, **kw):
+        return {}, None, dict(kind="proposer_error", status="plan_rejected"), dict(n_asks=1, attempts=[], proposer_error="codex usage_limit: mock", wall_s=0.0)
+
+    monkeypatch.setattr(PS.PP, "reask_rule2_until_accepted", boom)
+    r = PS.fixed_job(("box", 0, *EPS, plan), method="poslift", make_skills=lambda w: {"weigh": LowerBound(w)})
+    assert "error" not in r, r.get("tb")
+    assert r["v2"]["reask_end"] == "reask_error" and r["refused_by"] == "proposer_error" and "carry" not in r
+    assert r["recovery"] == {} and r["recovery_bad"] is False
+    assert SW._refused_cell([r]) == " (" + "{'proposer_error': 1})" or "proposer_error" in SW._refused_cell([r])
+
+
+def test_any_U_includes_the_pre_hold_violation(tmp_path, monkeypatch):
+    """11-12 B12: a U entry in the ramp / hold between probe and carry (carry.pre_hold_viol) makes any_U True although no probe / segment viol exists.
+    outcome.classify already counted it in result.unsafe, so only the record field changes (False -> True where unsafe was already True)."""
+    plan = plan_for("box", tmp_path, spec="mock:t2_reask")          # admitted at world 1 (test_t2_reask_then_admit_with_the_mock_variant)
+    inj = dict(kind="obj_tilt", t=0.2)
+    monkeypatch.setattr(PS.CR, "run_segments", lambda ep, p, branch_backups=True: dict(segments=[], end_in_R=(True, ""), pre_hold_viol=inj))
+    r = PS.fixed_job(("box", 1, *EPS, plan), method="poslift")
+    assert "error" not in r, r.get("tb")
+    assert "carry" in r and r["carry"]["pre_hold_viol"] == inj and r["probe_viol"] is None
+    assert r["any_U"] is True and r["result"]["unsafe"] is True and r["recovery"] == {} and r["recovery_bad"] is False

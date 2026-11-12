@@ -42,6 +42,7 @@ import mujoco
 import numpy as np
 
 from world_model.v2.stack import tasks as TK
+from world_model.v2.stack import u_groups as _UG
 
 from . import carry as CR
 from . import carry_cert as CC
@@ -645,7 +646,10 @@ def _e2e_job(args, method=None, adaptive=True):
             okR, whyR = ep.in_R()
             rec["refuse_end_in_R"] = [okR, whyR]
             rec["outcome"] = "refused_in_R" if okR and not ep.track["viol"] else "refused_bad"
-        rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", [])))
+        rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", []))
+                            or rec.get("carry", {}).get("pre_hold_viol"))            # 11-12 B12: the ramp / hold between probe and carry
+        rec["recovery"] = _UG.recovery_of(rec.get("carry", {}).get("segments"))                 # 11-12 B4 step 1: recorded, not in the outcome
+        rec["recovery_bad"] = _UG.recovery_bad(rec["recovery"])
         from world_model.v2.adapters import outcome_carry as OCC      # the ONE goal + success rule (stack.goal / stack.outcome), same as AgentChord's records
         carried = "carry" in rec
         rec.update(OCC.measure(ep, task, carried, rec["any_U"], rec["carry"]["pre_hold_viol"] if carried else None, refused=not carried, reason=rec["outcome"],

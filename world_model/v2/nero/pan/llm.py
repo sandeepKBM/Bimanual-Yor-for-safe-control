@@ -15,6 +15,7 @@ camera image only; it never gets a shell (read-only sandbox, empty working dir) 
 from __future__ import annotations
 
 import base64
+import re
 import time
 from pathlib import Path
 
@@ -34,6 +35,18 @@ def info(spec):
     return dict(spec=spec, backend="mock", model="scripted", reasoning="-", caveats="scripted responses, not a model")
 
 
+def _codex_error_text(msg):
+    """11-12 B7: the Codex failure text with the CLI's stderr FIRST and a short class ("usage_limit", "timeout", "rate_limit", "auth", "error").
+    gateway.Codex raises 'codex exit N: <stderr tail>'; the reader of a truncated log then sees the cause, not the exit code."""
+    m = re.match(r"codex exit (\S+): (.*)$", msg, re.S)
+    err, code = (m.group(2).strip(), m.group(1)) if m else (msg, "?")
+    low = err.lower()
+    cls = ("usage_limit" if ("usage limit" in low or "usage_limit" in low or "hit your usage" in low or "quota" in low) else
+           "rate_limit" if ("rate limit" in low or "429" in low) else "timeout" if "timed out" in low or "timeout" in low else
+           "auth" if ("unauthorized" in low or "401" in low or "log in" in low or "login" in low) else "error")
+    return f"codex {cls}: {err} (exit {code})"
+
+
 class CodexVLM(Backend):
     name = "codex"
 
@@ -51,7 +64,10 @@ class CodexVLM(Backend):
         msgs.append(dict(role="user", content=parts))
         texts, t0 = [], time.time()
         for _ in range(n):                                   # temperature is not settable through Codex; n calls = n samples
-            texts.append(self.c(dict(messages=msgs))[0])
+            try:
+                texts.append(self.c(dict(messages=msgs))[0])
+            except RuntimeError as e:
+                raise RuntimeError(_codex_error_text(str(e))) from e
         dt = time.time() - t0
         return dict(texts=texts, seconds=dt, wall_s=dt, cached=False, backend=f"codex:{self.model}:{self.reasoning}")
 

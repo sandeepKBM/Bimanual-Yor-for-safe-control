@@ -25,7 +25,7 @@ import numpy as np
 from world_model.v2.adapters import base_envelope as BE, outcome_carry as OCC
 from world_model.v2.nero.base import smoke as SM
 from world_model.v2.nero.contents import carry as CR, carry_cert as CC, probe as P
-from world_model.v2.stack import tasks as TK
+from world_model.v2.stack import tasks as TK, u_groups as UG
 from world_model.v2.stack.proposer import compile as PC, schema as S
 
 BASE_FLAGS = ("wheel_liftoff", "base_world_contact", "load_world_contact", "route_unfinished")      # nero/base/monitors.py + drive.py (as agentchord_probe.nero.behind)
@@ -149,7 +149,10 @@ def behind_job(args, method=None, adaptive=True):
             okR, whyR = ep.in_R()
             rec["refuse_end_in_R"] = [okR, whyR]
             rec["outcome"] = "refused_in_R" if okR and not ep.track["viol"] else "refused_bad"
-        rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", [])))
+        rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", []))
+                            or rec.get("carry", {}).get("pre_hold_viol"))             # 11-12 B12: the ramp / hold between probe and carry
+        rec["recovery"] = UG.recovery_of(rec.get("carry", {}).get("segments"))                  # 11-12 B4 step 1: recorded, not in the outcome
+        rec["recovery_bad"] = UG.recovery_bad(rec["recovery"])
         carried = "carry" in rec
         rec.update(OCC.measure(ep, task, carried, rec["any_U"], rec["carry"]["pre_hold_viol"] if carried else None, refused=not carried, reason=rec["outcome"],
                                end_in_R=tuple(rec["carry"]["end_in_R"] if carried else rec["refuse_end_in_R"])))
@@ -157,7 +160,8 @@ def behind_job(args, method=None, adaptive=True):
         fl = set(ep.bmon.flagged)
         rec["base"] = dict(level=rec["base_level"], n_base_edges=len(bl), n_aborted=sum(1 for b in bl if b.get("aborted")),
                            route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_deg=[b.get("err_deg") for b in bl],
-                           U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()])
+                           U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()],
+                           U_flags_ever=sorted(ep.bmon.flagged_ever))             # 11-12: never reset within the episode (nominal path)
         rec["first_U"] = _first_viol(ep, probe_viol)
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec
@@ -185,7 +189,8 @@ def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True,
         fl = set(ep.bmon.flagged)
         rec["base"] = dict(level=rec["base_level"], n_base_edges=len(bl), n_aborted=sum(1 for b in bl if b.get("aborted")),
                            route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_deg=[b.get("err_deg") for b in bl],
-                           U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()])
+                           U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()],
+                           U_flags_ever=sorted(ep.bmon.flagged_ever))             # 11-12: never reset within the episode (nominal path)
         rec["first_U"] = _first_viol(ep, rec["probe_viol"])
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec
