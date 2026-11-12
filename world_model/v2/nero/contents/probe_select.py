@@ -37,6 +37,7 @@ from world_model.v2.stack.proposer import compile as PC, propose as PP, schema a
 from world_model.v2.stack.skills import catalog as CAT
 
 FIELD = SK.FIELD
+THETA_MODES = (None, "no_probe", "oracle_mass", "oracle_theta", "estimate")
 REFUSED_BY = ("static", "coverage", "base_level", "compile", "T3", "probe")
 
 
@@ -62,6 +63,11 @@ class Ctx:
     rows_json: Callable | None = None
     coverage_mode: str = "enforce"
     make_skills: Callable | None = None   # tests: (weigh) -> {skill id: ProbeSkill}
+    # --- demo_runner arms (11-12, Stage 0d).  All default to off: the default path is bit-identical.
+    theta_mode: str | None = None     # None = probe -> Theta_t (default) | "no_probe" (admit on Theta_0, no probe) | "oracle_mass" / "oracle_theta" (Theta = the TRUE contents point [c, c], no probe;
+                                      # oracle_theta also needs `static` / `level` closed over the true COM point) | "estimate" (probe, then admit on the point [mid, mid] of its interval)
+    on_phase: Callable | None = None  # (name) -> None, called at the phase boundaries: "probe" | "ramp_hold" | "nominal" | "refused_fallback"
+    dry: bool = False                 # return right after the admission (no ramp / carry / fallback): smoke and unit tests
 
 
 def clean(x):
@@ -135,6 +141,14 @@ def run_world(c: Ctx):
     seen = {cur_pd.get("plan_id")}
     ran, events, readings = set(), [], []
     cum = PB.ProbeRun(theta_t={FIELD: c0})
+    mode = c.theta_mode
+    if mode not in THETA_MODES:
+        raise ValueError(f"theta_mode {mode!r} not in {THETA_MODES}")
+    if mode in ("oracle_mass", "oracle_theta"):
+        cum.theta_t = {FIELD: (M - e, M - e)}                              # ORACLE: the true contents mass (truth, not a measurement); the world is the point
+    estimate = None
+    if c.on_phase:
+        c.on_phase("probe")
     attempts, reasks, t_events = [], [], []
     stopped, end_reason, decision, st, cov, wp_run, lvl_rows = None, None, None, None, None, None, None
     while True:
@@ -144,7 +158,7 @@ def run_world(c: Ctx):
         att = dict(attempt=k, plan_id=cur_pd.get("plan_id"), phenomena=cur_pd["phenomena"], probes=list(cur_pd["probes"]))
         cm = c.cmax(cur_wp)
         weigh.m_stop = None if cm is None else e + cm
-        todo = [s for s in cur_pd["probes"] if s not in ran]
+        todo = [] if mode in ("no_probe", "oracle_mass", "oracle_theta") else [s for s in cur_pd["probes"] if s not in ran]
         cat = {sid: dataclasses.replace(s, preconditions=tuple(p for p in s.preconditions if p not in ran)) for sid, s in CAT.SKILLS.items()}
         run = PB.run_probes(todo, skills, cum.theta_t, static_same=lambda th, w_=cur_wp: not c.static(*th[FIELD], w_)["action"].startswith("refuse"), skill_catalog=cat)
         att["probe_events"] = clean(run.events)
@@ -153,6 +167,11 @@ def run_world(c: Ctx):
         ran |= {ev["skill"] for ev in run.events if ev["kind"] in ("ran", "T3")}
         cum.theta_t = run.theta_t
         cum.measured = list(dict.fromkeys(cum.measured + run.measured))
+        if mode == "estimate":                                              # admit on the POINT [mid, mid] of the probe interval (the estimate); the interval is kept in the record
+            lo_e, hi_e = cum.theta_t[FIELD]
+            if estimate is None:
+                estimate = dict(interval=[lo_e, hi_e], point=0.5 * (lo_e + hi_e), lower_bound_only=any(r.output == "lower_bound" for r in readings))
+            cum.theta_t = {FIELD: (estimate["point"], estimate["point"])}
         for ev in run.events:
             if ev["kind"] == "T3":
                 t_events.append(dict(kind="T3", attempt=k, skill=ev["skill"], contradictions=clean(ev["contradictions"])))
@@ -221,6 +240,9 @@ def run_world(c: Ctx):
         cur_pd, cur_cp, cur_wp = new_pd, new_cp, new_cp.wp
     # ------------------------------------------------------------------------------------------------------------------ execute
     pr = weigh.probe
+    if c.dry:
+        return clean(dict(dry=True, task=task, i=c.i, seed=c.seed, M_true=M, theta_mode=mode, estimate=estimate, decision=None if stopped else decision, stopped=stopped,
+                          theta_t={f: list(v) for f, v in cum.theta_t.items()}, coverage=None if cov is None else cov.to_dict(), reask_end=end_reason, n_reasks=len(reasks)))
     probe_viol = ep.track["viol"]
     w_ok = "PH1" in cum.measured
     theta_total = [pr.M_lo, pr.M_hi] if w_ok else [e + cum.theta_t[FIELD][0], e + cum.theta_t[FIELD][1]]
@@ -236,6 +258,8 @@ def run_world(c: Ctx):
             rec.update(base_level=(decision or {}).get("base_level"), base_rows=c.rows_json(lvl_rows))
     admitted = bool(decision and decision["a_admit"] is not None and not stopped)
     rec["decision"] = None if stopped else decision
+    if c.on_phase:
+        c.on_phase("ramp_hold" if admitted else "refused_fallback")
     if admitted:
         if c.behind:
             ep.wp, ep.cc = wp_run, None                  # the carry runs the plan at the picked level (the geometry key ignores the level)
@@ -247,6 +271,8 @@ def run_world(c: Ctx):
         pr._ramp(m_nom, 0.3)
         ep.run_phases([("hold", 0.4)])
         ep.ctl.mass = m_nom
+        if c.on_phase:
+            c.on_phase("nominal")
         carry = CR.run_segments(ep, dict(segments=[]), branch_backups=True)
         rec["carry"] = dict(segments=carry["segments"], end_in_R=carry["end_in_R"], pre_hold_viol=carry["pre_hold_viol"])
         rec["outcome"] = "carried" if (carry["end_in_R"][0] and not any(s["nominal"]["viol"] for s in carry["segments"])) else "carry_failed"
@@ -268,6 +294,9 @@ def run_world(c: Ctx):
     rec["refused_by"] = None if carried else ("T3" if stopped else (decision or {}).get("refused_by") or "probe")
     counts = Counter(t["kind"] for t in t_events)
     final_pd = cur_pd
+    if mode is not None:
+        rec["theta_mode"] = mode
+        rec["estimate"] = clean(estimate)
     rec["v2"] = clean(dict(
         plan_id=final_pd.get("plan_id"), first_plan_id=c.plan["plan_dict"].get("plan_id"), phenomena=final_pd["phenomena"], handles={p["id"] if p["id"] != CAT.NEW else f"NEW:{p.get('name')}": p["handle"] for p in final_pd["phenomena"]},
         probes_selected=list(final_pd["probes"]), probes_run=[ev["skill"] for ev in events if ev["kind"] == "ran"],
