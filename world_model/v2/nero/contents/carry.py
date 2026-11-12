@@ -50,6 +50,10 @@ from ..pan.handle_grasp import TwoCtl, _set_fingers
 from . import envelope as E
 from . import objects as OB
 from . import scenes as SC
+
+_QD_MAX = np.radians(np.asarray(C.MANUAL["joint_speed_deg_s"], float))     # MEASURED/OFFICIAL: NERO manual joint speed [rad/s] (config.MANUAL)
+
+
 def _hold_finger():
     from .nyu_hold import hold_finger_frac       # nyu 11-03: V-jaw opening over the whole tab depth (nyu_hold.hold_opening, theta 0.662 rad ASSUMED clearance 2 mm/side)
     return hold_finger_frac()
@@ -376,7 +380,8 @@ class CarryEpisode:
     def reset_track(self):
         self.track = dict(viol=None, tau_ratio=0.0, n_sat=0, Fz_max=0.0, twist_max=0.0, F_int_max=0.0, spill_ratio=0.0,
                           cup_tilt_max=0.0, obj_tilt_max=0.0, e_obj_mm=0.0, e_obj_deg=0.0, e_int_mm=0.0, e_int_deg=0.0,
-                          path_ik_err_max=0.0, path_q_margin_min=PATH_NO_MARGIN, path_unreachable=0)
+                          path_ik_err_max=0.0, path_q_margin_min=PATH_NO_MARGIN, path_unreachable=0,
+                          viol_all={}, qd_ratio_max=0.0, n_qd_over=0)     # 11-12 Stage 0a: recording only (viol_all = every U kind of the window; qd_* = joint speed vs MANUAL, NOT U)
         if getattr(self, "task", None) == "pot" and getattr(self, "lid", None) is not None:      # pot only: tray / box records keep their keys
             self.track.update(lid_slide_mm=0.0, lid_dz_mm=0.0, lid_tilt_deg=0.0)
         if getattr(self, "bmon", None) is not None:
@@ -514,6 +519,9 @@ class CarryEpisode:
         self.track["tau_ratio"] = max(self.track["tau_ratio"], r)
         self.track["n_sat"] += int(r >= 1.0 - 1e-6)
         self.track.update(ctl.rec.scalars())               # 11-03 F2 (logging only)
+        qr = max(float(np.max(np.abs(d.qvel[ctl.ld]) / _QD_MAX)), float(np.max(np.abs(d.qvel[ctl.rd]) / _QD_MAX)))     # 11-12: reported only, NOT U
+        self.track["qd_ratio_max"] = max(self.track["qd_ratio_max"], qr)
+        self.track["n_qd_over"] += int(qr > 1.0)
         self._check(t, r)
 
     # ---------------- truth: claw wrench, U, R ----------------
@@ -551,8 +559,16 @@ class CarryEpisode:
         return F, T
 
     def _viol(self, kind, t, **kw):
+        det = None
+        if self.track["viol"] is None or kind not in self.track["viol_all"]:
+            det = dict(kind=kind, t=round(float(t), 3), **{k: (round(float(v), 4) if isinstance(v, (int, float, np.number)) else v) for k, v in kw.items()})
         if self.track["viol"] is None:
-            self.track["viol"] = dict(kind=kind, t=round(float(t), 3), **{k: (round(float(v), 4) if isinstance(v, (int, float, np.number)) else v) for k, v in kw.items()})
+            self.track["viol"] = det
+        va = self.track["viol_all"].get(kind)           # 11-12 B1: every kind, count + first detail (viol stays the first of any kind)
+        if va is None:
+            self.track["viol_all"][kind] = dict(n=1, t_first=det["t"], first=dict(det))
+        else:
+            va["n"] += 1
 
     def _check(self, t, r):
         m, d, tr = self.m, self.d, self.track
@@ -672,6 +688,7 @@ class CarryEpisode:
         """a base U flag (wheel_liftoff, base_world_contact, load_world_contact, route_unfinished): once per kind per window (reset_track), through _viol."""
         if kind not in self.bmon.flagged:
             self.bmon.flagged.add(kind)
+            self.bmon.flagged_ever.add(kind)
             self._viol(kind, t, **kw)
 
     def base_move(self, ref, branch=None):

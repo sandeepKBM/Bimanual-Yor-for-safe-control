@@ -69,6 +69,8 @@ class FLMPCBasic(FLMPC):
         self.n_tau_clipped = 0       # steps on which the saturation changed the torque (> 1e-6 Nm)
         self.n_a_bound_steps = 0     # steps on which the numerical solver bound on |a| was active (expected 0)
         self.n_speed_binding_steps = 0   # feasible steps on which a speed row is active (within 1e-3 rad/s)
+        self.n_infeas_torque = 0         # 11-12 counters (recording only): of n_sat_steps, steps where the torque-only QP was infeasible
+        self.n_infeas_speed_only = 0     # ... and steps where torque-only was feasible but torque + speed rows were not (speed rows were dropped)
         self.n_speed_resolves = 0        # steps on which the speed rows were violated by the torque-only solution (re-solved in OSQP)
         self.qd_max = None if qd_max is None else np.broadcast_to(np.asarray(qd_max, float), (2, NV)).copy()
         self.speed_steps = sorted(set([1] + list(range(self.L, self.NP + 1, self.L))))
@@ -158,6 +160,7 @@ class FLMPCBasic(FLMPC):
         # the solver's flag is not trusted alone (memory: QP 'feasible' != constraints met): check the residual of every row (Nm / rad/s)
         if feasible and float(np.max(a_ineq @ x - b_ineq)) > RESID_TOL:
             feasible = False
+        torque_feasible = bool(feasible)           # 11-12: for the counters only
         if n_speed and feasible and float(np.max(sp_a @ x - sp_b)) > 1e-6:
             # 2) a speed row is violated: re-solve with torque + speed rows in OSQP (the dual-ascent solver does not converge on the many
             #    small-norm speed rows: it left torque rows violated by Nm in a test).  Same objective, bounds |a| <= solver bound.
@@ -171,6 +174,10 @@ class FLMPCBasic(FLMPC):
         if not feasible:
             x = solve_box_qp(H, f, lower, upper)          # unconstrained tracking (acceleration box only); torque saturated below
             self.n_sat_steps += 1
+            if torque_feasible:
+                self.n_infeas_speed_only += 1
+            else:
+                self.n_infeas_torque += 1
         elif n_speed and float(np.min(sp_b - sp_a @ x)) < 1e-3:
             self.n_speed_binding_steps += 1
         if float(np.max(np.abs(x))) >= 0.999 * self.a_box:

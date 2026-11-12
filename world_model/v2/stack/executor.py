@@ -5,6 +5,7 @@ on the episode (CarryEpisode._step / _check / snapshot / restore / _add_path).  
 """
 from __future__ import annotations
 
+import copy
 import time
 
 import numpy as np
@@ -102,7 +103,8 @@ def run_segments(ep, plan: BimanualPlan, rec, branch_backups=True, t0=None):
         if seg != "release":
             ep.last_accel = sg.meta["accel"]                   # 11-03 item 10 (was set inside CarryEpisode.segment_phases)
         ep.run_phases(sg.meta["phases"], branch=bfun)
-        nominal = dict(viol=ep.track["viol"], **{k: round(float(v), 4) for k, v in ep.track.items() if k not in ("viol",)})
+        nominal = dict(viol=ep.track["viol"], **{k: round(float(v), 4) for k, v in ep.track.items() if k not in ("viol", "viol_all")})
+        nominal["viol_all"] = copy.deepcopy(ep.track["viol_all"])      # 11-12 B1 (additive)
         fl_nom = ep.ctl.rec.summary()          # 11-03 F2: nominal run of this segment (incl. the per-joint torque ratios); backups: nominal-run keys only
         okR, whyR = ep.in_R()
         nominal["end_in_R"], nominal["R_fail"] = okR, whyR

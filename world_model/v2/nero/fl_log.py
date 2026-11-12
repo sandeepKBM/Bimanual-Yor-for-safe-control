@@ -29,7 +29,7 @@ from . import adapters as A
 ARMARM_DMAX = 0.5       # m, A.true_min_dist default
 STATIC_DMAX = 0.3       # m
 ENABLED = os.environ.get("BIMANUAL_FL_RESIDUAL", "1") != "0"
-_CNT = ("n_relaxed", "n_zero_fallback", "n_scale_shrunk", "n_taumax_relaxed", "n_sat_steps", "n_tau_clipped", "n_speed_binding_steps", "n_speed_resolves", "n_a_bound_steps")
+_CNT = ("n_relaxed", "n_zero_fallback", "n_scale_shrunk", "n_taumax_relaxed", "n_sat_steps", "n_tau_clipped", "n_speed_binding_steps", "n_speed_resolves", "n_a_bound_steps", "n_infeas_torque", "n_infeas_speed_only")
 
 
 def _min_dist(m, d, ga, gb, dmax):
@@ -99,7 +99,8 @@ class FLRecorder:
             sat = self._delta("n_sat_steps")
             extra.update(fl_n_sat_steps=sat, fl_n_tau_clipped=self._delta("n_tau_clipped"),
                          fl_n_speed_binding=self._delta("n_speed_binding_steps"), fl_n_speed_resolves=self._delta("n_speed_resolves"),
-                         fl_n_a_bound=self._delta("n_a_bound_steps"))
+                         fl_n_a_bound=self._delta("n_a_bound_steps"),
+                         fl_n_infeas_torque=self._delta("n_infeas_torque"), fl_n_infeas_speed_only=self._delta("n_infeas_speed_only"))
         return dict(**extra, fl_steps=self.n, fl_n_infeasible=rel + zero + sat, fl_n_relaxed=rel, fl_n_zero=zero, fl_n_scale_called=rel + zero,
                     fl_n_scale_shrunk=self._delta("n_scale_shrunk"), fl_n_taumax_relaxed=self._delta("n_taumax_relaxed"),
                     fl_res_armarm_min_m=self.armarm_min, fl_res_static_min_m=self.static_min,

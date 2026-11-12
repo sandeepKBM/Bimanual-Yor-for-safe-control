@@ -55,6 +55,7 @@ def test_torque_saturates_when_infeasible(hold):
     mujoco.mj_forward(m, d)
     te, ti, ok = fl.step(m, d, lq, ld, rq, rd, qe, z, qi, z)
     assert not ok and fl.n_sat_steps == 1 and fl.n_tau_clipped == 1 and fl.last_fallback == 0
+    assert fl.n_infeas_torque == 1 and fl.n_infeas_speed_only == 0
     assert np.max(np.abs(te)) <= 0.5 + 1e-12 and np.max(np.abs(ti)) <= 0.5 + 1e-12
     assert np.isclose(np.max(np.abs(te)), 0.5)                           # it actually saturated
 
@@ -101,4 +102,5 @@ def test_speed_row_infeasible_is_counted_and_torque_saturated(hold):
     mujoco.mj_forward(m, d)
     te, ti, ok = fl.step(m, d, lq, ld, rq, rd, qe, z, qi, z)
     assert (not ok) and fl.n_sat_steps == 1
+    assert fl.n_infeas_torque + fl.n_infeas_speed_only == fl.n_sat_steps      # 11-12 counters split n_sat_steps (recording only)
     assert np.max(np.abs(te)) <= 1.0 + 1e-9 and fl.last_fallback == 0

@@ -36,6 +36,7 @@ class BaseMonitors:
         self.wheel_g = {g: i for i, h in enumerate(sb.hub) for g in range(m.ngeom) if m.geom_bodyid[g] == h and (m.geom_contype[g] | m.geom_conaffinity[g])}
         self.off_floor = np.zeros(4, int)          # consecutive steps without floor contact, per wheel
         self.flagged = set()
+        self.flagged_ever = set()                  # 11-12: never reset (reset() clears only the per-window `flagged`); recorded per run
         self.max_off = 0
 
     def reset(self):
@@ -43,10 +44,11 @@ class BaseMonitors:
         self.flagged = set()
 
     def state(self):
-        return dict(off_floor=self.off_floor.copy(), flagged=set(self.flagged), max_off=self.max_off)
+        return dict(off_floor=self.off_floor.copy(), flagged=set(self.flagged), flagged_ever=set(self.flagged_ever), max_off=self.max_off)
 
     def set_state(self, s):
         self.off_floor, self.flagged, self.max_off = s["off_floor"].copy(), set(s["flagged"]), s["max_off"]
+        self.flagged_ever = set(s.get("flagged_ever", s["flagged"]))     # in the state so a backup branch's flags do not leak into the nominal run's record
 
     def step(self, d, t, flag, load_ok=frozenset(), base_tilt_deg=float("nan")):
         m = self.m
