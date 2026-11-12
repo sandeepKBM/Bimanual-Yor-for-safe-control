@@ -38,7 +38,7 @@ import os
 import pathlib
 import time
 
-from world_model.v2.stack import outcome as OC, tasks as TK
+from world_model.v2.stack import outcome as OC, tasks as TK, u_groups as UG
 
 CALIB = None          # default: probe.default_calib() = the CALIB of the active probe method (poslift: repo copy; ladder: the 11-03 file)
 
@@ -193,6 +193,37 @@ def _v2_lines(by):
     return out
 
 
+def _u_group_cell(ok):
+    """11-12: worlds with ANY U kind on the nominal path (probe, ramp / hold, segments, base), by group; from viol_all / U_flags_ever.  '-' when no record has them."""
+    ks = [(r, UG.nominal_kinds(r)) for r in ok]
+    ks = [k for _, k in ks if k is not None]
+    if not ks:
+        return "-"
+    parts = []
+    for g in (*UG.GROUPS, "other"):
+        c = collections.Counter(k for kk in ks for k in kk if UG.group_of(k) == g)
+        n = sum(any(UG.group_of(k) == g for k in kk) for kk in ks)
+        parts.append(f"{g} {n}" + (f" ({', '.join(f'{k} {v}' for k, v in sorted(c.items()))})" if c else ""))
+    return "; ".join(parts) + f" [of {len(ks)}" + (f"/{len(ok)} with the field" if len(ks) != len(ok) else "") + "]"
+
+
+def _recovery_cell(ok):
+    """11-12 B4: worlds whose stored recovery failed at some branch point (rec['recovery_bad']); '-' when no record carries the key."""
+    have = [r for r in ok if "recovery_bad" in r]
+    return f"{sum(bool(r['recovery_bad']) for r in have)}/{len(have)}" if have else "-"
+
+
+def _infeas_cell(ok):
+    """11-12: FL-MPC infeasible steps on the nominal path: worlds with torque-infeasible steps / worlds with speed-only-infeasible steps."""
+    segs = [(r, [s.get("nominal", {}) for s in (r.get("carry") or {}).get("segments", [])]) for r in ok]
+    have = [(r, ss) for r, ss in segs if ss and any("fl_n_infeas_torque" in x for x in ss)]
+    if not have:
+        return "-"
+    a = sum(any(x.get("fl_n_infeas_torque", 0) > 0 for x in ss) for _, ss in have)
+    b = sum(any(x.get("fl_n_infeas_speed_only", 0) > 0 for x in ss) for _, ss in have)
+    return f"{a} / {b} [of {len(have)}]"
+
+
 def summary(out):
     out = pathlib.Path(out)
     rows = [json.loads(l) for l in open(out / "trials.jsonl")]
@@ -208,6 +239,8 @@ def summary(out):
     if has_behind:                                       # table-behind rows: one more column (base level histogram: ours = the admission's pick, none = refused; theirs = the fixed cap)
         lines[-2] = lines[-2] + " base level (count) |"
         lines[-1] = lines[-1] + "---|"
+    lines[-2] = lines[-2] + " U any kind (worlds), by group | runs with a failed stored recovery | FL-MPC infeasible (torque / speed-only, worlds) |"      # 11-12: appended, nominal path only
+    lines[-1] = lines[-1] + "---|---|---|"
     for (task, method), rs in sorted(by.items()):
         ok = [r for r in rs if "error" not in r]
         kinds = collections.Counter(_first_U(r) for r in ok if r.get("any_U"))
@@ -217,7 +250,8 @@ def summary(out):
         lines.append(f"| {task} | {method} | {len(rs)} | {len(rs) - len(ok)} | {f('success')} | {f('safe_success')} | {f('unsafe')} | {f('in_R')} | {t['refused']}{_refused_cell(ok)} "
                      f"| {dict(kinds) or '-'} | {sound} | {_reask_cell(rs)} | {_rule2_cell(ok) if method == 'ours' else '-'} |"
                      + (f" {dict(sorted(collections.Counter(str(r.get('base_level') or 'none') for r in ok if r.get('outcome') != 'plan_rejected').items())) or '-'} |"
-                        if has_behind and TK.task(task).base else (" - |" if has_behind else "")))
+                        if has_behind and TK.task(task).base else (" - |" if has_behind else ""))
+                     + f" {_u_group_cell(ok)} | {_recovery_cell(ok)} | {_infeas_cell(ok)} |")
     if any(n_rej.values()):                              # proposer plans that could not be used (never silently dropped)
         lines += ["", "Ours, proposer plan REJECTED (counted in n, not in carried / refused): " + ", ".join(f"{k[0]} {v}/{len(by[k])}" for k, v in sorted(n_rej.items()) if v)]
     lines += [""] + _v2_lines(by) if _v2_lines(by) else []

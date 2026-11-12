@@ -188,6 +188,21 @@ def run(a):
                   f"all_U={list((r.get('all_U') or {}).keys())} wall {r.get('wall_s')}", flush=True)
 
 
+def _split_U(r):
+    """11-12 B9: (nominal kinds, backup-or-probe-only kinds) of a record.  all_U counts every _viol call of the episode (probe, nominal, AND the counterfactual backup
+    rollouts of run_segments); nominal = kinds named by first_U or by a segment's nominal viol / viol_all (+ base flags); the rest = backup or probe only."""
+    nom = set()
+    if (r.get("first_U") or {}).get("kind"):
+        nom.add(r["first_U"]["kind"])
+    for sg in (r.get("carry") or {}).get("segments", []):
+        n = sg.get("nominal") or {}
+        if n.get("viol"):
+            nom.add(n["viol"]["kind"])
+        nom.update((n.get("viol_all") or {}).keys())
+    nom.update(r.get("base_flagged") or [])
+    return nom, set(r.get("all_U") or {}) - nom
+
+
 def summary(a):
     out = Path(a.out)
     recs = []
@@ -207,8 +222,8 @@ def summary(a):
             L.append(f"- {r['task']} {r['i']}: Theta {[round(x, 3) for x in r['Theta']]} vs source {[round(x, 3) for x in (s.get('Theta') or [])]}; why {r['why']}; "
                      f"verdict on Theta {r['verdict_theta']['action']}; verdict on TRUE mass {r['verdict_true']['action']} level {r['verdict_true']['base_level']}; wall {r['wall_s']} s")
         L.append("")
-    L.append("| task | variant | n | errors | success | safe_success | unsafe | carried w/o U | U kinds (any time, worlds) | first U (worlds) | FL-MPC infeasible (worlds; steps) |")
-    L.append("|---|---|---|---|---|---|---|---|---|---|---|")
+    L.append("| task | variant | n | errors | success | safe_success | unsafe | carried w/o U | U kinds (any time, worlds) | first U (worlds) | FL-MPC infeasible (worlds; steps) | U kinds, nominal path (worlds) | U kinds, backup or probe only (worlds) |")
+    L.append("|---|---|---|---|---|---|---|---|---|---|---|---|---|")
     for (task, v) in sorted({(r["task"], r["variant"]) for r in ok + errs}):
         rs = [r for r in ok if r["task"] == task and r["variant"] == v]
         ne = sum(1 for r in errs if r["task"] == task and r["variant"] == v)
@@ -219,12 +234,13 @@ def summary(a):
         inf = [r for r in rs if (r.get("fl") or {}).get("fl_n_infeasible", 0) > 0]
         L.append(f"| {task} | {v} | {len(rs)} | {ne} | {sum(bool(x.get('success')) for x in res)} | {sum(bool(x.get('safe_success')) for x in res)} | "
                  f"{sum(bool(x.get('unsafe')) for x in res)} | {sum(1 for r in rs if r.get('outcome') == 'carried' and not r.get('any_U'))} | {dict(kinds)} | {dict(first)} | "
-                 f"{len(inf)}; {sum(r['fl']['fl_n_infeasible'] for r in inf)} |")
+                 f"{len(inf)}; {sum(r['fl']['fl_n_infeasible'] for r in inf)} | "
+                 f"{dict(Counter(k for r in rs for k in _split_U(r)[0]))} | {dict(Counter(k for r in rs for k in _split_U(r)[1]))} |")
     L += ["", "## per world"]
     for r in sorted(ok, key=lambda r: (r["task"], r["i"], r["variant"])):
         x = r.get("result") or {}
         L.append(f"- {r['task']} {r['i']} {r['variant']}: M_true {r['M_true']:.2f} Theta {[round(t, 2) for t in r['Theta']]} | checker on true mass: {r['verdict_true']['action']} "
-                 f"(level {r['verdict_true']['base_level']}) | {r['outcome']} success={x.get('success')} unsafe={x.get('unsafe')} | all_U {r.get('all_U')} base {r.get('base_flagged')} | "
+                 f"(level {r['verdict_true']['base_level']}) | {r['outcome']} success={x.get('success')} unsafe={x.get('unsafe')} | all_U {r.get('all_U')} (nominal {sorted(_split_U(r)[0])}; backup or probe only {sorted(_split_U(r)[1])}) base {r.get('base_flagged')} | "
                  f"FL infeasible {r['fl']['fl_n_infeasible']}/{r['fl']['fl_steps']} clipped {r['fl']['fl_n_tau_clipped']}")
     for r in errs:
         L.append(f"- ERROR {r['task']} {r['i']} {r['variant']}: {r['error']}")
