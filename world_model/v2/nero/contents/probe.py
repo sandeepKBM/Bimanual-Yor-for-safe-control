@@ -705,6 +705,39 @@ def split_position(L_l, L_r, e_l, e_r, width):
     return dict(frac_left=round(f, 4), offset_m=off(f), offset_lo_m=off(f_lo), offset_hi_m=off(f_hi), width_m=round(width, 5))
 
 
+def claw_load_truth(ep, s):
+    """SIM TRUTH (diagnostic, never a decision input): vertical load [kg] arm s carries = its weld force on the object + every contact force between a geom
+    of arm s (any body named "<s>_arm...") and a geom of any carried body (object, lid, contents, cups).
+    Call it ONLY on the efc_force of a physics substep (a step hook, as carry._check does): after an mj_forward at the control DT (Probe.read) the soft weld's
+    force is recomputed with the larger timestep and comes out too low (11-12 pot check, calibration world 0, hanging free: welds 1.25 kg of M = 1.686 kg,
+    object z-acceleration -1.9 m/s^2 in that forward pass)."""
+    m, d = ep.m, ep.d
+    i = ep.weld_id[s]
+    fz = 0.0
+    if d.eq_active[i]:
+        sel = (d.efc_type == mujoco.mjtConstraint.mjCNSTR_EQUALITY) & (d.efc_id == i)
+        if sel.any():
+            f = np.zeros(d.nefc)
+            f[sel] = d.efc_force[sel]
+            res = np.zeros(m.nv)
+            mujoco.mj_mulJacTVec(m, d, res, f)
+            da = m.jnt_dofadr[m.body_jntadr[ep.obj]]
+            fz += float(res[da + 2])
+    side_g = {g for g in ep.arm_g if (m.body(m.geom_bodyid[g]).name or "").startswith(s)}
+    cf = np.zeros(6)
+    for k, c in enumerate(d.contact[:d.ncon]):
+        g1, g2 = int(c.geom1), int(c.geom2)
+        if g1 in side_g and int(m.geom_bodyid[g2]) in ep.carried:
+            sg = 1.0
+        elif g2 in side_g and int(m.geom_bodyid[g1]) in ep.carried:
+            sg = -1.0
+        else:
+            continue
+        mujoco.mj_contactForce(m, d, k, cf)
+        fz += sg * float((c.frame.reshape(3, 3).T @ cf[:3])[2])
+    return fz / G
+
+
 def _claw_calib():
     """MEASURED per-claw values of the claw_guard calibration (EPS_CLAW, K_STEP_CLAW), {} when the file is absent.  Env PL_CLAW_CALIB: read-only override."""
     f = pathlib.Path(os.environ.get("PL_CLAW_CALIB") or NEW_CALIB["claw_guard"])
@@ -746,6 +779,11 @@ class ClawGuardProbe(PosLiftProbe):
             self.k_step_src = "pooled total K_STEP (CALIB of poslift); transfer to the per-claw load ASSUMED"
         self.cap_kg = claw_cap_kg(self.task)
         self._buf, self._last_sides, self._last_u, self._last_h = [], None, None, None
+        self._truth_now = {s: 0.0 for s in CR.SIDES}
+
+        def keep_truth(_ep):                          # sim truth from the substep's own constraint forces (diagnostic; see claw_load_truth)
+            self._truth_now = {s: claw_load_truth(_ep, s) for s in CR.SIDES}
+        self.ep.step_hooks.append(keep_truth)
 
     def read(self):
         """Probe.read with the per-claw terms kept (same rng draws, same summation order -> the same total); + sim-truth per-claw loads (diagnostic)."""
@@ -764,8 +802,7 @@ class ClawGuardProbe(PosLiftProbe):
             Fz += f
             nb += b
             parts[s] = (f / G, b / G)
-        truth = {s: float(ep.claw_wrench(s)[0][2]) / G for s in CR.SIDES}
-        self._buf.append((parts, truth))
+        self._buf.append((parts, dict(self._truth_now)))
         return Fz / G, nb / G
 
     def _consume(self):
