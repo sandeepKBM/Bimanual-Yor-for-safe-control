@@ -19,6 +19,11 @@ Every episode still uses the existing tracker (carry.LeverCtl, FL-MPC, pre-11-07
     python -m world_model.v2.nero.contents.probe_liftoff calibrate --variant poslift --tasks box,tray6,pot --n 20 --procs 4 --out DIR/poslift
     python -m world_model.v2.nero.contents.probe_liftoff e2e --variant poslift --calib DIR/poslift/CALIB.json --n 20 --procs 4 --out DIR2/poslift
     python -m world_model.v2.nero.contents.probe_liftoff table --root DIR
+Stage 0b (11-12): `calibrate --method poslift_ff|claw_guard` calibrates the probe.py METHOD itself (make_probe, not a patched variant) on the same calibration
+worlds (probe._seed("calib", task, i)), noise-free, eps 0, from the empty mass, no stop rule (probe._calib_job), with U incl. the per-claw payload row
+(same_worlds._init_worker).  CALIB.json has the same shape (eps, per_task, K_STEP, FALSE_FREE, dL) + method="<method>" + JUMP (height rungs) + FF (poslift_ff:
+finish-phase jump, false free) or CLAW (claw_guard: per-claw read residual EPS_CLAW, K_STEP_CLAW, split vs sim-truth COM).
+    python -m world_model.v2.nero.contents.probe_liftoff calibrate --method poslift_ff --tasks box,tray6,pot --n 20 --procs N --out DIR/poslift_ff
 """
 from __future__ import annotations
 
@@ -270,6 +275,119 @@ def _run(cmd, variant, tasks, n, procs, out, eps_lo=0.0, eps_free=0.0):
     return rows
 
 
+METHODS_0B = ("poslift_ff", "claw_guard")
+
+
+def _method_job(args):
+    """Stage 0b: calibrate a probe.py method directly (no class patching)."""
+    method, task, i = args
+    from world_model.v2.nero.contents import same_worlds as SW, probe as P
+    SW._init_worker()                                          # payload row in U (strict_claw=True, T_cap=None), as _job
+    r = P._calib_job((task, i), method=method)
+    r.update(variant=method, method=method)
+    return r
+
+
+def _run_method(method, tasks, n, procs, out):
+    import multiprocessing as mp
+    jobs = [(method, t, i) for i in range(n) for t in tasks]
+    f = out / "calibrate.jsonl"
+    done, rows = set(), []
+    if f.exists():                                             # resume: keep finished worlds
+        for line in open(f):
+            try:
+                r = json.loads(line)
+            except ValueError:
+                continue
+            if "error" not in r:
+                done.add((r["task"], r["i"]))
+                rows.append(r)
+    jobs = [j for j in jobs if (j[1], j[2]) not in done]
+    print(f"{method} calibrate: {len(jobs)} jobs ({len(done)} done)", flush=True)
+    with mp.get_context("spawn").Pool(procs, maxtasksperchild=3) as pool, open(f, "a") as fh:
+        for r in pool.imap_unordered(_method_job, jobs):
+            fh.write(json.dumps(r, default=float) + "\n")
+            fh.flush()
+            rows.append(r)
+            print(f"{method} calibrate {r.get('task')} i={r.get('i')} why={r.get('why')} {'ERR ' + r['error'] if 'error' in r else ''}", flush=True)
+    return rows
+
+
+def jump_summary(rows, tol=0.05):
+    """MEASURED per-task max per-rung load jump on HEIGHT rungs (dz_mm > 0; the finish-phase rungs have dz_mm = 0 and are in ff_summary)."""
+    per = {}
+    for r in rows:
+        for k in r.get("rungs", []):
+            if k.get("dL") is None or not k.get("dz_mm"):
+                continue
+            per.setdefault(r["task"], []).append(k["dL"])
+    return {t: dict(value=round(max(v), 4), n=len(v), p95=round(float(np.percentile(v, 95)), 4)) for t, v in sorted(per.items())} or None
+
+
+def ff_summary(rows, tol=0.05):
+    """poslift_ff finish phase (rungs with phase == "ff"): load jump vs the commanded step (MEASURED), false free, stop reasons, ceiling."""
+    out, pooled = {}, dict(dL=[], excess=[], n_false=0, n_free=0)
+    for task in sorted({r["task"] for r in rows if "error" not in r}):
+        rs = [r for r in rows if r["task"] == task and "error" not in r]
+        ff = [(r, k) for r in rs for k in r["rungs"] if k.get("phase") == "ff"]
+        dL = [k["dL"] for _, k in ff]
+        ex = [k["dL"] - k["dm_cmd"] for _, k in ff]
+        fr = [(r, k) for r, k in ff if k["free"]]
+        nf = sum(k["L"] < r["M_true"] - tol for r, k in fr)
+        on = [k["L"] - r["M_true"] for r, k in ff if not k["free"]]
+        switched = [r for r in rs if (r.get("probe_summary") or {}).get("ff")]
+        out[task] = dict(n=len(rs), n_switched=len(switched), n_ff_rungs=len(ff), dL_max=round(max(dL), 4) if dL else None,
+                         excess_over_cmd_max=round(max(ex), 4) if ex else None, n_free_in_ff=len(fr), n_false_free=int(nf),
+                         on_res_max=round(max(on), 4) if on else None, why={w: sum(r["why"] == w for r in rs) for w in sorted({r["why"] for r in rs})},
+                         last_L_not_free_max=round(max((r["rungs"][-1]["L"] for r in rs if r["why"] != "free" and r["rungs"]), default=float("nan")), 4))
+        pooled["dL"] += dL
+        pooled["excess"] += ex
+        pooled["n_false"] += int(nf)
+        pooled["n_free"] += len(fr)
+    return dict(per_task=out, dL_max=round(max(pooled["dL"]), 4) if pooled["dL"] else None,
+                excess_over_cmd_max=round(max(pooled["excess"]), 4) if pooled["excess"] else None,
+                FALSE_FREE_FF=dict(n_false=pooled["n_false"], n_free_rungs=pooled["n_free"], label=f"finish rungs declared free while L < M_true - {tol}"),
+                label="MEASURED (noise-free calibration reads, eps 0): finish-phase per-rung dL and dL - commanded step; max over n, not a bound")
+
+
+def claw_summary(rows, tol=0.05):
+    """claw_guard: per-claw read residual (read - sim-truth claw_wrench load) per rung and claw, per-claw load rate on height rungs, split vs sim-truth COM."""
+    res, res_on, res_free, rate, jump, split_err = [], [], [], [], [], []
+    for r in rows:
+        if "error" in r:
+            continue
+        prev = None
+        for k in r.get("rungs", []):
+            c = k.get("claw")
+            if not c:
+                prev = None
+                continue
+            for s in ("left", "right"):
+                e = c["L"][s] - c["truth"][s]
+                res.append(e)
+                (res_free if k["free"] else res_on).append(e)
+            if prev is not None and k.get("dz_mm"):
+                for s in ("left", "right"):
+                    d = c["L"][s] - prev["L"][s]
+                    jump.append(d)
+                    if k["L"] < r["M_true"] - tol:
+                        rate.append(d / k["dz_mm"])
+            prev = c
+        cs = (r.get("probe_summary") or {}).get("claw") or {}
+        sp = cs.get("split_last")
+        if r.get("why") == "free" and sp and sp.get("offset_m") is not None and cs.get("com_truth_offset_m") is not None:
+            split_err.append(sp["offset_m"] - cs["com_truth_offset_m"])
+    st = lambda v: None if not v else dict(max_abs=round(float(np.max(np.abs(v))), 4), p50=round(float(np.median(v)), 4),
+                                           p95_abs=round(float(np.percentile(np.abs(v), 95)), 4), n=len(v))
+    return dict(EPS_CLAW=None if not res else dict(value=round(float(np.max(np.abs(res))), 4), n=len(res),
+                                                    label="MEASURED: max |per-claw read - sim-truth claw load| over all rungs and both claws (noise-free reads; the ASSUMED torque-noise bound is added per read)"),
+                K_STEP_CLAW=None if not rate else dict(value=round(max(rate), 4), n=len(rate), unit="kg/mm",
+                                                       label=f"MEASURED: max per-claw dL_s/dz over height rungs with L < M_true - {tol}"),
+                JUMP_CLAW=None if not jump else dict(value=round(max(jump), 4), n=len(jump), label="MEASURED: max per-claw per-rung load increase, height rungs"),
+                residual_all=st(res), residual_on_counter=st(res_on), residual_free=st(res_free),
+                split_vs_com_free=st(split_err) and dict(st(split_err), label="split offset at the free read minus sim-truth COM offset [m] (diagnostic)"))
+
+
 def kstep_summary(rows, tol=0.05):
     """MEASURED load-rate bound K_STEP = max over rungs still on the counter (L < M_true - tol) of dL/dz [kg/mm], pooled over tasks (rows need dz_mm per rung,
     i.e. poslift / poslift_mixed calibration rows; the first rung has dL = None and is skipped).  Also: per task, per dz size, and the rate-test false-free count
@@ -344,6 +462,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["calibrate", "e2e", "table"])
     ap.add_argument("--variant", choices=VARIANTS)
+    ap.add_argument("--method", choices=METHODS_0B, help="Stage 0b: calibrate this probe.py method (instead of --variant)")
     ap.add_argument("--tasks", default="box,tray6,pot")
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--procs", type=int, default=4)
@@ -359,7 +478,22 @@ def main(argv=None):
     tasks, t0 = a.tasks.split(","), time.time()
     asm = dict(DZ=f"{DZ} m ASSUMED", Z_MAX=f"{Z_MAX} m ASSUMED", FREE_TOL=f"{FREE_TOL} kg ASSUMED", T_MOVE=f"{T_MOVE} s design", T_HOLD_POSLIFT=f"{T_HOLD_POSLIFT} s ASSUMED",
                T_REBASE=f"{T_REBASE} s ASSUMED", N_FREE_CONFIRM=f"{N_FREE_CONFIRM} ASSUMED", physics=PHYSICS, **P.ASSUMPTIONS)
-    if a.cmd == "calibrate":
+    if a.cmd == "calibrate" and a.method:
+        asm.update(P.method_assumptions(a.method))
+        rows = _run_method(a.method, tasks, a.n, a.procs, out)
+        s = P.calibrate_summary(rows)
+        s.update(method=a.method, variant=a.method, date=time.strftime("%Y-%m-%d"), n_per_task=a.n, wall_s=round(time.time() - t0), assumptions=asm,
+                 dL=_dL_stats(rows), JUMP=jump_summary(rows), worlds="probe._seed('calib', task, i), i < n (= kstep_calib_2026-11-09 worlds)")
+        ks = kstep_summary(rows)
+        if ks:
+            s.update(ks)
+        if a.method == "poslift_ff":
+            s["FF"] = ff_summary(rows)
+        else:
+            s["CLAW"] = claw_summary(rows)
+        (out / "CALIB.json").write_text(json.dumps(s, indent=1, default=float))
+        print(json.dumps(s["eps"]), json.dumps(s.get("FF") or s.get("CLAW"), default=float)[:1500], flush=True)
+    elif a.cmd == "calibrate":
         rows = _run("calibrate", a.variant, tasks, a.n, a.procs, out)
         s = P.calibrate_summary(rows)
         s.update(variant=a.variant, date=time.strftime("%Y-%m-%d"), n_per_task=a.n, wall_s=round(time.time() - t0), assumptions=asm,
