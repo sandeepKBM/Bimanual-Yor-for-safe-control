@@ -162,10 +162,16 @@ def test_reask_error_is_refused_by_proposer_error_not_static(tmp_path, monkeypat
 def test_any_U_includes_the_pre_hold_violation(tmp_path, monkeypatch):
     """11-12 B12: a U entry in the ramp / hold between probe and carry (carry.pre_hold_viol) makes any_U True although no probe / segment viol exists.
     outcome.classify already counted it in result.unsafe, so only the record field changes (False -> True where unsafe was already True)."""
-    plan = plan_for("box", tmp_path, spec="mock:t2_reask")          # admitted at world 1 (test_t2_reask_then_admit_with_the_mock_variant)
+    plan = plan_for("box", tmp_path)
+    lo, hi = P.prior_contents("box")
+
+    class Light(LowerBound):                                               # reads the light tenth of the prior: Rule 1 admits, the carry runs (stubbed below)
+        def run(self, th):
+            return PB.Reading("weigh", {"contents_mass_kg": (lo, lo + 0.1 * (hi - lo))}, "interval", dict(why="free", shows=["PH1"]))
+
     inj = dict(kind="obj_tilt", t=0.2)
     monkeypatch.setattr(PS.CR, "run_segments", lambda ep, p, branch_backups=True: dict(segments=[], end_in_R=(True, ""), pre_hold_viol=inj))
-    r = PS.fixed_job(("box", 1, *EPS, plan), method="poslift")
+    r = PS.fixed_job(("box", 1, *EPS, plan), method="poslift", make_skills=lambda w: {"weigh": Light(w)})
     assert "error" not in r, r.get("tb")
     assert "carry" in r and r["carry"]["pre_hold_viol"] == inj and r["probe_viol"] is None
     assert r["any_U"] is True and r["result"]["unsafe"] is True and r["recovery"] == {} and r["recovery_bad"] is False
