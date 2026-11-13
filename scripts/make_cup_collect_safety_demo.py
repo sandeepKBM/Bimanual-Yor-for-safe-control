@@ -80,8 +80,8 @@ CHANGE 2 -- controller axis (--controller {v4c,v7c}, default v4c unchanged):
 
 Run (GPU 5 only -- GPUs 1-4 busy):
     MUJOCO_GL=egl CUDA_VISIBLE_DEVICES=5 \\
-        /common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python \\
-        /common/users/ss5772/bimanual/scripts/make_cup_collect_safety_demo.py \\
+        python \\
+        <repo>/scripts/make_cup_collect_safety_demo.py \\
         [--config {geometric_only,geometric_spill}] [--controller {v4c,v7c}] \\
         [--scenario {crossing,spill}] [--no-video] [--baseline-only] [--max-steps N]
 
@@ -143,7 +143,15 @@ import safety_module as safety_mod  # noqa: E402  (eval/, read-only import; Sema
 from scripts import cup_collect_task_utils as cct  # noqa: E402  (read-only import)
 from teleop import bimanual_teleop as bt  # noqa: E402  (read-only import)
 from control import realgrasp_flmpc as rg  # noqa: E402  (--grasp-mode real helpers; measurement-only in faked mode)
-from world_model.wm_semantic_monitor import RealWMSpillMonitor, LatentValueShield  # noqa: E402  (real WM; LatentValueShield = the learned-HJ-in-the-loop shield)
+try:   # real WM monitor / LatentValueShield need the external dreamerv3 code + torch; the teleop stack never uses them
+    from world_model.wm_semantic_monitor import RealWMSpillMonitor, LatentValueShield  # noqa: E402  (real WM; LatentValueShield = the learned-HJ-in-the-loop shield)
+except ImportError as _wm_err:  # pragma: no cover - depends on the optional dreamerv3 checkout
+    _WM_IMPORT_ERROR = _wm_err
+
+    class _NeedsDreamer:
+        def __init__(self, *a, **k):
+            raise ImportError(f"world_model.wm_semantic_monitor is unavailable (needs dreamerv3 + torch): {_WM_IMPORT_ERROR}")
+    RealWMSpillMonitor = LatentValueShield = _NeedsDreamer
 
 ART_DIR = REPO_ROOT / "artifacts"
 ART_DIR.mkdir(parents=True, exist_ok=True)

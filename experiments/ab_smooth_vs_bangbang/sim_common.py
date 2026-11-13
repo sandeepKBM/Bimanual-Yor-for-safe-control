@@ -22,9 +22,12 @@ import sys
 import numpy as np
 import mujoco
 
-SCENE = "/common/users/ss5772/bimanual/scenes/scene_yor_canonical.xml"
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+SCENE = os.path.join(_REPO, "scenes", "scene_yor_canonical.xml")
 
-REAL_CARTPOLE_ROOT = "/common/users/ss5772/real_Cartpole"
+# controller_core (box QP, constrained box QP, torque filter): the four files used here are vendored under third_party/
+# (see third_party/controller_core/__init__.py for provenance).  REAL_CARTPOLE_ROOT points at a full checkout instead.
+REAL_CARTPOLE_ROOT = os.environ.get("REAL_CARTPOLE_ROOT", os.path.join(_REPO, "third_party"))
 if REAL_CARTPOLE_ROOT not in sys.path:
     sys.path.insert(0, REAL_CARTPOLE_ROOT)
 
