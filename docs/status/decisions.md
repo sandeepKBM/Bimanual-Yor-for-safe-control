@@ -20,6 +20,10 @@ Earlier rulings (before 10-15) are history in `docs/design/MASTER.md`.
 
 | Date | Ruling | Source |
 |---|---|---|
+| 11-12 | Probe fix: use `poslift_ff` values DM_FINE 0.1 kg, FF_FREE_RATIO 0.2, FF_T_HOLD 1.2 s and `claw_guard` EPS_CLAW / K_STEP_CLAW from its calibration ("use them"); also sweep the values to find the best (DM_FINE 0.05/0.1/0.2 x hold 0.6/1.2 s). | `bimanual_data/contents/probe_fix_2026-11-12/` |
+| 11-12 | Proposer: add a Sonnet backend (`claude:claude-sonnet-5-5:high`, Claude Code CLI) and compare with Codex; run stage 2 (full table-behind carries with Sonnet). The account e-mail in the CLI's context is acceptable. | branch `sonnet-proposer`; `run_n20_sonnet/` |
+| 11-12 | The proposer must be sent images (rendered scene views), for every backend. | branch `proposer-images` |
+| 11-12 | Agent models: Opus and Sonnet per `agent_policy.json`; Fable only for the task it was approved for. | memory `feedback-agent-models-scope` |
 | 11-09 | **Build the 11-08 design (LLM names phenomena and picks probes; no LLM numbers) BEFORE the table-behind same-worlds runs** ("Build 11-08 first, then run"): steps 1-7 of the probe-selection build spec; no same-worlds run on the old numeric-belief format. | `docs/status/probe_selection_build_spec_2026-11-09.md` |
 | 11-09 | **Accepted ("all values accepted")**: AgentChord table-behind port (behind.py): their monitors read poses in the base frame (MONITOR_FRAME='base'; in the world frame monitor_object_moved fires on every base move); default level L3 (no speed choice); brake ends at 4 s or 1 mm/s. | `agentchord_probe/nero/behind.py` |
 | 11-09 | **Accepted ("all values accepted")**: Base-move ASSUMED values (0021839, 53a0cc5): sweep sampling 1 cm / 2 deg; base_move ranges <= 4 segments, abs(line) <= 1.0 m, abs(turn) <= 180 deg; sweep tracking margin 0 mm (no MEASURED base path error); default level L1 when no level is given; rest gap 0.5 s per segment + 0.5 s settle; load may touch only counter/counter2 while the base stands and nothing while it moves. | `stack/planners/base_route.py`, `adapters/base_sweep.py`, `nero/base/drive.py`, `nero/contents/carry.py` |

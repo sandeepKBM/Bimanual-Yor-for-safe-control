@@ -602,3 +602,16 @@ skill handling torsional slip, no coupled-arm RoboTwin task.
 - Lid, rim clamp: nothing reusable; ours to build.
 Related: [[pan-skills-rebuild-2026-10-30]], [[contact-model-2026-10-30]].
 
+
+## 2026-11-12: existing probing skills (web search, Sonnet research agent; links fetched unless "search only")
+- robot_payload_id (Pfaff et al. 2025, arXiv 2503.00370, github.com/nepfaff/robot_payload_id, MIT): excitation trajectories + SDP physically consistent fit of the payload's 10 inertial
+  parameters (+ reflected inertia, friction); Drake, single arm; torque-only use not stated in the README.
+- OnlineSafeSysID (roahmlab, RSS 2025, arXiv 2504.21486): payload inertial parameters as guaranteed intervals, exciting trajectories kept inside torque limits; Kinova + ROS 2 +
+  RAPTOR + HSL; single arm.
+- ShahramKhorshidi/system_identification (ICRA 2025, arXiv 2409.09850, BSD-3): LMI/SDP or log-Cholesky physically consistent fit; Pinocchio; LMI needs MOSEK.
+- Nadeau, Giamou, Kelly 2022 (arXiv 2203.00830): fast physically consistent payload ID for cobots; estimator code not found.
+- VLM-chosen probing: Adami et al. 2026 (arXiv 2601.08454, VLM writes behavior trees of sensing primitives, real Franka), Phys2Real (arXiv 2510.11689, VLM prior fused
+  with interaction data; search only). DeliGrasp (arXiv 2403.07832) has the LLM give numeric mass/friction (search only).
+- Not found: a MuJoCo/robosuite/ManiSkill/Isaac skill library with weigh/shake/tilt probes; safe incremental-lift (hefting) code; cooperative bimanual payload ID code.
+- Claude on embodied benchmarks (same day, Sonnet agent): ERQA Claude 3.5 Sonnet 35.5% vs GPT-4o 47.0% (arXiv 2503.20020); BenchLM ERQA board Opus 4.5 46.8%,
+  Opus 4.6 51.6% vs Gemini 3 Pro 70.5% (mostly vendor-reported); no Claude 5.x physical/embodied numbers found.
