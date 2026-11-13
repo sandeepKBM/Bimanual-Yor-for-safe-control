@@ -67,8 +67,18 @@ def make_backend(spec, cache_dir, offline=False):
     return CachedVLM(inner, cache_dir, mode="ro" if off else "rw")
 
 
+def _imgs(image, images):
+    """image (the old single optional path) + images (list of paths, 11-12 plan images) -> one list of str paths ([] = text-only request: key and text unchanged)."""
+    return ([str(image)] if image else []) + [str(p) for p in (images or [])]
+
+
+def _user(user, images, image_note):
+    """the request text: unchanged for a text-only request; with images one short line saying which are attached (identical for every backend)."""
+    return user + "\n\n" + image_note if images and image_note else user
+
+
 def _ask(be, system, user, image):
-    imgs = [image] if image else []
+    imgs = list(image) if isinstance(image, (list, tuple)) else ([image] if image else [])
     key = be.key(user, imgs, system, MAX_NEW_TOKENS, 0.0, 1) if isinstance(be, CachedVLM) else None
     t0 = time.time()
     try:
@@ -85,7 +95,7 @@ def _record(kind, task, spec, be, key, out, wall, system, user, image, plan, rep
     cache_file = str(Path(be.dir) / f"{key}.json") if isinstance(be, CachedVLM) and key else None
     return dict(kind=kind, task=task, spec=spec, model=info["model"], reasoning=info["reasoning"], backend=info["backend"], caveats=info["caveats"],
                 request_hash=key, raw_reply_path=cache_file, prompt_sha=hashlib.sha256((system + "\n" + user).encode()).hexdigest()[:16],
-                image=str(image) if image else None, cached=bool(out.get("cached")), wall_s=round(float(wall), 2), status=plan["status"],
+                image=(([str(x) for x in image] or None) if isinstance(image, (list, tuple)) else (str(image) if image else None)), cached=bool(out.get("cached")), wall_s=round(float(wall), 2), status=plan["status"],
                 plan_id=plan.get("plan_id"), reasons=plan.get("reasons"), stage=plan.get("stage"), reply_head=reply[:300],
                 note="the plan is the model's reply as validated by stack/proposer/schema.py; no repair, no defaults")
 
@@ -105,16 +115,17 @@ def _finish(kind, task, spec, be, key, out, wall, system, user, image, reply, su
     return d, rec
 
 
-def propose(task, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None):
+def propose(task, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None, images=None, image_note=None):
     """-> (plan dict, record).  scene_facts default = prompt.scene_facts(task) (no hidden truth).  image = optional camera image path (the only extra input)."""
     f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
     be = make_backend(backend_spec, cache_dir, offline)
-    user = PR.user_prompt(task, f)
+    image = _imgs(image, images) if images else image
+    user = _user(PR.user_prompt(task, f), images, image_note)
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
     return _finish("plan", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]))
 
 
-def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None):
+def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, images=None, image_note=None):
     """Rule 2 re-ask.  `plan` = a status-ok plan dict.  Schema v2 (default): `evidence` = the dict of nero/contents/probe_select ({trigger T1|T2, readings, probes_skipped,
     failing_rows, worst, ...}, prompt.reask_evidence_block); ask for a complete new plan; record["evidence"], record["trigger"] say what was asked.  BIMANUAL_LEGACY_PROPOSER_V1=1:
     `evidence` = probe_set {param: [lo, hi]} that is not inside B (11-05 Rule 2); record["probe_set"], record["uncovered"].  -> (new plan dict, record)."""
@@ -122,14 +133,15 @@ def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cac
         raise ValueError("reask needs a plan that validated (status ok)")
     f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
     be = make_backend(backend_spec, cache_dir, offline)
-    user = PR.reask_prompt(task, plan, evidence, f)
+    image = _imgs(image, images) if images else image
+    user = _user(PR.reask_prompt(task, plan, evidence, f), images, image_note)
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
     extra = (dict(probe_set=evidence, uncovered=PR.uncovered(plan["belief"], evidence), previous_plan_id=plan.get("plan_id")) if S.legacy_v1()
              else dict(trigger=evidence.get("trigger"), evidence=evidence, previous_plan_id=plan.get("plan_id")))
     return _finish("reask", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]), extra)
 
 
-def reask_rule2_until_accepted(task, plan, evidence, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None):
+def reask_rule2_until_accepted(task, plan, evidence, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None, images=None, image_note=None):
     """Rule 2 re-ask (schema v2) whose new plan must also be ACCEPTED (validated + compiled by `check`, as propose_until_accepted): the first request is the Rule 2 prompt (plan +
     evidence); every rejection of the new plan is fed back (rejection_prompt with the evidence block kept as its prefix) and the model is asked again, NO cap (user 11-09).
     -> (plan, accepted, rec, info); info = dict(n_asks (Rule 2 request + rejection re-asks), attempts (every REJECTED attempt), proposer_error, wall_s).
@@ -143,9 +155,9 @@ def reask_rule2_until_accepted(task, plan, evidence, check, scene_facts=None, im
         n_asks += 1
         try:
             if not rejected:
-                new, rec = reask(task, plan, evidence, f, backend_spec, cache_dir, offline, image, world)
+                new, rec = reask(task, plan, evidence, f, backend_spec, cache_dir, offline, image, world, images, image_note)
             else:
-                new, rec = reask_rejected(task, rejected, f, backend_spec, cache_dir, offline, image, world, prefix=prefix)
+                new, rec = reask_rejected(task, rejected, f, backend_spec, cache_dir, offline, image, world, prefix=prefix, images=images, image_note=image_note)
         except ProposerCacheMiss:
             raise
         except Exception as e:
@@ -170,18 +182,19 @@ def reask_rule2_until_accepted(task, plan, evidence, check, scene_facts=None, im
                     stage="proposer", reasons=[err]), dict(n_asks=n_asks, attempts=hist, proposer_error=err, wall_s=round(time.time() - t0, 2)))
 
 
-def reask_rejected(task, attempts, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, prefix=None):
+def reask_rejected(task, attempts, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, prefix=None, images=None, image_note=None):
     """Re-ask after a REJECTED plan (schema / compile / planner).  attempts = [{"plan", "reply", "stage", "reasons"}, ...] oldest first (prompt.rejection_prompt).
     The feedback text is part of the request, hence of the cache key: replays are deterministic and --offline works.  -> (plan dict, record)."""
     f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
     be = make_backend(backend_spec, cache_dir, offline)
-    user = PR.rejection_prompt(task, attempts, f, prefix=prefix)
+    image = _imgs(image, images) if images else image
+    user = _user(PR.rejection_prompt(task, attempts, f, prefix=prefix), images, image_note)
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
     return _finish("reask_rejected", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]),
                    dict(previous_plan_id=(attempts[-1].get("plan") or {}).get("plan_id"), n_prior_rejections=len(attempts)))
 
 
-def propose_until_accepted(task, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None):
+def propose_until_accepted(task, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None, images=None, image_note=None):
     """propose, then re-ask on every rejection until a plan is accepted.  NO cap on re-asks (user 11-09), no hidden retry.
     check(plan) -> the accepted object (e.g. a CompiledPlan) or raises schema.PlanRejected (stage, reasons).  A plan that failed validation (status plan_rejected) is rejected
     without calling check.  A proposer ERROR (backend exception; ProposerCacheMiss under --offline is re-raised) ends the loop: final plan = plan_rejected stage "proposer".
@@ -194,9 +207,9 @@ def propose_until_accepted(task, check, scene_facts=None, image=None, backend_sp
         attempt += 1
         try:
             if not rejected:
-                plan, rec = propose(task, scene_facts, image, backend_spec, cache_dir, offline, world)
+                plan, rec = propose(task, scene_facts, image, backend_spec, cache_dir, offline, world, images, image_note)
             else:
-                plan, rec = reask_rejected(task, rejected, scene_facts, backend_spec, cache_dir, offline, image, world)
+                plan, rec = reask_rejected(task, rejected, scene_facts, backend_spec, cache_dir, offline, image, world, images=images, image_note=image_note)
         except ProposerCacheMiss:
             raise
         except Exception as e:                       # the proposer itself failed: the only way this loop ends without an accepted plan
