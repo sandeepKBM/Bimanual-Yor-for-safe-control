@@ -77,3 +77,13 @@ def test_stop_decays_wheel_command():
     sb._dt = 0.005
     sb.stop()
     assert 0.9 < d.ctrl[sb.a_drive[0]] < 1.0
+
+
+def test_wheel_offset_tyre_centre_vs_legacy(monkeypatch):
+    """F5 (11-13): the offset is read from the TYRE centre (1.05 mm from the steer axis), not the hub anchor (21.3 mm); BIMANUAL_LEGACY_SWERVE_OFF=1 restores it."""
+    monkeypatch.delenv("BIMANUAL_LEGACY_SWERVE_OFF", raising=False)
+    _, _, sb = _sb()
+    assert np.allclose(sb.off, 0.00105, atol=2e-4) and np.all(sb.off_sign == 1.0)
+    monkeypatch.setenv("BIMANUAL_LEGACY_SWERVE_OFF", "1")
+    _, _, sb0 = _sb()
+    assert np.allclose(sb0.off, 0.021272, atol=1e-5) and np.all(sb0.off_sign == 1.0)

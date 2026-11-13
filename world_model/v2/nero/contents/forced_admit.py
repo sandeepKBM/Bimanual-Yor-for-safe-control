@@ -97,6 +97,7 @@ def job(args):
         wp0 = cp.wp
         seed, w = SM.behind_world(task, i)
         ep = CR.CarryEpisode(w, m_hat=0.0, fric_comp=True, weld_solref=CC.WELD_STIFF, wp=wp0, base="swerve", goal_support=TK.task(task).goal_support)
+        ep.mark_contents("start")
         allv = {}
         orig = ep._viol
 
@@ -111,6 +112,7 @@ def job(args):
         cm = BJ.c_admit_max(task, wp0)
         pr = P.make_probe(ep, bt, eps_lo, eps_free, rng=np.random.default_rng(seed), noise=True, method=PROBE_METHOD, adaptive=True)
         why = pr.run(M_stop=None if cm is None else e + cm)
+        ep.mark_contents("after_probe")
         c_lo, c_hi = pr.M_lo - e, pr.M_hi - e
         probe_viol = CR._jsonable(ep.track["viol"])
         st_theta = BJ._static(task, c_lo, c_hi, w, wp0)
@@ -140,8 +142,10 @@ def job(args):
         rec.update(belief=belief, carry=dict(segments=carry["segments"], end_in_R=carry["end_in_R"], pre_hold_viol=carry["pre_hold_viol"]), outcome=outcome, any_U=any_U)
         rec.update(OCC.measure(ep, task, True, any_U, carry["pre_hold_viol"], refused=False, reason=outcome, end_in_R=tuple(carry["end_in_R"])))
         bl = getattr(ep, "base_log", [])
-        rec["base"] = dict(n_base_edges=len(bl), n_aborted=sum(1 for b in bl if b.get("aborted")), route_end_err_mm=[b.get("err_mm") for b in bl],
+        rec["base"] = dict(n_base_edges=len(bl), n_aborted=sum(1 for b in bl if b.get("aborted")), route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_m=[b.get("err_m") for b in bl],   # route_end_err_mm holds METRES (legacy name)
+                           
                            U_flags={k: (k in set(ep.bmon.flagged)) for k in BJ.BASE_FLAGS}, base_end_pose=[float(v) for v in ep.sb.pose()])
+        BJ._record_extras(rec, ep)
         rec["first_U"] = BJ._first_viol(ep, probe_viol)
         rec["all_U"] = allv
         rec["base_flagged"] = sorted(ep.bmon.flagged)

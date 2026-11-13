@@ -245,6 +245,7 @@ def run_world(c: Ctx):
     if c.dry:
         return clean(dict(dry=True, task=task, i=c.i, seed=c.seed, M_true=M, theta_mode=mode, estimate=estimate, decision=None if stopped else decision, stopped=stopped,
                           theta_t={f: list(v) for f, v in cum.theta_t.items()}, coverage=None if cov is None else cov.to_dict(), reask_end=end_reason, n_reasks=len(reasks)))
+    ep.mark_contents("after_probe")
     probe_viol = ep.track["viol"]
     w_ok = "PH1" in cum.measured
     theta_total = [pr.M_lo, pr.M_hi] if w_ok else [e + cum.theta_t[FIELD][0], e + cum.theta_t[FIELD][1]]
