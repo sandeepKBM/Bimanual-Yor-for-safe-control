@@ -33,6 +33,8 @@ import numpy as np
 from aiohttp import web, WSMsgType
 
 from . import inputs as IN
+from . import episode as EP
+from . import pick_link as PLK
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DOORWAYS = {"h5": ((3.875, 4.94),)}                 # map-frame doorway centres for --d-wall-door (h5: door|4|7 frame-to-frame span 3.45..4.31 m at y = 4.94)
@@ -65,6 +67,9 @@ class SimWorker(threading.Thread):
         self.render_ms = collections.deque(maxlen=30)
         self.render_n = collections.deque(maxlen=60)
         self.frame_wall = 0.0
+        self.episode = None                                   # episode.Episode (None with --episode off)
+        self.pick = None                                      # pick_link.PickLink (only --task pick)
+        self._ep_events: list = []
         self.lang = None                                      # house/lang WebLang (only with --lang; default off = nothing below runs)
 
     # ------------------------------------------------------------------ build / reset
@@ -82,7 +87,11 @@ class SimWorker(threading.Thread):
             FP.install_split_hook()                              # no-op once sim.py carries the 2-line hook itself
         carry = a.task == "carry"
         people = getattr(a, "people", "on")
-        kw = dict(scene_name=a.scene, grasped=carry, counter=not carry, desk=not carry, seed=a.seed, with_people=people != "off")
+        pick = a.task == "pick"
+        if pick:                                                  # free arms + pick table + props (house/pick); same kwargs as pick/smoke.py
+            kw = dict(scene_name=a.scene, seed=a.seed, with_people=people != "off", task="pick", pick_props=a.pick_props)
+        else:
+            kw = dict(scene_name=a.scene, grasped=carry, counter=not carry, desk=not carry, seed=a.seed, with_people=people != "off")
         if people == "on":
             kw["people_clock"] = "time"      # the walker's track clock runs with sim time.  The legacy clock only advances while the CURRENT segment velocity is non-zero, so a track
                                              # that starts with a stationary segment (h5 p_walker: t 0..2 s) never left its start (3.6, 3.8) -- see INTERFACE.md "People"
@@ -105,7 +114,10 @@ class SimWorker(threading.Thread):
             cfg.doorways = tuple(DOORWAYS.get(a.scene, ()))
         self.shield = SH.Shield(cfg, occ=sim.occ, a_hw=sim.a_hw)
         self.hub.tuck_goal = None
-        self.shield.docks = [wp["cafe_counter_pick"][:2]] if carry else [wp["cafe_counter_pick"][:2], wp["lab_desk_place"][:2]]
+        self.shield.docks = [] if pick else ([wp["cafe_counter_pick"][:2]] if carry else [wp["cafe_counter_pick"][:2], wp["lab_desk_place"][:2]])
+        goal = None if pick else wp["cafe_counter_pick"][:2] if carry else wp["lab_desk_place"][:2]
+        self.episode = EP.Episode(a.task, goal, timeout_s=getattr(a, "episode_timeout", 0.0), grasp_mode=a.grasp_mode) if getattr(a, "episode", "on") == "on" else None
+        self._ep_events = []
         self.passthru = SH.Passthrough()
         self.ghost = GH.Predictor()                             # operator-intent ghost: re-created (= cleared) on every episode reset
         self.arm_intent = GH.ArmIntent(sim.of, iters=4)
@@ -125,8 +137,15 @@ class SimWorker(threading.Thread):
         self.fovy0 = float(sim.m.vis.global_.fovy)
         if a.render_mode == "thread":
             self._make_thread_renderers()
-        for _ in range(3):                                            # warm-up (numba compile of the FL-MPC) with a zero command
+        for _ in range(25 if pick else 3):                            # warm-up (numba compile of the FL-MPC) with a zero command; pick: props settle (as pick/smoke.py)
             sim.tick(self.hub.to_cmd(IN.Intent(), 1.0))
+        if pick:                                                     # one PickSession per built sim (its camera / snapshots belong to this model); MOCK labels unless --pick-backend says otherwise
+            from ...pick import session as PSE
+            from ...pick import smoke as PSM
+            if self.pick is not None:
+                self.pick.close()
+            self.pick = PLK.PickLink(PSE.PickSession(planner=a.pick_planner, backend=a.pick_backend, mock_labels=PSM.LABELS, seed=a.seed,
+                                                     log=lambda m: print(f"[pick] {m}", flush=True)))
         if a.render_mode == "process":
             if getattr(self, "link", None) is None:
                 self.link = self._make_link()
@@ -152,6 +171,9 @@ class SimWorker(threading.Thread):
         self.render_n.append(time.perf_counter())
 
     def close(self):
+        if self.pick is not None:
+            self.pick.close()
+            self.pick = None
         link = getattr(self, "link", None)
         if link is not None:
             link.close()
@@ -226,11 +248,16 @@ class SimWorker(threading.Thread):
             elif ev == "ghost_toggle":
                 self.ghost_on = not self.ghost_on
                 self.ghost.reset()
+            elif ev == "episode_end":
+                self._ep_events.append(ev)
             elif ev == "reset":
                 self.ready = False
                 self.telemetry = dict(ready=False, msg="resetting")
                 self._close_renderers()
                 self.build()
+                if self.episode is not None:                  # a new episode starts disarmed in IDLE (Enter / Start begins it); --episode off keeps the Alpha behaviour
+                    with self.hub.lock:
+                        self.hub._stop("new episode - Enter / Start to begin")
                 self.interv_hist.clear()
                 self.wall_hist.clear()
                 self.ready = True
@@ -258,6 +285,8 @@ class SimWorker(threading.Thread):
         while not self.stop_ev.is_set():
             if self.clients <= 0:                                     # nobody watching: pause, stay safe
                 self.hub.disconnect(None)
+                if self.pick is not None:
+                    self.pick.on_disconnect()
                 time.sleep(0.05)
                 next_t = time.perf_counter()
                 self.wall_hist.clear()
@@ -270,6 +299,15 @@ class SimWorker(threading.Thread):
             obs = sim.observe()
             obs["tray_offset"] = (sim.of.dp.copy(), float(_log_R(sim.of.dR)[2]))     # commanded tray offset from the normal carry pose: the tuck / carry presets drive it
             cmd = self.hub.step(obs)
+            ep = self.episode
+            pk = self.pick
+            if pk is not None:
+                st_ = self.hub.status()
+                pk.pre_tick(sim, self.hub.enabled, latched=self.hub.latched, watchdog=bool(st_.get("watchdog")),
+                            ep_state=None if ep is None else ep.state, ready=self.ready)
+                cmd = pk.interlock(cmd)                               # no operator base / lift / jog motion while a skill runs
+            if ep is not None and ep.blocks_motion:
+                cmd = PLK.zero_cmd(cmd, motion_only=False)            # OUTCOME: every command stays zero until a reset
             sh = self.shield if self.shield_on else self.passthru
             safe, info = sh.filter(sim, cmd)
             self.gf = self.ghost_frame(sim, cmd, safe, info) if self.ghost_on else None     # read-only: before sim.tick, from the same state
@@ -283,7 +321,11 @@ class SimWorker(threading.Thread):
                 print(f"[shield] t={sim.t:.2f} {lab} pose=({sim.base.x:.2f},{sim.base.y:.2f},{sim.base.yaw:.2f}) v={np.round(sim.base.v, 2).tolist()} "
                       f"cmd={np.round(np.asarray(getattr(cmd, 'base', [0, 0, 0]), float), 2).tolist()} tiers={getattr(self.shield, 'dbg', {})} tightest={tight}", flush=True)
             self._last_lab = lab
+            if pk is not None:
+                pk.step(sim)
             o = sim.tick(safe)
+            if ep is not None:
+                self.episode_tick(ep, sim, o, info)
             t1 = time.perf_counter()
             self.tick_ms.append((t1 - t0) * 1e3)
             self.wall_hist.append((t1, sim.t))
@@ -309,6 +351,21 @@ class SimWorker(threading.Thread):
                 time.sleep(slack)
             elif slack < -0.5:
                 next_t = time.perf_counter()
+
+    def episode_tick(self, ep, sim, o, info):
+        """sim thread, after sim.tick: advance the episode state machine from the values the telemetry uses; disarm the hub when an episode ends."""
+        lost = sim.cup_lost_t is not None
+        tel = dict(cup_lost=lost, beads_out=int(o["beads_out"]), cup_state="LOST" if lost else ("SPILLED" if o["beads_out"] > 0 else "ok"),
+                   speed=float(np.hypot(sim.base.v[0], sim.base.v[1])), pose=[float(x) for x in sim.pose()],
+                   interv_now=float(info.get("intervention_norm", 0.0)), shield_label=str(info.get("label", "")),
+                   wall_clr=float(o["wall"]), person_clr=float(o["pdist"]), cup_tilt=float(o["cup_tilt"]), latched=self.hub.latched,
+                   assist=({"place": sim.assist.metrics_.get("place", {}).get("ok")} if getattr(sim, "assist", None) is not None else None),
+                   pick=None if self.pick is None else {"status": self.pick.status})
+        evs, self._ep_events = self._ep_events, []
+        ep.update(sim.t, time.time(), self.hub.enabled, tel, evs)
+        if ep.consume_disarm():
+            with self.hub.lock:
+                self.hub._stop("episode over - Backspace = new episode")
 
     def ghost_frame(self, sim, cmd, safe, info):
         """operator-intent ghost (teleop/ghost.py): raw command vs the shield's, from the current measured state.  Visual only."""
@@ -359,6 +416,9 @@ class SimWorker(threading.Thread):
             fp_mode=self.shield.cfg.footprint, fp_w=round(fp["y"][1] - fp["y"][0], 3), fp_l=round(fp["x"][1] - fp["x"][0], 3),
             fp_ms=round(self.shield.fp_ms[0] / max(self.shield.fp_ms[1], 1), 3),
             tray_off=([round(float(x), 3) for x in self.hub.tray_off[0]] + [round(self.hub.tray_off[1], 3)]) if self.hub.tray_off is not None else None,
+            **({"episode": self.episode.to_json()} if self.episode is not None else {}),
+            **({"pick": self.pick.telemetry(sim.pose(), sim.lift_actual(), None if self.episode is None else self.episode.state, self.hub.enabled)}
+               if self.pick is not None else {}),
             **({"assist": dict(state=str(sim.assist.state), attempt=int(sim.assist.attempt), t_state=round(float(sim.assist.t_state), 1),
                                fail=str(sim.assist.fail_reason or ""), place=sim.assist.metrics_.get("place", {}).get("ok"))}
                if getattr(sim, "assist", None) is not None else {}))
@@ -403,7 +463,9 @@ def make_app(args, hub, worker, token):
         await ws.send_str(json.dumps(dict(type="hello", kbd_axes={k: list(v) for k, v in IN.KBD_AXES.items()}, kbd_events=IN.KBD_EVENTS,
                                           presets=list(hub.cfg["presets"]), preset_names=list(hub.cfg["preset_names"]),
                                           watchdog_s=hub.cfg["watchdog_s"], cameras=list(CAMERAS), task=args.task, scene=args.scene,
-                                          lang=(args.lang if getattr(args, "lang", "off") != "off" else None))))
+                                          lang=(args.lang if getattr(args, "lang", "off") != "off" else None),
+                                          pick=(dict(planner=args.pick_planner, backend=args.pick_backend) if args.task == "pick" else None),
+                                          episode=getattr(args, "episode", "on") == "on")))
 
         async def writer():
             last_frame, last_tel, last_lang = -1, 0.0, -1
@@ -440,6 +502,14 @@ def make_app(args, hub, worker, token):
                             await ws.send_str(json.dumps(dict(type="pong", id=msg.get("id"))))
                         elif msg.get("type") == "pad_gone":
                             hub.disconnect("pad")
+                        elif msg.get("type") in ("pick_propose", "pick_select", "pick_cancel") and worker.pick is not None and worker.ready:
+                            t_ = msg["type"]
+                            if t_ == "pick_propose":
+                                worker.pick.enqueue_propose()
+                            elif t_ == "pick_cancel":
+                                worker.pick.enqueue_cancel()
+                            elif isinstance(msg.get("id"), int) and not isinstance(msg.get("id"), bool):
+                                worker.pick.enqueue_select(msg["id"])
                         elif msg.get("type") == "lang" and worker.lang is not None and worker.ready:
                             worker.lang.submit(msg.get("instruction", ""), sim=worker.sim)       # background thread; the sim keeps running
                         elif msg.get("type") == "lang_clear" and worker.lang is not None:
@@ -466,7 +536,7 @@ def parse_args(argv=None):
     ap = argparse.ArgumentParser(description="browser teleop server (SIMULATION ONLY, binds 127.0.0.1)")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--scene", default="h5", choices=["h5", "office"])
-    ap.add_argument("--task", choices=["carry", "coffee"], default="carry")
+    ap.add_argument("--task", choices=["carry", "coffee", "pick"], default="carry")
     ap.add_argument("--shield", dest="shield", action="store_true", default=True)
     ap.add_argument("--no-shield", dest="shield", action="store_false")
     ap.add_argument("--fps", type=float, default=15.0, help="render/stream rate")
@@ -501,6 +571,11 @@ def parse_args(argv=None):
     ap.add_argument("--lang-cache", default="data/molmospaces/lang/web_cache", help="VLM response cache (replays are offline)")
     ap.add_argument("--grasp-mode", dest="grasp_mode", default=None, help="passed to TeleopSim(grasp_mode=...) if that kwarg exists")
     ap.add_argument("--spawn-at", dest="spawn_at", default=None, help="scene waypoint to spawn at (e.g. cafe_counter_pick); default = the scene start")
+    ap.add_argument("--episode", choices=["on", "off"], default="on", help="episode lifecycle (IDLE/ACTIVE/OUTCOME, disarm at the end; telemetry key `episode`).  off = Alpha behaviour")
+    ap.add_argument("--episode-timeout", dest="episode_timeout", type=float, default=0.0, help="sim seconds after which an ACTIVE episode fails (0 = no timeout)")
+    ap.add_argument("--pick-props", dest="pick_props", default="default", help="--task pick: prop set name (house/pick/props.py SETS)")
+    ap.add_argument("--pick-planner", dest="pick_planner", choices=["rule", "vlm", "vlm+veto"], default="rule")
+    ap.add_argument("--pick-backend", dest="pick_backend", choices=["mock", "auto", "live"], default="mock", help="mock = offline labels (privileged shortcut); live needs the VLM service and is not used in tests")
     return ap.parse_args(argv)
 
 

@@ -62,6 +62,40 @@ async def main(a):
                 if frames:
                     open(f"{a.out}/frame.jpg", "wb").write(frames[-1][1])
                 return
+            if a.pick:                                     # pick guidance scenario (server: --task pick --pick-backend mock): arm, scan, select first feasible non-stale, wait for the result
+                async def wait_for(pred, timeout, what):
+                    t1 = time.time()
+                    while time.time() - t1 < timeout:
+                        await send([]); await asyncio.sleep(0.1)
+                        if pred(): return True
+                    print(f"TIMEOUT waiting for {what}", flush=True); return False
+                tl = []
+                def mark(msg): tl.append((round(time.time() - t0, 1), msg)); print(f"  [{tl[-1][0]:6.1f}s] {msg}", flush=True)
+                print("episode before arming:", tel.get("episode"), "pick:", {k: (tel.get("pick") or {}).get(k) for k in ("status", "backend", "planner")}, flush=True)
+                await send(["Enter"]); await send([]); await asyncio.sleep(0.2)
+                mark(f"armed={tel['enabled']} episode={(tel.get('episode') or {}).get('state')}")
+                await ws.send_str(json.dumps(dict(type="pick_propose")))
+                if not await wait_for(lambda: (tel.get("pick") or {}).get("proposals"), a.pick_timeout, "proposals"): r.cancel(); return
+                pk = tel["pick"]
+                mark("proposals: " + "; ".join(f"#{p['id']} {p['label']} {p['mode']}/{p['arm']} feasible={p['feasible']} {p['why']}" for p in pk["proposals"]))
+                await hold([], 0.5)
+                pk = tel["pick"]
+                cand = [p for p in pk["proposals"] if p["feasible"]]
+                mark(f"stale={pk['stale']} ready_to_pick={pk['ready_to_pick']} snap_pose={pk['snap_pose']}")
+                if not cand or pk["stale"]: print("no feasible non-stale proposal; last_reject:", pk["last_reject"], flush=True); r.cancel(); return
+                await ws.send_str(json.dumps(dict(type="pick_select", id=cand[0]["id"])))
+                mark(f"pick_select {cand[0]['id']} ({cand[0]['label']})")
+                seen = []; p0 = tel["pose"][:]
+                def prog():
+                    st = tel["pick"]["status"]
+                    if not seen or seen[-1] != st: seen.append(st); mark(f"status -> {st} skill={(tel['pick'].get('skill') or {}).get('state')} last_reject={tel['pick']['last_reject']!r}")
+                    return st in ("holding", "done", "failed") or (st == "idle" and len(seen) > 1)
+                await wait_for(prog, a.pick_timeout, "holding/done/failed")
+                await send(["KeyW"]); await send([])
+                print("final pick:", {k: tel["pick"].get(k) for k in ("status", "selected", "error", "last_reject")}, "episode:", tel.get("episode"), flush=True)
+                print("timeline:", seen, "base moved during pick:", [round(x - y, 3) for x, y in zip(tel["pose"], p0)], flush=True)
+                r.cancel()
+                return
             if a.tuck:                                     # tuck / camera / footprint scenario (live footprint server): arm, drive, N (tuck), C (cycle cameras), M (carry)
                 async def tap(code, dur=0.12):
                     await send([code]); await asyncio.sleep(dur); await send([])
@@ -100,11 +134,15 @@ async def main(a):
                 print("frames", len(frames), "fps", round((len(ft) - 1) / (ft[-1] - ft[0]), 1) if len(ft) > 2 else None)
                 print("final tel:", {k: tel.get(k) for k in ("rtf", "tick_ms", "render_fps", "render_ms", "beads_out", "cup_state", "fp_mode", "fp_w", "fp_ms", "tuck", "cam", "people", "impl")})
                 return
+            if a.episode:
+                print("episode before arming:", tel.get("episode"), flush=True)
             p0 = tel["pose"][:]; log.append(("disarmed hold W", None))
             await hold(["KeyW"], 1.0)
             print("disarmed + W: pose moved", [round(x - y, 3) for x, y in zip(tel["pose"], p0)], "enabled", tel["enabled"], flush=True)
             await send(["Enter"]); await send([]); await asyncio.sleep(0.1)
             print("armed:", tel["enabled"], flush=True)
+            if a.episode:
+                print("episode after arming:", tel.get("episode"), flush=True)
             p0 = tel["pose"][:]; ta = tel["t"]; tw = time.time()
             await hold(["KeyW"], 3.0)
             print("drive 3 s wall: pose delta", [round(x - y, 3) for x, y in zip(tel["pose"], p0)], "speed", tel["speed"], "sim dt", round(tel["t"] - ta, 2), "rtf", tel["rtf"], flush=True)
@@ -135,5 +173,7 @@ async def main(a):
 ap = argparse.ArgumentParser(); ap.add_argument("--port", type=int, default=8765); ap.add_argument("--token", default="smoke123"); ap.add_argument("--out", required=True)
 ap.add_argument("--assist", action="store_true", help="assisted friction-grasp scenario (server: --task coffee --grasp-mode friction --spawn-at cafe_counter_pick; --task carry has no counter)")
 ap.add_argument("--tuck", action="store_true", help="tuck / camera-cycle / live-footprint scenario"); ap.add_argument("--tuck-timeout", type=float, default=60.0)
+ap.add_argument("--pick", action="store_true", help="pick guidance scenario (server: --task pick --pick-backend mock)"); ap.add_argument("--pick-timeout", type=float, default=120.0)
+ap.add_argument("--episode", action="store_true", help="default scenario: also print tel.episode before / after arming")
 ap.add_argument("--place", action="store_true"); ap.add_argument("--assist-timeout", type=float, default=240.0)
 asyncio.run(main(ap.parse_args()))

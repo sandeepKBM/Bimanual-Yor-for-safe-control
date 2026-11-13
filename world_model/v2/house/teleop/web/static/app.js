@@ -17,7 +17,7 @@ function connect() {
   ws.onmessage = (ev) => {
     if (typeof ev.data === "string") {
       const m = JSON.parse(ev.data);
-      if (m.type === "hello") { hello = m; Object.keys(m.kbd_axes).concat(Object.keys(m.kbd_events)).forEach(k => HANDLED.add(k)); initLang(); }
+      if (m.type === "hello") { hello = m; Object.keys(m.kbd_axes).concat(Object.keys(m.kbd_events)).forEach(k => HANDLED.add(k)); initLang(); initPick(); }
       else if (m.type === "tel") { tel = m; onTel(); }
       else if (m.type === "lang") { langState = m; onLang(); }
       else if (m.type === "pong") { const t = pingSent[m.id]; if (t) { rtt = performance.now() - t; delete pingSent[m.id]; } }
@@ -129,6 +129,8 @@ function onTel() {
   const ts = document.getElementById("tuck_st");
   if (ts) ts.textContent = tel.tuck ? "tray: " + tel.tuck : "";
   updateAssist(tel);
+  updateEpisode(tel);
+  updatePick(tel);
 }
 // ---- assisted friction grasp (only when the server runs --grasp-mode friction: telemetry carries `assist`; otherwise the panel stays hidden).
 // The buttons tap the same keys as G / H (one 120 ms press through the normal keyboard path: arming, watchdog and the deadman logic are unchanged).
@@ -194,5 +196,123 @@ function onLang() {
   }
   if (L.marks_jpg) t += `<img src="data:image/jpeg;base64,${L.marks_jpg}" style="max-width:100%;margin-top:4px;border:1px solid #333">`;
   out.innerHTML = t;
+}
+// ---- SafeTeleop Beta: episode card (tel.episode; absent => hidden so old servers work unchanged)
+function fmtM(k, v) {
+  if (v == null) return "-";
+  if (typeof v === "number") return Number.isInteger(v) ? String(v) : v.toFixed(3);
+  return esc(String(v));
+}
+function updateEpisode(tel) {
+  const box = document.getElementById("epi");
+  if (!box) return;
+  const e = tel.episode;
+  if (!e) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  let h = "";
+  if (e.state === "IDLE") {
+    box.className = "idle";
+    h = "<b>EPISODE: ready</b> - Press Enter / Start to begin";
+  } else if (e.state === "ACTIVE") {
+    box.className = "active";
+    const goal = e.goal == null ? "" : typeof e.goal === "object" ? esc(JSON.stringify(e.goal)) : esc(e.goal);
+    h = `<b>EPISODE ACTIVE</b> ${(+e.t_active || 0).toFixed(1)} s` + (goal ? `<br>goal: ${goal}` : "") + `<br><span style="color:#aaa">K = end episode</span>`;
+  } else if (e.state === "OUTCOME" && e.outcome) {
+    const o = e.outcome, r = String(o.result);
+    box.className = r === "success" ? "success" : r === "fail" ? "fail" : "ended";
+    h = `<b>EPISODE ${esc(r.toUpperCase())}</b>` + (o.reason ? ` (${esc(o.reason)})` : "") + "<table>";
+    for (const k of Object.keys(o.metrics || {})) h += `<tr><td class="k">${esc(k)}</td><td>${fmtM(k, o.metrics[k])}</td></tr>`;
+    h += "</table><b>Backspace = new episode</b>";
+  } else { box.className = "idle"; h = `<b>EPISODE</b> ${esc(e.state)}`; }
+  box.innerHTML = h;
+}
+
+// ---- pure box geometry (no DOM; the offline harness loads this block)
+// GEOM-BEGIN
+function scaleBox(box, frame, dw, dh) {          // frame = [W,H] of the camera image the box is in; returns [x0,y0,x1,y1] in displayed px
+  const sx = dw / frame[0], sy = dh / frame[1];
+  return [box[0] * sx, box[1] * sy, box[2] * sx, box[3] * sy];
+}
+function hitBox(proposals, frame, dw, dh, x, y) {  // id of the smallest non-infeasible box under (x,y) in displayed px, else null
+  let best = null, bestA = Infinity;
+  for (const p of proposals || []) {
+    if (!p.feasible || !p.box2d) continue;
+    const b = scaleBox(p.box2d, frame, dw, dh);
+    if (x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3]) {
+      const a = (b[2] - b[0]) * (b[3] - b[1]);
+      if (a < bestA) { bestA = a; best = p.id; }
+    }
+  }
+  return best;
+}
+// GEOM-END
+
+// ---- pick panel + box overlay (only when hello.pick is non-null)
+let ovCv = null, ovCtx = null;
+function sendJ(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+function initPick() {
+  const box = document.getElementById("pick");
+  if (!box || !hello || !hello.pick) return;
+  box.style.display = "block";
+  const sb = document.getElementById("pick_scan"), cb = document.getElementById("pick_cancel");
+  // mousedown preventDefault keeps focus on the page (no blur => no stop); blur after click so Space/Enter never re-press a button
+  for (const [b, msg] of [[sb, { type: "pick_propose" }], [cb, { type: "pick_cancel" }]]) {
+    b.addEventListener("mousedown", e => e.preventDefault());
+    b.onclick = () => { sendJ(msg); b.blur(); };
+  }
+  ovCv = document.getElementById("ov"); ovCtx = ovCv.getContext("2d");
+  ovCv.style.display = "block";
+  ovCv.addEventListener("mousedown", e => e.preventDefault());
+  ovCv.addEventListener("click", e => {
+    const P = tel.pick;
+    if (!P || P.stale || tel.cam !== "ego") return;
+    const r = ovCv.getBoundingClientRect();
+    const id = hitBox(P.proposals, P.frame || [640, 360], r.width, r.height, e.clientX - r.left, e.clientY - r.top);
+    if (id != null) sendJ({ type: "pick_select", id });
+  });
+  window.addEventListener("resize", () => updatePick(tel));
+}
+function syncOverlay() {   // place the overlay exactly over the displayed canvas content (CSS-scaled size, inside the border)
+  const w = cv.clientWidth, h = cv.clientHeight;
+  ovCv.style.left = (cv.offsetLeft + cv.clientLeft) + "px"; ovCv.style.top = (cv.offsetTop + cv.clientTop) + "px";
+  ovCv.style.width = w + "px"; ovCv.style.height = h + "px";
+  if (ovCv.width !== w || ovCv.height !== h) { ovCv.width = w; ovCv.height = h; }
+  return [w, h];
+}
+function updatePick(tel) {
+  const box = document.getElementById("pick");
+  if (!box || !hello || !hello.pick || !ovCv) return;
+  const P = tel.pick;
+  const [dw, dh] = syncOverlay();
+  ovCtx.clearRect(0, 0, dw, dh);
+  if (!P) { document.getElementById("pick_st").textContent = "no pick telemetry"; return; }
+  const sk = P.skill ? ` skill ${esc(P.skill.state || "")}${P.skill.phase ? " / " + esc(P.skill.phase) : ""}` : "";
+  const ready = P.ready_to_pick ? '<span class="ok"><b>READY TO PICK</b></span>' : '<span style="color:#888">not ready</span>';
+  let t = `<div>status <b>${esc(P.status)}</b>${sk}  ${ready}${P.stale ? ' <span class="warn">stale (view moved: Scan again)</span>' : ""}</div>`;
+  if (P.error) t += `<div class="bad">error: ${esc(P.error)}</div>`;
+  if (P.last_reject) t += `<div class="warn">rejected: ${esc(P.last_reject)}</div>`;
+  t += `<div style="color:#888">planner ${esc(P.planner || "-")} backend ${esc(P.backend || "-")}</div>`;
+  t += "<table>";
+  for (const p of P.proposals || []) {
+    const sel = P.selected === p.id;
+    t += `<tr><td>${sel ? "&gt;" : ""}${esc(p.id)}</td><td>${esc(p.label)}</td><td>${esc(p.mode || "")} ${esc(p.arm || "")}</td>` +
+      `<td class="${p.feasible ? "ok" : "bad"}">${p.feasible ? "feasible" : "no: " + esc(p.why || "")}</td></tr>`;
+  }
+  t += "</table>";
+  document.getElementById("pick_st").innerHTML = t;
+  if (tel.cam !== "ego") return;
+  const fr = P.frame || [640, 360];
+  ovCtx.font = "12px ui-monospace,monospace"; ovCtx.textBaseline = "top";
+  for (const p of P.proposals || []) {
+    if (!p.box2d) continue;
+    const b = scaleBox(p.box2d, fr, dw, dh);
+    const col = P.stale ? "#999" : p.feasible ? "#3d3" : "#e44";
+    ovCtx.strokeStyle = col; ovCtx.fillStyle = col; ovCtx.lineWidth = P.selected === p.id ? 4 : 2;
+    ovCtx.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+    const lab = `${p.id}:${p.label}` + (!P.stale && !p.feasible && p.why ? ` (${String(p.why).slice(0, 24)})` : "");
+    const ty = b[1] >= 14 ? b[1] - 14 : b[1] + 2;
+    ovCtx.fillStyle = "rgba(0,0,0,.6)"; ovCtx.fillRect(b[0], ty, ovCtx.measureText(lab).width + 4, 13);
+    ovCtx.fillStyle = col; ovCtx.fillText(lab, b[0] + 2, ty + 1);
+  }
 }
 connect();

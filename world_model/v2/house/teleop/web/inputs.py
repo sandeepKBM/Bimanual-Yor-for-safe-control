@@ -66,6 +66,7 @@ KBD_EVENTS = {
     "Space": "zero", "Escape": "estop", "Enter": "enable",
     "KeyV": "shield_toggle", "KeyC": "camera_next", "KeyB": "inset_toggle", "Backspace": "reset",
     "KeyO": "ghost_toggle",                      # O = operator-intent ghost overlay on/off
+    "KeyK": "episode_end",                       # K = end the episode (server event; the episode state machine decides)
     "KeyN": "tuck", "KeyM": "carry",             # N = tuck the tray to the narrow doorway carry pose, M = back to the normal carry pose
 }
 # gamepad ("standard" layout).  axes: 0 LX 1 LY 2 RX 3 RY (right/down = +).  buttons: 0 A 1 B 2 X 3 Y 4 LB 5 RB 6 LT 7 RT 8 View=Back 9 Start 10 LS 11 RS 12-15 dpad U/D/L/R
@@ -280,7 +281,7 @@ class WebGamepadSource(InputSource):
 class InputHub:
     """arbitrates sources, owns enable / preset / watchdog, builds the sim Cmd.  step(obs) -> Cmd (same interface as the operators)."""
 
-    SERVER_EVENTS = ("shield_toggle", "camera_next", "inset_toggle", "reset", "ghost_toggle")
+    SERVER_EVENTS = ("shield_toggle", "camera_next", "inset_toggle", "reset", "ghost_toggle", "episode_end")
 
     def __init__(self, sources=None, cfg=None):
         self.cfg = dict(CONFIG, **(cfg or {}))

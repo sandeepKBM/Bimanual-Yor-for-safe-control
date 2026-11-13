@@ -13,16 +13,24 @@
  .warn{color:#fb4} .bad{color:#f66} .ok{color:#6d6}
  h4{margin:10px 0 3px;color:#9bd} kbd{background:#333;border-radius:3px;padding:0 4px;border:1px solid #555}
  #sim{color:#f90;font-weight:bold}
+ #ov{position:absolute;display:none;border:0;background:transparent;cursor:crosshair}
+ #epi{position:absolute;left:8px;bottom:8px;max-width:60%;padding:6px 10px;font-size:14px;background:rgba(20,20,20,.85);border-left:6px solid #888;display:none}
+ #epi.active{border-color:#fb4} #epi.success{border-color:#6d6;background:rgba(25,100,40,.88)} #epi.fail{border-color:#f66;background:rgba(120,30,30,.88)} #epi.ended{border-color:#9bd}
+ #epi table td{padding:0 10px 0 0}
+ #pick button{background:#333;color:#ddd;border:1px solid #666;cursor:pointer}
  #lang pre{margin:2px 0;white-space:pre-wrap;color:#cfe;background:#1a1a1a;padding:2px 4px}
  #lang button{background:#333;color:#ddd;border:1px solid #666;cursor:pointer}
 </style></head><body>
 <div id="wrap">
- <div id="view"><canvas id="cv" width="640" height="360"></canvas><div id="banner">connecting...</div></div>
+ <div id="view"><canvas id="cv" width="640" height="360"></canvas><canvas id="ov"></canvas><div id="banner">connecting...</div><div id="epi"></div></div>
  <div id="hud">
   <div id="sim">SIMULATION ONLY - not connected to any robot</div>
   <table id="tel"></table>
    <div id="assist" style="display:none"><h4>Assisted grasp (friction, wrist cameras)</h4>
    <div><button id="assist_btn">Assist grasp (G)</button> <button id="place_btn">Place / release (H)</button> <span id="assist_st"></span></div></div>
+ <div id="pick" style="display:none"><h4>Pick guidance</h4>
+   <div><button id="pick_scan">Scan</button> <button id="pick_cancel">Cancel</button> <span style="color:#888">click a green box in the ego view to select</span></div>
+   <div id="pick_st"></div></div>
  <div id="lang" style="display:none"><h4>Language (VLM)</h4>
    <textarea id="lang_in" rows="2" style="width:100%;box-sizing:border-box;background:#222;color:#ddd;border:1px solid #555" placeholder="e.g. bring the coffee to my desk without spilling and keep it 10 cm away from the monitor"></textarea>
    <div><button id="lang_go">Ask VLM</button> <button id="lang_clr">Clear (defaults)</button> <span style="color:#888">typing here never moves the robot; Enter = ask, Esc = leave the box</span></div>
@@ -41,6 +49,7 @@
    <tr><td><kbd>C</kbd></td><td>cycle camera (ego, chase, top, wrist L/R)</td><td><kbd>B</kbd></td><td>inset on/off</td></tr>
    <tr><td><kbd>N</kbd></td><td>TUCK tray (narrow doorway carry)</td><td><kbd>M</kbd></td><td>normal carry pose</td></tr>
    <tr><td><kbd>Backspace</kbd></td><td>reset episode</td><td><kbd>O</kbd></td><td>ghost on/off (operator command before the shield; orange = shield intervening)</td></tr>
+   <tr><td><kbd>K</kbd></td><td>end episode</td><td></td><td></td></tr>
   </table>
   <h4>Xbox pad (standard mapping) - motion needs ARMED + LB held</h4>
   <table>
