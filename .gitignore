@@ -100,3 +100,6 @@ from_viam5/
 # DOCS / markdown: tracked on the local branch, STRIPPED from the pushed
 # (public) branch — do NOT ignore here, or they'd leave local version control.
 # ─────────────────────────────────────────────────────────────────────────
+
+# SafeTeleop: source package whose name matches the data/ rule above (brought forward from the 2026-11-03 mirror)
+!world_model/v2/data/
