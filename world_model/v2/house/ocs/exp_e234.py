@@ -25,7 +25,7 @@ import numpy as np
 
 from world_model.v2.house.ocs import evalcore as EC, producers as P
 
-OUT = Path(os.environ.get("OCS_OUT", "/data/local/ss5772/molmospaces/ocs"))
+OUT = Path(os.environ.get("OCS_OUT", "data/molmospaces/ocs"))
 REC = OUT / "rec"       # recordings; --out redirects only the results, --rec the recordings
 ALPHA = 0.05
 CALIB_LEGACY = False    # --calib-legacy: v3 cup calibration (fit on ALL rows with a blob reading, stale ones included)

@@ -2,7 +2,7 @@
 object-pack presence check.  OFFLINE: reads only local files (no network here; the shard was fetched earlier by
 HF byte-range reads, see docs/status/molmospaces_integration_plan.md).  Never imports tray_rep or any YOR driver.
 
-Data root: env HOUSE_DATA (default /data/local/ss5772/molmospaces/assets).  Never /common/users or home.
+Data root: env HOUSE_DATA (default data/molmospaces/assets).  Never /common/users or home.
 License policy (plan section 1.1/6): code Apache-2.0; data odc-by / cc-by-4.0; THOR pack license NOT read; do not
 redistribute assets or push them to GitHub.  Only THOR objects are used by procthor-10k houses.
 """
@@ -15,7 +15,7 @@ import re
 import tarfile
 from pathlib import Path
 
-HOUSE_DATA = Path(os.environ.get("HOUSE_DATA", "/data/local/ss5772/molmospaces/assets"))
+HOUSE_DATA = Path(os.environ.get("HOUSE_DATA", "data/molmospaces/assets"))
 SCENE_DIR = HOUSE_DATA / "scenes" / "procthor-10k-val"
 SHARD = HOUSE_DATA / "dl" / "val_shard0.tar"
 THOR_DIR = HOUSE_DATA / "objects" / "thor"

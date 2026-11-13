@@ -48,7 +48,7 @@ import numpy as np
 import torch
 import yaml
 
-DREAMERV3_ROOT = "/common/users/ss5772/dreamerv3"
+DREAMERV3_ROOT = "../dreamerv3"
 if DREAMERV3_ROOT not in sys.path:
     sys.path.insert(0, DREAMERV3_ROOT)
 
@@ -199,7 +199,7 @@ def main(argv=None) -> None:
     args = parse_args(argv)
     config = load_config(args)
 
-    collection_dir = args.collection_dir or "/common/users/ss5772/bimanual/collection/data/smoke"
+    collection_dir = args.collection_dir or "collection/data/smoke"
     dreamer_dir = Path(config.offline_traindir)
 
     if not args.skip_convert:

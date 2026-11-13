@@ -29,7 +29,7 @@
          enough grip friction to hold a small box. No new collision geoms were added --
          only friction/condim attributes on the existing ones.
     -->
-    <compiler angle="radian" meshdir="/common/users/ss5772/bimanual/YOR/robot/arm/mujoco/assets" />
+    <compiler angle="radian" meshdir="../YOR/robot/arm/mujoco/assets" />
 
     <option integrator="implicitfast" cone="elliptic" impratio="10" />
 

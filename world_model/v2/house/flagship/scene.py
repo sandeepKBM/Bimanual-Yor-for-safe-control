@@ -24,7 +24,7 @@ from world_model.v2.house.office import scene as OS
 from world_model.v2.house.teleop import scene as SC
 from world_model.v2.house.teleop.sim import TeleopSim
 
-OUT = Path(os.environ.get("FLAGSHIP_OUT", "/data/local/ss5772/molmospaces/flagship"))
+OUT = Path(os.environ.get("FLAGSHIP_OUT", "data/molmospaces/flagship"))
 COUNTER_TOP = OS.COUNTER_TOP                       # 0.90
 TRAY_UNDERSIDE_LIFT0 = SC.TRAY_HOLD_Z - 0.006      # 0.844
 H_PICK = COUNTER_TOP - TRAY_UNDERSIDE_LIFT0        # 0.056 m lift to bring the tray underside to the ledge

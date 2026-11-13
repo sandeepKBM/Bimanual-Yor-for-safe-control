@@ -65,7 +65,7 @@ import numpy as np
 import torch
 import yaml
 
-DREAMERV3_ROOT = "/common/users/ss5772/dreamerv3"
+DREAMERV3_ROOT = "../dreamerv3"
 if DREAMERV3_ROOT not in sys.path:
     sys.path.insert(0, DREAMERV3_ROOT)
 import models  # noqa: E402  (vendored dreamerv3-torch)

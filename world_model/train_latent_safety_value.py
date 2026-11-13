@@ -101,7 +101,7 @@ NOT done here (explicitly out of scope for this pass)
 Usage (smoke, what this task ran -- see the task's returned exact command
 for the intended FULL run, which this file does NOT execute):
     MUJOCO_GL=egl CUDA_VISIBLE_DEVICES=5 \\
-        /common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python \\
+        python \\
         -m world_model.train_latent_safety_value \\
         --dreamer-fmt-dir world_model/data/dreamer_fmt/cup_collect_v1 \\
         --collection-dir collection/data/cup_collect_v1 \\
@@ -124,7 +124,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import yaml
 
-DREAMERV3_ROOT = "/common/users/ss5772/dreamerv3"
+DREAMERV3_ROOT = "../dreamerv3"
 if DREAMERV3_ROOT not in sys.path:
     sys.path.insert(0, DREAMERV3_ROOT)
 
@@ -138,14 +138,14 @@ from world_model.eval_wm import build_wm_from_checkpoint  # noqa: E402
 from world_model.dataset_adapter import convert_dir  # noqa: E402
 from world_model.monitor_head import _episode_id_from_key, roc_curve  # noqa: E402
 
-ARTIFACTS_DIR = Path("/common/users/ss5772/bimanual/artifacts")
+ARTIFACTS_DIR = Path("artifacts")
 
 
 def parse_args(argv=None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--config", default=str(WORLD_MODEL_ROOT / "train_wm_config.yaml"))
-    p.add_argument("--collection-dir", default="/common/users/ss5772/bimanual/collection/data/cup_collect_v1")
-    p.add_argument("--dreamer-fmt-dir", default="/common/users/ss5772/bimanual/world_model/data/dreamer_fmt/cup_collect_v1")
+    p.add_argument("--collection-dir", default="collection/data/cup_collect_v1")
+    p.add_argument("--dreamer-fmt-dir", default="world_model/data/dreamer_fmt/cup_collect_v1")
     p.add_argument("--checkpoint", default=str(WORLD_MODEL_ROOT / "logdir" / "wm_cup_collect" / "best.pt"),
                     help="a trained WorldModel checkpoint (frozen -- V_theta never backprops into it)")
     p.add_argument("--device", default=None)

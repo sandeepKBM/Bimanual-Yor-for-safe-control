@@ -38,7 +38,7 @@ import numpy as np
 import torch
 import yaml
 
-DREAMERV3_ROOT = "/common/users/ss5772/dreamerv3"
+DREAMERV3_ROOT = "../dreamerv3"
 if DREAMERV3_ROOT not in sys.path:
     sys.path.insert(0, DREAMERV3_ROOT)
 
@@ -58,7 +58,7 @@ from world_model.dataset_adapter import convert_dir  # noqa: E402
 
 import gymnasium as gym  # noqa: E402
 
-ARTIFACTS_DIR = Path("/common/users/ss5772/bimanual/artifacts")
+ARTIFACTS_DIR = Path("artifacts")
 
 
 def parse_args(argv=None) -> argparse.Namespace:
@@ -224,7 +224,7 @@ def main(argv=None) -> None:
 
     dreamer_dir = Path(args.dreamer_fmt_dir)
     if not args.skip_convert:
-        collection_dir = args.collection_dir or "/common/users/ss5772/bimanual/collection/data/smoke"
+        collection_dir = args.collection_dir or "collection/data/smoke"
         print(f"[eval_wm] converting {collection_dir} -> {dreamer_dir}")
         convert_dir(collection_dir, dreamer_dir)
 

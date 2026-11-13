@@ -9,7 +9,7 @@ import pytest
 from world_model.v2.house.lang import backend as BE, grounding as GR, authoring as AU, prior as PR, session as SE, hooks as HK
 from world_model.v2.tray_rep.sets import ir as IR, tray_spec as TS
 
-PKL = "/data/local/ss5772/molmospaces/flagship/perception/perception_desk.pkl"
+PKL = "data/molmospaces/flagship/perception/perception_desk.pkl"
 needs_pkl = pytest.mark.skipif(not os.path.exists(PKL), reason="saved flagship perception result not available")
 
 

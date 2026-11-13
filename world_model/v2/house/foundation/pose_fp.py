@@ -27,9 +27,9 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-FOUNDATION_PY = "/data/local/ss5772/conda_envs/foundation/bin/python"
-RUN_DIR = Path(os.environ.get("CLAUDE_JOB_DIR", "/common/home/ss5772/.claude/jobs/b9577455")) / "tmp" / "foundation"
-SCRATCH = Path("/data/local/ss5772/tmp_foundation")
+FOUNDATION_PY = "data/envs/foundation/bin/python"
+RUN_DIR = Path(os.environ.get("CLAUDE_JOB_DIR", "data/jobs")) / "tmp" / "foundation"
+SCRATCH = Path("data/tmp_foundation")
 
 
 def _layout(W, H):
@@ -76,8 +76,8 @@ class Client:
         env = dict(os.environ)
         env.pop("PYTHONPATH", None)
         env.update(CUDA_VISIBLE_DEVICES=str(int(gpu)), PYTHONUNBUFFERED="1", TMPDIR=str(SCRATCH), PYOPENGL_PLATFORM="egl", CC="/usr/bin/gcc", CXX="/usr/bin/g++",
-                   CUDA_HOME="/data/local/ss5772/cuda_home", TORCH_CUDA_ARCH_LIST="7.5", TORCH_EXTENSIONS_DIR="/data/local/ss5772/torch_ext",
-                   PATH=f"/usr/bin:/bin:{E}/bin:/data/local/ss5772/cuda_home/bin")
+                   CUDA_HOME="data/cuda_home", TORCH_CUDA_ARCH_LIST="7.5", TORCH_EXTENSIONS_DIR="data/torch_ext",
+                   PATH=f"/usr/bin:/bin:{E}/bin:data/cuda_home/bin")
         cmd = [python, "-W", "ignore", str(HERE / "pose_fp_server.py"), "--sock", self.sock_path, "--shm", self.shm.name, "--maxwh", f"{self.maxW}x{self.maxH}",
                "--sizes", ",".join(sizes), "--warmup", str(warmup_iters)]
         self._log = open(self.log_path, "w")

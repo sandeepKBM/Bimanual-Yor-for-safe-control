@@ -1,6 +1,6 @@
 """people_track/human_vis.py -- VISUAL-ONLY articulated human (Microsoft Rocketbox, MIT) on the scripted people.  SIMULATION ONLY.  Default OFF.
 
-Asset: MolmoSpaces `humans_rocketbox_articulated` / `Male_Adult_03` (Rocketbox, MIT; fetched to /data/local/ss5772/models/humans, see DOWNLOADS.log).
+Asset: MolmoSpaces `humans_rocketbox_articulated` / `Male_Adult_03` (Rocketbox, MIT; fetched to data/models/humans, see DOWNLOADS.log).
 How it is attached (the people physics and the shield's person geometry are UNCHANGED):
   * every mesh geom is contype = conaffinity = 0; the asset's own collision capsule + 'fallback' dummies are dropped; the free joint and all 19 BALL joints
     are removed => ZERO added DOFs (nv unchanged), nothing the dynamics integrates.  The human hangs off the person's mocap body, which keeps following the
@@ -25,7 +25,7 @@ from . import camera as CAM
 from .sim_fix import TeleopSimWalking
 from world_model.v2.house.teleop.sim import TICK
 
-HUMANS = Path("/data/local/ss5772/models/humans")
+HUMANS = Path("data/models/humans")
 ASSET = "Male_Adult_03"
 STRIDE_M = 1.40            # metres per full gait cycle (2 steps)
 ANG = dict(hip=math.radians(26), knee=math.radians(42), arm=math.radians(16), elbow=math.radians(14))

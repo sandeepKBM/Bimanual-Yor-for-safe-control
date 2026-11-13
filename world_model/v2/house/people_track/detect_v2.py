@@ -191,7 +191,7 @@ class PerceivedDepthDetector(DET.DepthDetector):
 class DetectorClient:
     """unix-socket client of detect_server.py.  `start()` launches the server in the detect env and BLOCKS until it signals READY (warm-up done)."""
 
-    DPY = "/data/local/ss5772/conda_envs/detect/bin/python"
+    DPY = "data/envs/detect/bin/python"
     SERVER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "detect_server.py")
 
     def __init__(self, sock):
@@ -203,7 +203,7 @@ class DetectorClient:
         for f in (self.sock_path, self.sock_path + ".ready"):
             if os.path.exists(f):
                 os.unlink(f)
-        env = dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), TORCH_HOME="/data/local/ss5772/models/torch", OMP_NUM_THREADS="2",
+        env = dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), TORCH_HOME="data/models/torch", OMP_NUM_THREADS="2",
                    PYTHONNOUSERSITE="1")
         env.pop("PYTHONPATH", None)
         lf = open(log, "w") if log else subprocess.DEVNULL

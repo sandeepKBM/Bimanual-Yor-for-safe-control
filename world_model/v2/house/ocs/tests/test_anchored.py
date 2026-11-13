@@ -8,8 +8,8 @@ from world_model.v2.house.ocs import anchored as AN, producers as P, util as U
 from world_model.v2.house.ocs.state import Kind, Source, Belief, WorldState, RobotState
 from world_model.v2.tray_rep.sets.ir import Pose
 
-REC = Path("/data/local/ss5772/molmospaces/ocs/rec")
-CAL = Path("/data/local/ss5772/molmospaces/ocs/v2_cupfix/calib_h5.json")
+REC = Path("data/molmospaces/ocs/rec")
+CAL = Path("data/molmospaces/ocs/v2_cupfix/calib_h5.json")
 
 
 def _rot(rng):

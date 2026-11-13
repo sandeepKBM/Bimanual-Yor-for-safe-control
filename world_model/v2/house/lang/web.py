@@ -94,7 +94,7 @@ def _b64_jpeg(path, width=640):
 
 
 class WebLang:
-    def __init__(self, backend="auto", cache_dir=None, out_dir="/data/local/ss5772/molmospaces/lang/web", source="sim", snapshot=None, log=print, mu_queries=4):
+    def __init__(self, backend="auto", cache_dir=None, out_dir="data/molmospaces/lang/web", source="sim", snapshot=None, log=print, mu_queries=4):
         self.kind, self.cache_dir, self.out_dir, self.source, self.snapshot, self.log = backend, cache_dir, out_dir, source, snapshot, log
         self.mu_queries = mu_queries
         self._sess = None
@@ -155,7 +155,7 @@ class WebLang:
             except Exception as e:      # noqa: BLE001
                 self.log(f"[lang] sim capture failed ({type(e).__name__}: {e}); using the snapshot")
         import pickle
-        pkl = self.snapshot or "/data/local/ss5772/molmospaces/flagship/perception/perception_desk.pkl"
+        pkl = self.snapshot or "data/molmospaces/flagship/perception/perception_desk.pkl"
         with open(pkl, "rb") as f:
             res = pickle.load(f)
         return np.asarray(res["left"]), GR.proposals_from_result(res), {z["id"]: z["gt_key"] for z in res["zonos"]}, "saved flagship perception (stereo zonotopes)"

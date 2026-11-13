@@ -29,7 +29,7 @@ from scipy import ndimage
 
 from .estimator import LocCfg, PoseEstimator, compose, wrap
 
-CACHE = Path("/data/local/ss5772/molmospaces/percept/loc/maps")
+CACHE = Path("data/molmospaces/percept/loc/maps")
 
 
 @dataclass

@@ -31,7 +31,7 @@ from . import shield_pt as SPT
 from .tracker import TrackerCfg
 from .sim_fix import TeleopSimWalking
 
-OUT = Path(os.environ.get("PEOPLE_TRACK_OUT", "/data/local/ss5772/molmospaces/people_track"))
+OUT = Path(os.environ.get("PEOPLE_TRACK_OUT", "data/molmospaces/people_track"))
 MATCH_M = 0.75
 
 

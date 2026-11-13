@@ -28,8 +28,8 @@ from world_model.v2.house.teleop import base as BS, operator as OP, shield as SH
 from world_model.v2.house.teleop import run as RUN
 from world_model.v2.house.teleop.sim import TeleopSim, TICK, PersonPolicy, PERSON_TORSO_R
 
-OUT = Path(os.environ.get("PEOPLE_SHIELD_OUT", "/data/local/ss5772/molmospaces/people_shield"))
-CONFORMAL_DEFAULT = Path("/data/local/ss5772/molmospaces/percept/people/calib_out/conformal.json")
+OUT = Path(os.environ.get("PEOPLE_SHIELD_OUT", "data/molmospaces/people_shield"))
+CONFORMAL_DEFAULT = Path("data/molmospaces/percept/people/calib_out/conformal.json")
 
 WALKERS = {
     "yield": PersonPolicy(),                                                          # stops 0.15 m from the robot, waits forever

@@ -5,11 +5,11 @@
   This copy exists solely to add ACTUATED gripper fingers, which the upstream
   model does not have (its "gripper_body" mesh is one static combined mesh with
   fingers baked in, not decomposable into a joint). Changes vs. upstream:
-    1. compiler: added an absolute meshdir (this file lives under scenes/, not
+    1. compiler: added a meshdir relative to scenes/ (this file lives under scenes/, not
        next to YOR's meshes/ dir); all upstream mesh <file> paths are unchanged.
     2. default: added a "finger" default class (slide joint, position servo),
        ported from scenes/bimanual_piper_pickup.xml / YOR's coney.xml precedent.
-    3. asset: added link7/link8 meshes, pointed (absolute path) at
+    3. asset: added link7/link8 meshes, pointed (path relative to meshdir) at
        YOR/robot/arm/mujoco/assets/{link7,link8}.stl -- the decomposed Piper
        finger meshes that yor-description/meshes/piper/ does not ship (it only
        has the combined gripper_body.stl). No files copied/duplicated.
@@ -35,7 +35,7 @@
   wrist cameras left_arm_egocentric/right_arm_egocentric, front_camera/
   side_camera) is byte-for-byte identical to the upstream file.
   -->
-  <compiler angle="radian" meshdir="/common/users/ss5772/bimanual/YOR/robot/yor-description" />
+  <compiler angle="radian" meshdir="../YOR/robot/yor-description" />
   <option integrator="implicitfast" cone="elliptic" impratio="10" gravity="0 0 -9.81" timestep="0.005" />
   <default>
     <default class="robot">
@@ -132,8 +132,8 @@
     <mesh name="iphone" file="meshes/piper/iphone.stl" scale="0.001 0.001 0.001" />
     <!-- ADDED: finger meshes for actuated gripper (not present in yor-description/meshes/piper;
          ported from YOR/robot/arm/mujoco/assets/, same Piper gripper geometry/scale). -->
-    <mesh name="link7" file="/common/users/ss5772/bimanual/YOR/robot/arm/mujoco/assets/link7.stl" />
-    <mesh name="link8" file="/common/users/ss5772/bimanual/YOR/robot/arm/mujoco/assets/link8.stl" />
+    <mesh name="link7" file="../arm/mujoco/assets/link7.stl" />
+    <mesh name="link8" file="../arm/mujoco/assets/link8.stl" />
   </asset>
 
   <worldbody>

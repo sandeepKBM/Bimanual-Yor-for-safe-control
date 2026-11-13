@@ -236,13 +236,13 @@ def test_base_filter_step_smoke():
 
 # ------------------------------------------------------------------------------------------------------------ 3. bit-identity of the old configs
 def test_old_config_bit_identical():
-    ref = "/data/local/ss5772/molmospaces/zono_rows/s2_results_v123_m8_relax.json"
+    ref = "data/molmospaces/zono_rows/s2_results_v123_m8_relax.json"
     if not os.path.exists(ref):
         print("bit-identity: reference JSON absent, skipped"); return
     import json
     import subprocess
     import sys
-    out = os.environ.get("ZONO_ROWS_OUT", "/data/local/ss5772/molmospaces/zono_rows")
+    out = os.environ.get("ZONO_ROWS_OUT", "data/molmospaces/zono_rows")
     tag = "_bitident_unittest"
     # ZONO_ROWS_REF=1: the original dense-numpy row path.  The numba path (default now) gives the same rows to ~1e-13, but this config is a chaotic bottle collision
     # (m8, no base filter) where 1e-13 grows to different contact histories, so only the reference path can reproduce the saved run bit-for-bit

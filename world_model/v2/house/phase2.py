@@ -32,7 +32,7 @@ from . import nav as N
 from . import phase1 as P1
 
 HERE = Path(__file__).resolve().parent
-RUNS = Path(os.environ.get("P2_RUNS", "/data/local/ss5772/molmospaces/p2"))
+RUNS = Path(os.environ.get("P2_RUNS", "data/molmospaces/p2"))
 DT = 0.005
 TILT_MAX = 0.10          # rad, FL-MPC tray tilt bound (scenario.py uses 0.10 box / 0.30 cone)
 CONE_FACETS = 8

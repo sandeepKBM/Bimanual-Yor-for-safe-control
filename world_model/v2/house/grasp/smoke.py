@@ -1,9 +1,9 @@
 """grasp/smoke.py -- tray pick at the counter with the wrist-camera-guided FRICTION grasp, lift, ~5 s of base motion.  SIMULATION ONLY.
 
-  cd /common/users/ss5772/bimanual ; export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1 PYTHONPATH=$PWD
-  PY=/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python
+  cd <repo> ; export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1 PYTHONPATH=$PWD
+  PY=python
   $PY -m world_model.v2.house.grasp.smoke --seeds 0 1 2 --seg depth            # metrics only, CPU
-  $PY -m world_model.v2.house.grasp.smoke --seeds 0 --seg depth --video /data/local/ss5772/molmospaces/grasp/pick.mp4   # needs MUJOCO_GL=egl + GPU
+  $PY -m world_model.v2.house.grasp.smoke --seeds 0 --seg depth --video data/molmospaces/grasp/pick.mp4   # needs MUJOCO_GL=egl + GPU
 
 Per seed: the tray (with cup + 8 beads) is placed on the counter at a seeded random offset (+-2 cm, +-3 deg) from where the hands expect it
 (the operator's alignment error); Cmd.grasp starts the assisted grasp; after HOLD the lift rises 0.10 m and the base executes a scripted

@@ -25,8 +25,8 @@ if str(REPO) not in sys.path:
 
 from world_model.v2.latent_hj import slosh_pend as sp  # noqa: E402
 
-SCR = Path("/common/users/ss5772/latent_hj_scratch")
-AUD = Path("/common/users/ss5772/bimanual_data/wm_audit")
+SCR = Path("data/latent_hj_scratch")
+AUD = Path("data/bimanual_data/wm_audit")
 WMDATA = SCR / "wmdata"
 STRIDE = 4
 DT_SIM = 0.005

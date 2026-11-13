@@ -45,8 +45,8 @@ centralized plan; see RESULTS_v4.md Sec. "Caveats"):
     => a_row = +(n@Ji@Minv_int), b_row = const term (sign flip vs ego's).
 
 Run:
-    MUJOCO_GL=egl /common/users/ss5772/miniforge3/bin/conda run -n safe_env \\
-        python /common/users/ss5772/bimanual/experiments/ab_smooth_vs_bangbang/run_ab4.py
+    MUJOCO_GL=egl conda run -n <env> \\
+        python <repo>/experiments/ab_smooth_vs_bangbang/run_ab4.py
 
 Writes experiments/ab_smooth_vs_bangbang/logs/v4_{A,B,C}.npz +
 logs/v4_summary.json (+ printed table).

@@ -2,7 +2,7 @@
 
     OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1 BIMANUAL_TELEOP_FAST=1 \
     python -m world_model.v2.house.people_track.ps_sweep --seeds 0-8 --walkers yield,oblivious,giveup --shields old,new --conds truth --workers 40 \
-        --out /data/local/ss5772/molmospaces/people_shield/sweep9
+        --out data/molmospaces/people_shield/sweep9
 Writes one JSON per job (resumable: existing JSONs are skipped) and a sweep_summary.json + a printed table.
 Depth-only tracker conds need the camera (EGL):  MUJOCO_GL=egl CUDA_VISIBLE_DEVICES=4  --conds depth
 """
@@ -14,7 +14,7 @@ import multiprocessing as mp
 import os
 from pathlib import Path
 
-OUT = Path(os.environ.get("PEOPLE_SHIELD_OUT", "/data/local/ss5772/molmospaces/people_shield"))
+OUT = Path(os.environ.get("PEOPLE_SHIELD_OUT", "data/molmospaces/people_shield"))
 
 
 def _job(a):

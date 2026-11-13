@@ -1,6 +1,6 @@
 """Joint-space impedance (PD) torque law with optional feedforward bias.
 
-Ported from ``/common/users/ss5772/real_Cartpole/controller_core/joint_impedance.py``
+Ported from ``../real_Cartpole/controller_core/joint_impedance.py``
 and GENERALISED from the hardcoded 6-joint UR5e assumption to an arbitrary
 joint count ``n`` (set via ``JointImpedanceConfig.n_joints``). Used for the
 posture / grasp-close inner loop of the bimanual arm.

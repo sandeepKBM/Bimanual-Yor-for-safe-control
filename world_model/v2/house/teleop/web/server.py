@@ -1,6 +1,6 @@
 """teleop/web/server.py -- browser teleop for the SIMULATED bimanual YOR (aiohttp, 127.0.0.1 only).  SIMULATION ONLY.
 
-    cd /common/users/ss5772/bimanual ; export PYTHONPATH=$PWD OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1
+    cd <repo> ; export PYTHONPATH=$PWD OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1
     MUJOCO_GL=egl CUDA_VISIBLE_DEVICES=1 $PY -m world_model.v2.house.teleop.web.server --scene h5 --task carry --shield
     # laptop:  ssh -L 8765:localhost:8765 westeros.cs.rutgers.edu   then open the URL (with ?token=...) the server prints.
 
@@ -498,7 +498,7 @@ def parse_args(argv=None):
                          "+ a mu prior and installs them on the shield.  auto = live if the daemon is up else mock.  Default off = nothing changes")
     ap.add_argument("--lang-source", choices=["sim", "snapshot"], default="sim", help="image + object proposals: the sim camera + instance segments, or a saved flagship perception result")
     ap.add_argument("--lang-snapshot", default=None, help="--lang-source snapshot: perception_desk.pkl path (default: the flagship desk capture)")
-    ap.add_argument("--lang-cache", default="/data/local/ss5772/molmospaces/lang/web_cache", help="VLM response cache (replays are offline)")
+    ap.add_argument("--lang-cache", default="data/molmospaces/lang/web_cache", help="VLM response cache (replays are offline)")
     ap.add_argument("--grasp-mode", dest="grasp_mode", default=None, help="passed to TeleopSim(grasp_mode=...) if that kwarg exists")
     ap.add_argument("--spawn-at", dest="spawn_at", default=None, help="scene waypoint to spawn at (e.g. cafe_counter_pick); default = the scene start")
     return ap.parse_args(argv)

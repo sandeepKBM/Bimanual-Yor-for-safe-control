@@ -6,8 +6,8 @@ cup-in-tray position the E4 'inside' atom sees (ocs.consumers._rel_entity: the c
 offset.  Measure the tray from the same depth image and the cup is expressed relative to the MEASURED tray.
 
     export PYTHONPATH=...; CUDA_VISIBLE_DEVICES=6 MUJOCO_GL=egl python -m world_model.v2.house.ocs.fp_tray --seed S [--eval]  [--eval-only <fp_s*.npz>]
-    reads  /data/local/ss5772/molmospaces/ocs/rec/carry_s{S}.pkl.gz (state to RENDER + encoders) and fp/head/fp_s{S}.npz (cup pose in the FK tray frame)
-    writes /data/local/ss5772/molmospaces/ocs/fp/head_vtray/fp_s{S}.npz : the fp/head keys (p_tray / R_tray now in the VISUAL tray frame) + p_tray_fk, R_tray_fk,
+    reads  data/molmospaces/ocs/rec/carry_s{S}.pkl.gz (state to RENDER + encoders) and fp/head/fp_s{S}.npz (cup pose in the FK tray frame)
+    writes data/molmospaces/ocs/fp/head_vtray/fp_s{S}.npz : the fp/head keys (p_tray / R_tray now in the VISUAL tray frame) + p_tray_fk, R_tray_fk,
            vtray_ok (M,), T_fk_vtray (M,4,4) [visual tray pose in the FK tray frame], vtray_inliers (M,), vtray_ms (M,), vtray_cost (M,)
 
 Method (fit_tray; inputs = the noisy depth point cloud in the FK tray frame + the camera origin; the FK pose only GATES and INITIALISES):
@@ -36,8 +36,8 @@ import numpy as np
 
 from world_model.v2.house.ocs import util as U
 
-OUT = Path(os.environ.get("OCS_FP_OUT", "/data/local/ss5772/molmospaces/ocs/fp"))
-REC = Path(os.environ.get("OCS_OUT", "/data/local/ss5772/molmospaces/ocs")) / "rec"
+OUT = Path(os.environ.get("OCS_FP_OUT", "data/molmospaces/ocs/fp"))
+REC = Path(os.environ.get("OCS_OUT", "data/molmospaces/ocs")) / "rec"
 HX, HY = U.HX, U.HY
 
 

@@ -1,6 +1,6 @@
 """ocs/run_fp_live.py -- ONE live h5 carry episode (shield ON, as ocs/record.record_carry) with the LIVE FoundationPose cup tracker producing the WorldState online.  SIMULATION ONLY.
 
-    export PYTHONPATH=/common/users/ss5772/bimanual:/common/users/ss5772/bimanual/experiments/ab_smooth_vs_bangbang:/common/users/ss5772/bimanual/experiments/realtime
+    export PYTHONPATH=<repo>:<repo>/experiments/ab_smooth_vs_bangbang:<repo>/experiments/realtime
     CUDA_VISIBLE_DEVICES=5 MUJOCO_GL=egl python -m world_model.v2.house.ocs.run_fp_live --seed 3 --max-s 20 --mode fp        # live FP (head ZED render + mask + FoundationPose in a worker thread)
     CUDA_VISIBLE_DEVICES=5 MUJOCO_GL=egl python -m world_model.v2.house.ocs.run_fp_live --seed 3 --max-s 20 --mode nofp      # baseline: same loop, blob-only anchored tracker (loop-rate reference)
 
@@ -28,7 +28,7 @@ os.environ.setdefault("BIMANUAL_TELEOP_FAST", "1")
 
 import numpy as np
 
-OUT = Path("/data/local/ss5772/molmospaces/ocs/fp_live")
+OUT = Path("data/molmospaces/ocs/fp_live")
 TICK = 0.02
 
 

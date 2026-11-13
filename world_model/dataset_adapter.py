@@ -75,7 +75,7 @@ from pathlib import Path
 
 import numpy as np
 
-DREAMERV3_ROOT = "/common/users/ss5772/dreamerv3"
+DREAMERV3_ROOT = "../dreamerv3"
 if DREAMERV3_ROOT not in sys.path:
     sys.path.insert(0, DREAMERV3_ROOT)
 
@@ -173,11 +173,11 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
         "--collection-dir",
-        default="/common/users/ss5772/bimanual/collection/data/smoke",
+        default="collection/data/smoke",
     )
     p.add_argument(
         "--out-dir",
-        default="/common/users/ss5772/bimanual/world_model/data/dreamer_fmt/smoke",
+        default="world_model/data/dreamer_fmt/smoke",
     )
     args = p.parse_args()
     paths = convert_dir(args.collection_dir, args.out_dir)

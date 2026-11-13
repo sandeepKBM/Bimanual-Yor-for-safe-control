@@ -1,6 +1,6 @@
 """pick/smoke.py -- headless smoke / evaluation of the pick backend (SIMULATION ONLY).
 
-    python -m world_model.v2.house.pick.smoke --objects pp_bottle,pp_crate --seeds 0 --planner vlm+veto --backend mock --out /data/local/ss5772/molmospaces/pick
+    python -m world_model.v2.house.pick.smoke --objects pp_bottle,pp_crate --seeds 0 --planner vlm+veto --backend mock --out data/molmospaces/pick
 Success (user spec) = the object is lifted >= 5 cm above its start AND stays >= 5 cm for >= 2 s of the HOLD, with ZERO robot<->furniture contacts (arm geoms vs house / table
 geoms; props, the stowed tray and the target itself are not furniture).  Truth (the prop's body pose) is read ONLY here, for evaluation.
 """

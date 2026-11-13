@@ -1,10 +1,10 @@
 """ocs/fp_pass.py -- FoundationPose (model-free) measurement pass over one OCS carry recording.  SIMULATION ONLY.
 
-    export PYTHONPATH=/common/users/ss5772/bimanual:/common/users/ss5772/bimanual/experiments/ab_smooth_vs_bangbang:/common/users/ss5772/bimanual/experiments/realtime
-    CUDA_VISIBLE_DEVICES=6 MUJOCO_GL=egl python -m world_model.v2.house.ocs.fp_onboard                      # once  -> /data/local/ss5772/molmospaces/ocs/fp/cup_sim_mesh/cup_sim.obj
+    export PYTHONPATH=<repo>:<repo>/experiments/ab_smooth_vs_bangbang:<repo>/experiments/realtime
+    CUDA_VISIBLE_DEVICES=6 MUJOCO_GL=egl python -m world_model.v2.house.ocs.fp_onboard                      # once  -> data/molmospaces/ocs/fp/cup_sim_mesh/cup_sim.obj
     CUDA_VISIBLE_DEVICES=6 MUJOCO_GL=egl python -m world_model.v2.house.ocs.fp_pass --seed S [--max-ticks N] [--W 320 --H 180]
 
-For every wrist_due tick of /data/local/ss5772/molmospaces/ocs/rec/carry_s{S}.pkl.gz and each wrist side (left, right):
+For every wrist_due tick of data/molmospaces/ocs/rec/carry_s{S}.pkl.gz and each wrist side (left, right):
   1. fp_render: kinematic re-render of the TRUE state (what the camera sees) -> RGB + noisy depth (wrist_l/wrist_r depth model, robot self-filtered).
   2. NON-PRIVILEGED mask: depth points -> tray frame with T_tray<-cam = inv(FK tray) * FK wrist camera (ENCODER forward kinematics only), keep points with height above the tray
      top in [0.005, cup_h + 0.03] inside the tray rectangle shrunk by 2 cm; largest component.  mask px < min_px -> no measurement (occluded / out of view).
@@ -31,8 +31,8 @@ import numpy as np
 
 from world_model.v2.house.ocs import fp_render as FR, util as U
 
-OUT = Path(os.environ.get("OCS_FP_OUT", "/data/local/ss5772/molmospaces/ocs/fp"))
-REC = Path(os.environ.get("OCS_OUT", "/data/local/ss5772/molmospaces/ocs")) / "rec"
+OUT = Path(os.environ.get("OCS_FP_OUT", "data/molmospaces/ocs/fp"))
+REC = Path(os.environ.get("OCS_OUT", "data/molmospaces/ocs")) / "rec"
 MESH = OUT / "cup_sim_mesh" / "cup_sim.obj"
 GAP_REG = 5                       # consecutive empty frames after which the next measurement re-registers instead of tracking
 BOX_TOL, JUMP_TOL = 0.02, 0.03    # loss thresholds [m]

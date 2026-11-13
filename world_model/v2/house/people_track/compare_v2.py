@@ -35,7 +35,7 @@ from .tracker import MultiTracker, TrackerCfg
 
 MATCH_M = 0.75
 _CLIENTS = {}                      # one connection per server socket for the whole process (the server serves one client at a time)
-OUT = Path("/data/local/ss5772/molmospaces/percept/people2")
+OUT = Path("data/molmospaces/percept/people2")
 
 
 def make_dets(names, sim, cam, sock=None, res=(640, 360), thr=0.5):

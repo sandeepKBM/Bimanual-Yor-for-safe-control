@@ -5,7 +5,7 @@ A scripted "operator" drives the SAME path a browser pad does: Xbox-pad messages
 reports: success (base centre in room|7), robot<->house physical contact count (arms / tray / cup; the mocap base geoms never collide), the smallest clearance of any robot hull vertex to the 1 cm house EDT near the door, beads / cup
 tilt, the shield's labels.  The sim clock drives the hub (no wall-clock), so the run is deterministic and as fast as the sim.
 
-    cd /common/users/ss5772/bimanual ; export PYTHONPATH=$PWD:$PWD/experiments/ab_smooth_vs_bangbang:$PWD/experiments/realtime
+    cd <repo> ; export PYTHONPATH=$PWD:$PWD/experiments/ab_smooth_vs_bangbang:$PWD/experiments/realtime
     MUJOCO_GL=egl MUJOCO_EGL_DEVICE_ID=6 CUDA_VISIBLE_DEVICES=6 $PY -m world_model.v2.house.teleop.door_test --footprint live --tuck --people off --out DIR [--video f.mp4]
 """
 from __future__ import annotations
@@ -288,7 +288,7 @@ def main(argv=None):
     ap.add_argument("--seg-timeout", dest="seg_timeout", type=float, default=90.0)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--name", default="door")
-    ap.add_argument("--out", default="/data/local/ss5772/molmospaces/teleop_door")
+    ap.add_argument("--out", default="data/molmospaces/teleop_door")
     ap.add_argument("--video", default=None)
     ap.add_argument("--vfps", type=float, default=15.0)
     a = ap.parse_args(argv)

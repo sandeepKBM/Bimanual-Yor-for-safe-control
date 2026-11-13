@@ -1,6 +1,6 @@
 """teleop/run.py -- one coffee-run episode, RAW vs SHIELDED with the same sloppy operator (seed).  SIMULATION ONLY.
 
-    python -m world_model.v2.house.teleop.run --mode both --task carry --seed 0 --max-s 30 --out /data/local/ss5772/molmospaces/teleop
+    python -m world_model.v2.house.teleop.run --mode both --task carry --seed 0 --max-s 30 --out data/molmospaces/teleop
     python -m world_model.v2.house.teleop.run --mode shield --task coffee --max-s 110 --video   # (needs MUJOCO_GL=egl + a free GPU != 0)
 
 --stream closed (default): the operator is the closed-loop human model (same seed => same noise realisation, reaction delay and bump
@@ -23,7 +23,7 @@ from . import operator as OP
 from . import shield as SH
 from .sim import TeleopSim, TICK
 
-OUT = Path(os.environ.get("TELEOP_OUT", "/data/local/ss5772/molmospaces/teleop"))
+OUT = Path(os.environ.get("TELEOP_OUT", "data/molmospaces/teleop"))
 
 
 class Recorder:

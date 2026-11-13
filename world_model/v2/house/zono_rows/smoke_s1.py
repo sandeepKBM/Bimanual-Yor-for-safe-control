@@ -29,7 +29,7 @@ from world_model.v2.house.zono_rows.ctl import ZonoCtl
 from world_model.v2.house.zono_rows import rows as R
 
 DT = 0.005
-OUT = Path(os.environ.get("ZONO_ROWS_OUT", "/data/local/ss5772/molmospaces/zono_rows"))
+OUT = Path(os.environ.get("ZONO_ROWS_OUT", "data/molmospaces/zono_rows"))
 
 
 def build(box_half, box_yaw, box_pos=(0.0, 0.0, -5.0), solid=True):

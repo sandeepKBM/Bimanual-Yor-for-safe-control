@@ -4,11 +4,11 @@ noslip_iterations / tolerance CHANGE the contact physics (noslip=0 let the cup s
 they must be validated against the shipped setting (noslip 4, tol 1e-8) before they are ever enabled by default.  BIMANUAL_TELEOP_FAST is
 bit-identical and needs no validation (see fastpath.py); it is forced ON here only for speed.
 
-    cd /common/users/ss5772/bimanual ; export PYTHONPATH=$PWD:$PWD/experiments/ab_smooth_vs_bangbang:$PWD/experiments/realtime \\
+    cd <repo> ; export PYTHONPATH=$PWD:$PWD/experiments/ab_smooth_vs_bangbang:$PWD/experiments/realtime \\
         OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1
-    PY=/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python
+    PY=python
     $PY -m world_model.v2.house.teleop.fastpath_validate --seeds 0-8 --modes raw shield --stream open \\
-        --cfg 4:1e-8 --cfg 1:1e-8 --cfg 0:1e-8 --cfg 0:1e-6 --pool 56 --out /data/local/ss5772/molmospaces/teleop/perf/val9
+        --cfg 4:1e-8 --cfg 1:1e-8 --cfg 0:1e-8 --cfg 0:1e-6 --pool 56 --out data/molmospaces/teleop/perf/val9
 
 --stream open replays the SAME pre-recorded operator commands in every config (isolates the physics change; closed-loop operators diverge
 chaotically after any perturbation).  First --cfg is the reference.  Output: <out>/val_<mode>_n<noslip>_t<tol>_s<seed>.json + summary.json/table.

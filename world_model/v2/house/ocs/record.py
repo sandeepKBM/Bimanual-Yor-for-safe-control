@@ -25,7 +25,7 @@ import numpy as np
 
 from world_model.v2.tray_rep.sets.zono import Zonotope
 
-OUT = Path(os.environ.get("OCS_OUT", "/data/local/ss5772/molmospaces/ocs"))
+OUT = Path(os.environ.get("OCS_OUT", "data/molmospaces/ocs"))
 TICK = 0.02
 HEAD_HZ = 10.0
 

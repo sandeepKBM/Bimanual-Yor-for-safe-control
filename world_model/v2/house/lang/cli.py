@@ -18,8 +18,8 @@ import numpy as np
 
 from . import backend as BE, grounding as GR, session as SE, hooks as HK, prior as PR
 
-DEFAULT_PKL = "/data/local/ss5772/molmospaces/flagship/perception/perception_{kind}.pkl"
-DEFAULT_OUT = "/data/local/ss5772/molmospaces/lang"
+DEFAULT_PKL = "data/molmospaces/flagship/perception/perception_{kind}.pkl"
+DEFAULT_OUT = "data/molmospaces/lang"
 
 
 def make_lang_services(inner, cfg, out, sim=None, log=print):

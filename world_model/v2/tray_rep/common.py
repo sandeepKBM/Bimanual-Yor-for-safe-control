@@ -16,7 +16,7 @@ REPO = Path(__file__).resolve().parents[3]
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
-ROOT = Path("/common/users/ss5772/bimanual_data/tray_rep")
+ROOT = Path("data/bimanual_data/tray_rep")
 SMOKE = ROOT / "smoke"
 TMP = ROOT / "tmp"
 SPLITS = ("train", "val", "test")

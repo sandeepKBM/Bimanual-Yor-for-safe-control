@@ -1,6 +1,6 @@
 """people_track/detect_server.py -- OUT-OF-PROCESS neural person detector.  SIMULATION ONLY.
 
-Runs in its OWN conda env (/data/local/ss5772/conda_envs/detect: torch 2.8 + torchvision 0.23, no repo imports, no mujoco) and serves over a
+Runs in its OWN conda env (data/envs/detect: torch 2.8 + torchvision 0.23, no repo imports, no mujoco) and serves over a
 UNIX-DOMAIN socket (a file path; no TCP).  Model: torchvision Faster R-CNN ResNet50-FPN **v2**, COCO weights (BSD-3 code; weights
 https://download.pytorch.org/models/fasterrcnn_resnet50_fpn_v2_coco-dd69338a.pth).  Keeps the COCO 'person' class only.
 

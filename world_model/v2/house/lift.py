@@ -61,7 +61,7 @@ def compose_lift(idx: int, spawn_xy, yaw: float = 0.0, with_tray: bool = True, s
     """build.compose with the lift joints added (see module doc).  The lift starts at 0 (retracted)."""
     import sim_common as sc
     house = B.load_house_spec(idx, static)
-    robot = mujoco.MjSpec.from_string(B.YOR_MJCF.read_text())
+    robot = mujoco.MjSpec.from_string(B.yor_mjcf_text())
     patch_robot_spec(robot)
     spawn_xy = np.asarray(spawn_xy, float)
     tray = None

@@ -5,14 +5,14 @@
     out = VS.ask("Describe the scene.", images=["/path/a.png"], max_new_tokens=256)   # -> runner output dict ('texts', 'seconds', ...)
 
 Images are copied into <SVC>/img/ (NFS, readable on ilab3). Start / stop the daemon with:
-    ssh rlab1 "cd /common/users/ss5772/bimanual && sbatch world_model/v2/vlm/slurm/daemon.sbatch"     # MODEL=... via --export
+    ssh rlab1 "cd <repo> && sbatch world_model/v2/vlm/slurm/daemon.sbatch"     # MODEL=... via --export
     python -m world_model.v2.vlm.service stop
 APPROVAL SCOPE (user, 2026-10-12): ilab3 1 GPU via rlab1 Slurm, offline weights, no hosted APIs, no robot.
 """
 import json, os, shutil, sys, time, uuid
 from pathlib import Path
 
-SVC = Path(os.environ.get("BIMANUAL_VLM_SVC", "/common/users/ss5772/bimanual_data/vlm/svc"))
+SVC = Path(os.environ.get("BIMANUAL_VLM_SVC", "data/bimanual_data/vlm/svc"))
 UP_AGE_S = 30.0
 
 

@@ -30,7 +30,7 @@ from . import planner as PL
 from . import propose as PR
 from . import skill as SK
 
-OUT_DIR = os.environ.get("PICK_OUT", "/data/local/ss5772/molmospaces/pick")
+OUT_DIR = os.environ.get("PICK_OUT", "data/molmospaces/pick")
 
 
 def _jsonable(o):

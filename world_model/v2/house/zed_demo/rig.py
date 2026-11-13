@@ -24,7 +24,7 @@ ZED_FOVY = 70.0                             # deg scripts/zed_camera.ZED_FOVY_DE
 ZED_W, ZED_H = 1280, 720                    # HD720
 HEAD_POS = (0.05, -0.20955, 1.15)           # robot frame, lift 0 (office compose HEAD_POS_LIFT0)
 HEAD_PITCH_DEG = 36.3                       # overridden by the caller
-OUT = Path(os.environ.get("ZED_DEMO_OUT", "/data/local/ss5772/molmospaces/zed_demo"))
+OUT = Path(os.environ.get("ZED_DEMO_OUT", "data/molmospaces/zed_demo"))
 
 
 def intrinsics(W=ZED_W, H=ZED_H, fovy=ZED_FOVY):

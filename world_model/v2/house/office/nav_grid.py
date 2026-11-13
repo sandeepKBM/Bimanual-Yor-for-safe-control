@@ -20,7 +20,7 @@ import mujoco
 from .. import nav as N
 from . import scene as S
 
-OUT_DIR = Path(os.environ.get("OFFICE_OUT", "/data/local/ss5772/molmospaces/office"))
+OUT_DIR = Path(os.environ.get("OFFICE_OUT", "data/molmospaces/office"))
 CACHE = OUT_DIR / "nav_cache"
 
 _G = {}

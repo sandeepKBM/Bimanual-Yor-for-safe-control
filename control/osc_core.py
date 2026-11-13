@@ -2,7 +2,7 @@
 helpers.
 
 The quaternion/orientation helpers are ported (behaviour-preserving) from
-``/common/users/ss5772/real_Cartpole/controller_core/kinematics_utils.py`` —
+``../real_Cartpole/controller_core/kinematics_utils.py`` —
 battle-tested pure math, reused verbatim. The force adapter there is
 single-axis (``F=[Fx,0,0]``, angular task zeroed "for future 6D extensions");
 here it is GENERALISED to a full 6-DOF task wrench ``[fx,fy,fz,mx,my,mz]`` and

@@ -8,7 +8,7 @@ style: ~0.30-0.40 m, elevations 25-65 deg, even azimuth + jitter) is rendered wi
 noise: sigma floor 2 mm + stereo law, dropout, outliers, 1 mm quantisation).  Masks are NON-PRIVILEGED (foundation.masks.floor_gate_mask: depth + the known support plane + the
 placement seed ~1 cm prior); the rendered segmentation is used only to SCORE them (IoU).  cam_in_obj = OpenCV camera pose in the CUP BASE frame (R_mj @ diag(1,-1,-1)), so the
 FoundationPose mesh frame = cup base frame and ob_in_cam returned later has its origin at the cup base centre.
-Outputs  <OUT>/cup_sim_mesh/cup_sim.obj (+mtl/png)  <OUT>/onboard_views.npz  <OUT>/onboard_info.json   (OUT = /data/local/ss5772/molmospaces/ocs/fp)
+Outputs  <OUT>/cup_sim_mesh/cup_sim.obj (+mtl/png)  <OUT>/onboard_views.npz  <OUT>/onboard_info.json   (OUT = data/molmospaces/ocs/fp)
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ import numpy as np
 
 from world_model.v2.house.ocs import fp_render as FR
 
-OUT = Path(os.environ.get("OCS_FP_OUT", "/data/local/ss5772/molmospaces/ocs/fp"))
+OUT = Path(os.environ.get("OCS_FP_OUT", "data/molmospaces/ocs/fp"))
 MESH_DIR = OUT / "cup_sim_mesh"
 MESH_PATH = MESH_DIR / "cup_sim.obj"
 

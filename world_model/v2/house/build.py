@@ -28,6 +28,12 @@ from . import assets as A
 REPO = Path(__file__).resolve().parents[3]
 YOR_MJCF = REPO / "scenes" / "yor_robot_derived.mjcf"
 CANON_XML = REPO / "scenes" / "scene_yor_canonical.xml"
+
+
+def yor_mjcf_text() -> str:
+    """scenes/yor_robot_derived.mjcf as text for MjSpec.from_string.  Its meshdir is relative to scenes/ (so <include> and
+    from_file work from any checkout); from_string has no file location, so the meshdir is made absolute here, in memory."""
+    return YOR_MJCF.read_text().replace('meshdir="../YOR/', f'meshdir="{REPO.as_posix()}/YOR/', 1)
 for _p in (str(REPO), str(REPO / "experiments" / "ab_smooth_vs_bangbang")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
@@ -150,7 +156,7 @@ def compose(idx: int, spawn_xy, yaw: float = 0.0, with_tray: bool = True, static
     Returns Composed. Raises on any name clash between house and robot/tray."""
     import sim_common as sc            # read-only import (experiments/ab_smooth_vs_bangbang)
     house = load_house_spec(idx, static)
-    robot = mujoco.MjSpec.from_string(YOR_MJCF.read_text())   # .mjcf ext has no decoder; meshdir is absolute
+    robot = mujoco.MjSpec.from_string(yor_mjcf_text())   # .mjcf ext has no decoder; meshdir made absolute in memory
     spawn_xy = np.asarray(spawn_xy, float)
 
     tray = None

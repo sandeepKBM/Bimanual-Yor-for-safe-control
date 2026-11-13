@@ -54,5 +54,5 @@ class RecordedFPSource(MeasurementSource):
 
 def fp_path(seed, fp_dir=None) -> Path:
     import os
-    base = Path(fp_dir or os.environ.get("OCS_FP_DIR", "/data/local/ss5772/molmospaces/ocs/fp"))
+    base = Path(fp_dir or os.environ.get("OCS_FP_DIR", "data/molmospaces/ocs/fp"))
     return base / f"fp_s{int(seed)}.npz"

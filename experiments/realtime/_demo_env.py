@@ -28,7 +28,7 @@ import make_cup_collect_safety_demo as demo  # noqa: E402
 sc = demo.sc
 mpc_fl = demo.mpc_fl
 
-SCRATCH = Path(os.environ.get("CLAUDE_JOB_DIR", "/common/home/ss5772/.claude/jobs/f1580deb")) / "tmp"
+SCRATCH = Path(os.environ.get("CLAUDE_JOB_DIR", "data/jobs")) / "tmp"
 SCRATCH.mkdir(parents=True, exist_ok=True)
 
 BASELINE_SEED0_FLMPC = dict(collision=False, placed_final=4, h_min=0.01929845984125282)

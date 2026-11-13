@@ -1,10 +1,10 @@
 """grasp/sweep.py -- capture-range sweep of the friction grasp: tray placement error (offset 0-4 cm) x (yaw 0-8 deg), 3 seeds per cell.  SIMULATION ONLY.
 
-  cd /common/users/ss5772/bimanual ; export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1 BIMANUAL_TELEOP_FAST=1 PYTHONPATH=$PWD:$PWD/experiments/ab_smooth_vs_bangbang:$PWD/experiments/realtime
-  PY=/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python
-  $PY -m world_model.v2.house.grasp.sweep --look 1 --workers 28 --out /data/local/ss5772/molmospaces/grasp/v2/sweep_look1.json
-  $PY -m world_model.v2.house.grasp.sweep --look 0 --workers 28 --out /data/local/ss5772/molmospaces/grasp/v2/sweep_look0.json
-  $PY -m world_model.v2.house.grasp.sweep --report /data/local/ss5772/molmospaces/grasp/v2/sweep_look1.json /data/local/ss5772/molmospaces/grasp/v2/sweep_look0.json
+  cd <repo> ; export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1 BIMANUAL_TELEOP_FAST=1 PYTHONPATH=$PWD:$PWD/experiments/ab_smooth_vs_bangbang:$PWD/experiments/realtime
+  PY=python
+  $PY -m world_model.v2.house.grasp.sweep --look 1 --workers 28 --out data/molmospaces/grasp/v2/sweep_look1.json
+  $PY -m world_model.v2.house.grasp.sweep --look 0 --workers 28 --out data/molmospaces/grasp/v2/sweep_look0.json
+  $PY -m world_model.v2.house.grasp.sweep --report data/molmospaces/grasp/v2/sweep_look1.json data/molmospaces/grasp/v2/sweep_look0.json
 
 Cell (offset, yaw): seed k places the tray EXACTLY `offset` away along tray direction (20 + 120 k) deg and yawed by (-1)^k * yaw (so a cell covers the approach
 axis, the along-edge axis and a diagonal).  --look 0 switches off the lateral look (the hover-pose estimate is then the only camera information); fusion

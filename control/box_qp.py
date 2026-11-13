@@ -1,7 +1,7 @@
 """Small dense box-constrained QP solver — no external deps.
 
 Ported verbatim (behaviour-preserving) from
-``/common/users/ss5772/real_Cartpole/controller_core/box_qp.py`` so the
+``../real_Cartpole/controller_core/box_qp.py`` so the
 ``bimanual/control`` package is self-contained and does not depend on
 ``controller_core`` being on the path (it is not, in this repo's env).
 

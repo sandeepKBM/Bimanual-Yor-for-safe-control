@@ -1,5 +1,5 @@
 """E1 -- equivalence: TruthProducer -> OCS -> consumers reproduce the shield's inputs exactly, and a teleop carry through the OCS proxy matches the
-direct run (and /data/local/ss5772/molmospaces/teleop/carry_9seeds_summary.json) on every non-timing field.  SIMULATION ONLY.
+direct run (and data/molmospaces/teleop/carry_9seeds_summary.json) on every non-timing field.  SIMULATION ONLY.
 
     python -m world_model.v2.house.ocs.exp_e1 inputs                 # per-tick input equivalence on a live sim + the stereo-zonotope round trip   (~1 min)
     python -m world_model.v2.house.ocs.exp_e1 regress --seeds 0 1    # raw / shield x {direct run_episode, OCS-proxy run_episode}                   (~5 min, 4 procs)
@@ -23,8 +23,8 @@ import numpy as np
 
 from world_model.v2.house.teleop.shield import Passthrough as _PT          # the ORIGINAL class (run_variant_fixed patches teleop.shield.Passthrough)
 
-OUT = Path(os.environ.get("OCS_OUT", "/data/local/ss5772/molmospaces/ocs"))
-SUMMARY = Path("/data/local/ss5772/molmospaces/teleop/carry_9seeds_summary.json")
+OUT = Path(os.environ.get("OCS_OUT", "data/molmospaces/ocs"))
+SUMMARY = Path("data/molmospaces/teleop/carry_9seeds_summary.json")
 TIMING_KEYS = {"wall_s", "ctl_ms_per_physics_step_median"}
 
 

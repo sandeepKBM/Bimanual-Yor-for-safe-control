@@ -56,7 +56,7 @@ import torch
 import torch.nn as nn
 import yaml
 
-DREAMERV3_ROOT = "/common/users/ss5772/dreamerv3"
+DREAMERV3_ROOT = "../dreamerv3"
 if DREAMERV3_ROOT not in sys.path:
     sys.path.insert(0, DREAMERV3_ROOT)
 
@@ -69,7 +69,7 @@ from world_model.train_wm import build_spaces, infer_obs_shapes, split_episodes 
 from world_model.eval_wm import build_wm_from_checkpoint  # noqa: E402
 from world_model.dataset_adapter import convert_dir  # noqa: E402
 
-ARTIFACTS_DIR = Path("/common/users/ss5772/bimanual/artifacts")
+ARTIFACTS_DIR = Path("artifacts")
 
 # All labels this file knows how to read straight off a raw collection/
 # episode.npz (see _load_raw_labels). LABEL_NAMES is the ACTIVE subset for a
@@ -94,7 +94,7 @@ LABEL_NAMES = ("spill", "collision")
 def parse_args(argv=None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--config", default=str(WORLD_MODEL_ROOT / "train_wm_config.yaml"))
-    p.add_argument("--collection-dir", default="/common/users/ss5772/bimanual/collection/data/smoke")
+    p.add_argument("--collection-dir", default="collection/data/smoke")
     p.add_argument("--dreamer-fmt-dir", required=True)
     p.add_argument("--checkpoint", required=True, help="a trained WorldModel checkpoint (frozen -- monitor head never backprops into it)")
     p.add_argument("--device", default=None)

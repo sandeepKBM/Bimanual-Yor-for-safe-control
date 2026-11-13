@@ -30,4 +30,4 @@ for n in res:
     w = np.array(res[n][2:]); c = np.array(cpu[n][2:])
     out[n] = dict(wall_median=float(np.median(w)), wall_min=float(w.min()), cpu_median=float(np.median(c)))
     print(f"{n:10s} tick ms wall median {np.median(w):6.1f} min {w.min():6.1f}  cpu median {np.median(c):6.1f}  rtf(median) {0.02/(np.median(w)/1e3):.2f}")
-json.dump(out, open("/data/local/ss5772/molmospaces/teleop/perf/interleave.json", "w"))
+json.dump(out, open("data/molmospaces/teleop/perf/interleave.json", "w"))

@@ -51,7 +51,7 @@ def compose_office(spawn_xy=None, yaw=None, with_tray: bool = True, lift: bool =
         yaw = meta["waypoints"]["lab_start"]["heading"]
     spawn_xy = np.asarray(spawn_xy, float)
     house = spec if spec is not None else S.load_office_spec()
-    robot = mujoco.MjSpec.from_string(B.YOR_MJCF.read_text())
+    robot = mujoco.MjSpec.from_string(B.yor_mjcf_text())
     if lift:
         L.patch_robot_spec(robot)
     tray = None

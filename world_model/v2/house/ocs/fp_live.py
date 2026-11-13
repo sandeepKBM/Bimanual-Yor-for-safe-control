@@ -41,7 +41,7 @@ from .anchored import Measurement, MeasurementSource
 from . import fp_render as FR, util as U
 
 TICK = 0.02
-MESH = Path("/data/local/ss5772/molmospaces/ocs/fp/cup_sim_mesh/cup_sim.obj")
+MESH = Path("data/molmospaces/ocs/fp/cup_sim_mesh/cup_sim.obj")
 GAP_REG, BOX_TOL, JUMP_TOL = 5, 0.02, 0.03          # = fp_pass.GAP_REG / BOX_TOL / JUMP_TOL (imported lazily in HeadFPBackend to keep this module light)
 
 

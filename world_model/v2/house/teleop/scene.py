@@ -123,7 +123,7 @@ def _office_scene():
     from ..office import scene as OS, nav_grid as NG
     meta = OS.office_meta()
     wp = {k: (float(v["xy"][0]), float(v["xy"][1]), float(v["heading"])) for k, v in meta["waypoints"].items()}
-    npz = Path(os.environ.get("OFFICE_OUT", "/data/local/ss5772/molmospaces/office")) / "route_traj.npz"
+    npz = Path(os.environ.get("OFFICE_OUT", "data/molmospaces/office")) / "route_traj.npz"
     if npz.exists():
         z = np.load(npz, allow_pickle=True)
         x, y, mk = z["x"], z["y"], z["marks"]
@@ -272,7 +272,7 @@ def build_rig(scene: SceneSpec, spawn_xy, yaw, dt=0.005, with_people=True, count
     with the counter slab / cup / house)."""
     import sim_common as sc
     house = scene.spec_loader() if scene.spec_loader else B.load_house_spec(scene.house, True)
-    robot = mujoco.MjSpec.from_string(B.YOR_MJCF.read_text())
+    robot = mujoco.MjSpec.from_string(B.yor_mjcf_text())
     from world_model.v2.testbeds.b_tray_ball import tray_env as TE
     tray_spec = mujoco.MjSpec.from_string(TE.tray_xml(TE.BallParams(mu=MU_TRUE), lip=False, home=(0.0, 0.0, 5.0)))
     if finger_contact:

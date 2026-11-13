@@ -20,7 +20,7 @@ import sys
 import time
 from pathlib import Path
 
-OUT = Path(os.environ.get("ZONO_ROWS_OUT", "/data/local/ss5772/molmospaces/zono_rows"))
+OUT = Path(os.environ.get("ZONO_ROWS_OUT", "data/molmospaces/zono_rows"))
 os.environ.setdefault("ZED_DEMO_OUT", str(OUT))
 for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMBA_NUM_THREADS"):
     os.environ.setdefault(_v, "1")
