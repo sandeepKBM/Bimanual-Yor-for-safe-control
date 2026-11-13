@@ -125,6 +125,49 @@ def rot(a):
     return np.array([[c, -s], [s, c]])
 
 
+# ---- continuation from a landed pose (11-13 F2) -----------------------------------------------------------------------------------------
+MIN_LINE_M = 0.005          # ASSUMED m: a continuation line shorter than this is skipped (inside the ROUTE_TOL_M order)
+MIN_TURN_DEG = 0.5          # ASSUMED deg: a continuation turn smaller than this is skipped
+
+
+def continuation_route(p_now, p_end):
+    """PURE.  turn -> line -> turn route (normalized) from the base pose p_now = (x, y, yaw) to p_end: face the target (driving backwards when that
+    turn is > 90 deg), drive (chunks of <= MAX_LINE_M), turn to p_end's yaw.  [] when already there.  ValueError when it needs more than MAX_SEGMENTS."""
+    wrap = lambda a: (a + math.pi) % (2 * math.pi) - math.pi
+    x, y, yaw = (float(a) for a in p_now)
+    dx, dy = float(p_end[0]) - x, float(p_end[1]) - y
+    dist = math.hypot(dx, dy)
+    out = []
+    if dist >= MIN_LINE_M:
+        t1 = wrap(math.atan2(dy, dx) - yaw)
+        sign = 1.0
+        if abs(t1) > math.pi / 2:
+            t1, sign = wrap(t1 + math.pi), -1.0
+        if abs(math.degrees(t1)) >= MIN_TURN_DEG:
+            out.append(("turn", math.degrees(t1)))
+        yaw += t1
+        n = int(math.ceil(dist / MAX_LINE_M - 1e-9))
+        out += [("line", sign * dist / n)] * n
+    t2 = wrap(float(p_end[2]) - yaw)
+    if abs(math.degrees(t2)) >= MIN_TURN_DEG:
+        out.append(("turn", math.degrees(t2)))
+    if len(out) > MAX_SEGMENTS:
+        raise ValueError(f"continuation route needs {len(out)} segments (max {MAX_SEGMENTS}): {out}")
+    return tuple(out)
+
+
+def check_continuation(world, geo, prev_name, p_now, route, backend=None, margin_m=TRACK_MARGIN_M):
+    """sweep clearance (as `check` (a)) of `route` from p_now with the arms at their planned hold pose (end of move `prev_name`).  -> info dict with ok."""
+    be = backend or default_backend()
+    i_hold = geo.bounds[prev_name][1]
+    off = np.asarray(geo.offs[i_hold], float)
+    q_hold = {s: np.asarray(geo.q[s][i_hold], float) for s in geo.q}
+    clr = float(getattr(be, "CLEARANCE_MIN", 0.005))
+    r = be.sweep(world, route_poses(p_now, route), q_hold=q_hold, obj_off=tuple(float(x) for x in off), clearance_min=clr + margin_m)
+    return dict(ok=bool(r["min_dist"] >= clr + margin_m), min_dist_m=float(r["min_dist"]), clearance_min_m=clr, worst=r["worst"],
+                tag="sweep from the LANDED pose; arms at the planned hold pose (an interrupted arm pose can differ: not modelled); margin 0 ASSUMED")
+
+
 # ---- default plan -------------------------------------------------------------------------------------------------------------------
 def default_route(task_def):
     """the TaskDef's first named route (R1) as a normalized route."""
