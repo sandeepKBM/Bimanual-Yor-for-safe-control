@@ -50,7 +50,8 @@ The server listens on 127.0.0.1 only. The sim build took 98 s on the first launc
 run (numba compile and house load); telemetry reports `ready: false` until it is done.
 
 Useful flags: `--no-shield`, `--no-ghost`, `--view ego|chase`, `--people on|off|static`, `--footprint fixed|live`,
-`--fallback brake|escape`, `--d-wall-door M`, `--task carry|coffee`, `--grasp-mode friction` (assisted friction grasp of
+`--fallback brake|escape`, `--d-wall-door M`, `--task carry|coffee|pick`, `--episode on|off`, `--episode-timeout S`,
+`--pick-backend mock|auto|live`, `--pick-planner rule|vlm|vlm+veto`, `--grasp-mode friction` (assisted friction grasp of
 the tray on the counter: use with `--task coffee --spawn-at cafe_counter_pick`; `carry` starts with the tray already held), `--lang off|auto|live|mock` (language panel; `live` needs a VLM service),
 `--fps`, `--width/--height`, `--port`, `--token`, `--render-mode thread` (fallback without a render process).
 
@@ -62,6 +63,7 @@ the tray on the counter: use with `--task coffee --spawn-at cafe_counter_pick`; 
 | Arrows, PageUp/PageDown, T/Y | tray jog x/y, z, yaw | G / H | grasp / release |
 | Enter | arm (clears the Esc latch) | Esc | latched stop (disarm) |
 | Space | zero all motion | Backspace | reset episode (rebuilds the sim) |
+| K | end the episode (operator) | | |
 | V | shield on/off | O | operator-intent ghost on/off |
 | C | cycle camera | B | wrist inset on/off |
 | N / M | tuck tray / normal carry | Z / X, 1–3 | speed x0.9 / x1.1, presets |
@@ -118,10 +120,31 @@ They stay because the FL-MPC import chain loads them at import time (`experiment
 `control/realgrasp_flmpc`). Removing them would mean editing that chain. The world-model monitor (`world_model/*.py`)
 needs `dreamerv3` + torch only when it is constructed; teleop never constructs it.
 
+## Beta (Assignment 5): episodes and pick guidance
+
+Full protocol and rules: `world_model/v2/house/teleop/web/PROTOCOL_BETA.md`.
+
+- **Episodes** (`--episode on`, the default; `off` = Alpha behaviour). IDLE → (Enter / Start) → ACTIVE → OUTCOME. An
+  episode ends on success, on failure (cup lost or beads spilled), on `K` (operator end) or after `--episode-timeout S`
+  sim seconds. The server disarms when an episode ends and keeps every command at zero until Backspace starts a new
+  episode (disarmed, IDLE). Carry success = base within 0.30 m of the counter waypoint and slower than 0.05 m/s with the
+  cup ok (both values are assumptions). The browser shows a banner with the timer and a result card with the metrics.
+- **Pick guidance** (`--task pick`, free arms, a table with props). The **Scan** button asks for object proposals from the
+  head camera (`--pick-backend mock` = offline labels, the default; `--pick-planner rule|vlm|vlm+veto`). Boxes are drawn
+  over the `ego` view: green = feasible, red = infeasible with the reason, grey = stale (the base or lift moved since the
+  scan). Clicking a green box starts the pick skill (single or bimanual, per the proposal). While a pick plans or runs,
+  the operator's base, lift and tray-jog commands are held at zero; Esc, disarm, the watchdog and a disconnect cancel it.
+  The episode succeeds when the object is held.
+
+```bash
+python -m world_model.v2.house.teleop.web.server --scene h5 --task pick --shield --people off --token smoke123 --port 8796
+python -m world_model.v2.house.teleop.web.smoke_client --token smoke123 --port 8796 --pick --out data/smoke_pick
+```
+
 ## Known limitations
 
 - House assets are an external download (license: see MolmoSpaces); the scene list is `h5` only (`office` is a hook).
-- No explicit Start → Active → Outcome episode state machine yet; reset is Backspace, outcome is the cup state.
-- `--grasp-mode friction` assists only the tray grasp; `house/pick` (object proposals, selection API, pick skill) is not
-  connected to the browser.
+- `--grasp-mode friction` assists only the tray grasp (`--task coffee`); objects are picked through `--task pick`.
+- The mock pick backend reads labels from the simulator (a privileged shortcut for offline use); `live` needs a VLM
+  service and was not tested here.
 - One browser client at a time (a new connection takes over).
