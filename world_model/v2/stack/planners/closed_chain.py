@@ -720,6 +720,37 @@ class ClosedChainPlan:
                 out.append(_toppra(KL, KR, PP, a_backup))
         return out
 
+    def advance(self, q_now, segs, a_backup):
+        """11-13 (F1): pieces (list of Piece) from the commanded q FORWARD along the planned path to the end of segs[0], then each following segment of `segs` forward
+        (the backup of a place step after the base move continues down onto the goal support).  Each piece rest to rest, a = a_backup (carry.A_BACKUP, ASSUMED)."""
+        out = []
+        qn = {s: np.asarray(q_now[s], float) for s in SIDES}
+        for j, sg in enumerate(segs):
+            i0, i1 = self.geo.bounds[sg]
+            n = i1 - i0 + 1
+            if j == 0:
+                u, dist = self._nearest(sg, qn)
+                k = int(np.floor(u))
+                f = u - k
+                if f < 1e-3:
+                    f = 0.0
+                elif f > 1 - 1e-3:
+                    k, f = k + 1, 0.0
+                if k >= n - 1:                                                        # already at the segment end
+                    continue
+                P0 = self.geo.offs[i0 + k] * (1 - f) + self.geo.offs[i0 + k + 1] * f if f > 0 else self.geo.offs[i0 + k]
+                idx = list(range(k + 1, n))                                           # f > 0: the knot k+1 is next; f == 0: knot k is replaced by the commanded q
+                KL = np.array([qn["left"]] + [self.geo.q["left"][i0 + i] for i in idx])
+                KR = np.array([qn["right"]] + [self.geo.q["right"][i0 + i] for i in idx])
+                PP = np.array([P0] + [self.geo.offs[i0 + i] for i in idx])
+            else:
+                KL, KR, PP = np.array(self.geo.q["left"][i0:i1 + 1]), np.array(self.geo.q["right"][i0:i1 + 1]), np.array(self.geo.offs[i0:i1 + 1])
+            if np.linalg.norm(PP[-1] - PP[0]) < 1e-9:
+                out.append(_joint_only_piece(KL, KR, PP[0]))
+            else:
+                out.append(_toppra(KL, KR, PP, a_backup))
+        return out
+
     # ---- retreat after release (weld off): claws move +-y by RETREAT_M, orientation fixed
     def retreat(self, where):
         """where in ("goal", "start").  Each claw translates outward (left +y, right -y) with the orientation fixed, as far as RETREAT_M allows: the largest distance
@@ -813,6 +844,11 @@ def phases_for(seg):
     return [("track", seg), ("hold", 0.3)]
 
 
+def legacy_behind_backup():
+    """BIMANUAL_LEGACY_BEHIND_BACKUP=1 restores the 11-09 set_down backup after the base move (retrace the post-base moves, let go, jretreat('start'))."""
+    return os.environ.get("BIMANUAL_LEGACY_BEHIND_BACKUP") == "1"
+
+
 def backup_phases_for(seg, wp=None):
     """stored backup of a move.  Default plan: stop, retrace to the lift start, let go.  wp (WaypointPlan): the kind named for that move --
     set_down  = the default (retrace this move and all earlier ones in reverse to the start of the first, let go there)
@@ -832,13 +868,33 @@ def backup_phases_for(seg, wp=None):
             return [("stop", 0.3), ("hold", 0.3), ("weld", False), ("retreat", RETREAT_M, RETREAT_T), ("hold", 0.6)]
         if kind != "set_down":
             raise ValueError(f"unknown backup kind {kind!r}")
-        k0 = wp.base[0][0] if (wp.base and j >= wp.base[0][0]) else 0    # v1: a retrace never runs back across the base move (no base retrace between arm pieces): after it, set_down
+        post_base = bool(wp.base and j >= wp.base[0][0])
+        if post_base and not legacy_behind_backup():                     # 11-13 (F1, USER-approved 11-12): after the base move the object is NOT near counter 1; continue the plan down onto the goal support, let go, retreat from the goal
+            return [("stop", 0.3), ("advance", tuple(wp.names[j:])), ("hold", 0.3), ("weld", False), ("jretreat", "goal"), ("hold", 0.6)]
+        k0 = wp.base[0][0] if post_base else 0                           # LEGACY (BIMANUAL_LEGACY_BEHIND_BACKUP=1): a retrace never runs back across the base move: after it, set_down
         back = list(wp.names[k0:j + 1])[::-1]                            # retraces to the start of the post-base moves and lets go THERE (the object is not back on counter 1)
     else:
         back = {"lift": ["lift"], "carry": ["carry", "lift"], "place": ["place", "carry", "lift"]}.get(seg)
     if back is None:
         return None
-    return [("stop", 0.3), ("retrace", tuple(back)), ("hold", 0.3), ("weld", False), ("jretreat", "start"), ("hold", 0.6)]
+    ph = [("stop", 0.3), ("retrace", tuple(back)), ("hold", 0.3), ("weld", False), ("jretreat", "start"), ("hold", 0.6)]
+    check_start_retreat(ph, wp)
+    return ph
+
+
+def check_start_retreat(phases, wp):
+    """11-13 guard: a retreat to knot 0 ("jretreat"/"retreat" "start") is rejected (ValueError at compile) when the commanded q there is not knot 0, i.e. the last retrace
+    before it does not end at the start of the plan's first move (names[0]).  Skipped under BIMANUAL_LEGACY_BEHIND_BACKUP=1."""
+    if wp is None or legacy_behind_backup():
+        return
+    end = None
+    for p in phases:
+        if p[0] == "retrace":
+            end = p[1][-1]
+        elif p[0] in ("jretreat", "retreat") and len(p) > 1 and p[1] == "start" and end != wp.names[0]:
+            raise ValueError(f"backup: {p[0]}('start') after a retrace that ends at {end!r}, not knot 0 (start of {wp.names[0]!r}): the commanded q is not the plan's start")
+        elif p[0] == "advance":
+            end = None
 
 
 def _duration(phases, plan):
