@@ -11,8 +11,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import os
+
 import numpy as np
 import mujoco
+
 
 MODULES = ("front_left", "back_left", "front_right", "back_right")
 
@@ -68,7 +71,7 @@ class SwerveBase:
         c = P[:, :2].mean(0)
         R0 = self._rot(self._yaw0)
         self.r = (P[:, :2] - c) @ R0                      # pivot offsets in the robot frame (MODEL)
-        off_w = H[:, :2] - P[:, :2]
+        off_w = (H if os.environ.get("BIMANUAL_LEGACY_SWERVE_OFF") == "1" else self._tyre_centres(H))[:, :2] - P[:, :2]
         self.off = np.linalg.norm(off_w, axis=1)           # wheel centre offset from the pivot, along the axle (MODEL)
         self.off_sign = np.sign((off_w @ R0)[:, 1])        # +1: the offset is on +y_body at steer 0
         self.R_wheel = self._wheel_radius()                # MODEL
@@ -95,6 +98,20 @@ class SwerveBase:
     def _yaw_from(self, P):
         f = P[[0, 2], :2].mean(0) - P[[1, 3], :2].mean(0)
         return float(np.arctan2(f[1], f[0]))
+
+    def _tyre_centres(self, H):
+        """MODEL: world-frame centre (bounding-box centre of the tyre collision mesh) of each wheel at the initial pose.  The drive-joint anchor H is the
+        HUB body origin (YOR/robot/yor-description/robot.mjcf:109, pos 0.021272 0 -0.075425), 21.3 mm from the steer axis, but the tyre mesh is not centred on it:
+        its centre is 1.05 mm from the steer axis (11-11 diagnosis).  BIMANUAL_LEGACY_SWERVE_OFF=1 keeps the hub-anchor value (21.27 mm)."""
+        m, d = self.m, self.d
+        out = []
+        for i, h in enumerate(self.hub):
+            g = [g for g in range(m.ngeom) if m.geom_bodyid[g] == h and m.geom_contype[g] | m.geom_conaffinity[g]][0]
+            me = m.geom_dataid[g]
+            vs = m.mesh_vert[m.mesh_vertadr[me]:m.mesh_vertadr[me] + m.mesh_vertnum[me]]
+            w = vs @ d.geom_xmat[g].reshape(3, 3).T + d.geom_xpos[g]
+            out.append((w.min(0) + w.max(0)) / 2.0)
+        return np.array(out)
 
     def _wheel_radius(self):
         m, d = self.m, self.d

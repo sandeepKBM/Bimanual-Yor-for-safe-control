@@ -74,6 +74,15 @@ def _first_viol(ep, probe_viol):
     return None if not v else dict(kind=v.get("kind"), t=v.get("t"))
 
 
+def _record_extras(rec, ep):
+    """11-13 recording only (additive keys): contents_poses = pose of the loose contents body at start / after_probe / base_start<k> / base_end<k> / end (box and pot worlds; None for
+    tray worlds); base.seg_acc_peak = per route segment the peak achieved base acceleration and its time (BA4)."""
+    ep.mark_contents("end")
+    rec["contents_poses"] = getattr(ep, "contents_poses", None)
+    if isinstance(rec.get("base"), dict):
+        rec["base"]["seg_acc_peak"] = [b.get("seg_acc_peak") for b in getattr(ep, "base_log", [])]
+
+
 def behind_job(args, method=None, adaptive=True):
     """args = (task, i, eps_lo, eps_free, plan).  task = tray6_behind | box_behind.  plan: dict(wp = the compiled WaypointPlan (any level), plan_dict = the proposer's accepted
     plan (compile_plan recompiles it at the world's level), fallback, belief, outside_b, plan_id).  -> record dict (never raises)."""
@@ -92,12 +101,14 @@ def behind_job(args, method=None, adaptive=True):
         cmax = c_admit_max(task, wp0)
         M_stop = None if cmax is None else P.empty_mass(bt) + cmax
         pr = P.make_probe(ep, bt, eps_lo, eps_free, rng=np.random.default_rng(seed), noise=True, method=method, adaptive=adaptive)
+        ep.mark_contents("start")
         c0 = P.prior_contents(bt)
         if not _static(task, *c0, w, wp0)["action"].startswith("refuse"):
             why = "no_probe_needed"                          # verdict "carry" on all of Theta_0 (static rows only; the base level is picked below on Theta)
             pr.M_lo, pr.M_hi = P.empty_mass(bt) + c0[0], P.empty_mass(bt) + c0[1]
         else:
             why = pr.run(M_stop=M_stop)
+        ep.mark_contents("after_probe")
         probe_viol = ep.track["viol"]
         sound = bool(pr.M_lo - 1e-9 <= M <= pr.M_hi + 1e-9)
         rec = dict(task=task, i=i, seed=seed, probe_method=P.method_of(pr), probe_assumptions=P.method_assumptions(P.method_of(pr)), M_true=M, why=why,
@@ -160,9 +171,11 @@ def behind_job(args, method=None, adaptive=True):
         bl = getattr(ep, "base_log", [])
         fl = set(ep.bmon.flagged)
         rec["base"] = dict(level=rec["base_level"], n_base_edges=len(bl), n_aborted=sum(1 for b in bl if b.get("aborted")),
-                           route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_deg=[b.get("err_deg") for b in bl],
+                           route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_m=[b.get("err_m") for b in bl],   # route_end_err_mm holds METRES (legacy name)
+                            route_end_err_deg=[b.get("err_deg") for b in bl],
                            U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()],
                            U_flags_ever=sorted(ep.bmon.flagged_ever))             # 11-12: never reset within the episode (nominal path)
+        _record_extras(rec, ep)
         rec["first_U"] = _first_viol(ep, probe_viol)
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec
@@ -189,6 +202,7 @@ def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True,
     try:
         wp0 = plan["wp"]
         ep = CR.CarryEpisode(w, m_hat=0.0, fric_comp=True, weld_solref=CC.WELD_STIFF, wp=wp0, base="swerve", goal_support=TK.task(task).goal_support)
+        ep.mark_contents("start")
         com = true_com(ep) if oracle_com else None
         if hooks is not None:
             hooks(ep)
@@ -207,9 +221,11 @@ def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True,
         bl = getattr(ep, "base_log", [])
         fl = set(ep.bmon.flagged)
         rec["base"] = dict(level=rec["base_level"], n_base_edges=len(bl), n_aborted=sum(1 for b in bl if b.get("aborted")),
-                           route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_deg=[b.get("err_deg") for b in bl],
+                           route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_m=[b.get("err_m") for b in bl],   # route_end_err_mm holds METRES (legacy name)
+                            route_end_err_deg=[b.get("err_deg") for b in bl],
                            U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()],
                            U_flags_ever=sorted(ep.bmon.flagged_ever))             # 11-12: never reset within the episode (nominal path)
+        _record_extras(rec, ep)
         rec["first_U"] = _first_viol(ep, rec["probe_viol"])
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec

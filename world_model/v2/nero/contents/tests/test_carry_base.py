@@ -50,6 +50,8 @@ def test_base_move_then_world_frame_place(ep):
     w = ep.world
     r = ep.base_move(dict(route=[["line", -0.4], ["turn", 180.0], ["line", 0.5]], level="L1"))      # the previous test already moved 0.1 m back: total back 0.5, advance 0.5 = R1
     assert r["err_mm"] < 20.0 and abs(r["err_deg"]) < 2.0
+    assert r["err_m"] == r["err_mm"] and r["seg_acc_peak"] and all(a["a_peak_mps2"] > 0 for a in r["seg_acc_peak"])      # 11-13 recording keys (err_mm holds metres)
+    assert ep.mark_contents("x") is None                      # tray world: no contents body
     assert ep.track["viol"] is None
     ep.run_phases([("move", (0, 0, -0.05), 1.0), ("hold", 0.7), ("weld", False), ("retreat", CR.RETREAT, 0.8), ("hold", 1.0)])
     goal = np.array(w.obj_xy) + np.array([-1.76, 0.0209])

@@ -691,6 +691,21 @@ class CarryEpisode:
             self.bmon.flagged_ever.add(kind)
             self._viol(kind, t, **kw)
 
+    def mark_contents(self, label):
+        """recording only (11-13): pose of the loose contents body (box world: the block; pot: the puck) at a key time -> self.contents_poses[label] = dict(t_s, xyz_world,
+        quat_world, xyz_in_obj [object frame]).  No-op (returns None) when the scene has no `contents` body (tray worlds)."""
+        try:
+            b = self.m.body("contents").id
+        except Exception:
+            return None
+        d = self.d                                  # xpos of the last step (no mj_forward here: recording must not touch the sim)
+        rec = dict(t_s=float(self.k * DT), xyz_world=[float(v) for v in d.xpos[b]], quat_world=[float(v) for v in d.xquat[b]],
+                   xyz_in_obj=[float(v) for v in d.xmat[self.obj].reshape(3, 3).T @ (d.xpos[b] - d.xpos[self.obj])])
+        if not hasattr(self, "contents_poses"):
+            self.contents_poses = {}
+        self.contents_poses[label] = rec
+        return rec
+
     def base_move(self, ref, branch=None):
         """run a base route while the arms hold their joint references (ASSUMED A4).  ref = {"route": [["line", d_m] | ["turn", deg], ...],
         "level": "L1" | "L2" | "L3"}; line d along the robot's CURRENT +x, turn deg CCW.  branch(ep, t_rel) every 0.25 s.  -> record dict (drive.BaseDriver.run)."""
