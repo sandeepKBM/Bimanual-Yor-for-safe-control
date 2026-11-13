@@ -103,3 +103,4 @@ from_viam5/
 
 # SafeTeleop: source package whose name matches the data/ rule above (brought forward from the 2026-11-03 mirror)
 !world_model/v2/data/
+!world_model/v2/house/zono_rows/tests/data/
