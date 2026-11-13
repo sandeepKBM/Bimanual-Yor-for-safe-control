@@ -63,6 +63,17 @@ def run_phases(ep, phases, branch=None):
                 for i in range(pc.n):
                     ep._step()
             continue
+        elif ph[0] == "advance":                                # closed_chain backup (11-13 F1): the planned path FORWARD from the commanded q to the end of ph[1], rest to rest per segment
+            q_now = {s: ep._cmd(s, t) for s in SIDES}
+            for pc in ep.cc.advance(q_now, ph[1], CR.A_BACKUP):
+                t = ep.k * DT
+                dur = pc.n * DT
+                for s in SIDES:
+                    ep._trim(s, t)
+                    ep._add_joint_path(s, t, t + dur, pc.q[s])
+                for i in range(pc.n):
+                    ep._step()
+            continue
         elif ph[0] == "jretreat":                               # closed_chain release retreat: planned claw translation (weld already off)
             rt = ep.cc.retreat(ph[1])
             dur = rt["T"]
@@ -115,7 +126,11 @@ def run_segments(ep, plan: BimanualPlan, rec, branch_backups=True, t0=None):
             for tr, sn in branches[1:] + [(None, end)]:
                 ep.restore(sn)
                 ep.reset_track()
-                ep.run_phases(bk)
+                runner = getattr(ep, "backup_runner", None)     # diag_place_backup.py: a logging runner(ep, seg, tr, phases); default = run the phases
+                if runner is None:
+                    ep.run_phases(bk)
+                else:
+                    runner(ep, seg, tr, bk)
                 ok, why = ep.in_R()
                 fam["n"] += 1
                 if not ok:
