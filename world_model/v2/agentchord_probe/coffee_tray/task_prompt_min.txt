@@ -1,2 +1,0 @@
-Task:
-Place the capsule into the tray and move the tray forward: grasp the capsule (left arm), place the capsule into the tray (left arm), grasp the tray (both arms), place the tray forward (both arms).

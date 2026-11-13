@@ -1,7 +1,0 @@
-{
- "placement": "far_left",
- "grip": "force",
- "grip_force": 10.0,
- "grasp_frac": 0.2,
- "error": "Traceback (most recent call last):\n  File \"/common/users/ss5772/bimanual/world_model/v2/nero/pan/handle_grasp_sweep.py\", line 23, in one_v2\n    r = H.run(**kw)\n        ^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/world_model/v2/nero/pan/handle_grasp.py\", line 157, in run\n    pre = {\"left\": find_pregrasp(m, d, \"left\", d.site_xpos[m.site(\"pan_handle_grasp\").id].copy(), LEFT_APPROACH, LEFT_JAW)}\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/world_model/v2/nero/pan/handle_grasp.py\", line 108, in find_pregrasp\n    raise RuntimeError(f\"no contact-free pre-grasp for the {side} claw\")\nRuntimeError: no contact-free pre-grasp for the left claw\n"
-}

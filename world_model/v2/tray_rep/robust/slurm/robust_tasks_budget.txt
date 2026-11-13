@@ -1,1 +1,0 @@
-world_model.v2.tray_rep.robust.budget run --setup piper --n-states 100 --tag main
