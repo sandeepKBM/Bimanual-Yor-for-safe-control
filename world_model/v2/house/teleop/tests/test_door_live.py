@@ -152,3 +152,21 @@ def test_ego_camera_matches_head_spec():
     assert np.allclose(pos, [1.0 + 0.20955, 2.0 + 0.05, 1.15 + 0.1], atol=1e-9)
     assert np.allclose(fwd, [0.0, math.cos(math.radians(36.3)), -math.sin(math.radians(36.3))], atol=1e-9) and fovy == 70.0
     assert RP.CAMERAS[0] == "ego" and set(RP.CAMERAS) >= {"chase", "top", "wrist_l", "wrist_r"}
+
+
+def test_ego_left_eye_matches_pick_camera():
+    """--task pick renders the ego view from the ZED left eye, the camera house/pick computes its proposal boxes in."""
+    from world_model.v2.house.ocs import fp_render as FR
+    import mujoco
+    assert np.isclose(RP.EGO_LEFT_EYE_DY, 0.5 * FR.HEAD_BASELINE)
+    lift, x, y, yaw = 0.1, 1.0, 2.0, 0.7
+    cam = mujoco.MjvCamera()
+    RP.ego_cam(cam, x, y, yaw, lift, RP.EGO_LEFT_EYE_DY)
+    el, az = math.radians(cam.elevation), math.radians(cam.azimuth)
+    fwd = np.array([math.cos(el) * math.cos(az), math.cos(el) * math.sin(az), math.sin(el)])
+    pos = np.asarray(cam.lookat) - cam.distance * fwd
+    o_b, R_b = FR.head_cam_base(lift, left=True)                 # base frame
+    c, s = math.cos(yaw), math.sin(yaw)
+    Rz = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+    assert np.allclose(pos, np.array([x, y, 0.0]) + Rz @ o_b, atol=1e-9)
+    assert np.allclose(fwd, Rz @ -R_b[:, 2], atol=1e-9)            # MuJoCo camera looks along -z

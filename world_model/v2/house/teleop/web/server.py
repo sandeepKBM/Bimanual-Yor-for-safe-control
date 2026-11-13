@@ -195,7 +195,8 @@ class SimWorker(threading.Thread):
         if camname in WRIST:
             r.update_scene(sim.d, camera=WRIST[camname])
         elif camname == "ego":
-            self.sim.m.vis.global_.fovy = RP.ego_cam(self.cam, sim.base.x, sim.base.y, sim.base.yaw, sim.lift_actual())
+            self.sim.m.vis.global_.fovy = RP.ego_cam(self.cam, sim.base.x, sim.base.y, sim.base.yaw, sim.lift_actual(),
+                                                        RP.EGO_LEFT_EYE_DY if self.a.task == "pick" else 0.0)     # pick: ZED left eye (the proposals' camera)
             r.update_scene(sim.d, camera=self.cam)
             self.ghost_draw.add(r.scene, sim.d, self.gf, which="arms", z_arrow=GH.Z_ARROW_EGO)
         else:

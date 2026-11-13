@@ -60,8 +60,10 @@ velocity and tray jog are set to zero before the shield filter. The skill expect
 Telemetry key `pick` (only with `--task pick`): `{status, selected, error, skill: null|{state, phase info..}, proposals:[{id, label,
 box2d:[x0,y0,x1,y1], mode, arm, feasible, why}], frame:[640,360], snap_pose:[x,y,yaw,lift], stale: bool, ready_to_pick: bool,
 last_reject, backend, planner}`.
-- `box2d` is in pixels of the 640x360 head camera. It is the same mount as the browser `ego` view (render_proc `EGO_*` ==
-  ocs/fp_render `HEAD_*`); scale by `width/640, height/360` for another `--width/--height`.
+- `box2d` is in pixels of the 640x360 head camera, the ZED **left eye** (`ocs/fp_render.head_cam_base(left=True)`: the mount
+  centre + 0.06 m along base +y, half the 0.12 m baseline). With `--task pick` the browser `ego` view is rendered from that eye
+  (`render_proc.EGO_LEFT_EYE_DY`), so the boxes line up; other tasks keep the centre view. Scale by `width/640, height/360` for
+  another `--width/--height`.
 - `stale` = the base moved > 0.02 m or > 1 deg, or the lift moved > 0.01 m, since the snapshot (ASSUMED, user-approved 2026-11-12). Stale boxes are drawn
   grey and are not clickable.
 - `ready_to_pick` = episode ACTIVE, hub enabled, status idle, at least one feasible proposal, not stale.

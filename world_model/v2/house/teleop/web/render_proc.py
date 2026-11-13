@@ -29,13 +29,17 @@ WRIST = {"wrist_l": "left_arm_egocentric", "wrist_r": "right_arm_egocentric"}
 EGO_POS = (0.05, -0.20955, 1.15)       # base frame at lift 0 [m]
 EGO_PITCH_DEG = 36.3                   # looks along base +x, pitched down
 EGO_FOVY = 70.0                        # vertical field of view [deg]
+EGO_LEFT_EYE_DY = 0.06                 # MODEL: ZED left eye = centre + HEAD_BASELINE/2 along base +y (ocs/fp_render.head_cam_base(left=True)); house/pick proposals are
+                                       # computed in that eye, so --task pick renders the ego view from it (box overlay aligned).  Other tasks: centre (eye_dy 0, Alpha).
 
 
-def ego_cam(cam, x, y, yaw, lift):
-    """fill a free MjvCamera `cam` with the head-camera pose for base pose (x, y, yaw) and lift height; returns the fovy [deg] the model must be rendered with."""
+def ego_cam(cam, x, y, yaw, lift, eye_dy=0.0):
+    """fill a free MjvCamera `cam` with the head-camera pose for base pose (x, y, yaw) and lift height; returns the fovy [deg] the model must be rendered with.
+    eye_dy: lateral offset in the base frame (+y = left); EGO_LEFT_EYE_DY = the ZED left eye."""
     c, s = math.cos(yaw), math.sin(yaw)
     p = math.radians(EGO_PITCH_DEG)
-    org = (x + c * EGO_POS[0] - s * EGO_POS[1], y + s * EGO_POS[0] + c * EGO_POS[1], EGO_POS[2] + lift)
+    ey = EGO_POS[1] + eye_dy
+    org = (x + c * EGO_POS[0] - s * ey, y + s * EGO_POS[0] + c * ey, EGO_POS[2] + lift)
     fwd = (math.cos(p) * c, math.cos(p) * s, -math.sin(p))
     cam.lookat[:] = (org[0] + fwd[0], org[1] + fwd[1], org[2] + fwd[2])        # free camera: pos = lookat - distance * forward
     cam.distance, cam.elevation, cam.azimuth = 1.0, -EGO_PITCH_DEG, math.degrees(yaw)
@@ -123,7 +127,7 @@ def render_main(shm_name, lay, model_path, ctrl, out, cfg):
         if name in WRIST:
             rr.update_scene(d, camera=WRIST[name])
         elif name == "ego":
-            m.vis.global_.fovy = ego_cam(cam, hdr[1], hdr[2], hdr[3], hdr[8])
+            m.vis.global_.fovy = ego_cam(cam, hdr[1], hdr[2], hdr[3], hdr[8], cfg.get("ego_dy", 0.0))
             rr.update_scene(d, camera=cam)
             ghost.add(rr.scene, d, GH.GhostFrame.from_vec(hdr[GH0:HDR]), which="arms", z_arrow=GH.Z_ARROW_EGO)
         else:
@@ -202,7 +206,8 @@ class RenderLink:
         self.snap = Snapshot(self.shm.buf, self.lay)
         self.snap.a[:] = 0.0
         self.tick_id = 0
-        self.cfg = dict(w=args.width, h=args.height, iw=args.inset_w, ih=args.inset_h, fps=args.fps, quality=args.quality)
+        self.cfg = dict(w=args.width, h=args.height, iw=args.inset_w, ih=args.inset_h, fps=args.fps, quality=args.quality,
+                        ego_dy=EGO_LEFT_EYE_DY if getattr(args, "task", None) == "pick" else 0.0)
         self.path = self._save(sim_model)
         self.ctrl_p, ctrl_c = self.ctx.Pipe()
         self.out_r, out_w = self.ctx.Pipe(duplex=False)
