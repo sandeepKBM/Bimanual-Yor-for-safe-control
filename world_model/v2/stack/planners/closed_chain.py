@@ -172,6 +172,7 @@ def inputs_from_episode(ep):
 
 
 BASE_LEVEL_DEFAULT = "L1"      # ASSUMED: base speed level written into a default plan (= today's swerve Limits); the admission / caller passes the level it picked (plan(level=...))
+BASE_STOP_MAX_S = 4.0          # ASSUMED s: base_stop timeout (= CarryEpisode.BASE_STOP_MAX_S; 11-13 F2)
 _BASE_BACKEND = None           # tests may set a backend object here (base_route.check / sweep interface); None = base_route.default_backend()
 
 
@@ -951,7 +952,7 @@ class ClosedChainPlanner:
 
 def _base_segment(inp, cc, prev, base, level, t0):
     """the Segment of a base move: mode "carry" (no new Mode literal), phases [("base_move", ref)], arms hold the last planned q of the previous move (ASSUMED A4).
-    ref = dict(route=[[kind, value], ...], level).  meta: base_ref, accel = dict(source="base_card", level), backup_phases None (v1: no recovery run inside a base move)."""
+    ref = dict(route=[[kind, value], ...], level).  meta: base_ref, accel = dict(source="base_card", level), backup_phases None (v1: no recovery run inside a base move) unless BIMANUAL_BASE_BACKUP=1 (base_stop, hold)."""
     after, route, lv = base
     lv = level or lv or BASE_LEVEL_DEFAULT
     be = _BASE_BACKEND or BR.default_backend()
@@ -959,7 +960,8 @@ def _base_segment(inp, cc, prev, base, level, t0):
     pc = cc.pieces[prev]
     q_end = {s: (pc.q[s][-1].copy(), np.zeros(7), np.zeros(7)) for s in SIDES}
     dur = BR.route_duration(route, lv, be.levels())
-    meta = dict(phases=[("base_move", ref)], base_ref=ref, accel=dict(source="base_card", level=lv), backup_phases=None, cc=cc,
+    bk = [("base_stop", BASE_STOP_MAX_S), ("hold", 0.5)] if os.environ.get("BIMANUAL_BASE_BACKUP") == "1" else None     # 11-13 F2: opt-in base_stop recovery (off = None, bit-identical)
+    meta = dict(phases=[("base_move", ref)], base_ref=ref, accel=dict(source="base_card", level=lv), backup_phases=bk, cc=cc,
                 end_pose=cc.geo.info.get("base", {}).get("end_pose"))
     return Segment(mode="carry", t0=t0, t1=t0 + dur, q_ref=lambda t, q=q_end: q, x_obj=None, weld={s: True for s in SIDES}, meta=meta)
 

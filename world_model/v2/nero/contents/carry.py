@@ -701,6 +701,44 @@ class CarryEpisode:
         self.base_log.append(out)
         return out
 
+    # ASSUMED (11-13 F2): base_stop tolerances / timeout (no measured base card yet)
+    BASE_STOP_TOL_MPS = 2e-3       # ASSUMED m/s: base counts as at rest below this (commanded twist AND measured displacement rate)
+    BASE_STOP_TOL_RADPS = 2e-3     # ASSUMED rad/s
+    BASE_STOP_WIN_S = 0.1          # ASSUMED s: window of the measured-rate estimate
+    BASE_STOP_MAX_S = 4.0          # ASSUMED s: give up (flag base_stop_timeout) after this long
+
+    def base_stop(self, max_s=None):
+        """base_stop recovery (11-13 F2): drop the rest of the route (driver.abort: the twist is rate-limited to 0 at the level's a / alpha), the arms keep
+        their last command (paths trimmed at now), step until the base is at rest or max_s.  -> dict(T_s, at_rest, pose, v_mps, w_radps)."""
+        if self.base != "swerve":
+            raise ValueError("base_stop needs CarryEpisode(base='swerve')")
+        max_s = self.BASE_STOP_MAX_S if max_s is None else float(max_s)
+        t = self.k * DT
+        for s_ in self.paths:
+            self._trim(s_, t)
+        self.driver.abort()
+        sb, w = self.sb, int(round(self.BASE_STOP_WIN_S / DT))
+        k0, p_prev, n = self.k, sb.pose(), 0
+        v = om = np.inf
+        at_rest = False
+        while (self.k - k0) * DT < max_s:
+            self._step()
+            n += 1
+            if n % w == 0:
+                p = sb.pose()
+                v = float(np.linalg.norm(p[:2] - p_prev[:2])) / (w * DT)
+                om = abs(float((p[2] - p_prev[2] + np.pi) % (2 * np.pi) - np.pi)) / (w * DT)
+                p_prev = p
+                if v < self.BASE_STOP_TOL_MPS and om < self.BASE_STOP_TOL_RADPS and np.linalg.norm(sb._v[:2]) < self.BASE_STOP_TOL_MPS and abs(sb._v[2]) < self.BASE_STOP_TOL_RADPS:
+                    at_rest = True
+                    break
+        self.driver.active = False
+        if not at_rest:
+            self.base_flag("base_stop_timeout", self.k * DT, max_s=max_s, v_mps=v, w_radps=om, tol="2 mm/s, 2 mrad/s, 4 s ASSUMED")
+        out = dict(T_s=(self.k - k0) * DT, at_rest=bool(at_rest), pose=sb.pose().tolist(), v_mps=v, w_radps=om)
+        self.base_stop_log = getattr(self, "base_stop_log", []) + [out]
+        return out
+
     def body_delta(self, v):
         """a robot-frame displacement (x fwd, y left, z up) as a WORLD-frame vector at the current base heading (identity for the fixed base)."""
         v = np.asarray(v, float)
@@ -773,7 +811,7 @@ def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl
     return run_segments(ep, rec, branch_backups, t0)
 
 
-def run_segments(ep, rec, branch_backups=True, t0=None):
+def run_segments(ep, rec, branch_backups=True, t0=None, interrupt=None):
     """the segment loop of world_trial on an existing episode (11-02: probe.py runs it after the probe, same episode)."""
     from world_model.v2.stack import executor as EX
     from world_model.v2.stack.planners.scripted import ScriptedPlanner
@@ -786,7 +824,7 @@ def run_segments(ep, rec, branch_backups=True, t0=None):
                                        **({"wp": ep.wp.key_data()} if getattr(ep, "wp", None) is not None else {})))
     else:
         plan = ScriptedPlanner().plan(None, SkillCall("carry_task", dict(task=ep.task, a_plan=ep.a_plan)), None)
-    return EX.run_segments(ep, plan, rec, branch_backups, t0)
+    return EX.run_segments(ep, plan, rec, branch_backups, t0, interrupt=interrupt)
 
 
 def _theta(world):
