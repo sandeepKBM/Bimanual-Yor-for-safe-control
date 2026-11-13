@@ -133,7 +133,7 @@ async def main(a):
     img = cv2.imdecode(np.frombuffer(frames[-1][1], np.uint8), 1); cv2.imwrite(f"{a.out}/frame.png", img); print("png", img.shape)
 
 ap = argparse.ArgumentParser(); ap.add_argument("--port", type=int, default=8765); ap.add_argument("--token", default="smoke123"); ap.add_argument("--out", required=True)
-ap.add_argument("--assist", action="store_true", help="assisted friction-grasp scenario (server: --grasp-mode friction --spawn-at cafe_counter_pick --task pick)")
+ap.add_argument("--assist", action="store_true", help="assisted friction-grasp scenario (server: --task coffee --grasp-mode friction --spawn-at cafe_counter_pick; --task carry has no counter)")
 ap.add_argument("--tuck", action="store_true", help="tuck / camera-cycle / live-footprint scenario"); ap.add_argument("--tuck-timeout", type=float, default=60.0)
 ap.add_argument("--place", action="store_true"); ap.add_argument("--assist-timeout", type=float, default=240.0)
 asyncio.run(main(ap.parse_args()))

@@ -50,8 +50,8 @@ The server listens on 127.0.0.1 only. The sim build took 98 s on the first launc
 run (numba compile and house load); telemetry reports `ready: false` until it is done.
 
 Useful flags: `--no-shield`, `--no-ghost`, `--view ego|chase`, `--people on|off|static`, `--footprint fixed|live`,
-`--fallback brake|escape`, `--d-wall-door M`, `--task carry|coffee`, `--grasp-mode friction` (assisted friction grasp,
-with `--spawn-at cafe_counter_pick`), `--lang off|auto|live|mock` (language panel; `live` needs a VLM service),
+`--fallback brake|escape`, `--d-wall-door M`, `--task carry|coffee`, `--grasp-mode friction` (assisted friction grasp of
+the tray on the counter: use with `--task coffee --spawn-at cafe_counter_pick`; `carry` starts with the tray already held), `--lang off|auto|live|mock` (language panel; `live` needs a VLM service),
 `--fps`, `--width/--height`, `--port`, `--token`, `--render-mode thread` (fallback without a render process).
 
 ## Controls
@@ -86,12 +86,19 @@ input-to-ack latency. In the 3D view the ghost shows where the robot would be af
 export PYTHONPATH=$PWD MUJOCO_GL=osmesa OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1
 python -m pytest -q world_model/v2/house/teleop/tests world_model/v2/house/teleop/web/tests
 python -m pytest -q world_model/v2/house/{lang,grasp,ocs,pick,zono_rows,people_track}/tests
-# end-to-end (needs a running server started with --token smoke123):
-python -m world_model.v2.house.teleop.web.smoke_client --token smoke123 --out data/smoke
+# end-to-end, against a running server started with --token smoke123 (add --port P if not 8765):
+python -m world_model.v2.house.teleop.web.smoke_client --token smoke123 --out data/smoke            # server: default command above
+python -m world_model.v2.house.teleop.web.smoke_client --token smoke123 --tuck --out data/smoke_tuck  # server: + --footprint live --people off
+python -m world_model.v2.house.teleop.web.smoke_client --token smoke123 --assist --place --out data/smoke_assist
+#   server for --assist: --scene h5 --task coffee --shield --grasp-mode friction --spawn-at cafe_counter_pick --people off
 ```
 
-The smoke client connects over the WebSocket. It checks that motion is zero while disarmed, then drives, checks the
-watchdog stop, the Esc latch and re-arming, and saves the last frame.
+The smoke client connects over the WebSocket:
+- default: motion zero while disarmed; arm, drive, 250 ms watchdog stop, Esc latch, re-arm; latency and frame rate.
+- `--tuck`: tuck the tray through the jog path (live footprint narrows), cycle all five cameras, back to carry.
+- `--assist --place`: assisted grasp PRE -> APPROACH -> CLOSE -> VERIFY -> HOLD, then lift and place.
+
+All three passed on 2026-11-12 in a fresh clone of this branch with CPU rendering (`MUJOCO_GL=osmesa`).
 
 ## What is in this branch
 
