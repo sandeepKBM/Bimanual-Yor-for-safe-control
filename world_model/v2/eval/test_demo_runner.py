@@ -1,5 +1,5 @@
 """demo_runner (Stage 0d): world specs, arm parsing, phase tagging (synthetic), refusal split (synthetic), summary (synthetic), resume / freeze, additive COM point.  SIMULATION ONLY, no network.
-PYTHONPATH=. python -m pytest -q world_model/v2/nero/contents/tests/test_demo_runner.py       (one test builds one episode: seconds)
+PYTHONPATH=. python -m pytest -q world_model/v2/eval/test_demo_runner.py       (one test builds one episode: seconds)
 """
 import argparse
 import json
@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pytest
 
-from world_model.v2.nero.contents import demo_runner as DR
+from world_model.v2.eval import demo_runner as DR
 
 
 # ------------------------------------------------------------------------------------------------------------------------------ worlds

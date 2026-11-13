@@ -1,10 +1,10 @@
-"""nero/contents/demo_runner.py -- ONE harness: any world list x any set of arms for the table-behind demos.  SIMULATION ONLY.   (Stage 0d, plan golden-soaring-perlis)
+"""eval/demo_runner.py (moved from nero/contents 11-12: nero/contents may not import agentchord_*, dependency rule nero_contents_no_forbidden) -- ONE harness: any world list x any set of arms for the table-behind demos.  SIMULATION ONLY.   (Stage 0d, plan golden-soaring-perlis)
 
 Built from forced_admit.py (shards, resume, offline first plan, phase-tagged U).  No network, no LLM call: every plan is replayed from the offline caches (a cache miss raises).
 
-python -m world_model.v2.nero.contents.demo_runner worlds  --out DIR                       # world lists (existing 20 + 20, the D1 box grid)
-python -m world_model.v2.nero.contents.demo_runner run     --worlds FILE --arms A,B,... --out DIR [--shard k/K] [--procs N] [--only id,id] [--dry]
-python -m world_model.v2.nero.contents.demo_runner summary  --out DIR
+python -m world_model.v2.eval.demo_runner worlds  --out DIR                       # world lists (existing 20 + 20, the D1 box grid)
+python -m world_model.v2.eval.demo_runner run     --worlds FILE --arms A,B,... --out DIR [--shard k/K] [--procs N] [--only id,id] [--dry]
+python -m world_model.v2.eval.demo_runner summary  --out DIR
 
 World list JSON (frozen: its sha256 is written to OUT/WORLDS.sha256 and a later run on another list is refused):
   {"name": ..., "assumptions": {...}, "worlds": [spec, ...]}
@@ -529,7 +529,7 @@ def assumptions():
 
 # ------------------------------------------------------------------------------------------------------------------------------ run
 def code_sha():
-    root = Path(__file__).resolve().parents[4]
+    root = Path(__file__).resolve().parents[3]
     try:
         sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=root, capture_output=True, text=True, timeout=20).stdout.strip()
         dirty = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"], cwd=root, capture_output=True, text=True, timeout=20).stdout.strip()
