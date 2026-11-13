@@ -2,7 +2,7 @@
 
     cd <repo> ; export PYTHONPATH=$PWD OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMBA_NUM_THREADS=1
     MUJOCO_GL=egl CUDA_VISIBLE_DEVICES=1 $PY -m world_model.v2.house.teleop.web.server --scene h5 --task carry --shield
-    # laptop:  ssh -L 8765:localhost:8765 westeros.cs.rutgers.edu   then open the URL (with ?token=...) the server prints.
+    # laptop:  ssh -L 8765:localhost:8765 <server>   then open the URL (with ?token=...) the server prints.
 
 Threads: the asyncio loop only does websocket I/O; the SIM THREAD owns MuJoCo: 50 Hz tick = hub.step -> shield -> sim.tick.  Rendering + JPEG
 encode (--fps) run in a separate PROCESS (--render-mode process, default; render_proc.py: shared-memory state snapshot, own EGL context) so they

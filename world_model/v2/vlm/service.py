@@ -1,13 +1,13 @@
-"""vlm/service.py -- westeros-side client of the long-lived VLM daemon (vlm/daemon.py on ilab3). stdlib only; file queue on NFS.
+"""vlm/service.py -- workstation-side client of the long-lived VLM daemon (vlm/daemon.py on a cluster GPU node). stdlib only; file queue on NFS.
 
     from world_model.v2.vlm import service as VS
     VS.status()                      # heartbeat dict + 'age_s' + 'up'
     out = VS.ask("Describe the scene.", images=["/path/a.png"], max_new_tokens=256)   # -> runner output dict ('texts', 'seconds', ...)
 
-Images are copied into <SVC>/img/ (NFS, readable on ilab3). Start / stop the daemon with:
-    ssh rlab1 "cd <repo> && sbatch world_model/v2/vlm/slurm/daemon.sbatch"     # MODEL=... via --export
+Images are copied into <SVC>/img/ (NFS, readable on the daemon node). Start / stop the daemon with:
+    ssh <slurm-login> "cd <repo> && sbatch world_model/v2/vlm/slurm/daemon.sbatch"     # MODEL=... via --export
     python -m world_model.v2.vlm.service stop
-APPROVAL SCOPE (user, 2026-10-12): ilab3 1 GPU via rlab1 Slurm, offline weights, no hosted APIs, no robot.
+APPROVAL SCOPE (user, 2026-10-12): 1 cluster GPU via Slurm, offline weights, no hosted APIs, no robot.
 """
 import json, os, shutil, sys, time, uuid
 from pathlib import Path
