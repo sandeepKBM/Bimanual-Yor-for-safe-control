@@ -325,7 +325,7 @@ def main(argv=None):
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--procs", type=int, default=4)
     ap.add_argument("--calib", default=CALIB, help="default: the CALIB of the active probe method")
-    ap.add_argument("--probe-method", choices=("poslift", "ladder"), default=None, help="default: env BIMANUAL_PROBE, else poslift")
+    ap.add_argument("--probe-method", choices=("poslift", "ladder", "poslift_ff", "claw_guard"), default=None, help="default: env BIMANUAL_PROBE, else claw_guard (USER 11-13)")
     ap.add_argument("--planner", choices=("scripted", "closed_chain"), default=None,
                     help="plan BOTH methods execute and are admitted on (carry.resolve_planner; default = env BIMANUAL_PLANNER, else scripted = the legacy PLANS)")
     ap.add_argument("--plan-source", choices=("fixture", "codex"), default="fixture",

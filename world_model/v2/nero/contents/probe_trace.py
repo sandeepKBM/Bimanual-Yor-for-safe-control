@@ -46,7 +46,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--records", required=True)
     ap.add_argument("--calib", required=True, help="CALIB.json of the SAME method as --method (eps must match the method)")
-    ap.add_argument("--method", choices=PR.METHODS, default=None, help="probe method (default: env BIMANUAL_PROBE, else poslift)")
+    ap.add_argument("--method", choices=PR.METHODS, default=None, help="probe method (default: env BIMANUAL_PROBE, else claw_guard)")
     ap.add_argument("--procs", type=int, default=3)
     ap.add_argument("--out", required=True)
     ap.add_argument("--ceilings-only", action="store_true")

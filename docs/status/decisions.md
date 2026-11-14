@@ -20,6 +20,7 @@ Earlier rulings (before 10-15) are history in `docs/design/MASTER.md`.
 
 | Date | Ruling | Source |
 |---|---|---|
+| 11-13 | **Probe default = `claw_guard`** ("use claw_guard as the probe default"), chosen on the probe-only comparison (n = 20 per cell: truth in Theta 20/20 every cell, 0 probe U; refused although the true mass admits: box_behind 0, tray6_behind 0, against `poslift` 5 and 20). `BIMANUAL_PROBE=poslift` restores the 11-09 default; calibration copied to `nero/results/probe_calib_claw_guard_2026-11-12/`. | `reports/2026-11-13_fixnow/F6_analyses.md` |
 | 11-12 | Probe fix: use `poslift_ff` values DM_FINE 0.1 kg, FF_FREE_RATIO 0.2, FF_T_HOLD 1.2 s and `claw_guard` EPS_CLAW / K_STEP_CLAW from its calibration ("use them"); also sweep the values to find the best (DM_FINE 0.05/0.1/0.2 x hold 0.6/1.2 s). | `bimanual_data/contents/probe_fix_2026-11-12/` |
 | 11-12 | Proposer: add a Sonnet backend (`claude:claude-sonnet-5-5:high`, Claude Code CLI) and compare with Codex; run stage 2 (full table-behind carries with Sonnet). The account e-mail in the CLI's context is acceptable. | branch `sonnet-proposer`; `run_n20_sonnet/` |
 | 11-12 | The proposer must be sent images (rendered scene views), for every backend. | branch `proposer-images` |

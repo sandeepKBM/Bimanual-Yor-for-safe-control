@@ -47,10 +47,10 @@ def test_ladder_bounds_contain_truth_and_stay_sound(probe_box):
 
 
 def test_poslift_light_pot_goes_free_truth_inside():
-    """poslift (default method, user 11-09): a light pot world hangs free within Z_MAX and the set contains the truth."""
+    """poslift (option A, user 11-09; default until 11-13, now explicit): a light pot world hangs free within Z_MAX and the set contains the truth."""
     w = CC.sample_world("pot", (0.1, 0.1001), np.random.default_rng(5))
     ep = PR._episode(w)
-    pr = PR.make_probe(ep, "pot", eps_lo=0.0766, eps_free=0.0316, noise=False)
+    pr = PR.make_probe(ep, "pot", eps_lo=0.0766, eps_free=0.0316, noise=False, method="poslift")
     assert PR.method_of(pr) == "poslift" and type(pr) is PR.PosLiftProbe
     M = PR.true_mass(ep)
     pr.M_lo = PR.empty_mass("pot")
@@ -124,3 +124,12 @@ def test_free_needs_flat_travel_not_flat_rungs():
     assert free
     f, free = PR.flat_update(f, 0.2, PR.DZ)                          # a moving rung resets
     assert f == 0.0 and not free
+
+
+def test_default_method_is_claw_guard():
+    """USER 11-13: claw_guard is the default probe method (env BIMANUAL_PROBE unset); its calibration is the repo copy."""
+    import os
+    if os.environ.get("BIMANUAL_PROBE"):
+        pytest.skip("BIMANUAL_PROBE is set in this environment")
+    assert PR.PROBE_METHOD == "claw_guard"
+    assert PR.default_calib().endswith("probe_calib_claw_guard_2026-11-12/CALIB.json") and os.path.exists(PR.default_calib())

@@ -1,0 +1,173 @@
+{
+ "per_task": {
+  "box": {
+   "n": 20,
+   "n_free": 11,
+   "n_error": 0,
+   "free_res_max_abs": 0.0036,
+   "free_res_p50": 0.0015,
+   "on_res_max": 0.0542,
+   "n_viol": 0,
+   "rise_mm_max": 5.64,
+   "tilt_max": 1.32,
+   "spill_max": 0.0,
+   "not_free": [
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible",
+    "rung_not_admissible"
+   ]
+  },
+  "pot": {
+   "n": 20,
+   "n_free": 20,
+   "n_error": 0,
+   "free_res_max_abs": 0.0061,
+   "free_res_p50": 0.0027,
+   "on_res_max": 0.0303,
+   "n_viol": 0,
+   "rise_mm_max": 5.58,
+   "tilt_max": 0.56,
+   "spill_max": 0.0,
+   "not_free": []
+  },
+  "tray6": {
+   "n": 20,
+   "n_free": 20,
+   "n_error": 0,
+   "free_res_max_abs": 0.0016,
+   "free_res_p50": 0.0008,
+   "on_res_max": 0.0413,
+   "n_viol": 0,
+   "rise_mm_max": 5.48,
+   "tilt_max": 0.75,
+   "spill_max": 0.021,
+   "not_free": []
+  }
+ },
+ "eps": {
+  "EPS_FREE": 0.0061,
+  "EPS_LO": 0.0542,
+  "label": "MEASURED: max over n calibration worlds (noise-free reads; the ASSUMED torque-noise bound is added per read)"
+ },
+ "method": "claw_guard",
+ "variant": "claw_guard",
+ "date": "2026-11-12",
+ "n_per_task": 20,
+ "wall_s": 1652,
+ "assumptions": {
+  "DZ": "0.001 m ASSUMED, USER-approved 11-09",
+  "Z_MAX": "0.02 m ASSUMED, USER-approved 11-09",
+  "FREE_TOL": "0.05 kg ASSUMED, USER-approved 11-09",
+  "T_MOVE": "0.3 s design",
+  "T_HOLD_POSLIFT": "1.2 s ASSUMED",
+  "T_REBASE": "0.1 s ASSUMED",
+  "N_FREE_CONFIRM": "2 ASSUMED, USER-approved 11-09",
+  "physics": "tracker = carry.LeverCtl (FL-MPC, pre-11-07, the existing tracker); U includes the per-claw payload row (strict_claw); claw rise = encoders+FK, object rise = sim truth, peak_u = sim-truth weld wrench / F_cap",
+  "probe_method": "claw_guard",
+  "DM": "0.25 kg ASSUMED push step",
+  "O_MAX": "1.0 kg ASSUMED max push above the lower bound",
+  "FREE_RATIO": "0.2 ASSUMED free test (one rung)",
+  "TAU_NOISE": "+-0.05 Nm/joint ASSUMED uniform",
+  "grasp": "ASSUMED rigid weld (user 11-01), stiff solref (0.004, 1)",
+  "controller": "LeverCtl + FRIC_COMP (ASSUMED gains)",
+  "rows": "arm-side static rows (user 11-02 pm), U_ADMIT 1.0 MODEL (rated limits, USER 11-09)",
+  "worlds": "uniform on the full prior per task",
+  "T_HOLD": "1.2 s ASSUMED, USER-approved 11-09",
+  "tracker": "carry.LeverCtl (FL-MPC, pre-11-07)",
+  "DZ_MIN": "0.0001 m ASSUMED, USER-approved 11-09",
+  "K_STEP": "MEASURED 7.104 kg/mm, CALIB K_STEP (adaptive step dz = min(DZ, H/K_STEP))",
+  "free_test": "rate |dL|/dz < FREE_TOL/DZ",
+  "DL_STEP_MAX": "MEASURED, CALIB.json DL_STEP_MAX (pre-check of the next height step, fixed-step probe only); guard: u(read L) > U_ADMIT (1.0 MODEL: rated limits, USER 11-09)",
+  "U_ADMIT": "1.0 MODEL (rated limits, USER 11-09)",
+  "claw_cap": "MODEL: per-claw F_cap / g of the static rows ((3 kg NERO payload rating, MEASURED-spec) - gripper mass)",
+  "EPS_CLAW": "ASSUMED = eps_lo until the claw_guard calibration MEASURES the per-claw read residual",
+  "K_STEP_CLAW": "pooled total K_STEP; transfer to per-claw ASSUMED until MEASURED",
+  "torque_rows": "MODEL: joint-torque rows kept at the worst COM (rung_tau_u)",
+  "split": "MODEL lever rule on the per-claw reads; interval from EPS_CLAW + per-claw noise bound (ASSUMED TAU_NOISE); the arms' load split, not the COM"
+ },
+ "dL": {
+  "dL_flat_max": 0.0024,
+  "dL_moving_min": 0.0,
+  "dL_moving_p10": 0.0006,
+  "n_flat": 51,
+  "n_moving": 1455
+ },
+ "JUMP": {
+  "box": {
+   "value": 0.461,
+   "n": 487,
+   "p95": 0.3549
+  },
+  "pot": {
+   "value": 0.237,
+   "n": 358,
+   "p95": 0.1642
+  },
+  "tray6": {
+   "value": 0.4113,
+   "n": 661,
+   "p95": 0.3557
+  }
+ },
+ "worlds": "probe._seed('calib', task, i), i < n (= kstep_calib_2026-11-09 worlds)",
+ "K_STEP": {
+  "value": 4.0722,
+  "n": 763,
+  "unit": "kg/mm",
+  "label": "MEASURED: max per-rung dL/dz over rungs with L < M_true - 0.05 (still on the counter), tasks pooled (box 4.072 n=315, pot 0.9543 n=171, tray6 2.322 n=277); by step size (dz 0.10005 mm: 0.09895 n=1, dz 0.10006 mm: 0.1609 n=1, dz 0.10083 mm: 0.1071 n=1, dz 0.10175 mm: 0.1199 n=1, dz 0.10229 mm: 0.656 n=1, dz 0.10284 mm: 0.1352 n=1, dz 0.10296 mm: 0.3963 n=1, dz 0.1041 mm: 0.1508 n=1, dz 0.10533 mm: 1.045 n=1, dz 0.1055 mm: 0.1659 n=1, dz 0.1065 mm: 1.072 n=1, dz 0.10662 mm: 2.426 n=1, dz 0.10704 mm: 0.1822 n=1, dz 0.10879 mm: 0.2041 n=1, dz 0.10882 mm: 0.7388 n=1, dz 0.10899 mm: 0.9065 n=1, dz 0.11067 mm: 0.2268 n=1, dz 0.11102 mm: 4.072 n=1, dz 0.112 mm: 2.971 n=1, dz 0.11205 mm: 0.2454 n=1, dz 0.11348 mm: 0.2423 n=1, dz 0.11396 mm: 1.075 n=1, dz 0.11517 mm: 0.2483 n=1, dz 0.11756 mm: 0.9663 n=1, dz 0.11771 mm: 1.029 n=1, dz 0.11782 mm: 0.3013 n=1, dz 0.11801 mm: 1.11 n=1, dz 0.12112 mm: 1.966 n=1, dz 0.12264 mm: 0.4371 n=1, dz 0.12311 mm: 1.05 n=1, dz 0.12688 mm: 1.009 n=1, dz 0.12712 mm: 1.003 n=1, dz 0.12954 mm: 1.159 n=1, dz 0.13054 mm: 0.632 n=1, dz 0.13296 mm: 1.051 n=1, dz 0.13551 mm: 0.7844 n=1, dz 0.13628 mm: 0.9613 n=1, dz 0.13663 mm: 2.306 n=1, dz 0.13714 mm: 1.001 n=1, dz 0.14039 mm: 0.7679 n=1, dz 0.14165 mm: 1.1 n=1, dz 0.14262 mm: 3.232 n=1, dz 0.1436 mm: 1.064 n=1, dz 0.14577 mm: 0.9158 n=2, dz 0.1458 mm: 1.814 n=1, dz 0.14643 mm: 2.639 n=1, dz 0.14785 mm: 1.017 n=1, dz 0.14807 mm: 2.009 n=1, dz 0.14809 mm: 1.833 n=1, dz 0.15116 mm: 0.7588 n=1, dz 0.15281 mm: 1.203 n=1, dz 0.15289 mm: 1.328 n=1, dz 0.15319 mm: 0.974 n=1, dz 0.15423 mm: 1.013 n=1, dz 0.15545 mm: 0.7945 n=1, dz 0.15567 mm: 0.8987 n=1, dz 0.15582 mm: 0.9158 n=1, dz 0.15611 mm: 0.695 n=1, dz 0.15863 mm: 0.9803 n=1, dz 0.15873 mm: 0.7522 n=1, dz 0.15892 mm: 1.012 n=1, dz 0.15929 mm: 0.7508 n=1, dz 0.16177 mm: 0.8333 n=1, dz 0.16247 mm: 0.8715 n=1, dz 0.16357 mm: 0.7037 n=1, dz 0.16429 mm: 0.9002 n=1, dz 0.16483 mm: 0.9816 n=1, dz 0.1668 mm: 0.9251 n=1, dz 0.16825 mm: 0.7798 n=1, dz 0.16872 mm: 0.8049 n=1, dz 0.16884 mm: 0.8801 n=1, dz 0.16899 mm: 0.8071 n=1, dz 0.1691 mm: 0.7883 n=1, dz 0.16918 mm: 0.7406 n=1, dz 0.17025 mm: 2.091 n=1, dz 0.17135 mm: 0.6064 n=1, dz 0.17221 mm: 2.553 n=1, dz 0.17269 mm: 0.8553 n=1, dz 0.17312 mm: 0.744 n=1, dz 0.17322 mm: 0.7499 n=1, dz 0.1741 mm: 2.602 n=1, dz 0.17429 mm: 2.313 n=1, dz 0.17575 mm: 0.899 n=1, dz 0.17644 mm: 2.274 n=1, dz 0.17648 mm: 1.418 n=1, dz 0.17713 mm: 2.322 n=1, dz 0.17724 mm: 2.284 n=2, dz 0.17728 mm: 0.6837 n=1, dz 0.17777 mm: 1.961 n=1, dz 0.17779 mm: 0.6952 n=1, dz 0.17807 mm: 2.345 n=1, dz 0.1781 mm: 0.8703 n=1, dz 0.17817 mm: 1.851 n=1, dz 0.17918 mm: 1.644 n=1, dz 0.17924 mm: 1.999 n=1, dz 0.18001 mm: 0.8588 n=1, dz 0.18011 mm: 1.473 n=1, dz 0.18066 mm: 0.6139 n=1, dz 0.18074 mm: 1.555 n=1, dz 0.18103 mm: 1.32 n=1, dz 0.18109 mm: 0.7129 n=1, dz 0.18185 mm: 0.6665 n=1, dz 0.18325 mm: 0.7978 n=1, dz 0.18378 mm: 1.277 n=1, dz 0.18401 mm: 0.6304 n=1, dz 0.18404 mm: 1.282 n=1, dz 0.18435 mm: 1.327 n=1, dz 0.18707 mm: 1.122 n=1, dz 0.18851 mm: 0.7559 n=1, dz 0.1895 mm: 0.9852 n=1, dz 0.18955 mm: 0.9586 n=1, dz 0.18993 mm: 1.155 n=1, dz 0.1923 mm: 0.8362 n=1, dz 0.19282 mm: 1.18 n=1, dz 0.19326 mm: 0.7141 n=1, dz 0.19373 mm: 0.765 n=1, dz 0.19374 mm: 0.8579 n=1, dz 0.19393 mm: 0.7745 n=1, dz 0.19601 mm: 1.088 n=1, dz 0.19873 mm: 0.7503 n=1, dz 0.20234 mm: 2.107 n=1, dz 0.20341 mm: 2.028 n=1, dz 0.20419 mm: 1.862 n=1, dz 0.20428 mm: 2.104 n=1, dz 0.20444 mm: 1.821 n=1, dz 0.20492 mm: 1.953 n=1, dz 0.20514 mm: 0.7624 n=1, dz 0.20539 mm: 2.027 n=1, dz 0.20542 mm: 1.954 n=1, dz 0.20554 mm: 1.896 n=1, dz 0.20584 mm: 1.923 n=1, dz 0.20604 mm: 1.704 n=1, dz 0.20605 mm: 1.91 n=1, dz 0.20679 mm: 1.887 n=1, dz 0.20684 mm: 1.907 n=1, dz 0.20692 mm: 1.866 n=1, dz 0.20746 mm: 1.865 n=1, dz 0.20784 mm: 1.961 n=1, dz 0.20786 mm: 1.864 n=1, dz 0.20867 mm: 1.737 n=1, dz 0.20882 mm: 1.738 n=1, dz 0.20932 mm: 1.776 n=1, dz 0.20953 mm: 1.597 n=1, dz 0.20962 mm: 1.534 n=1, dz 0.20976 mm: 1.436 n=1, dz 0.20999 mm: 1.468 n=1, dz 0.21032 mm: 1.298 n=2, dz 0.21069 mm: 1.224 n=1, dz 0.21308 mm: 1.298 n=1, dz 0.21315 mm: 1.023 n=1, dz 0.21676 mm: 1.52 n=1, dz 0.21685 mm: 1.505 n=1, dz 0.21867 mm: 1.404 n=1, dz 0.22243 mm: 1.028 n=1, dz 0.23046 mm: 1.723 n=1, dz 0.23094 mm: 1.684 n=1, dz 0.23155 mm: 1.621 n=1, dz 0.23171 mm: 1.621 n=1, dz 0.23204 mm: 1.622 n=1, dz 0.23211 mm: 1.599 n=1, dz 0.23218 mm: 1.702 n=1, dz 0.2323 mm: 1.643 n=2, dz 0.2324 mm: 1.595 n=1, dz 0.23256 mm: 1.601 n=1, dz 0.23263 mm: 1.68 n=1, dz 0.2329 mm: 1.581 n=1, dz 0.23292 mm: 1.595 n=1, dz 0.23293 mm: 1.574 n=1, dz 0.23333 mm: 1.569 n=1, dz 0.23359 mm: 1.567 n=1, dz 0.23417 mm: 1.375 n=1, dz 0.23418 mm: 1.55 n=1, dz 0.23429 mm: 1.549 n=1, dz 0.23462 mm: 1.545 n=1, dz 0.23478 mm: 1.534 n=1, dz 0.23481 mm: 1.527 n=1, dz 0.23494 mm: 1.523 n=1, dz 0.23507 mm: 1.614 n=1, dz 0.23509 mm: 1.522 n=1, dz 0.23522 mm: 1.354 n=1, dz 0.23536 mm: 1.511 n=1, dz 0.23555 mm: 1.502 n=1, dz 0.23652 mm: 1.46 n=1, dz 0.24089 mm: 1.427 n=1, dz 0.24128 mm: 1.434 n=1, dz 0.24271 mm: 1.379 n=1, dz 0.24475 mm: 0.5393 n=1, dz 0.24484 mm: 1.24 n=1, dz 0.24562 mm: 0.4739 n=1, dz 0.2472 mm: 0.9543 n=1, dz 0.24963 mm: 0.6093 n=1, dz 0.25034 mm: 0.4622 n=1, dz 0.25051 mm: 0.6826 n=1, dz 0.25467 mm: 0.5093 n=1, dz 0.25576 mm: 1.393 n=1, dz 0.25595 mm: 1.377 n=2, dz 0.25615 mm: 1.327 n=1, dz 0.25619 mm: 1.312 n=1, dz 0.25629 mm: 1.342 n=1, dz 0.2563 mm: 1.315 n=1, dz 0.25636 mm: 1.312 n=1, dz 0.25641 mm: 0.5686 n=1, dz 0.25666 mm: 1.3 n=1, dz 0.25667 mm: 1.304 n=1, dz 0.25668 mm: 1.312 n=1, dz 0.25694 mm: 1.331 n=2, dz 0.2571 mm: 1.296 n=1, dz 0.25716 mm: 1.37 n=1, dz 0.25725 mm: 1.363 n=1, dz 0.25744 mm: 1.337 n=1, dz 0.25751 mm: 1.283 n=1, dz 0.25759 mm: 1.283 n=1, dz 0.25778 mm: 1.281 n=1, dz 0.25789 mm: 1.27 n=1, dz 0.25791 mm: 1.273 n=1, dz 0.25792 mm: 1.262 n=1, dz 0.25801 mm: 1.265 n=1, dz 0.2581 mm: 1.265 n=1, dz 0.2583 mm: 1.257 n=1, dz 0.25841 mm: 1.252 n=1, dz 0.25852 mm: 1.276 n=1, dz 0.25914 mm: 1.248 n=1, dz 0.25942 mm: 1.311 n=1, dz 0.25961 mm: 0.4642 n=1, dz 0.26013 mm: 0.5397 n=1, dz 0.26286 mm: 1.226 n=1, dz 0.26322 mm: 0.4631 n=1, dz 0.26388 mm: 1.251 n=1, dz 0.26414 mm: 1.19 n=1, dz 0.26471 mm: 0.8564 n=1, dz 0.26472 mm: 0.8953 n=1, dz 0.26606 mm: 0.707 n=1, dz 0.26634 mm: 1.101 n=1, dz 0.26977 mm: 0.605 n=1, dz 0.27064 mm: 0.5313 n=1, dz 0.27079 mm: 0.401 n=1, dz 0.2718 mm: 0.6405 n=1, dz 0.27504 mm: 0.385 n=1, dz 0.27661 mm: 0.8178 n=1, dz 0.27702 mm: 1.064 n=1, dz 0.27711 mm: 0.3381 n=1, dz 0.27715 mm: 1.065 n=1, dz 0.27717 mm: 1.056 n=1, dz 0.27724 mm: 1.058 n=1, dz 0.27727 mm: 1.056 n=1, dz 0.27745 mm: 1.05 n=1, dz 0.27746 mm: 1.052 n=1, dz 0.27747 mm: 1.057 n=1, dz 0.27763 mm: 1.047 n=1, dz 0.27771 mm: 1.111 n=1, dz 0.27772 mm: 1.048 n=1, dz 0.27777 mm: 1.103 n=1, dz 0.27796 mm: 1.084 n=1, dz 0.278 mm: 1.04 n=1, dz 0.27806 mm: 1.039 n=1, dz 0.27816 mm: 1.039 n=1, dz 0.27822 mm: 1.032 n=1, dz 0.27826 mm: 1.034 n=1, dz 0.2783 mm: 0.406 n=1, dz 0.27831 mm: 1.029 n=1, dz 0.27837 mm: 1.029 n=1, dz 0.2784 mm: 1.078 n=1, dz 0.27851 mm: 1.023 n=1, dz 0.27857 mm: 1.02 n=1, dz 0.27871 mm: 1.089 n=1, dz 0.27878 mm: 1.089 n=1, dz 0.27894 mm: 1.046 n=1, dz 0.2791 mm: 1.016 n=1, dz 0.27913 mm: 1.071 n=1, dz 0.27925 mm: 1.047 n=1, dz 0.2802 mm: 0.7662 n=1, dz 0.28047 mm: 1.051 n=1, dz 0.28155 mm: 0.6784 n=1, dz 0.28219 mm: 0.904 n=1, dz 0.28251 mm: 1.007 n=1, dz 0.28263 mm: 0.9854 n=1, dz 0.28281 mm: 0.9391 n=1, dz 0.28295 mm: 0.3722 n=1, dz 0.28343 mm: 0.5885 n=1, dz 0.2836 mm: 0.6079 n=1, dz 0.28394 mm: 1.016 n=1, dz 0.285 mm: 0.9333 n=1, dz 0.28512 mm: 0.6632 n=1, dz 0.28513 mm: 0.3079 n=1, dz 0.28833 mm: 0.5293 n=1, dz 0.29082 mm: 0.6788 n=1, dz 0.29114 mm: 0.6313 n=1, dz 0.2919 mm: 0.3902 n=1, dz 0.29259 mm: 0.2744 n=1, dz 0.29396 mm: 0.6239 n=1, dz 0.29452 mm: 0.8308 n=1, dz 0.29461 mm: 0.8309 n=1, dz 0.29462 mm: 0.8255 n=1, dz 0.29467 mm: 0.8274 n=1, dz 0.29469 mm: 0.8263 n=1, dz 0.2948 mm: 0.8233 n=1, dz 0.29481 mm: 0.8239 n=1, dz 0.29482 mm: 0.8269 n=1, dz 0.29492 mm: 0.8212 n=1, dz 0.29497 mm: 0.8218 n=1, dz 0.29516 mm: 0.8168 n=1, dz 0.29519 mm: 0.8164 n=1, dz 0.29525 mm: 0.8166 n=1, dz 0.29528 mm: 0.8128 n=1, dz 0.29529 mm: 0.5479 n=1, dz 0.29532 mm: 0.813 n=1, dz 0.29535 mm: 0.8102 n=1, dz 0.29538 mm: 0.8105 n=1, dz 0.29544 mm: 0.6072 n=1, dz 0.29547 mm: 0.8065 n=1, dz 0.2955 mm: 0.8047 n=1, dz 0.29588 mm: 0.802 n=1, dz 0.29598 mm: 0.8615 n=1, dz 0.29599 mm: 0.8646 n=1, dz 0.29608 mm: 0.8504 n=1, dz 0.29627 mm: 0.5603 n=1, dz 0.29639 mm: 0.8465 n=1, dz 0.29664 mm: 0.8485 n=1, dz 0.29667 mm: 0.8272 n=1, dz 0.29675 mm: 0.8455 n=1, dz 0.29684 mm: 0.8318 n=1, dz 0.29689 mm: 0.5521 n=1, dz 0.29697 mm: 0.4637 n=1, dz 0.29711 mm: 0.8364 n=1, dz 0.29797 mm: 0.8222 n=1, dz 0.29848 mm: 0.7434 n=1, dz 0.29866 mm: 0.7704 n=1, dz 0.29918 mm: 0.7751 n=1, dz 0.29923 mm: 0.7449 n=1, dz 0.29945 mm: 0.2962 n=1, dz 0.30015 mm: 0.7196 n=1, dz 0.30055 mm: 0.7563 n=1, dz 0.30071 mm: 0.7938 n=1, dz 0.30157 mm: 0.4039 n=1, dz 0.30158 mm: 0.6429 n=1, dz 0.30246 mm: 0.5389 n=1, dz 0.30257 mm: 0.504 n=1, dz 0.305 mm: 0.4443 n=1, dz 0.30522 mm: 0.4964 n=1, dz 0.3058 mm: 0.4438 n=1, dz 0.30621 mm: 0.4265 n=1, dz 0.30626 mm: 0.4349 n=1, dz 0.30634 mm: 0.5034 n=1, dz 0.3067 mm: 0.4649 n=1, dz 0.30799 mm: 0.3588 n=1, dz 0.30828 mm: 0.6166 n=1, dz 0.30833 mm: 0.6133 n=1, dz 0.30834 mm: 0.6165 n=1, dz 0.30837 mm: 0.6142 n=1, dz 0.30838 mm: 0.6139 n=1, dz 0.30845 mm: 0.6118 n=1, dz 0.30846 mm: 0.6121 n=1, dz 0.30848 mm: 0.614 n=1, dz 0.30853 mm: 0.6106 n=1, dz 0.30857 mm: 0.6112 n=1, dz 0.30868 mm: 0.6077 n=1, dz 0.3087 mm: 0.6077 n=1, dz 0.30874 mm: 0.608 n=2, dz 0.30878 mm: 0.6056 n=1, dz 0.30879 mm: 0.604 n=1, dz 0.30881 mm: 0.6039 n=1, dz 0.30886 mm: 0.6012 n=1, dz 0.30887 mm: 0.6006 n=1, dz 0.30913 mm: 0.5981 n=1, dz 0.3102 mm: 0.3678 n=1, dz 0.31029 mm: 0.6384 n=1, dz 0.31032 mm: 0.6397 n=1, dz 0.31033 mm: 0.6319 n=1, dz 0.31055 mm: 0.6295 n=1, dz 0.31066 mm: 0.6164 n=1, dz 0.31072 mm: 0.6273 n=1, dz 0.31077 mm: 0.622 n=1, dz 0.31081 mm: 0.6235 n=1, dz 0.31111 mm: 0.6184 n=1, dz 0.31124 mm: 0.3717 n=1, dz 0.31133 mm: 0.398 n=1, dz 0.31163 mm: 0.6097 n=1, dz 0.31174 mm: 0.383 n=1, dz 0.31178 mm: 0.5809 n=1, dz 0.31185 mm: 0.6057 n=1, dz 0.31217 mm: 0.584 n=1, dz 0.3124 mm: 0.5964 n=1, dz 0.31254 mm: 0.3324 n=1, dz 0.31256 mm: 0.2592 n=1, dz 0.31271 mm: 0.5567 n=1, dz 0.31291 mm: 0.573 n=1, dz 0.313 mm: 0.5275 n=1, dz 0.31349 mm: 0.3244 n=1, dz 0.31357 mm: 0.5801 n=2, dz 0.31362 mm: 0.3667 n=1, dz 0.31376 mm: 0.3391 n=1, dz 0.31378 mm: 0.5415 n=1, dz 0.31423 mm: 0.3622 n=1, dz 0.31443 mm: 0.3467 n=1, dz 0.31477 mm: 0.1998 n=1, dz 0.31614 mm: 0.2338 n=1, dz 0.3166 mm: 0.2776 n=1, dz 0.3168 mm: 0.2345 n=1, dz 0.31719 mm: 0.256 n=1, dz 0.31729 mm: 0.4066 n=1, dz 0.31736 mm: 0.2489 n=1, dz 0.31745 mm: 0.206 n=1, dz 0.31758 mm: 0.2236 n=1, dz 0.31781 mm: 0.2234 n=1, dz 0.318 mm: 0.4167 n=1, dz 0.31802 mm: 0.4144 n=1, dz 0.31805 mm: 0.4166 n=2, dz 0.31806 mm: 0.415 n=1, dz 0.3181 mm: 0.4137 n=1, dz 0.31811 mm: 0.4137 n=1, dz 0.31813 mm: 0.4152 n=1, dz 0.31815 mm: 0.413 n=1, dz 0.31817 mm: 0.1644 n=1, dz 0.31818 mm: 0.4133 n=1, dz 0.31824 mm: 0.4113 n=1, dz 0.31826 mm: 0.411 n=1, dz 0.31828 mm: 0.41 n=2, dz 0.31829 mm: 0.4113 n=2, dz 0.3183 mm: 0.4097 n=2, dz 0.31832 mm: 0.409 n=1, dz 0.31833 mm: 0.4074 n=1, dz 0.31834 mm: 0.4068 n=1, dz 0.31851 mm: 0.405 n=1, dz 0.31858 mm: 0.2247 n=1, dz 0.31879 mm: 0.2161 n=1, dz 0.31886 mm: 0.2161 n=1, dz 0.31888 mm: 0.2308 n=1, dz 0.31896 mm: 0.1245 n=1, dz 0.3191 mm: 0.2125 n=1, dz 0.31952 mm: 0.1521 n=1, dz 0.32022 mm: 0.163 n=1, dz 0.32037 mm: 0.1414 n=1, dz 0.32047 mm: 0.1064 n=1, dz 0.32051 mm: 0.4365 n=3, dz 0.32054 mm: 0.4368 n=1, dz 0.32067 mm: 0.431 n=2, dz 0.32074 mm: 0.1459 n=1, dz 0.32077 mm: 0.4277 n=1, dz 0.32078 mm: 0.428 n=1, dz 0.3208 mm: 0.4243 n=1, dz 0.32083 mm: 0.1452 n=1, dz 0.32089 mm: 0.1356 n=1, dz 0.32093 mm: 0.1159 n=1, dz 0.32103 mm: 0.4215 n=1, dz 0.32118 mm: 0.1174 n=1, dz 0.32124 mm: 0.4019 n=1, dz 0.32132 mm: 0.1404 n=1, dz 0.32136 mm: 0.4167 n=1, dz 0.32137 mm: 0.1326 n=1, dz 0.32143 mm: 0.416 n=1, dz 0.32149 mm: 0.1297 n=1, dz 0.32154 mm: 0.404 n=1, dz 0.3216 mm: 0.1051 n=1, dz 0.32177 mm: 0.3851 n=1, dz 0.32178 mm: 0.4087 n=1, dz 0.32187 mm: 0.142 n=1, dz 0.3219 mm: 0.3778 n=2, dz 0.32191 mm: 0.361 n=1, dz 0.322 mm: 0.1404 n=1, dz 0.32206 mm: 0.1416 n=1, dz 0.32209 mm: 0.1388 n=2, dz 0.3221 mm: 0.3996 n=1, dz 0.32249 mm: 0.3721 n=1, dz 0.32266 mm: 0.09701 n=1, dz 0.32298 mm: 0.1254 n=1, dz 0.32304 mm: 0.1099 n=1, dz 0.3235 mm: 0.0949 n=1, dz 0.32367 mm: 0.1257 n=1, dz 0.32382 mm: 0.2387 n=2, dz 0.32385 mm: 0.2375 n=2, dz 0.32386 mm: 0.2387 n=1, dz 0.32387 mm: 0.2368 n=1, dz 0.32388 mm: 0.2368 n=1, dz 0.32391 mm: 0.2362 n=1, dz 0.32392 mm: 0.2377 n=1, dz 0.32393 mm: 0.1232 n=1, dz 0.32394 mm: 0.2365 n=1, dz 0.32396 mm: 0.2349 n=1, dz 0.32398 mm: 0.2349 n=2, dz 0.32399 mm: 0.2333 n=1, dz 0.324 mm: 0.2352 n=5, dz 0.32404 mm: 0.1296 n=1, dz 0.32405 mm: 0.1207 n=1, dz 0.32406 mm: 0.3138 n=1, dz 0.32411 mm: 0.2311 n=1, dz 0.32416 mm: 0.1305 n=1, dz 0.32456 mm: 0.1211 n=2, dz 0.32457 mm: 0.1297 n=1, dz 0.32468 mm: 0.1241 n=1, dz 0.3247 mm: 0.129 n=1, dz 0.32471 mm: 0.1244 n=2, dz 0.32475 mm: 0.1216 n=1, dz 0.32499 mm: 0.1197 n=1, dz 0.32507 mm: 0.1077 n=1, dz 0.32519 mm: 0.1261 n=1, dz 0.32543 mm: 0.1134 n=1, dz 0.3255 mm: 0.1084 n=1, dz 0.32585 mm: 0.09268 n=1, dz 0.3265 mm: 0.1044 n=1, dz 0.32663 mm: 0.1056 n=1, dz 0.32678 mm: 0.1007 n=1, dz 0.32679 mm: 0.09762 n=1, dz 0.3268 mm: 0.2564 n=1, dz 0.32684 mm: 0.2588 n=2, dz 0.32686 mm: 0.2585 n=2, dz 0.32687 mm: 0.1074 n=1, dz 0.32691 mm: 0.1031 n=1, dz 0.32693 mm: 0.2554 n=1, dz 0.32694 mm: 0.2493 n=1, dz 0.32696 mm: 0.2535 n=1, dz 0.32698 mm: 0.2526 n=2, dz 0.32706 mm: 0.1095 n=1, dz 0.32707 mm: 0.2373 n=1, dz 0.32709 mm: 0.2476 n=1, dz 0.32728 mm: 0.1042 n=1, dz 0.3273 mm: 0.103 n=2, dz 0.32731 mm: 0.245 n=1, dz 0.32732 mm: 0.2258 n=1, dz 0.32734 mm: 0.2456 n=3, dz 0.32738 mm: 0.1127 n=1, dz 0.32744 mm: 0.2144 n=2, dz 0.32745 mm: 0.1405 n=1, dz 0.32746 mm: 0.1408 n=1, dz 0.32747 mm: 0.109 n=1, dz 0.32748 mm: 0.1405 n=2, dz 0.32749 mm: 0.1408 n=2, dz 0.3275 mm: 0.1405 n=1, dz 0.32752 mm: 0.1404 n=1, dz 0.32753 mm: 0.2403 n=2, dz 0.32754 mm: 0.1404 n=1, dz 0.32757 mm: 0.1401 n=2, dz 0.32758 mm: 0.1401 n=2, dz 0.32759 mm: 0.1398 n=4, dz 0.3276 mm: 0.1401 n=1, dz 0.32766 mm: 0.09492 n=1, dz 0.32768 mm: 0.2332 n=3, dz 0.3277 mm: 0.1004 n=1, dz 0.32775 mm: 0.2154 n=1, dz 0.32806 mm: 0.08444 n=1, dz 0.32836 mm: 0.1882 n=1, dz 0.32845 mm: 0.07551 n=1, dz 0.3285 mm: 0.0761 n=1, dz 0.32855 mm: 0.07944 n=1, dz 0.3287 mm: 0.08092 n=1, dz 0.32876 mm: 0.08 n=1, dz 0.32881 mm: 0.0809 n=1, dz 0.32886 mm: 0.07906 n=1, dz 0.32894 mm: 0.07327 n=1, dz 0.32897 mm: 0.07964 n=1, dz 0.32898 mm: 0.07751 n=1, dz 0.32911 mm: 0.08751 n=1, dz 0.32914 mm: 0.07565 n=1, dz 0.32915 mm: 0.08233 n=2, dz 0.32918 mm: 0.07686 n=1, dz 0.3292 mm: 0.08445 n=1, dz 0.32921 mm: 0.07715 n=1, dz 0.32937 mm: 0.08349 n=1, dz 0.32939 mm: 0.07772 n=1, dz 0.32959 mm: 0.05522 n=1, dz 0.32964 mm: 0.05643 n=1, dz 0.32969 mm: 0.07128 n=1, dz 0.3297 mm: 0.05945 n=1, dz 0.3299 mm: 0.06032 n=1, dz 0.32993 mm: 0.05728 n=1, dz 0.32997 mm: 0.0591 n=2, dz 0.33011 mm: 0.05665 n=2, dz 0.33013 mm: 0.05634 n=1, dz 0.3303 mm: 0.0657 n=2, dz 0.33036 mm: 0.06115 n=1, dz 0.33038 mm: 0.06356 n=1, dz 0.33043 mm: 0.1395 n=1, dz 0.33046 mm: 0.1383 n=1, dz 0.33047 mm: 0.1401 n=1, dz 0.33048 mm: 0.1401 n=2, dz 0.3305 mm: 0.0587 n=2, dz 0.33054 mm: 0.1383 n=2, dz 0.33055 mm: 0.1395 n=2, dz 0.33056 mm: 0.1174 n=2, dz 0.33058 mm: 0.1174 n=2, dz 0.33059 mm: 0.1174 n=2, dz 0.3306 mm: 0.1388 n=3, dz 0.33061 mm: 0.1171 n=1, dz 0.33062 mm: 0.1174 n=1, dz 0.33063 mm: 0.117 n=1, dz 0.33064 mm: 0.1376 n=1, dz 0.33065 mm: 0.117 n=2, dz 0.33066 mm: 0.117 n=5, dz 0.33067 mm: 0.1167 n=2, dz 0.33068 mm: 0.117 n=1, dz 0.33069 mm: 0.05655 n=1, dz 0.33073 mm: 0.1164 n=1, dz 0.33078 mm: 0.1333 n=1, dz 0.33079 mm: 0.1324 n=1, dz 0.33082 mm: 0.1372 n=2, dz 0.33084 mm: 0.1375 n=1, dz 0.33097 mm: 0.1363 n=1, dz 0.331 mm: 0.1396 n=1, dz 0.33106 mm: 0.1344 n=1, dz 0.33115 mm: 0.132 n=1, dz 0.33163 mm: 0.1297 n=1, dz 0.33309 mm: 0.09277 n=1, dz 0.3331 mm: 0.09307 n=1, dz 0.33311 mm: 0.09276 n=2, dz 0.33312 mm: 0.09276 n=3, dz 0.33313 mm: 0.09276 n=1, dz 0.33315 mm: 0.09275 n=4, dz 0.33316 mm: 0.09245 n=3, dz 0.33317 mm: 0.09245 n=5, dz 0.33354 mm: 0.1166 n=1, dz 0.33356 mm: 0.1154 n=1, dz 0.33357 mm: 0.1169 n=1, dz 0.33358 mm: 0.1169 n=1, dz 0.33362 mm: 0.1154 n=1, dz 0.33363 mm: 0.1163 n=1, dz 0.33364 mm: 0.1139 n=1, dz 0.33365 mm: 0.1166 n=1, dz 0.33367 mm: 0.1151 n=1, dz 0.33369 mm: 0.116 n=1, dz 0.33377 mm: 0.1124 n=1, dz 0.33378 mm: 0.1118 n=1, dz 0.33381 mm: 0.1141 n=1, dz 0.33382 mm: 0.115 n=1, dz 0.33385 mm: 0.1147 n=1, dz 0.33392 mm: 0.1141 n=1, dz 0.33397 mm: 0.1126 n=1, dz 0.33405 mm: 0.117 n=1, dz 0.33407 mm: 0.1111 n=1, dz 0.3344 mm: 0.1077 n=1, dz 0.3345 mm: 0.07205 n=4, dz 0.33451 mm: 0.07234 n=5, dz 0.33452 mm: 0.07204 n=7, dz 0.33453 mm: 0.07234 n=3, dz 0.33454 mm: 0.07204 n=1, dz 0.33609 mm: 0.09313 n=1, dz 0.3361 mm: 0.09253 n=1, dz 0.33611 mm: 0.09342 n=1, dz 0.33612 mm: 0.09342 n=1, dz 0.33615 mm: 0.09222 n=2, dz 0.33616 mm: 0.09311 n=1, dz 0.33617 mm: 0.09222 n=1, dz 0.33618 mm: 0.0931 n=1, dz 0.33619 mm: 0.08864 n=1, dz 0.33621 mm: 0.0928 n=1, dz 0.33624 mm: 0.0916 n=2, dz 0.33625 mm: 0.09219 n=2, dz 0.33627 mm: 0.09189 n=1, dz 0.33628 mm: 0.0904 n=1, dz 0.33656 mm: 0.09359 n=1, dz 0.33685 mm: 0.1045 n=1, dz 0.33702 mm: 0.1036 n=1, dz 0.33766 mm: 0.07256 n=1, dz 0.33767 mm: 0.07315 n=1, dz 0.33768 mm: 0.07374 n=1, dz 0.33769 mm: 0.07374 n=4, dz 0.3377 mm: 0.07373 n=1, dz 0.33771 mm: 0.07373 n=1, dz 0.33772 mm: 0.07373 n=1, dz 0.33774 mm: 0.07284 n=1, dz 0.33775 mm: 0.07283 n=1, dz 0.33777 mm: 0.07313 n=1, dz 0.33783 mm: 0.07252 n=1, dz 0.33789 mm: 0.07162 n=1, dz 0.33797 mm: 0.07131 n=1, dz 0.33805 mm: 0.09348 n=1, dz 0.33838 mm: 0.07861 n=1, dz 0.33839 mm: 0.07152 n=1, dz 0.33874 mm: 0.09299 n=1)"
+ },
+ "FALSE_FREE": {
+  "n_false": 0,
+  "n_free_rungs": 51,
+  "label": "rungs declared free (rate test) while L < M_true - 0.05"
+ },
+ "CLAW": {
+  "EPS_CLAW": {
+   "value": 0.0332,
+   "n": 3132,
+   "label": "MEASURED: max |per-claw read - sim-truth claw load| over all rungs and both claws (noise-free reads; the ASSUMED torque-noise bound is added per read)"
+  },
+  "K_STEP_CLAW": {
+   "value": 2.1149,
+   "n": 1526,
+   "unit": "kg/mm",
+   "label": "MEASURED: max per-claw dL_s/dz over height rungs with L < M_true - 0.05"
+  },
+  "JUMP_CLAW": {
+   "value": 0.2446,
+   "n": 3012,
+   "label": "MEASURED: max per-claw per-rung load increase, height rungs"
+  },
+  "residual_all": {
+   "max_abs": 0.0332,
+   "p50": 0.0009,
+   "p95_abs": 0.0095,
+   "n": 3132
+  },
+  "residual_on_counter": {
+   "max_abs": 0.0332,
+   "p50": 0.0009,
+   "p95_abs": 0.0096,
+   "n": 3030
+  },
+  "residual_free": {
+   "max_abs": 0.004,
+   "p50": 0.0006,
+   "p95_abs": 0.0022,
+   "n": 102
+  },
+  "split_vs_com_free": {
+   "max_abs": 0.0312,
+   "p50": 0.0007,
+   "p95_abs": 0.021,
+   "n": 51,
+   "label": "split offset at the free read minus sim-truth COM offset [m] (diagnostic)"
+  }
+ }
+}

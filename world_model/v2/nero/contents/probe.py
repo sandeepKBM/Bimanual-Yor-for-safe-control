@@ -60,8 +60,8 @@ T_HOLD = 0.4         # design: hold before reading [s]
 N_READ = 40          # design: readings averaged over the last N_READ control steps of the hold (0.2 s)
 FREE_RATIO = 0.2     # ASSUMED: "free" when the read grows by less than FREE_RATIO x the push step (one rung; calibrated)
 TAU_NOISE = 0.05     # ASSUMED: joint-torque reading noise, uniform +-TAU_NOISE per joint [Nm] (real NERO value unknown)
-PROBE_METHOD = os.environ.get("BIMANUAL_PROBE", "poslift")   # "poslift" (default, option A, user 11-09) | "ladder" (11-03 push ladder); make_probe(method=) overrides
-METHODS = ("poslift", "ladder", "poslift_ff", "claw_guard")     # poslift_ff, claw_guard: Stage 0b (11-12), opt-in only; poslift stays the default
+PROBE_METHOD = os.environ.get("BIMANUAL_PROBE", "claw_guard")   # default "claw_guard" (USER 11-13); "poslift" (option A, the default 11-09..11-13: BIMANUAL_PROBE=poslift) | "poslift_ff" | "ladder" (11-03); make_probe(method=) overrides
+METHODS = ("poslift", "ladder", "poslift_ff", "claw_guard")     # poslift_ff, claw_guard: Stage 0b (11-12); claw_guard is the default since 11-13 (USER)
 # poslift constants (option A, "lift by position, read while holding"; env PL_* kept from the 11-09 prototype runs)
 DZ = float(os.environ.get("PL_DZ", 0.001))               # ASSUMED, USER-approved 11-09 (poslift): height step between rungs [m]
 Z_MAX = float(os.environ.get("PL_Z_MAX", 0.020))         # ASSUMED, USER-approved 11-09 (poslift): hard cap on the commanded claw rise [m]
@@ -79,8 +79,8 @@ FF_FREE_RATIO = float(os.environ.get("PL_FF_FREE_RATIO", FREE_RATIO))   # ASSUME
 FF_T_HOLD = float(os.environ.get("PL_FF_T_HOLD", T_HOLD_POSLIFT))   # ASSUMED (needs approval): hold per finish rung [s] = the poslift height-rung hold (USER-approved 11-09 for height rungs), reused
 _RESULTS = pathlib.Path(__file__).resolve().parents[1] / "results"
 JUMP_FILE = _RESULTS / "probe_jump_2026-11-12" / "JUMP.json"       # MEASURED per-task max per-rung load jump of the height ladder (kstep_calib_2026-11-09, n=20/task); not a bound
-NEW_CALIB = {"poslift_ff": _RESULTS / "probe_calib_poslift_ff_2026-11-12" / "CALIB.json",          # written by the PROBE_FIX_RUN.md recipe (not yet run)
-             "claw_guard": _RESULTS / "probe_calib_claw_guard_2026-11-12" / "CALIB.json"}
+NEW_CALIB = {"poslift_ff": _RESULTS / "probe_calib_poslift_ff_2026-11-12" / "CALIB.json",          # poslift_ff: not copied into the repo (run copy under bimanual_data/contents/probe_fix_2026-11-12/)
+             "claw_guard": _RESULTS / "probe_calib_claw_guard_2026-11-12" / "CALIB.json"}   # repo copy (README next to it), MEASURED n=20/task
 
 
 # ------------------------------------------------------------------------------------------------- specs and static verdicts
@@ -903,7 +903,7 @@ def _new_method_assumptions(method):
 
 
 def make_probe(ep, task, eps_lo, eps_free, rng=None, noise=True, method=None, adaptive=True):
-    """the one place a Probe is built.  method None -> PROBE_METHOD (env BIMANUAL_PROBE, default "poslift").  "ladder" returns the module's `Probe`
+    """the one place a Probe is built.  method None -> PROBE_METHOD (env BIMANUAL_PROBE, default "claw_guard" since 11-13).  "ladder" returns the module's `Probe`
     (looked up now, so probe_variants / probe_liftoff, which patch P.Probe, keep working)."""
     method = PROBE_METHOD if method is None else method
     if method not in METHODS:
@@ -1163,7 +1163,7 @@ def main(argv=None):
     ap.add_argument("--n", type=int, default=10)
     ap.add_argument("--procs", type=int, default=4)
     ap.add_argument("--calib", help="default: the CALIB of the active method (default_calib)")
-    ap.add_argument("--method", choices=METHODS, default=None, help="probe method (default: env BIMANUAL_PROBE, else poslift)")
+    ap.add_argument("--method", choices=METHODS, default=None, help="probe method (default: env BIMANUAL_PROBE, else claw_guard)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--planner", choices=CR.PLANNERS, default=None,
                     help="plan the static admission uses and the carry executes (default: env BIMANUAL_PLANNER, else scripted = legacy PLANS)")
