@@ -512,7 +512,7 @@ def job(args):
         if item is not None and rec.get("M_true") is not None:
             rec["verdicts"] = verdicts(spec, task, w, item["plan"]["wp"], rec.get("Theta"), float(rec["M_true"]))
             rec["verdicts"]["plan_id"] = item.get("plan_id")
-        rec["assumptions"] = assumptions()
+        rec["assumptions"] = assumptions(rec.get("probe_method_arm"))
         rec["wall_s"] = round(time.time() - t0, 1)
         return CR._jsonable(rec)
     except Exception as ex:
@@ -521,10 +521,11 @@ def job(args):
         _ACTIVE[0] = None
 
 
-def assumptions():
+def assumptions(method=None):
+    """method: the probe method of the record (None in the run CONFIG: then the label names every method's own CALIB).  Before 11-13 the label always said poslift."""
     return dict(A_PLAN=f"{A_PLAN} ASSUMED (N10, checker_off only)", oracle="oracle_* arms use the TRUE contents (mass; theta*: also the COM point): not deployable, reference only",
                 estimate="estimate arm: admission on the probe midpoint as a point, no guarantee", base_source="measured (base card, sampled)", u_admit="MODEL 1.0 (rated limits, USER 11-09)",
-                probe_calib="MEASURED poslift CALIB n=20/task (probe.default_calib)", plan="offline cache replay, no LLM call", grid="D1 grid N1 ASSUMED")
+                probe_calib=(f"MEASURED {method} CALIB n=20/task (probe.default_calib({method!r}))" if method else "MEASURED, the arm's own probe method CALIB n=20/task (probe.default_calib(method))"), plan="offline cache replay, no LLM call", grid="D1 grid N1 ASSUMED")
 
 
 # ------------------------------------------------------------------------------------------------------------------------------ run
