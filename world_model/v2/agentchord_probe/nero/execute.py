@@ -112,7 +112,7 @@ def run_world(args):
         except RuntimeError as e:                                  # their runtime (no recovery branch, max_transitions, ...)
             rec.update(outcome="graph_error", reason=repr(e))
         okR, whyR = ep.in_R()
-        rec.update(edges=env.log, monitor_errors=env.monitor_errors, end_in_R=okR, R_fail=whyR, track={k: (v if k == "viol" else round(float(v), 4)) for k, v in ep.track.items()},
+        rec.update(edges=env.log, monitor_errors=env.monitor_errors, end_in_R=okR, R_fail=whyR, track={k: (round(float(v), 4) if (k != "viol" and isinstance(v, (int, float, np.number))) else v) for k, v in ep.track.items()},
                    sim_s=round(ep.k * CR.DT, 2))
         rec["path_log"] = [dict(p, err_last=round(p["err_last"], 5), err_max=round(p["err_max"], 5), margin_min=round(p["margin_min"], 4)) for p in ep.path_log]   # 11-03: every _add_path (IK miss over all waypoints, joint margin); track also carries path_ik_err_max / path_q_margin_min / path_unreachable
         ex = [e for e in env.log if e["status"] in ("executed", "aborted_by_monitor")]

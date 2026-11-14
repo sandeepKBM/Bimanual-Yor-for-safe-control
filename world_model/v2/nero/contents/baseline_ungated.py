@@ -64,7 +64,7 @@ def _trial(args):
             ep.run_phases(ep.segment_phases(seg))
             okR, why = ep.in_R()
             segs.append(dict(seg=seg, viol=ep.track["viol"], end_in_R=okR, R_fail=why,
-                             **{k: round(float(v), 4) for k, v in ep.track.items() if k != "viol"}))
+                             **{k: (round(float(v), 4) if isinstance(v, (int, float, np.number)) else v) for k, v in ep.track.items() if k != "viol"}))
         tr = SC.object_truth(ep.m, ep.d)
         dest = ep.d.xpos[ep.obj][2] - ep.z0
         r = dict(task=task, cell=list(cell), i=i, seed=seed, theta=CR._theta(w), segments=segs, monitor=mon, fric_comp=bool(fc),
