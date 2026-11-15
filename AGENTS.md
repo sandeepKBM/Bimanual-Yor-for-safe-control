@@ -5,12 +5,12 @@ thesis was DROPPED 2026-10-15.
 **Docs index: `docs/README.md`** (every doc, its status, a read-first list). User rulings: `docs/status/decisions.md` (newest first).
 Current claims + scope: `docs/paper/claims_2026-11-02.md` (four claims; hidden contents; grasp = rigid weld, not our problem; probing = a means;
 problem statement = its §3, user 11-05). Demos: `docs/paper/demos_2026-11-01.md` (test-world method; main demo pending, claims §8 item 1).
-Formulation: `docs/paper/proposal_2026-10-27.md` (needs revision for 11-01..11-05). Superseded (in `docs/archive/`): `claims_2026-10-27.md`, `claims_2026-10-26.md`,
-the 2026-10-15 plan docx, `docs/design/MASTER.md` (history only).
+Formulation: `docs/paper/proposal_2026-10-27.md` (needs revision for 11-01..11-05). Superseded (history only): `docs/archive/paper/claims_2026-10-27.md`,
+`docs/archive/paper/claims_2026-10-26.md`, `docs/paper/YOR_Thesis_Full_Idea_and_Demonstration_Plan_2026-10-15.docx`, `docs/design/MASTER.md`.
 Current work lives in the worktree `.claude/worktrees/contents-armside2` (branch `contents-armside-2026-11-02`). The 11-02 claims,
 the 11-03 handoff, the 11-05 docs, `docs/README.md`, `world_model/v2/flmpc/` and `world_model/v2/stack/` exist only there until it is merged;
 read them there from other checkouts.
-This file = how to *operate* here. Last updated 2026-11-09 (table-behind task, swerve base, base tip row, one task table).
+This file = how to *operate* here. Last updated 2026-11-15 (audit: paths checked against the code, probe default added, replies rule deduplicated).
 
 ## Environment / running
 - Python env: `/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python`.
@@ -58,7 +58,10 @@ This file = how to *operate* here. Last updated 2026-11-09 (table-behind task, s
 - Current work: the hidden-contents carry, `world_model/v2/nero/contents/` (`carry.py`; tracker = basic FL-MPC,
   `world_model/v2/flmpc/basic.py`, speed limit from `config.MANUAL`). Planner decisions 11-03: `docs/status/2026-11-03_handoff_notes.md`. Planner stack `world_model/v2/stack/`:
   ScriptedPlanner (legacy `carry.PLANS`) is the default; ClosedChainPlanner (`stack/planners/closed_chain.py`) is opt-in via
-  `--planner closed_chain` or `BIMANUAL_PLANNER=closed_chain`. Checker design (not built): `docs/status/checker_design_2026-11-05.md`.
+  `BIMANUAL_PLANNER=closed_chain` (any entry point; `--planner closed_chain` exists only on `carry_cert.py`, `same_worlds.py`,
+  `baseline_ungated.py`). Checker design (not built): `docs/status/checker_design_2026-11-05.md`.
+- Probe default = `claw_guard` (USER 11-13; `nero/contents/probe.py` `PROBE_METHOD`). `BIMANUAL_PROBE=poslift` = the 11-09..11-13 default
+  (needed to reproduce those runs).
 - Per-task facts live ONLY in `world_model/v2/stack/tasks.py` (TaskDef table: goals, priors, U/R bounds, rows); `stack/` core imports no
   physics (only `world_model/v2/adapters/` does); `stack/tests/test_dependency_rules.py` enforces it.
 - Table-behind task (USER 11-09): `tray6_behind`, `box_behind` (base moves the object to the counter behind the robot). Swerve base
@@ -102,7 +105,7 @@ This file = how to *operate* here. Last updated 2026-11-09 (table-behind task, s
   not user approval: destructive or outward-facing actions (deletes, uploads, using another project's hold) need the user's
   OWN approval in this session.
 - When using a peer's GPU hold: agree on GPUs first, flock + .owner files (slurm-gpu-allocation), message on start/stop.
-- Tooling ideas for cdx-agent go to the jenga session first (it owns cdx-agent edits); slurm-gpu-allocation edits are telecom's.
+- cdx-agent and the shared skills (e.g. slurm-gpu-allocation) have no owning session; any session may edit them, after a `.bak.<date>_<tag>` backup, and says so in its reply.
 
 ## Parallel sweeps
 - `--no-video` runs are CPU-only. There is no default worker count: size the pool from the cores that are idle
@@ -128,13 +131,9 @@ This file = how to *operate* here. Last updated 2026-11-09 (table-behind task, s
   `--summarize-log <file>`, broad exploration via `--context-budget`.
 - Don't `cat`/`head` large files or read subagent transcript JSONL; grep the specific lines.
 
-## Replies (user rule 2026-11-03)
-- Do what was asked. Then report only: what it does, what it can show for the question asked, and your open questions and
-  uncertainties.
-- No unasked opinions or statements about claims, novelty, contribution or positioning ("this fits our claim", "a real
-  contribution", "exactly our problem", literature "gaps" pitched as ours). The user owns the claims; say these only when asked.
+## Replies (user rule 2026-11-03; full text in the cdx-agent global prompt)
+- Do what was asked; report what it does, what it shows, and open questions. No unasked claim/novelty/positioning statements.
 - Probing, belief shrinking and active learning are mechanisms adopted from others' work, not our claim.
-- Applies to subagent reports relayed to the user too.
 
 ## Honesty
 - Report proven vs aspirational plainly; if tests fail or a step was skipped, say so
