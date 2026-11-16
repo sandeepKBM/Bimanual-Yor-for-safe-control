@@ -222,7 +222,7 @@ def uncovered(belief, probe_set):
 
 
 def reask_prompt(task, plan_dict, evidence, facts=None, world=None):
-    """Rule 2 re-ask.  Schema v2 (default): `evidence` = the dict nero/contents/probe_select builds ({trigger: "T1"|"T2", readings, probes_skipped, failing_rows, worst,
+    """Rule 2 re-ask.  Schema v2 (default): `evidence` = the dict nero/contents/probe_select builds ({trigger: "T1"|"T2"|"T4", readings, probes_skipped, failing_rows, worst,
     phenomena_shown, coverage}); see reask_evidence_block.  BIMANUAL_LEGACY_PROPOSER_V1=1: the v1 prompt, `evidence` = probe_set {param: [lo, hi]} of the probed parameter(s)
     (Rule 2 as of 11-05: the probe set is not inside B)."""
     if not S.legacy_v1():
@@ -257,8 +257,10 @@ def reask_evidence_block(ev):
     the robot measured and the checker computed: readings (sound intervals), the probes the checker skipped (with the failing own-limit rows), the failing admission rows, the worst
     vertex of the binding row.  No hidden truth, no world seed."""
     trig = ev.get("trigger", "T2")
+    steps_t4 = sorted({r.get("step_index") for r in ev.get("rule1_refusals", []) if r.get("step_index") is not None} | {r.get("step_index") for r in ev.get("fixed_constraints", []) if r.get("step_index") is not None})
     head = {"T1": f"{REASK_MARK} (T1): a probe reading shows a phenomenon your plan did not name.",
-            "T2": f"{REASK_MARK} (T2): no recovery of your plan is viable on the parameter set the probes left (the checker refuses the plan on it)."}[trig]
+            "T2": f"{REASK_MARK} (T2): no recovery of your plan is viable on the parameter set the probes left (the checker refuses the plan on it).",
+            "T4": f"{REASK_MARK} (T4): the checker refuses step(s) {steps_t4} of your plan (Rule 1: no recovery works for every remaining world from every stop point)."}[trig]
     parts = [head]
     parts.append("READINGS (the robot's measurements; treat as correct; a one-sided reading has hi = null, i.e. only a lower bound was read):\n"
                  + json.dumps(ev.get("readings", []), sort_keys=True))
@@ -270,6 +272,11 @@ def reask_evidence_block(ev):
         parts.append("FAILING CHECKER ROWS ON THE CURRENT SET:\n" + json.dumps(ev["failing_rows"], sort_keys=True))
     if ev.get("worst"):
         parts.append("WORST VERTEX OF THE BINDING ROW (contents mass m [kg], contents COM c [m], waypoint wp):\n" + json.dumps(ev["worst"], sort_keys=True))
+    if ev.get("rule1_refusals"):
+        parts.append("RULE 1 REFUSALS YOU CAN FIX (step, recovery, stop time, row, pair, distance vs limit, which of your plan's choices affects it):\n"
+                     + json.dumps(ev["rule1_refusals"], sort_keys=True))
+    if ev.get("fixed_constraints"):
+        parts.append("FIXED CONSTRAINTS (you cannot change these; do not try):\n" + json.dumps(ev["fixed_constraints"], sort_keys=True))
     if ev.get("coverage"):
         parts.append("COVERAGE (the checker's own phenomenon list: measured, on an approved fallback, or uncovered):\n" + json.dumps(ev["coverage"], sort_keys=True))
     return "\n\n".join(parts) + "\n"
