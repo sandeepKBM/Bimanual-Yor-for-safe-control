@@ -20,7 +20,7 @@ SKIP_DIRS = {"tests", "results", "archive", "__pycache__", "scratch", "tmp", "go
 DEFAULT_REASON = "pre-unification 11-09; remove in switch step"
 
 # ---------------------------------------------------------------- rules (data)
-STACK_PURE_PARTS = {"types", "tasks", "goal", "state", "outcome", "registry", "checks"}
+STACK_PURE_PARTS = {"types", "tasks", "goal", "state", "outcome", "registry", "checks", "theta"}   # theta: K1 belief sets (11-16), pure
 STACK_ENGINE_PARTS = {"planners", "kin", "proposer", "eval", "executor", "producers", "skills"}
 # the only nero modules stack_engine may import (robot / scene model); exact module or its submodules
 ROBOT_MODEL = {
@@ -42,7 +42,7 @@ ALLOW_AGENTCHORD_NERO_TO_CONTENTS: dict[str, str] = {}
 PROBE_MODULE_FILE = "nero/contents/probe.py"        # the only file that may assign PROBE_METHOD
 
 RULES = {
-    "stack_pure_no_outside": "stack_pure (types,tasks,goal,state,outcome,registry,checks) imports only stack_pure",
+    "stack_pure_no_outside": "stack_pure (types,tasks,goal,state,outcome,registry,checks,theta) imports only stack_pure",
     "stack_engine_no_episode": "stack_engine may import stack_pure + ROBOT_MODEL only; no episode/controller/checker/probe, agentchord, house, vlm, flmpc, teleop, adapters",
     "single_llm_backend": "stack may reach at most one LLM backend module",
     "adapters_no_flmpc_teleop": "adapters (adapters/**, stack/universes) must not import flmpc/teleop (direct)",
