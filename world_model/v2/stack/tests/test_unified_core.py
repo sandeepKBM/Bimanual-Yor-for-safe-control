@@ -72,7 +72,7 @@ def test_row_sign_and_combine():
     v = combine([r1, Row("c", False, -0.1, guarantee="proof", why="bad")])
     assert not v.admit and v.guarantee == "refuted" and "bad" in v.why
     v = combine([r1, TL.tilt_row()])
-    assert v.admit and v.guarantee == "missing" and v.assumptions["missing_rows"] == ["tilt"]
+    assert v.admit and v.guarantee == "missing" and v.assumptions["missing_rows"] == ["obj_tilt"]   # K4 (11-16): row renamed obj_tilt
     v = combine([r1, Row("m", False, -1.0, guarantee="runtime")])
     assert v.admit and v.guarantee == "proof" and v.assumptions["runtime_rows"] == ["m"]
     with pytest.raises(ValueError):
@@ -125,7 +125,7 @@ def _carry_state(**kw):
     now = dict(obj_x=0.28, obj_y=-0.30, obj_z=0.85, obj_z0=0.85 + 0.15 * 0, obj_tilt_deg=1.0, obj_speed=0.0, support_contact=1.0, cup_tilt_deg=0.0,
                tau_ratio=0.2, drop_m=0.0)
     now.update(kw)
-    return EndState(t=1.0, now=now, worst=dict(now, spill_ratio=0.1, collision_flag=0.0, cup_off_tray_flag=0.0))
+    return EndState(t=1.0, now=now, worst=dict(now, spill_ratio=0.1, collision_flag=0.0, cup_off_tray_flag=0.0, obj_world_clear_m=0.02))   # obj_world: USER 11-16 D9 (20 mm clear)
 
 
 def test_goal_box_synthetic():
@@ -178,6 +178,10 @@ def test_monitors_U_and_R():
     fv = _carry_state()
     fv.first_viol = dict(kind="collision")
     assert not MON.u_row(fv, t).ok
+    if TK._u_obj_world_on():                                             # USER 11-16 D9: object-world clearance below 5 mm is U
+        ow = _carry_state()
+        ow.worst["obj_world_clear_m"] = 0.003
+        assert not MON.u_row(ow, t).ok and MON.first_violation(ow, t)[0] == "obj_world_clear_m"
     assert not MON.recoverable(_carry_state(obj_speed=0.01), t).ok
     assert not MON.recoverable(_carry_state(support_contact=0.0), t).ok
     assert not MON.recoverable(_carry_state(cup_tilt_deg=6.0), t).ok
