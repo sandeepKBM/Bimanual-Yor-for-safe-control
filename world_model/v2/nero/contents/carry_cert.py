@@ -143,6 +143,23 @@ def refused_static(task, cell, spec, why):
                 u_nom=float("inf"), worst_nom={}, u_one_nom=float("inf"), worst_one={}, T_cap=None, rows={}, planner="closed_chain", why=why)
 
 
+def checker_impl():
+    """BIMANUAL_CHECKER: "unified" (default since 11-16: stack/checks/admit through adapters/static_admission; bit-equal to legacy on every cell of
+    box/tray2/tray4/tray6 x both planners and the *_behind specs, nero/contents/tests/test_checker_gate_k2.py) | "legacy" (the pre-11-16 static_cell).
+    Read at call time, not import time."""
+    v = os.environ.get("BIMANUAL_CHECKER", "unified").strip().lower() or "unified"
+    if v not in ("legacy", "unified"):
+        raise ValueError(f"BIMANUAL_CHECKER={v!r}: expected 'legacy' or 'unified'")
+    return v
+
+
+def TK_moves(task):
+    """True when the stack TaskDef has scripted moves (the table-behind tasks have none: their scripted path is the legacy plan_key one -> legacy)."""
+    from ...stack import tasks as TK
+    td = TK.TASKS.get(task)
+    return td is not None and bool(td.moves)
+
+
 def static_cell(task, cell, world, T_cap=None, spec=None, planner=None, wp=None):
     """T_cap=None (default, user 11-02 pm): arm-side rows only.  T_cap=E.T_CAP reproduces the morning rule (claw twist row).
     spec: an ObjectSpec for an arbitrary contents set (11-03, probe.py: the interval a probe measured); default = the cell's.
@@ -152,6 +169,7 @@ def static_cell(task, cell, world, T_cap=None, spec=None, planner=None, wp=None)
     spec = cell_spec(task, cell) if spec is None else spec
     planner = "closed_chain" if wp is not None else CR.resolve_planner(planner)
     caps = json.loads(TH.CAP_FILE.read_text())
+    unified = checker_impl() == "unified" and T_cap is None        # T_cap (old claw twist rule): no unified counterpart, always legacy
     if planner == "closed_chain":
         from ...stack.planners import closed_chain as CCP
         try:
@@ -159,6 +177,14 @@ def static_cell(task, cell, world, T_cap=None, spec=None, planner=None, wp=None)
             disp = CCP.goal_offset(task, wp)
         except CCP.PlanRefused as e:
             return refused_static(task, cell, spec, str(e))
+        if unified:
+            from ...adapters import static_admission as SA
+            from ...stack.checks.admit import PathSamples
+            return SA.admit_static(task, cell, world, spec, PathSamples(offs, per_seg, cap, np.asarray(disp, float)), planner, wp)
+    elif unified and TK_moves(task):
+        from ...adapters import payload_envelope as PE
+        from ...adapters import static_admission as SA
+        return SA.admit_static(task, cell, world, spec, PE.scripted_path(task), planner, wp)
     else:
         offs, per_seg = path_offsets(task)
         cap = TH.capture_path(caps["pot"], offs)

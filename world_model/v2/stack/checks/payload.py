@@ -32,7 +32,8 @@ def torque_row(env: EnvelopeLike, contents, keys, a, name="torque_payload") -> R
     u, det = env.worst(contents, keys, a, MODE)
     u_lp, _ = env.worst(contents, keys, a, "two")
     return Row(name, bool(u <= U_ADMIT), margin=float(U_ADMIT - u), unit="utilisation", guarantee="proof",
-               worst={**{k: v for k, v in det.items() if k in ("wp", "m", "c", "Fz", "twist")}, "u_max": float(u), "u_best_split": float(u_lp), "a": float(a), "n_samples": len(keys)},
+               worst={**{k: v for k, v in det.items() if k in ("wp", "m", "c", "Fz", "twist")}, "u_max": float(u), "u_best_split": float(u_lp), "a": float(a), "n_samples": len(keys),
+                  **({"a_vertex": det["a"]} if "a" in det else {})},       # det["a"] = the binding acceleration-box vertex (carry_cert's row worst["a"]); "a" here = the plan a
                assumptions=dict(model=GUARANTEE + f" over the contents set x acceleration box at {len(keys)} path samples"),
                why="" if u <= U_ADMIT else f"utilisation {u:.3f} > {U_ADMIT}")
 
