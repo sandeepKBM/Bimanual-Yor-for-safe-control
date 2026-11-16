@@ -14,13 +14,25 @@ import os
 
 import pytest
 
-os.environ.setdefault("BIMANUAL_PLANNER", "closed_chain")
 W = pytest.importorskip("world_model.v2.adapters.z3_watcher_contents")
 CELL = (1.0, 1.5)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _closed_chain_planner():
+    """BIMANUAL_PLANNER=closed_chain for THIS module only, restored after.  (Was a module-level setdefault: the ROS launch_testing pytest plugin in this env imports
+    every test module at collection, so it leaked into every later test file: test_carry's scripted-backup test failed in ilab job 1301045.)"""
+    old = os.environ.get("BIMANUAL_PLANNER")
+    os.environ["BIMANUAL_PLANNER"] = "closed_chain"
+    yield
+    if old is None:
+        os.environ.pop("BIMANUAL_PLANNER", None)
+    else:
+        os.environ["BIMANUAL_PLANNER"] = old
+
+
 @pytest.fixture(scope="module")
-def nominal():
+def nominal(_closed_chain_planner):
     return W.run_watched("box", CELL, seed=0, continue_through_u=True)
 
 

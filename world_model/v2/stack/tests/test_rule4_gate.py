@@ -96,12 +96,12 @@ def test_loop_trap_and_no_repeats():
 
 
 # ---------------------------------------------------------------------------------------------------------- physics (box trap, closed_chain), slow
-def test_box_trap_offgrid_set_down_is_a_safe_park():
+def test_box_trap_offgrid_set_down_is_a_safe_park(monkeypatch):
     """box 2.5-3.0 kg mid-carry at t = 0.8 s (off the 0.25 s grid on purpose: no snapping).  Holding in the air is refused (the next step fails Rule 1);
     a set-down at the start is accepted, checked from EVERY branch point of the transfer (0.25 s grid + its end), and labelled a safe park
     (Rule 1 still refuses continuing: the 11-16 livelock finding; the policy is the user's call)."""
-    import os
-    os.environ.setdefault("BIMANUAL_PLANNER", "closed_chain")
+    if "BIMANUAL_PLANNER" not in __import__("os").environ:
+        monkeypatch.setenv("BIMANUAL_PLANNER", "closed_chain")          # restored after the test (was a leaking setdefault)
     from world_model.v2.adapters import rule4_contents as R4C
     from world_model.v2.stack.checks import rule1 as R1
     acc, log, tr = R4C.run_trap(True, t=0.8)

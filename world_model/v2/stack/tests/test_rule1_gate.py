@@ -140,8 +140,7 @@ def test_random_soundness_vs_point_oracle():
 # ---------------------------------------------------------------------------------------------------------- physics consistency (box, closed_chain)
 @pytest.fixture(scope="module")
 def box_records(tmp_path_factory):
-    import os
-    os.environ.setdefault("BIMANUAL_PLANNER", "closed_chain")
+    # planner passed explicitly; no os.environ change (a module-scoped setdefault leaked BIMANUAL_PLANNER into later test files: ilab job 1301045)
     from world_model.v2.adapters import rule1_contents as RC
     out = tmp_path_factory.mktemp("r1")
     return {cell: RC.run_cell("box", cell, out, n_sampled=0, planner="closed_chain", fallback=False) for cell in ((1.0, 1.5), (3.0, 3.5))}
