@@ -14,6 +14,8 @@ The transfer = a Rule 1 program: prefix = a STOP (read_hold rows: stop decelerat
                 pass on theta_t (initial stop and every in-flight stop alike); none passes -> `refuse`; the overshoot (0.5 v T + DS/2) running past the plan end
                 -> MISSING (a shorter stop fails the rows, a longer one has no checked pose);
   retrace a = min(A_BACKUP, a_max over the retrace samples, open-content limit), halved up to RETRACE_HALVINGS times (never below A_MIN) until every branch point passes.
+  11-16: a stop whose move (the segment, or the retrace) has remaining time <= T FINISHES the move (executor stop branch): end sample = the move's end, deceleration = a (not v / T,
+  not 0.5 v T); BIMANUAL_LEGACY_STOP=1 restores the old model.
   Branch points of the transfer = every 0.25 s of its duration plus the end.  The in-flight stops ARE enumerated: at each branch point the recovery (stop, then continue
   to the target) is checked with its own stop time from the ladder (T = 0.3 s included, whose deceleration v / T can exceed a) and, in the accelerating half of the
   retrace, also T = v / a; the chosen T and end sample per branch point are recorded in admission['transfer']['per_branch'].
@@ -35,7 +37,9 @@ import numpy as np
 
 from world_model.v2.adapters import rule1_contents as RC
 from world_model.v2.nero.contents import carry_cert as CC
+from world_model.v2.stack import executor as EX
 from world_model.v2.stack import theta as TH
+from world_model.v2.stack import types as TY
 from world_model.v2.stack.checks import admit as AD
 from world_model.v2.stack.checks import open_content as OCN
 from world_model.v2.stack.checks import payload as PAY
@@ -44,8 +48,12 @@ from world_model.v2.stack.checks import rule4 as R4
 from world_model.v2.stack.checks.row import Row, missing
 from world_model.v2.stack.proposer import mock as MK
 
-STOP_T0 = 0.3          # s, the stored backups' stop time (rule1_contents.STOP_T_DEFAULT; carry backup_phases)
+# STOP_T0 (shortest stop time of the ladder) = TY.STOP_T_S: the stored backups' stop time, ONE ASSUMED source (stack/types.py), read at call time by _stop_t0()
 RETRACE_HALVINGS = 3   # ASSUMED (to be raised to the user): the transfer's retrace acceleration may be halved up to 3 times (never below A_MIN) so that a stop at every branch point fits
+def _stop_t0() -> float:
+    return TY.STOP_T_S
+
+
 STOP_K_MAX = 4         # ASSUMED (to be raised to the user): the stop time may be doubled up to 4 times (0.3 -> 4.8 s)
 
 # the proposer's recovery skill (schema.RECOVERY_SKILLS) -> the target kind it is read as
@@ -126,6 +134,7 @@ class TP:
     it: int | None
     problem: str = ""            # "" | "missing:<why>" | "refuse:<why>"
     L: float = 0.0
+    a_stop: float | None = None  # 11-16: set when the initial stop FINISHES the segment (remaining time <= stop_T): the stop's deceleration = the plan's a (None = Hermite v0 / stop_T)
     per_branch: dict = dataclasses.field(default_factory=dict, compare=False, repr=False)    # tau -> the in-flight recovery admitted at that branch point (filled by transfer_row)
 
     @property
@@ -177,25 +186,29 @@ def _end_idx(ctx, model, seg, arc, ib, dist, direction):
     return ie
 
 
-def _choose_stop(ctx, model, ext, theta, seg, arc, ib, v, direction, it=None, a_brake=None):
+def _choose_stop(ctx, model, ext, theta, seg, arc, ib, v, direction, it=None, a_brake=None, t_rem=None, end_idx=None, a_fin=None):
     """the stop time of a stop from speed v at sample ib: the first candidate T (ladder STOP_T0 * 2^k, plus v / a_brake when given), ascending (a longer stop overshoots farther),
     for which the torque row (stop + hold at the end-of-stop pose) AND the open-content row pass.  -> dict(status 'ok' | 'refuse' | 'missing', T, e, why).
     missing = the end-of-stop pose of a candidate is past the plan end / target start / through the base move (earlier candidates failed their rows)."""
     K = lambda idxs: [f"g{i}" for i in idxs]
-    cands = sorted([STOP_T0 * 2 ** k for k in range(STOP_K_MAX + 1)] + ([v / a_brake] if a_brake and v > 1e-9 and v / a_brake >= STOP_T0 else []))
+    cands = sorted([_stop_t0() * 2 ** k for k in range(STOP_K_MAX + 1)] + ([v / a_brake] if a_brake and v > 1e-9 and v / a_brake >= _stop_t0() else []))
     last = None
     for T in cands:
-        e = _end_idx(ctx, model, seg, arc, ib, 0.5 * v * T, direction)
+        fin = (not EX.legacy_stop()) and t_rem is not None and end_idx is not None and a_fin is not None and v > 1e-9 and 1e-9 < t_rem <= T + 1e-9
+        if fin:      # 11-16 (executor stop branch): a stop in the last T s of a rest-to-rest move lets the move finish: end = the move's end sample, deceleration = the move's own a
+            e, acc = int(end_idx), float(a_fin)
+        else:
+            e, acc = _end_idx(ctx, model, seg, arc, ib, 0.5 * v * T, direction), v / T
         if e is None or (direction < 0 and it is not None and e < it):
             return dict(status="missing", T=T, e=e, why=f"the stop overshoot (0.5 v T = {0.5 * v * T * 1e3:.1f} mm, v = {v:.3f} m/s, T = {T:.2f} s) runs past the plan end / target start / base move: "
                                                          "the end-of-stop pose is not checked" + ("" if last is None else f" (shorter stops up to T = {last['T']:.2f} s fail the torque or open-content row)"))
         span = range(ib, e + 1) if direction > 0 else range(e, ib + 1)
-        o = ctx.open_row(theta, v / T, "open_content[stop]")
-        ok = ctx.torque_row(ext, theta, K(span), v / T, "stop").ok and ctx.torque_row(ext, theta, [f"g{e}"], 0.0, "hold").ok and (o is None or o.ok)
-        last = dict(status="refuse", T=T, e=e, why="")
+        o = ctx.open_row(theta, acc, "open_content[stop]")
+        ok = ctx.torque_row(ext, theta, K(span), acc, "stop").ok and ctx.torque_row(ext, theta, [f"g{e}"], 0.0, "hold").ok and (o is None or o.ok)
+        last = dict(status="refuse", T=T, e=e, why="", finish=bool(fin), a_stop=acc)
         if ok:
-            return dict(status="ok", T=T, e=e, why="")
-    last["why"] = f"no stop time <= {STOP_T0 * 2 ** STOP_K_MAX:.1f} s passes the torque and open-content rows"
+            return dict(status="ok", T=T, e=e, why="", finish=bool(fin), a_stop=acc)
+    last["why"] = f"no stop time <= {_stop_t0() * 2 ** STOP_K_MAX:.1f} s passes the torque and open-content rows"
     return last
 
 
@@ -225,7 +238,7 @@ def build_transfer(st: CarryState, tg: Target, theta_t: TH.ThetaSet):
     lo, hi = RC._hull(theta_t)
     cont = ctx.spec_for(lo, hi).contents
     env = ctx.env(ext.a)
-    ch = _choose_stop(ctx, m, ext, theta_t, seg, arc, ib, v0, +1)
+    ch = _choose_stop(ctx, m, ext, theta_t, seg, arc, ib, v0, +1, t_rem=float(m.T[seg]) - float(st.t), end_idx=int(g.bounds[seg][1]), a_fin=float(m.a))
     if ch["status"] == "missing":
         tp = TP(seg, float(st.t), ib, v0, None, None, None, None, "missing:" + ch["why"])
         return Transfer(tg.name, seg, float(st.t), to, None, None, tp.problem), TH.RecoveryProgram.fixed(f"transfer:{tg.name}", tp, tg.landing)
@@ -244,7 +257,7 @@ def build_transfer(st: CarryState, tg: Target, theta_t: TH.ThetaSet):
             prob = f"refuse:no retrace acceleration >= A_MIN = {RC.A_MIN} on [{lo:.3f}, {hi:.3f}] kg (a_max {a_t}, a_open {a_open})"
             a_tr = None
     L = 0.0 if it is None else float(arc[ie] - arc[it])
-    tp = TP(seg, float(st.t), ib, v0, stop_T, ie, a_tr, it, prob, L=L)
+    tp = TP(seg, float(st.t), ib, v0, stop_T, ie, a_tr, it, prob, L=L, a_stop=(ch["a_stop"] if ch.get("finish") else None))
     if it is not None and a_tr is not None:
         # the retrace acceleration is the largest of a_tr * 2^-j (j = 0..RETRACE_HALVINGS, >= A_MIN) for which the transfer passes at EVERY branch point of the transfer (a stop in the
         # accelerating half must fit the torque limit and the remaining path); none passes -> the last one, whose failing rows are reported
@@ -252,7 +265,7 @@ def build_transfer(st: CarryState, tg: Target, theta_t: TH.ThetaSet):
             aj = a_tr * 0.5 ** j
             if aj < RC.A_MIN and j > 0:
                 break
-            tp = TP(seg, float(st.t), ib, v0, stop_T, ie, aj, it, prob, L=L)
+            tp = TP(seg, float(st.t), ib, v0, stop_T, ie, aj, it, prob, L=L, a_stop=(ch["a_stop"] if ch.get("finish") else None))
             if all(transfer_row(ctx, m, tp, theta_t, tau).ok for tau in R1.branch_times(tp.duration)):
                 break
         a_tr = tp.a
@@ -301,7 +314,7 @@ def transfer_row(ctx, model, tp: TP, theta, tau):
         v = tp.v0 * max(0.0, 1.0 - tau / Ts)
         p = arc[tp.ib] + tp.v0 * tau - tp.v0 * tau * tau / (2 * Ts)
         ibk = min(int(np.argmin(np.abs(arc - p))), tp.ie)
-        stops = [(+1, ibk, tp.ie, tp.v0 / Ts)]
+        stops = [(+1, ibk, tp.ie, tp.a_stop if tp.a_stop is not None else tp.v0 / Ts)]
         tp.per_branch[round(float(tau), 6)] = dict(t=float(tau), mode="finish_stop_then_retrace" if tp.it is not None else "finish_stop", T=float(Ts - tau), end_idx=int(tp.ie), v=float(v),
                                                    begin_idx=int(ibk))
         ie = tp.ie
@@ -324,12 +337,12 @@ def transfer_row(ctx, model, tp: TP, theta, tau):
                 rows.append(o)
             rows.append(_coll(ctx, model, seg, list(range(ibk, tp.it - 1, -1))))
             return RC._merge(nm, rows)
-        ch = _choose_stop(ctx, model, ext, theta, seg, arc, ibk, v, -1, it=tp.it, a_brake=a)
+        ch = _choose_stop(ctx, model, ext, theta, seg, arc, ibk, v, -1, it=tp.it, a_brake=a, t_rem=float(Tr - tau2), end_idx=int(tp.it), a_fin=float(a))
         if ch["status"] == "missing":
             return missing(nm, f"in-flight stop at tau = {tau:.2f} s: " + ch["why"])
         ie, Tk = ch["e"], ch["T"]
-        tp.per_branch[round(float(tau), 6)] = dict(t=float(tau), mode="stop_then_retrace", T=float(Tk), end_idx=int(ie), v=float(v), begin_idx=int(ibk))
-        stops = [(-1, ibk, ie, v / Tk)]
+        tp.per_branch[round(float(tau), 6)] = dict(t=float(tau), mode="stop_then_retrace", T=float(Tk), end_idx=int(ie), v=float(v), begin_idx=int(ibk), finish=bool(ch.get("finish")))
+        stops = [(-1, ibk, ie, ch["a_stop"])]
     d, i0, i1, acc = stops[0]
     span = list(range(i0, i1 + 1)) if d > 0 else list(range(i1, i0 + 1))
     rows.append(ctx.torque_row(ext, theta, K(span), acc, "stop"))
@@ -412,7 +425,9 @@ def make_check(st: CarryState, theta_t: TH.ThetaSet):
             adm["continuation"] = continuation(st, tg, theta_t, adm)
             adm["assumptions"] += [dict(name="STOP_K_MAX", value=STOP_K_MAX, tag="ASSUMED", src="rule4_contents: stop time ladder STOP_T0 * 2^k, k <= STOP_K_MAX (to be raised to the user)"),
                                    dict(name="RETRACE_HALVINGS", value=RETRACE_HALVINGS, tag="ASSUMED", src="rule4_contents: retrace acceleration halved at most this often, never below A_MIN"),
-                                   dict(name="STOP_T0", value=STOP_T0, tag="ASSUMED", src="rule4_contents: shortest stop time = the stored backups' stop time (carry backup_phases)")]
+                                   dict(name="stop_finish", value="a stop (initial: remaining time of the segment; in-flight in the accelerating half of the retrace: remaining time of the retrace) with remaining time <= T finishes the move: end = the move's end sample, deceleration = the plan's a (initial) / the retrace a (in-flight)", tag="MODEL",
+                                        src="executor stop branch 11-16 (rest-to-rest references); BIMANUAL_LEGACY_STOP=1 restores the 0.5 v T Hermite overshoot"),
+                                   dict(name="STOP_T0", value=_stop_t0(), tag="ASSUMED", src="rule4_contents: shortest stop time = the stored backups' stop time (carry backup_phases)")]
         return ok, rows, adm
     return check, transfers
 

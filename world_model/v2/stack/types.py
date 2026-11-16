@@ -22,6 +22,10 @@ Tag = Literal["MEASURED", "MODEL", "ASSUMED"]
 Guarantee = Literal["proof", "sampled", "refuted", "missing"]
 SIDES = ("left", "right")
 
+# One source for the stop time of a backup's ("stop", T) phase.  Lives in stack/types.py because both planners (closed_chain, scripted), Rule 1 / Rule 4 and the
+# ASSUMED-value sweep import this module and it imports no nero code.  Read AT CALL TIME as `TY.STOP_T_S` (never a default argument / import-time copy) so a patch takes effect.
+STOP_T_S = 0.3  # ASSUMED: duration of a backup's stop phase (Hermite stop, constant deceleration v / T)
+
 
 # ----------------------------------------------------------------------------------------------------------------------- bounds / worlds
 @dataclass(frozen=True)

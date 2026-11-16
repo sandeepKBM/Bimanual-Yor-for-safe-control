@@ -162,9 +162,12 @@ def test_rule1_admits_only_inside_the_static_admission(box_records):
                 assert r["admission"]["recovery"] == r["program"]
     light = {r["seg"]: r for r in box_records[(1.0, 1.5)]}
     assert light["lift"]["admitted"] and light["carry"]["admitted"], [(s, r.get("refusal")) for s, r in light.items()]
-    # after the 11-16 review fixes: a stop near the end of PLACE overshoots past the last planned sample (MISSING) and the swept shelf clearance
-    # is 2.1 mm < 5 mm -> place is refused.  Pinned so a silent change shows up; re-decide when the place pose / D9 rule changes.
+    # 11-16 stop-finish fix: no place branch is MISSING any more (a stop in the last T s finishes the move); place is still refused, now ONLY by the
+    # D9 object-world row: box_wall_e vs shelf, sample distance 7.1 mm, swept bound 2.1 mm < d_min 5 mm (U_OBJ_CLEAR_M, ASSUMED).  Pinned so a silent
+    # change shows up; re-decide when the place pose / D9 rule changes.
     assert not light["place"]["admitted"]
+    fails = [f for p in light["place"]["per_program"].values() for f in p["failing"]]
+    assert fails and all(f["guarantee"] == "refuted" and "obj_world" in (f.get("why") or "") for f in fails), [(f["name"], f.get("why")) for f in fails]
     for r in box_records[(1.0, 1.5)]:
         if r["admitted"]:
             assert r.get("executable") is True and any(a["name"] == "between_samples" or "between_samples" in str(a) for a in r["admission"]["assumptions"])

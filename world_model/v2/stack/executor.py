@@ -16,6 +16,11 @@ from world_model.v2.nero.contents import scenes as SC
 from world_model.v2.stack.types import SIDES, BimanualPlan
 
 
+def legacy_stop():
+    """BIMANUAL_LEGACY_STOP=1 restores the pre-11-16 stop: always the fixed-T Hermite stop (also when the move ends within T).  Read at call time."""
+    return os.environ.get("BIMANUAL_LEGACY_STOP") == "1"
+
+
 def run_phases(ep, phases, branch=None):
     """phases: ("move", delta, T) both claws | ("to", key, T) both claws back to stored pose `key` | ("hold", T) | ("stop", T)
     | ("weld", on) | ("retreat", r, T).  branch(ep, t_rel) -> called every 0.25 s inside a move (snapshot hooks)."""
@@ -85,14 +90,31 @@ def run_phases(ep, phases, branch=None):
                 ep._add_joint_path(s, t, t + dur, rt["q"][s])
         elif ph[0] == "stop":
             dur = ph[1]
-            for s in SIDES:                               # decelerate the COMMANDED reference (11-02: starting from the measured
-                q = ep._cmd(s, t)                         # q baked the wrist sag into the reference; repeated -> 10 deg box tilt)
-                v = (ep._cmd(s, t + 1e-3) - q) / 1e-3 * dur
-                ep._trim(s, t)
-                q1 = q + 0.5 * v
-                wp = [(2 * a ** 3 - 3 * a ** 2 + 1) * q + (a ** 3 - 2 * a ** 2 + a) * v + (-2 * a ** 3 + 3 * a ** 2) * q1
-                      for a in np.linspace(0, 1, 31)]
-                ep.paths[s].append((t, t + dur, wp))
+            # 11-16: a stop in the LAST T seconds of a move lets the move finish.  ASSUMPTION (rest-to-rest): every reference entry in ep.paths ends at rest (TOPP-RA pieces,
+            # smoothstep moves, retreats, Hermite stops), so the reference itself decelerates to rest at its end knot (_cmd holds the last waypoint after t1).  The fixed-T Hermite
+            # stop below ran PAST the end of every move by up to a * T^2 / 8 when started within T of the end.  Rule 1 / Rule 4 model the identical rule.
+            rem = {}
+            for s in SIDES:
+                ent = None
+                for e in ep.paths[s]:                     # the entry _cmd uses at t: the LAST (t0, t1, wp) with t0 <= t (later entries override earlier ones)
+                    if e[0] <= t:
+                        ent = e
+                    else:
+                        break
+                rem[s] = None if ent is None else float(ent[1] - t)
+            finish = (not legacy_stop()) and all(r is not None and 1e-9 < r <= dur + 1e-9 for r in rem.values())
+            if getattr(ep, "stop_log", None) is None:
+                ep.stop_log = []
+            ep.stop_log.append(dict(t=t, mode="finish" if finish else "hermite", t_rem=rem, dur=dur))
+            if not finish:
+                for s in SIDES:                           # decelerate the COMMANDED reference (11-02: starting from the measured
+                    q = ep._cmd(s, t)                     # q baked the wrist sag into the reference; repeated -> 10 deg box tilt)
+                    v = (ep._cmd(s, t + 1e-3) - q) / 1e-3 * dur
+                    ep._trim(s, t)
+                    q1 = q + 0.5 * v
+                    wp = [(2 * a ** 3 - 3 * a ** 2 + 1) * q + (a ** 3 - 2 * a ** 2 + a) * v + (-2 * a ** 3 + 3 * a ** 2) * q1
+                          for a in np.linspace(0, 1, 31)]
+                    ep.paths[s].append((t, t + dur, wp))
         else:
             dur = ph[1]
         n = int(round(dur / DT))

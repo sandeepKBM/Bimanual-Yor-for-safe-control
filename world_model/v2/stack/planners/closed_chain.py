@@ -38,6 +38,7 @@ from world_model.v2.nero import config as C
 from world_model.v2.stack import tasks as TK
 from world_model.v2.stack.kin.srs_ik import SRSArm
 from world_model.v2.stack.planners import base_route as BR
+from world_model.v2.stack import types as TY
 from world_model.v2.stack.types import SIDES, BimanualPlan, Segment, SkillCall, TaskSpec
 
 NAME = "closed_chain"
@@ -862,23 +863,23 @@ def backup_phases_for(seg, wp=None):
         j = wp.names.index(seg)
         kind = wp.backups[j]
         if kind == "retrace":
-            return [("stop", 0.3), ("retrace", (seg,)), ("hold", 0.6)]
+            return [("stop", TY.STOP_T_S), ("retrace", (seg,)), ("hold", 0.6)]
         if kind == "hold":
-            return [("stop", 0.3), ("hold", 1.0)]
+            return [("stop", TY.STOP_T_S), ("hold", 1.0)]
         if kind == "let_go":
-            return [("stop", 0.3), ("hold", 0.3), ("weld", False), ("retreat", RETREAT_M, RETREAT_T), ("hold", 0.6)]
+            return [("stop", TY.STOP_T_S), ("hold", 0.3), ("weld", False), ("retreat", RETREAT_M, RETREAT_T), ("hold", 0.6)]
         if kind != "set_down":
             raise ValueError(f"unknown backup kind {kind!r}")
         post_base = bool(wp.base and j >= wp.base[0][0])
         if post_base and not legacy_behind_backup():                     # 11-13 (F1, USER-approved 11-12): after the base move the object is NOT near counter 1; continue the plan down onto the goal support, let go, retreat from the goal
-            return [("stop", 0.3), ("advance", tuple(wp.names[j:])), ("hold", 0.3), ("weld", False), ("jretreat", "goal"), ("hold", 0.6)]
+            return [("stop", TY.STOP_T_S), ("advance", tuple(wp.names[j:])), ("hold", 0.3), ("weld", False), ("jretreat", "goal"), ("hold", 0.6)]
         k0 = wp.base[0][0] if post_base else 0                           # LEGACY (BIMANUAL_LEGACY_BEHIND_BACKUP=1): a retrace never runs back across the base move: after it, set_down
         back = list(wp.names[k0:j + 1])[::-1]                            # retraces to the start of the post-base moves and lets go THERE (the object is not back on counter 1)
     else:
         back = {"lift": ["lift"], "carry": ["carry", "lift"], "place": ["place", "carry", "lift"]}.get(seg)
     if back is None:
         return None
-    ph = [("stop", 0.3), ("retrace", tuple(back)), ("hold", 0.3), ("weld", False), ("jretreat", "start"), ("hold", 0.6)]
+    ph = [("stop", TY.STOP_T_S), ("retrace", tuple(back)), ("hold", 0.3), ("weld", False), ("jretreat", "start"), ("hold", 0.6)]
     check_start_retreat(ph, wp)
     return ph
 

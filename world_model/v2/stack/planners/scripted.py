@@ -14,6 +14,7 @@ from __future__ import annotations
 import numpy as np
 
 from world_model.v2.nero.contents import carry as CR
+from world_model.v2.stack import types as TY
 from world_model.v2.stack.types import SIDES, BimanualPlan, Segment, SkillCall, TaskSpec
 
 NAME = "scripted"
@@ -36,7 +37,7 @@ def backup_phases(seg):
         return None
     # let go in place (11-02): back on the counter, release the weld and retreat, so the object settles flat on its own
     # (held welded, wrist sag of up to ~4 deg under load left it resting on one edge: smoke box 2 kg, 14/16 backups not in R)
-    return ([("stop", 0.3)] + [("to", f"start_{s}", None) for s in back]
+    return ([("stop", TY.STOP_T_S)] + [("to", f"start_{s}", None) for s in back]
             + [("hold", 0.3), ("weld", False), ("retreat", CR.RETREAT, 0.8), ("hold", 0.6)])
 
 

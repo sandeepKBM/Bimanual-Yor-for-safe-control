@@ -38,7 +38,9 @@ from world_model.v2.nero.contents import envelope as E
 from world_model.v2.nero.contents import objects as OB
 from world_model.v2.nero.contents import scenes as SC
 from world_model.v2.nero.contents import thresholds as THR
+from world_model.v2.stack import executor as EX
 from world_model.v2.stack import tasks as TK
+from world_model.v2.stack import types as TY
 from world_model.v2.stack import theta as TH
 from world_model.v2.stack.checks import admit as AD
 from world_model.v2.stack.checks import collision as KC
@@ -54,7 +56,7 @@ BIN_WIDTH_KG = 0.5                # ASSUMED (to be raised to the user): widest r
 N_STATIC = 6                      # path samples per move (= closed_chain.N_STATIC = carry_cert.N_PER_MOVE; the static admission's samples)
 A_BACKUP = CR.A_BACKUP            # ASSUMED 0.25 m/s^2 (carry.A_BACKUP): the stored backup's retrace acceleration
 A_MIN = AD.A_MIN                  # ASSUMED 0.05 m/s^2 (checks/admit): a retrace slower than this = the bin is refused (the recovery stalls)
-STOP_T_DEFAULT = 0.3              # s, only if a stored backup does not start with ("stop", T) (none does today)
+# stop time when a stored backup does not start with ("stop", T) (none does today): TY.STOP_T_S (ASSUMED, one source in stack/types.py, read at call time)
 READ_PRODUCER = "claw_load"
 HONEST = dict(between_samples="not bounded (samples only)", branch_grid="0.25 s grid; triggers between grid points not checked")      # what a "proof" label here does NOT cover
 
@@ -147,7 +149,7 @@ class MotionRef:
     seg: str
     target: str | None = None
     a: float | None = None
-    stop_T: float = STOP_T_DEFAULT
+    stop_T: float = dataclasses.field(default_factory=lambda: TY.STOP_T_S)      # call-time read of the single ASSUMED stop time
     note: str = ""
 
 
@@ -161,6 +163,9 @@ class Br:
                                  # None = the overshoot runs past the last planned sample (no checked pose exists: the motion rows are MISSING)
     idx_b: int | None = None     # closed_chain: geometry sample indices of key / ahead (the collision rows walk every index in between)
     idx_e: int | None = None
+    finish: bool = False         # 11-16: the branch is in the last stop_T seconds of its segment -> the stop FINISHES the planned segment (executor: the reference finishes at rest);
+                                 # `ahead` = the segment's last path sample
+    a_stop: float | None = None  # finish only: the stop's deceleration = the plan's own acceleration `a` (the planned remainder's acceleration cap)
 
 
 @dataclasses.dataclass
@@ -273,7 +278,7 @@ class Ctx:
 
     def _stop_T(self, seg):
         ph = self.backup(seg)
-        return float(ph[0][1]) if ph and ph[0][0] == "stop" else STOP_T_DEFAULT
+        return float(ph[0][1]) if ph and ph[0][0] == "stop" else TY.STOP_T_S
 
     def model(self, a: float) -> PathModel:
         k = round(float(a), 6)
@@ -314,8 +319,11 @@ class Ctx:
                 kk = min(n, int(round(t / CCP.DT)))
                 ib = i0 + int(np.argmin(np.linalg.norm(g.offs[i0:i1 + 1] - pc.p[kk], axis=1)))
                 v = float(vel[kk]) if kk < n else 0.0
+                fin = False
                 if v <= 1e-9:
                     ie = ib
+                elif (not EX.legacy_stop()) and 1e-9 < T[sg] - t <= sT + 1e-9:
+                    ie, fin = i1, True       # 11-16: the stop finishes the segment (executor stop branch); end of stop = the segment's last geometry sample
                 else:
                     # END of the stop: first sample at or beyond 0.5 v T (+ DS/2: the nearest sample may sit up to half a spacing behind the branch pose), continuing into the next
                     # segments' samples; None = beyond the last planned sample
@@ -324,13 +332,13 @@ class Ctx:
                     if ie is not None and self._post_of(g, sg, ie) != self._post_of(g, sg, ib):
                         ie = None            # the overshoot would run through the base move: no checked pose
                 need |= {ib} | (set(range(ib, ie + 1)) if ie is not None else set())
-                lst.append((float(t), v, ib, ie))
+                lst.append((float(t), v, ib, ie, fin))
             idx_br[sg] = lst
         key = lambda i: f"g{i}"
         q = {key(i): {s: g.q[s][i].tolist() for s in ("left", "right")} for i in sorted(need)}
         cap = dict(PE.caps()["pot"], q=q)
         offs = {key(i): np.asarray(g.offs[i], float) for i in sorted(need)}
-        branches = {sg: [Br(t, v, key(ib), None if ie is None else key(ie), ib, ie) for t, v, ib, ie in idx_br[sg]] for sg in names}
+        branches = {sg: [Br(t, v, key(ib), None if ie is None else key(ie), ib, ie, fin, (float(a) if fin else None)) for t, v, ib, ie, fin in idx_br[sg]] for sg in names}
         return PathModel(a, names, offs, cap, {s: [key(i) for i in static[s]] for s in names}, [key(i) for i in sorted(need)], branches, T, np.asarray(g.offs[-1], float),
                          desc="closed_chain: planned joint path (SRS IK + TOPP-RA), samples at the planned configurations", cc=cc, geo=g)
 
@@ -367,12 +375,15 @@ class Ctx:
         for seg in names:
             sT, lst = self._stop_T(seg), []
             for t, v, kb in raws[seg][0]:
+                fin = False
                 if v <= 1e-9:
                     ke = kb
+                elif (not EX.legacy_stop()) and 1e-9 < T[seg] - t <= sT + 1e-9:
+                    ke, fin = f"{seg}:{N_STATIC}", True      # 11-16: the stop finishes the segment: end of stop = the segment's end sample
                 else:       # the END of the stop: first sample at or beyond 0.5 v T along the path (continuing into the next segments); None = past the last sample
                     want = arc[kb] + 0.5 * v * sT
                     ke = next((k for k in order[order.index(kb):] if arc[k] >= want - 1e-12), None)
-                lst.append(Br(t, v, kb, ke))
+                lst.append(Br(t, v, kb, ke, finish=fin, a_stop=(float(a) if fin else None)))
             branches[seg] = lst
         cap = THR.capture_path(PE.caps()["pot"], offs)
         disp = sum(np.asarray(dl, float) for _, dl in moves)
@@ -446,7 +457,7 @@ class Ctx:
                                "not checked, so nothing is admitted")
         rows = []
         if plan.kind.startswith("stop") or plan.kind == "read_hold":
-            a_stop = br.v / max(plan.stop_T, 1e-9)
+            a_stop = br.a_stop if br.finish else br.v / max(plan.stop_T, 1e-9)
             ks = model.keys_stop(seg, br)
             rows.append(self.torque_row(model, theta, ks, a_stop, "stop"))
             rows.append(self.torque_row(model, theta, [br.ahead], 0.0, "hold_after_stop"))
@@ -651,7 +662,7 @@ class Ctx:
         ph = self.backup(seg)
         if ph is None:
             return None, None
-        sT = float(ph[0][1]) if ph[0][0] == "stop" else STOP_T_DEFAULT
+        sT = float(ph[0][1]) if ph[0][0] == "stop" else TY.STOP_T_S
         back = adv = None
         weld_off = False
         for p in ph:
@@ -727,13 +738,16 @@ class Ctx:
         return [A("BIN_WIDTH_KG", BIN_WIDTH_KG, "ASSUMED", "reading bin width (to be raised to the user); equal-width bins, n = ceil(range / BIN_WIDTH_KG)"),
                 A("A_BACKUP", A_BACKUP, "ASSUMED", "carry.A_BACKUP: stored backup retrace acceleration"),
                 A("A_MIN", A_MIN, "ASSUMED", "checks/admit.A_MIN: a retrace slower than this refuses the bin"),
-                A("stop_T", self._stop_T(seg), "MODEL", "stored backup phase (stop, T): deceleration = v_branch / T (Hermite stop: constant deceleration v / T)"),
+                A("stop_T", self._stop_T(seg), "MODEL", "stored backup phase (stop, T): deceleration = v_branch / T (Hermite stop: constant deceleration v / T); finish branches use a_stop = a (see stop_finish)"),
                 A("path", model.desc, "MODEL", f"a_plan = {model.a} m/s^2; {N_STATIC} static samples per move + the branch-pose samples"),
                 A("theta_hull", "a union of cells is checked on its total-mass hull", "MODEL", "sound superset"),
                 A("between_samples", "not bounded (samples only)", "MODEL", "torque / support rows are evaluated at the path samples only (a 'proof' label does not cover between them)"),
                 A("branch_grid", "0.25 s grid; triggers between grid points not checked", "MODEL", "branch points every 0.25 s; a trigger can come at any control step"),
                 A("stop_end", "first path sample at or beyond 0.5 v T (+ DS/2 nearest-sample margin on closed_chain), continuing into the next segments' samples", "MODEL",
                   "Hermite stop q1 = q + 0.5 v T; a stop that ends past the last sample gives a MISSING row"),
+                A("stop_finish", "a branch within the last stop_T s of its segment: the stop FINISHES the segment (end of stop = the segment's last path sample), deceleration a_stop = the plan's acceleration a "
+                  "(the planned remainder is the plan's own motion, whose acceleration cap is a); the collision swept term is geometric per sample (dt = 1), so it needs no speed for the remainder", "MODEL",
+                  "executor stop branch 11-16 (every reference entry ends at rest: the move finishes); BIMANUAL_LEGACY_STOP=1 restores the Hermite 0.5 v T overshoot model for every branch"),
                 A("collision", "closed_chain: swept row (D9 obj_world + arm_arm + arm_world) on the stop + retrace / advance samples; scripted: MISSING (no model)", "MODEL", "adapters/collision_rows"),
                 *self._read_assumptions(model),
                 A("tray_bins", "bins and the start-landing witness use spec_from_total (one mug may hold all the fill): conservative for the spill limit", "MODEL", "adapters/contents_specs")]
@@ -782,7 +796,9 @@ def prior_cells(ctx: Ctx) -> TH.ThetaSet:
     return TH.ThetaSet(tuple(cs))
 
 
-def run_cell(task, cell, out: pathlib.Path, n_sampled=0, procs=1, planner=None, fallback=True, wp=None) -> list:
+def run_cell(task, cell, out: pathlib.Path, n_sampled=0, procs=1, planner=None, fallback=True, wp=None, a=None) -> list:
+    """a=None: the steps are checked at the static admission's a_admit (as before).  a given (Part B, 11-16, the Z3 oracle passes the plan's a): the steps use ctx.model(a), provided
+    the static admission admits at a (a <= a_admit + 1e-9); else every step is a refusal record (the oracle refuses such plans at stage b; run_cell stays self-consistent)."""
     ctx = get_ctx(task, planner, wp)
     ctx.n_sampled, ctx.procs = n_sampled, procs
     lo, hi = cell_total(task, cell)
@@ -790,11 +806,20 @@ def run_cell(task, cell, out: pathlib.Path, n_sampled=0, procs=1, planner=None, 
     adm0, model = plan_admission(ctx, cell, lo, hi)
     base = dict(task=task, cell=list(cell), planner=ctx.planner, theta_t=theta_t.to_json(), plan_action=adm0.action, plan_a_admit=adm0.a_admit, n_sampled=n_sampled, fallback_evaluated=bool(fallback))
     theta_0 = prior_cells(ctx) if fallback else None
+    a_refused = None
+    if a is not None and model is not None:
+        if float(a) > float(adm0.a_admit) + 1e-9:
+            a_refused = f"the plan's acceleration a = {float(a):.4f} m/s^2 exceeds the static admission's a_admit = {float(adm0.a_admit):.4f} m/s^2 on this cell: the plan is not admitted at a"
+        else:
+            model = ctx.model(float(a))
+    base["plan_a"] = None if a is None else float(a)
     res = []
     m_ref = model if model is not None else ctx.model(AD.A_NOM)
     for ix, seg in steps_of(ctx, m_ref):
         rec = dict(base, step=ix, seg=seg)
-        if model is None:
+        if a_refused is not None:
+            rec.update(admitted=False, refusal=a_refused, rows=[], guarantee="refuted")
+        elif model is None:
             rows = [R1.row_to_dict(r) for r in adm0.rows if r.name.startswith(("torque_payload", "support_dest", "open_content")) and not r.ok] or [R1.row_to_dict(r) for r in adm0.rows]
             rec.update(admitted=False, refusal=f"the plan itself is refused by the static admission ({adm0.action}); no step is started", rows=rows, guarantee=adm0.verdict.guarantee)
         elif seg == "base_move":
