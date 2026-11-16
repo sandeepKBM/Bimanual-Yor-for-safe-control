@@ -1,0 +1,110 @@
+{
+ "task": "box",
+ "tag": "ASSUMED (break-even, not measured)",
+ "entries": [
+  {
+   "knob": "STOP_K_MAX",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the longest stop time the task tolerates (0.3 s * 2^k); a task-timing ruling, plus the measured stop deceleration the arms track",
+   "unit": "doublings",
+   "lenient": 1,
+   "rows": [
+    "rule4["
+   ],
+   "level": "rule4",
+   "today": 4,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 4,
+    "failing": [
+     {
+      "name": "rule4[hold_here@round0]",
+      "margin": null
+     },
+     {
+      "name": "rule4[hold_lower@round0]",
+      "margin": null
+     }
+    ]
+   },
+   "target_rows": [
+    "rule4[hold_here@round0]",
+    "rule4[hold_lower@round0]"
+   ],
+   "target_margins": {
+    "rule4[hold_here@round0]": null,
+    "rule4[hold_lower@round0]": null
+   },
+   "values": [
+    {
+     "value": 2,
+     "effective": 2,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule4[hold_here@round0]",
+       "margin": null
+      },
+      {
+       "name": "rule4[hold_lower@round0]",
+       "margin": null
+      }
+     ],
+     "wall_s": 292.8
+    },
+    {
+     "value": 4,
+     "effective": 4,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule4[hold_here@round0]",
+       "margin": null
+      },
+      {
+       "name": "rule4[hold_lower@round0]",
+       "margin": null
+      }
+     ],
+     "wall_s": 274.5
+    },
+    {
+     "value": 6,
+     "effective": 6,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule4[hold_here@round0]",
+       "margin": null
+      },
+      {
+       "name": "rule4[hold_lower@round0]",
+       "margin": null
+      }
+     ],
+     "wall_s": 312.5
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  }
+ ],
+ "combos": [],
+ "not_swept": {
+  "rule1.K": "not swept: no consumer. rule1.K and rule1.NODE_CAP are only RECORDED (rule1.py:153-154 assumptions, rule1_contents.py:621/643 `worst`, rule4.py:81); no search reads them (the R_K witness is the depth-1 planner admission). Raising them cannot change a verdict.",
+  "rule1.NODE_CAP": "not swept: no consumer (see rule1.K)",
+  "rule4.MAX_ROUNDS / RETRACE_HALVINGS": "not requested here; rule4_contents module globals, add to KNOBS if a Rule 4 near-miss needs them"
+ }
+}

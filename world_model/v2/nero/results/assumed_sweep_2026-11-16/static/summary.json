@@ -1,0 +1,7476 @@
+{
+ "task": "box",
+ "tag": "ASSUMED (break-even, not measured)",
+ "entries": [
+  {
+   "knob": "A_BACKUP",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the retrace acceleration the real arms + gripper hold the load at without slip (measured slip / torque margin on hardware)",
+   "unit": "m/s^2",
+   "lenient": -1,
+   "rows": [
+    "rule1["
+   ],
+   "level": "static",
+   "today": 0.25,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.1,
+     "effective": 0.1,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 88.2
+    },
+    {
+     "value": 0.15,
+     "effective": 0.15,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 89.2
+    },
+    {
+     "value": 0.25,
+     "effective": 0.25,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 91.3
+    },
+    {
+     "value": 0.4,
+     "effective": 0.4,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 98.8
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "A_BACKUP",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the retrace acceleration the real arms + gripper hold the load at without slip (measured slip / torque margin on hardware)",
+   "unit": "m/s^2",
+   "lenient": -1,
+   "rows": [
+    "rule1["
+   ],
+   "level": "static",
+   "today": 0.25,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[0:s0_lift:stored_backup]": null,
+    "rule1[1:s1_move:stored_backup]": null,
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.1,
+     "effective": 0.1,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 253.4
+    },
+    {
+     "value": 0.15,
+     "effective": 0.15,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 250.4
+    },
+    {
+     "value": 0.25,
+     "effective": 0.25,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 260.9
+    },
+    {
+     "value": 0.4,
+     "effective": 0.4,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 248.4
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "A_MIN",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "a task-timing choice (the slowest acceptable carry); no measurement, a user ruling",
+   "unit": "m/s^2",
+   "lenient": -1,
+   "rows": [
+    "static_action",
+    "rule1["
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 92.5
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 103.5
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "A_MIN",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "a task-timing choice (the slowest acceptable carry); no measurement, a user ruling",
+   "unit": "m/s^2",
+   "lenient": -1,
+   "rows": [
+    "static_action",
+    "rule1["
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[0:s0_lift:stored_backup]": null,
+    "rule1[1:s1_move:stored_backup]": null,
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 263.7
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 262.7
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "BIN_WIDTH_KG",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "not a physical value: the reading-bin design choice; the finest bin the claw-load read can resolve = its measured noise (EPS_FREE + nb)",
+   "unit": "kg",
+   "lenient": -1,
+   "rows": [
+    "rule1["
+   ],
+   "level": "static",
+   "today": 0.5,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.1,
+     "effective": 0.1,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 235.0
+    },
+    {
+     "value": 0.25,
+     "effective": 0.25,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 130.2
+    },
+    {
+     "value": 0.5,
+     "effective": 0.5,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 87.2
+    },
+    {
+     "value": 1.0,
+     "effective": 1.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 54.0
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "BIN_WIDTH_KG",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "not a physical value: the reading-bin design choice; the finest bin the claw-load read can resolve = its measured noise (EPS_FREE + nb)",
+   "unit": "kg",
+   "lenient": -1,
+   "rows": [
+    "rule1["
+   ],
+   "level": "static",
+   "today": 0.5,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[0:s0_lift:stored_backup]": null,
+    "rule1[1:s1_move:stored_backup]": null,
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.1,
+     "effective": 0.1,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 709.3
+    },
+    {
+     "value": 0.25,
+     "effective": 0.25,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 417.7
+    },
+    {
+     "value": 0.5,
+     "effective": 0.5,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 269.0
+    },
+    {
+     "value": 1.0,
+     "effective": 1.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 160.3
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "CLEARANCE_MIN",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the pose / calibration error of the arm links vs the world (hand-eye + FK error), measured on the robot, plus the model-vs-mesh distance error",
+   "unit": "m",
+   "lenient": -1,
+   "rows": [
+    "collision"
+   ],
+   "level": "static",
+   "today": 0.005,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 131.1
+    },
+    {
+     "value": 0.0005,
+     "effective": 0.0005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 132.4
+    },
+    {
+     "value": 0.001,
+     "effective": 0.001,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 135.1
+    },
+    {
+     "value": 0.0015,
+     "effective": 0.0015,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 116.1
+    },
+    {
+     "value": 0.002,
+     "effective": 0.002,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 133.8
+    },
+    {
+     "value": 0.0025,
+     "effective": 0.0025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 132.3
+    },
+    {
+     "value": 0.003,
+     "effective": 0.003,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 129.2
+    },
+    {
+     "value": 0.0035,
+     "effective": 0.0035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 117.8
+    },
+    {
+     "value": 0.004,
+     "effective": 0.004,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 126.2
+    },
+    {
+     "value": 0.0045,
+     "effective": 0.0045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 110.4
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 112.0
+    },
+    {
+     "value": 0.0055,
+     "effective": 0.0055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 124.9
+    },
+    {
+     "value": 0.006,
+     "effective": 0.006,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 118.8
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "CLEARANCE_MIN",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the pose / calibration error of the arm links vs the world (hand-eye + FK error), measured on the robot, plus the model-vs-mesh distance error",
+   "unit": "m",
+   "lenient": -1,
+   "rows": [
+    "collision"
+   ],
+   "level": "static",
+   "today": 0.005,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 333.3
+    },
+    {
+     "value": 0.0005,
+     "effective": 0.0005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 313.1
+    },
+    {
+     "value": 0.001,
+     "effective": 0.001,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 331.0
+    },
+    {
+     "value": 0.0015,
+     "effective": 0.0015,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 337.9
+    },
+    {
+     "value": 0.002,
+     "effective": 0.002,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 338.7
+    },
+    {
+     "value": 0.0025,
+     "effective": 0.0025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 313.1
+    },
+    {
+     "value": 0.003,
+     "effective": 0.003,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 333.2
+    },
+    {
+     "value": 0.0035,
+     "effective": 0.0035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 339.5
+    },
+    {
+     "value": 0.004,
+     "effective": 0.004,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 342.0
+    },
+    {
+     "value": 0.0045,
+     "effective": 0.0045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 348.6
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 314.9
+    },
+    {
+     "value": 0.0055,
+     "effective": 0.0055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 334.2
+    },
+    {
+     "value": 0.006,
+     "effective": 0.006,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 307.9
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "CLEAR_M_BOX",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the measured object-pose error at the lift / carry (perception + tracking) over the shelf edge",
+   "unit": "m",
+   "lenient": 0,
+   "rows": [
+    "collision",
+    "joint_pos",
+    "reach",
+    "plan"
+   ],
+   "level": "static",
+   "today": 0.03,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164,
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.012088377501118908
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 147.8
+    },
+    {
+     "value": 0.025,
+     "effective": 0.025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.021306109047754207
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 146.3
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 110.9
+    },
+    {
+     "value": 0.035,
+     "effective": 0.035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.0413925679833016
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 153.2
+    },
+    {
+     "value": 0.04,
+     "effective": 0.04,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "plan_geometry",
+       "margin": null
+      }
+     ],
+     "wall_s": 22.4
+    },
+    {
+     "value": 0.045,
+     "effective": 0.045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "plan_geometry",
+       "margin": null
+      }
+     ],
+     "wall_s": 20.7
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "plan_geometry",
+       "margin": null
+      }
+     ],
+     "wall_s": 20.0
+    },
+    {
+     "value": 0.055,
+     "effective": 0.055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "compile",
+       "margin": null
+      }
+     ],
+     "wall_s": 2.3
+    },
+    {
+     "value": 0.06,
+     "effective": 0.06,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "compile",
+       "margin": null
+      }
+     ],
+     "wall_s": 2.3
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "CLEAR_M_BOX",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the measured object-pose error at the lift / carry (perception + tracking) over the shelf edge",
+   "unit": "m",
+   "lenient": 0,
+   "rows": [
+    "collision",
+    "joint_pos",
+    "reach",
+    "plan"
+   ],
+   "level": "static",
+   "today": 0.03,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164,
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.012088377501118908
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 304.5
+    },
+    {
+     "value": 0.025,
+     "effective": 0.025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.021306109047754207
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 302.0
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 296.4
+    },
+    {
+     "value": 0.035,
+     "effective": 0.035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.0413925679833016
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 287.3
+    },
+    {
+     "value": 0.04,
+     "effective": 0.04,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "plan_geometry",
+       "margin": null
+      }
+     ],
+     "wall_s": 19.5
+    },
+    {
+     "value": 0.045,
+     "effective": 0.045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "plan_geometry",
+       "margin": null
+      }
+     ],
+     "wall_s": 21.1
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "plan_geometry",
+       "margin": null
+      }
+     ],
+     "wall_s": 17.7
+    },
+    {
+     "value": 0.055,
+     "effective": 0.055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "compile",
+       "margin": null
+      }
+     ],
+     "wall_s": 2.0
+    },
+    {
+     "value": 0.06,
+     "effective": 0.06,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "compile",
+       "margin": null
+      }
+     ],
+     "wall_s": 2.2
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "DY_RANGE",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the free lateral space at the counter / shelf (measured scene layout) bounding how far the lift may be shifted sideways",
+   "unit": "m",
+   "lenient": 1,
+   "rows": [
+    "joint_pos",
+    "reach",
+    "plan"
+   ],
+   "level": "static",
+   "today": [
+    -0.04,
+    0.06
+   ],
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": [
+      -0.04,
+      0.06
+     ],
+     "effective": [
+      -0.04,
+      0.06
+     ],
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 148.0
+    },
+    {
+     "value": [
+      -0.06,
+      0.08
+     ],
+     "effective": [
+      -0.06,
+      0.08
+     ],
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 202.4
+    },
+    {
+     "value": [
+      -0.08,
+      0.1
+     ],
+     "effective": [
+      -0.08,
+      0.1
+     ],
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 183.8
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "DY_RANGE",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the free lateral space at the counter / shelf (measured scene layout) bounding how far the lift may be shifted sideways",
+   "unit": "m",
+   "lenient": 1,
+   "rows": [
+    "joint_pos",
+    "reach",
+    "plan"
+   ],
+   "level": "static",
+   "today": [
+    -0.04,
+    0.06
+   ],
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": [
+      -0.04,
+      0.06
+     ],
+     "effective": [
+      -0.04,
+      0.06
+     ],
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 358.3
+    },
+    {
+     "value": [
+      -0.06,
+      0.08
+     ],
+     "effective": [
+      -0.06,
+      0.08
+     ],
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 406.5
+    },
+    {
+     "value": [
+      -0.08,
+      0.1
+     ],
+     "effective": [
+      -0.08,
+      0.1
+     ],
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 350.4
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "EPS_CC_POS",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the stiffness / compliance of the real weld grasp + the arms' FK error: the object-pose disagreement the real gripper pair can absorb (measured internal force vs offset)",
+   "unit": "m",
+   "lenient": 1,
+   "rows": [
+    "closed_chain"
+   ],
+   "level": "static",
+   "today": 0.002,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [],
+   "target_margins": {},
+   "values": [
+    {
+     "value": 0.001,
+     "effective": 0.001,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 98.6
+    },
+    {
+     "value": 0.002,
+     "effective": 0.002,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 95.8
+    },
+    {
+     "value": 0.003,
+     "effective": 0.003,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 95.5
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 90.8
+    }
+   ],
+   "unusable_runs": [],
+   "status": "knob's rows pass today; the baseline fails on other rows",
+   "break_even": null
+  },
+  {
+   "knob": "EPS_CC_POS",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the stiffness / compliance of the real weld grasp + the arms' FK error: the object-pose disagreement the real gripper pair can absorb (measured internal force vs offset)",
+   "unit": "m",
+   "lenient": 1,
+   "rows": [
+    "closed_chain"
+   ],
+   "level": "static",
+   "today": 0.002,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [],
+   "target_margins": {},
+   "values": [
+    {
+     "value": 0.001,
+     "effective": 0.001,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 259.5
+    },
+    {
+     "value": 0.002,
+     "effective": 0.002,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 254.7
+    },
+    {
+     "value": 0.003,
+     "effective": 0.003,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 251.6
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 237.3
+    }
+   ],
+   "unusable_runs": [],
+   "status": "knob's rows pass today; the baseline fails on other rows",
+   "break_even": null
+  },
+  {
+   "knob": "EPS_CC_ROT",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "same as EPS_CC_POS (rotation disagreement the weld absorbs)",
+   "unit": "rad",
+   "lenient": 1,
+   "rows": [
+    "closed_chain"
+   ],
+   "level": "static",
+   "today": 0.01,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [],
+   "target_margins": {},
+   "values": [
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 98.2
+    },
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 104.4
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 102.7
+    }
+   ],
+   "unusable_runs": [],
+   "status": "knob's rows pass today; the baseline fails on other rows",
+   "break_even": null
+  },
+  {
+   "knob": "EPS_CC_ROT",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "same as EPS_CC_POS (rotation disagreement the weld absorbs)",
+   "unit": "rad",
+   "lenient": 1,
+   "rows": [
+    "closed_chain"
+   ],
+   "level": "static",
+   "today": 0.01,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [],
+   "target_margins": {},
+   "values": [
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 231.4
+    },
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 239.9
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 228.3
+    }
+   ],
+   "unusable_runs": [],
+   "status": "knob's rows pass today; the baseline fails on other rows",
+   "break_even": null
+  },
+  {
+   "knob": "MARGIN_WANT",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "same as PATH_MARGIN_MIN (J7 tracking error): the planner target should be the checker margin",
+   "unit": "rad",
+   "lenient": -1,
+   "rows": [
+    "joint_pos",
+    "plan"
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 195.1
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 180.9
+    },
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 187.4
+    },
+    {
+     "value": 0.015,
+     "effective": 0.015,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 191.2
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 191.3
+    },
+    {
+     "value": 0.025,
+     "effective": 0.025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 123.8
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 116.4
+    },
+    {
+     "value": 0.035,
+     "effective": 0.035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 126.2
+    },
+    {
+     "value": 0.04,
+     "effective": 0.04,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 123.7
+    },
+    {
+     "value": 0.045,
+     "effective": 0.045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 124.3
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 95.0
+    },
+    {
+     "value": 0.055,
+     "effective": 0.055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 117.6
+    },
+    {
+     "value": 0.06,
+     "effective": 0.06,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 126.1
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "MARGIN_WANT",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "same as PATH_MARGIN_MIN (J7 tracking error): the planner target should be the checker margin",
+   "unit": "rad",
+   "lenient": -1,
+   "rows": [
+    "joint_pos",
+    "plan"
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 237.6
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 233.2
+    },
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 233.0
+    },
+    {
+     "value": 0.015,
+     "effective": 0.015,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 225.3
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 236.3
+    },
+    {
+     "value": 0.025,
+     "effective": 0.025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 234.5
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 237.5
+    },
+    {
+     "value": 0.035,
+     "effective": 0.035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 220.8
+    },
+    {
+     "value": 0.04,
+     "effective": 0.04,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 231.8
+    },
+    {
+     "value": 0.045,
+     "effective": 0.045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 223.2
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 241.7
+    },
+    {
+     "value": 0.055,
+     "effective": 0.055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 234.3
+    },
+    {
+     "value": 0.06,
+     "effective": 0.06,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 242.9
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "PATH_MARGIN_BOTH",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "J7 / joint-limit tracking error (one number for the checker margin and the planner target)",
+   "unit": "rad",
+   "lenient": -1,
+   "rows": [
+    "joint_pos",
+    "plan"
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 90.0
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 98.6
+    },
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 87.2
+    },
+    {
+     "value": 0.015,
+     "effective": 0.015,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 89.2
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.0010618797559616144
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 93.8
+    },
+    {
+     "value": 0.025,
+     "effective": 0.025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.006061879755961508
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 87.5
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.011061879755961623
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 92.3
+    },
+    {
+     "value": 0.035,
+     "effective": 0.035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.016061879755961517
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 93.5
+    },
+    {
+     "value": 0.04,
+     "effective": 0.04,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.021061879755961632
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 94.6
+    },
+    {
+     "value": 0.045,
+     "effective": 0.045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.026061879755961526
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 88.0
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 90.1
+    },
+    {
+     "value": 0.055,
+     "effective": 0.055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.036061879755961534
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 92.1
+    },
+    {
+     "value": 0.06,
+     "effective": 0.06,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.04106187975596165
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 93.0
+    }
+   ],
+   "unusable_runs": [],
+   "linear_estimate": 0.018938,
+   "status": "ok",
+   "break_even": 0.015,
+   "break_even_label": "0.015",
+   "next_blocker": [
+    {
+     "name": "rule1[2:s2_place:stored_backup]",
+     "margin": null
+    },
+    {
+     "name": "obj_tilt",
+     "margin": 6.085100000000001
+    }
+   ],
+   "full_verdict_at_break_even": {
+    "ok": false,
+    "failing": [
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "change_from_today": -0.035
+  },
+  {
+   "knob": "PATH_MARGIN_BOTH",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "J7 / joint-limit tracking error (one number for the checker margin and the planner target)",
+   "unit": "rad",
+   "lenient": -1,
+   "rows": [
+    "joint_pos",
+    "plan"
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 251.7
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 261.0
+    },
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 281.4
+    },
+    {
+     "value": 0.015,
+     "effective": 0.015,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 267.9
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.0010618797559616144
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 275.2
+    },
+    {
+     "value": 0.025,
+     "effective": 0.025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.006061879755961508
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 285.0
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.011061879755961623
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 268.7
+    },
+    {
+     "value": 0.035,
+     "effective": 0.035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.016061879755961517
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 291.5
+    },
+    {
+     "value": 0.04,
+     "effective": 0.04,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.021061879755961632
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 285.0
+    },
+    {
+     "value": 0.045,
+     "effective": 0.045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.026061879755961526
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 254.5
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 288.0
+    },
+    {
+     "value": 0.055,
+     "effective": 0.055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.036061879755961534
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 309.3
+    },
+    {
+     "value": 0.06,
+     "effective": 0.06,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.04106187975596165
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 349.9
+    }
+   ],
+   "unusable_runs": [],
+   "linear_estimate": 0.018938,
+   "status": "ok",
+   "break_even": 0.015,
+   "break_even_label": "0.015",
+   "next_blocker": [
+    {
+     "name": "a_le_a_admit",
+     "margin": -0.4127
+    },
+    {
+     "name": "rule1[0:s0_lift:stored_backup]",
+     "margin": null
+    },
+    {
+     "name": "rule1[1:s1_move:stored_backup]",
+     "margin": null
+    },
+    {
+     "name": "rule1[2:s2_place:stored_backup]",
+     "margin": null
+    },
+    {
+     "name": "obj_tilt",
+     "margin": 4.2257
+    }
+   ],
+   "full_verdict_at_break_even": {
+    "ok": false,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "change_from_today": -0.035
+  },
+  {
+   "knob": "PATH_MARGIN_MIN",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "J7 / joint-limit tracking error of the executed path vs the planned path (measured max over episodes), plus the URDF limit vs the firmware soft limit",
+   "unit": "rad",
+   "lenient": -1,
+   "rows": [
+    "joint_pos"
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 142.4
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 148.1
+    },
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 138.1
+    },
+    {
+     "value": 0.015,
+     "effective": 0.015,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 2,
+     "failing": [
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 144.7
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.0010618797559616144
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 145.5
+    },
+    {
+     "value": 0.025,
+     "effective": 0.025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.006061879755961508
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 143.7
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.011061879755961623
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 130.7
+    },
+    {
+     "value": 0.035,
+     "effective": 0.035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.016061879755961517
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 144.2
+    },
+    {
+     "value": 0.04,
+     "effective": 0.04,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.021061879755961632
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 136.2
+    },
+    {
+     "value": 0.045,
+     "effective": 0.045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.026061879755961526
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 142.9
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 145.4
+    },
+    {
+     "value": 0.055,
+     "effective": 0.055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.036061879755961534
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 148.2
+    },
+    {
+     "value": 0.06,
+     "effective": 0.06,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.04106187975596165
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 146.8
+    }
+   ],
+   "unusable_runs": [],
+   "linear_estimate": 0.018938,
+   "status": "ok",
+   "break_even": 0.015,
+   "break_even_label": "0.015",
+   "next_blocker": [
+    {
+     "name": "rule1[2:s2_place:stored_backup]",
+     "margin": null
+    },
+    {
+     "name": "obj_tilt",
+     "margin": 6.085100000000001
+    }
+   ],
+   "full_verdict_at_break_even": {
+    "ok": false,
+    "failing": [
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "change_from_today": -0.035
+  },
+  {
+   "knob": "PATH_MARGIN_MIN",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "J7 / joint-limit tracking error of the executed path vs the planned path (measured max over episodes), plus the URDF limit vs the firmware soft limit",
+   "unit": "rad",
+   "lenient": -1,
+   "rows": [
+    "joint_pos"
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 341.0
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 331.9
+    },
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 331.9
+    },
+    {
+     "value": 0.015,
+     "effective": 0.015,
+     "ok": false,
+     "target_pass": true,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 329.0
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.0010618797559616144
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 350.3
+    },
+    {
+     "value": 0.025,
+     "effective": 0.025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.006061879755961508
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 338.1
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.011061879755961623
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 358.9
+    },
+    {
+     "value": 0.035,
+     "effective": 0.035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.016061879755961517
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 333.3
+    },
+    {
+     "value": 0.04,
+     "effective": 0.04,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.021061879755961632
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 358.6
+    },
+    {
+     "value": 0.045,
+     "effective": 0.045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.026061879755961526
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 358.0
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 350.8
+    },
+    {
+     "value": 0.055,
+     "effective": 0.055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.036061879755961534
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 355.4
+    },
+    {
+     "value": 0.06,
+     "effective": 0.06,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.04106187975596165
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 326.3
+    }
+   ],
+   "unusable_runs": [],
+   "linear_estimate": 0.018938,
+   "status": "ok",
+   "break_even": 0.015,
+   "break_even_label": "0.015",
+   "next_blocker": [
+    {
+     "name": "a_le_a_admit",
+     "margin": -0.4127
+    },
+    {
+     "name": "rule1[0:s0_lift:stored_backup]",
+     "margin": null
+    },
+    {
+     "name": "rule1[1:s1_move:stored_backup]",
+     "margin": null
+    },
+    {
+     "name": "rule1[2:s2_place:stored_backup]",
+     "margin": null
+    },
+    {
+     "name": "obj_tilt",
+     "margin": 4.2257
+    }
+   ],
+   "full_verdict_at_break_even": {
+    "ok": false,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "change_from_today": -0.035
+  },
+  {
+   "knob": "PSI_STEP_DEG",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "not a physical value: a planner search resolution (finer = more IK arm-angle candidates); no measurement needed, only run time",
+   "unit": "deg",
+   "lenient": -1,
+   "rows": [
+    "joint_pos",
+    "reach",
+    "plan"
+   ],
+   "level": "static",
+   "today": 3.0,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": 1.0,
+     "effective": 1.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03048783764000773
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 297.5
+    },
+    {
+     "value": 2.0,
+     "effective": 2.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.030777655453252173
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 188.0
+    },
+    {
+     "value": 3.0,
+     "effective": 3.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 131.3
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "PSI_STEP_DEG",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "not a physical value: a planner search resolution (finer = more IK arm-angle candidates); no measurement needed, only run time",
+   "unit": "deg",
+   "lenient": -1,
+   "rows": [
+    "joint_pos",
+    "reach",
+    "plan"
+   ],
+   "level": "static",
+   "today": 3.0,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "joint_pos"
+   ],
+   "target_margins": {
+    "joint_pos": -0.03106187975596164
+   },
+   "values": [
+    {
+     "value": 1.0,
+     "effective": 1.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03048783764000773
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 422.1
+    },
+    {
+     "value": 2.0,
+     "effective": 2.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.030777655453252173
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 436.0
+    },
+    {
+     "value": 3.0,
+     "effective": 3.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 370.7
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "TAU_NOISE",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "NERO joint-torque read noise: measure the read at rest / constant hold on the real arm (sd and max over n samples per joint)",
+   "unit": "Nm",
+   "lenient": -1,
+   "rows": [
+    "rule1["
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 97.9
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 88.5
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 106.1
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 90.2
+    },
+    {
+     "value": 0.08,
+     "effective": 0.08,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 109.1
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "TAU_NOISE",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "NERO joint-torque read noise: measure the read at rest / constant hold on the real arm (sd and max over n samples per joint)",
+   "unit": "Nm",
+   "lenient": -1,
+   "rows": [
+    "rule1["
+   ],
+   "level": "static",
+   "today": 0.05,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[0:s0_lift:stored_backup]": null,
+    "rule1[1:s1_move:stored_backup]": null,
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.01,
+     "effective": 0.01,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 252.9
+    },
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 245.0
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 251.2
+    },
+    {
+     "value": 0.05,
+     "effective": 0.05,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 231.9
+    },
+    {
+     "value": 0.08,
+     "effective": 0.08,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 286.6
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "U_OBJ_CLEAR_M",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the object pose + shape error vs the world geometry (perception / calibration), measured on the robot",
+   "unit": "m",
+   "lenient": -1,
+   "rows": [
+    "collision",
+    "episode_U"
+   ],
+   "level": "both",
+   "today": 0.005,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 16,
+    "failing": [
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 6.085100000000001
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 107.6
+    },
+    {
+     "value": 0.0005,
+     "effective": 0.0005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 104.3
+    },
+    {
+     "value": 0.001,
+     "effective": 0.001,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 107.4
+    },
+    {
+     "value": 0.0015,
+     "effective": 0.0015,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 117.4
+    },
+    {
+     "value": 0.002,
+     "effective": 0.002,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 114.4
+    },
+    {
+     "value": 0.0025,
+     "effective": 0.0025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 101.0
+    },
+    {
+     "value": 0.003,
+     "effective": 0.003,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 113.7
+    },
+    {
+     "value": 0.0035,
+     "effective": 0.0035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 124.6
+    },
+    {
+     "value": 0.004,
+     "effective": 0.004,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 120.1
+    },
+    {
+     "value": 0.0045,
+     "effective": 0.0045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 126.5
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 3,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 119.5
+    },
+    {
+     "value": 0.0055,
+     "effective": 0.0055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 125.3
+    },
+    {
+     "value": 0.006,
+     "effective": 0.006,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 122.2
+    },
+    {
+     "value": 0.0065,
+     "effective": 0.0065,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 112.6
+    },
+    {
+     "value": 0.007,
+     "effective": 0.007,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 5,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 109.8
+    },
+    {
+     "value": 0.0075,
+     "effective": 0.0075,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "collision",
+       "margin": -0.00036283381098184755
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 108.8
+    },
+    {
+     "value": 0.008,
+     "effective": 0.008,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "collision",
+       "margin": -0.000862833810981848
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 6.085100000000001
+      }
+     ],
+     "wall_s": 114.0
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  },
+  {
+   "knob": "U_OBJ_CLEAR_M",
+   "cell": [
+    2.5,
+    3.0
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the object pose + shape error vs the world geometry (perception / calibration), measured on the robot",
+   "unit": "m",
+   "lenient": -1,
+   "rows": [
+    "collision",
+    "episode_U"
+   ],
+   "level": "both",
+   "today": 0.005,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 17,
+    "failing": [
+     {
+      "name": "a_le_a_admit",
+      "margin": -0.4127
+     },
+     {
+      "name": "joint_pos",
+      "margin": -0.03106187975596164
+     },
+     {
+      "name": "rule1[0:s0_lift:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[1:s1_move:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "rule1[2:s2_place:stored_backup]",
+      "margin": null
+     },
+     {
+      "name": "obj_tilt",
+      "margin": 4.2257
+     }
+    ]
+   },
+   "target_rows": [
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "target_margins": {
+    "rule1[2:s2_place:stored_backup]": null
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 264.9
+    },
+    {
+     "value": 0.0005,
+     "effective": 0.0005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 265.9
+    },
+    {
+     "value": 0.001,
+     "effective": 0.001,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 269.0
+    },
+    {
+     "value": 0.0015,
+     "effective": 0.0015,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 250.4
+    },
+    {
+     "value": 0.002,
+     "effective": 0.002,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 281.3
+    },
+    {
+     "value": 0.0025,
+     "effective": 0.0025,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 262.4
+    },
+    {
+     "value": 0.003,
+     "effective": 0.003,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 259.9
+    },
+    {
+     "value": 0.0035,
+     "effective": 0.0035,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 250.3
+    },
+    {
+     "value": 0.004,
+     "effective": 0.004,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 280.1
+    },
+    {
+     "value": 0.0045,
+     "effective": 0.0045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 288.6
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 255.6
+    },
+    {
+     "value": 0.0055,
+     "effective": 0.0055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 265.4
+    },
+    {
+     "value": 0.006,
+     "effective": 0.006,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 224.8
+    },
+    {
+     "value": 0.0065,
+     "effective": 0.0065,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 284.6
+    },
+    {
+     "value": 0.007,
+     "effective": 0.007,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 6,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 256.4
+    },
+    {
+     "value": 0.0075,
+     "effective": 0.0075,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 7,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "collision",
+       "margin": -0.00036283381098184755
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 251.6
+    },
+    {
+     "value": 0.008,
+     "effective": 0.008,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 7,
+     "failing": [
+      {
+       "name": "a_le_a_admit",
+       "margin": -0.4127
+      },
+      {
+       "name": "joint_pos",
+       "margin": -0.03106187975596164
+      },
+      {
+       "name": "collision",
+       "margin": -0.000862833810981848
+      },
+      {
+       "name": "rule1[0:s0_lift:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[1:s1_move:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "rule1[2:s2_place:stored_backup]",
+       "margin": null
+      },
+      {
+       "name": "obj_tilt",
+       "margin": 4.2257
+      }
+     ],
+     "wall_s": 228.8
+    }
+   ],
+   "unusable_runs": [],
+   "status": "target rows fail",
+   "break_even": "none on grid",
+   "next_blocker": null
+  }
+ ],
+ "combos": [],
+ "not_swept": {
+  "rule1.K": "not swept: no consumer. rule1.K and rule1.NODE_CAP are only RECORDED (rule1.py:153-154 assumptions, rule1_contents.py:621/643 `worst`, rule4.py:81); no search reads them (the R_K witness is the depth-1 planner admission). Raising them cannot change a verdict.",
+  "rule1.NODE_CAP": "not swept: no consumer (see rule1.K)",
+  "rule4.MAX_ROUNDS / RETRACE_HALVINGS": "not requested here; rule4_contents module globals, add to KNOBS if a Rule 4 near-miss needs them"
+ }
+}

@@ -1,0 +1,452 @@
+{
+ "task": "box",
+ "tag": "ASSUMED (break-even, not measured)",
+ "entries": [
+  {
+   "knob": "CLEAR_M_BOX",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the measured object-pose error at the lift / carry (perception + tracking) over the shelf edge",
+   "unit": "m",
+   "lenient": 0,
+   "rows": [
+    "collision",
+    "joint_pos",
+    "reach",
+    "plan"
+   ],
+   "level": "static",
+   "today": 0.03,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 2,
+    "failing": [
+     {
+      "name": "episode_U",
+      "margin": -0.0008000000000000004
+     }
+    ]
+   },
+   "target_rows": [],
+   "target_margins": {},
+   "values": [
+    {
+     "value": 0.02,
+     "effective": 0.02,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0005999999999999998
+      }
+     ],
+     "wall_s": 68.6
+    },
+    {
+     "value": 0.025,
+     "effective": 0.025,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0007000000000000001
+      }
+     ],
+     "wall_s": 71.4
+    },
+    {
+     "value": 0.03,
+     "effective": 0.03,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0008000000000000004
+      }
+     ],
+     "wall_s": 41.4
+    },
+    {
+     "value": 0.035,
+     "effective": 0.035,
+     "ok": false,
+     "target_pass": null,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0012000000000000001
+      }
+     ],
+     "wall_s": 73.7
+    }
+   ],
+   "unusable_runs": [
+    {
+     "value": 0.04,
+     "status": "error",
+     "why": "c, branch_backups, t0)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/contents/carry.py\", line 970, in run_segments\n    plan = ClosedChainPlanner().plan(None, SkillCall(\"carry_task\", dict(task=ep.task"
+    },
+    {
+     "value": 0.045,
+     "status": "error",
+     "why": ", branch_backups, t0)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/contents/carry.py\", line 970, in run_segments\n    plan = ClosedChainPlanner().plan(None, SkillCall(\"carry_task\", dict(task=ep.task,"
+    },
+    {
+     "value": 0.05,
+     "status": "error",
+     "why": "ec, branch_backups, t0)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/contents/carry.py\", line 970, in run_segments\n    plan = ClosedChainPlanner().plan(None, SkillCall(\"carry_task\", dict(task=ep.tas"
+    },
+    {
+     "value": 0.055,
+     "status": "error",
+     "why": ", branch_backups, t0)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/contents/carry.py\", line 970, in run_segments\n    plan = ClosedChainPlanner().plan(None, SkillCall(\"carry_task\", dict(task=ep.task,"
+    },
+    {
+     "value": 0.06,
+     "status": "error",
+     "why": "c, branch_backups, t0)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/contents/carry.py\", line 970, in run_segments\n    plan = ClosedChainPlanner().plan(None, SkillCall(\"carry_task\", dict(task=ep.task"
+    }
+   ],
+   "status": "knob's rows pass today; the baseline fails on other rows",
+   "break_even": null
+  },
+  {
+   "knob": "SUPPORT_APPROACH_DEG",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the geometry that defines 'resting on / approaching a support top' (a definition; justify by the measured approach direction of the real set-down)",
+   "unit": "deg",
+   "lenient": 1,
+   "rows": [
+    "collision",
+    "episode_U"
+   ],
+   "level": "both",
+   "today": 30.0,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 2,
+    "failing": [
+     {
+      "name": "episode_U",
+      "margin": -0.0008000000000000004
+     }
+    ]
+   },
+   "target_rows": [
+    "episode_U"
+   ],
+   "target_margins": {
+    "episode_U": -0.0008000000000000004
+   },
+   "values": [
+    {
+     "value": 15.0,
+     "effective": 15.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0008000000000000004
+      }
+     ],
+     "wall_s": 38.2
+    },
+    {
+     "value": 30.0,
+     "effective": 30.0,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0008000000000000004
+      }
+     ],
+     "wall_s": 42.9
+    },
+    {
+     "value": 45.0,
+     "effective": 45.0,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 47.6
+    }
+   ],
+   "unusable_runs": [],
+   "linear_estimate": 39.230769,
+   "status": "ok",
+   "break_even": 45.0,
+   "break_even_label": "45",
+   "next_blocker": [],
+   "full_verdict_at_break_even": {
+    "ok": true,
+    "failing": []
+   },
+   "change_from_today": 15.0
+  },
+  {
+   "knob": "U_OBJ_CLEAR_M",
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "tag": "ASSUMED (break-even, not measured)",
+   "justify": "the object pose + shape error vs the world geometry (perception / calibration), measured on the robot",
+   "unit": "m",
+   "lenient": -1,
+   "rows": [
+    "collision",
+    "episode_U"
+   ],
+   "level": "both",
+   "today": 0.005,
+   "baseline_verdict": {
+    "ok": false,
+    "n_rows": 2,
+    "failing": [
+     {
+      "name": "episode_U",
+      "margin": -0.0008000000000000004
+     }
+    ]
+   },
+   "target_rows": [
+    "episode_U"
+   ],
+   "target_margins": {
+    "episode_U": -0.0008000000000000004
+   },
+   "values": [
+    {
+     "value": 0.0,
+     "effective": 0.0,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 49.2
+    },
+    {
+     "value": 0.0005,
+     "effective": 0.0005,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 43.2
+    },
+    {
+     "value": 0.001,
+     "effective": 0.001,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 38.9
+    },
+    {
+     "value": 0.0015,
+     "effective": 0.0015,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 53.5
+    },
+    {
+     "value": 0.002,
+     "effective": 0.002,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 45.7
+    },
+    {
+     "value": 0.0025,
+     "effective": 0.0025,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 46.3
+    },
+    {
+     "value": 0.003,
+     "effective": 0.003,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 41.3
+    },
+    {
+     "value": 0.0035,
+     "effective": 0.0035,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 40.2
+    },
+    {
+     "value": 0.004,
+     "effective": 0.004,
+     "ok": true,
+     "target_pass": true,
+     "n_failing": 0,
+     "failing": [],
+     "wall_s": 43.0
+    },
+    {
+     "value": 0.0045,
+     "effective": 0.0045,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0002999999999999999
+      }
+     ],
+     "wall_s": 38.3
+    },
+    {
+     "value": 0.005,
+     "effective": 0.005,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0008000000000000004
+      }
+     ],
+     "wall_s": 39.8
+    },
+    {
+     "value": 0.0055,
+     "effective": 0.0055,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0013
+      }
+     ],
+     "wall_s": 48.7
+    },
+    {
+     "value": 0.006,
+     "effective": 0.006,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0018000000000000004
+      }
+     ],
+     "wall_s": 46.5
+    },
+    {
+     "value": 0.0065,
+     "effective": 0.0065,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0004999999999999996
+      }
+     ],
+     "wall_s": 32.1
+    },
+    {
+     "value": 0.007,
+     "effective": 0.007,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.001
+      }
+     ],
+     "wall_s": 29.5
+    },
+    {
+     "value": 0.0075,
+     "effective": 0.0075,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.0014999999999999996
+      }
+     ],
+     "wall_s": 28.9
+    },
+    {
+     "value": 0.008,
+     "effective": 0.008,
+     "ok": false,
+     "target_pass": false,
+     "n_failing": 1,
+     "failing": [
+      {
+       "name": "episode_U",
+       "margin": -0.002
+      }
+     ],
+     "wall_s": 31.0
+    }
+   ],
+   "unusable_runs": [],
+   "linear_estimate": 0.0042,
+   "status": "ok",
+   "break_even": 0.004,
+   "break_even_label": "4 mm",
+   "next_blocker": [],
+   "full_verdict_at_break_even": {
+    "ok": true,
+    "failing": []
+   },
+   "change_from_today": -0.001
+  }
+ ],
+ "combos": [],
+ "not_swept": {
+  "rule1.K": "not swept: no consumer. rule1.K and rule1.NODE_CAP are only RECORDED (rule1.py:153-154 assumptions, rule1_contents.py:621/643 `worst`, rule4.py:81); no search reads them (the R_K witness is the depth-1 planner admission). Raising them cannot change a verdict.",
+  "rule1.NODE_CAP": "not swept: no consumer (see rule1.K)",
+  "rule4.MAX_ROUNDS / RETRACE_HALVINGS": "not requested here; rule4_contents module globals, add to KNOBS if a Rule 4 near-miss needs them"
+ }
+}

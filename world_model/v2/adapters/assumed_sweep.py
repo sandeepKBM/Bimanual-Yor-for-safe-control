@@ -11,7 +11,7 @@ Levels (per knob, registry field `level`; `--level` overrides):
   episode   n seeds of the executed closed_chain carry as nero/contents/tilt_measure runs it (carry.world_trial, nominal, no backups) -> pseudo rows:
             episode_U (no stop; margin = min object-world clearance - U_OBJ_CLEAR_M when the run measured one), episode_tilt (U tilt limit - max tilt)
   both      static + episode rows together
-  rule4     STOP_K_MAX only: adapters/rule4_contents.run_trap on the cell (its consumer is the Rule 4 transfer rows, not the oracle stages)
+  rule4     STOP_K_MAX, STOP_T_S_R4: adapters/rule4_contents.run_trap on the cell (its consumer is the Rule 4 transfer rows, not the oracle stages)
 Each (knob, value, cell) runs in a FRESH process (one `--run-one` subprocess per run; owner 11-16, was a spawn Pool): every alias of the knob is set, then the checks are built.  The EFFECTIVE value is read back
 (every alias after the run; for PATH_MARGIN_MIN the margin the joint_pos row was actually built with; for the d_min knobs the table collision_rows actually used); if it differs
 from the requested value the record gets status "patch_failed" and NO rows are reported.
@@ -50,6 +50,7 @@ M_CARRY = "world_model.v2.nero.contents.carry"
 M_CC = "world_model.v2.stack.planners.closed_chain"
 M_RC = "world_model.v2.adapters.rule1_contents"
 M_R4 = "world_model.v2.adapters.rule4_contents"
+M_TYPES = "world_model.v2.stack.types"
 M_PROBE = "world_model.v2.nero.contents.probe"
 M_ADMIT = "world_model.v2.stack.checks.admit"
 M_CERT = "world_model.v2.nero.contents.carry_cert"
@@ -129,6 +130,16 @@ KNOBS = {
         aliases=[("attr", M_R4, "STOP_K_MAX")], grid=[2, 4, 6], lenient=+1, rows=["rule4["], level="rule4", unit="doublings",
         justify="the longest stop time the task tolerates (0.3 s * 2^k); a task-timing ruling, plus the measured stop deceleration the arms track",
         consumers="rule4_contents.build_transfer / transfer_row (call-time); consumer = Rule 4 transfer rows, NOT the oracle stages (run via rule4_contents.run_trap)", note="the trap scenario of rule4_contents (box 2.5-3.0, carry, t=0.75)"),
+    "STOP_T_S": dict(
+        aliases=[("attr", M_TYPES, "STOP_T_S")], grid=[0.15, 0.2, 0.25, 0.3, 0.4, 0.5], lenient=0, rows=["rule1["], level="static", unit="s",
+        justify="the stop time the real arms track at the stop deceleration (measured stop distance / tracking vs commanded Hermite stop; constant deceleration v / T)",
+        consumers="stack/types.STOP_T_S read at call time by closed_chain.backup_phases_for, planners/scripted.backup_phases, rule1_contents (Ctx._stop_T, MotionRef.stop_T), rule4_contents._stop_t0; "
+                  "the executor stop phase lasts the phase's T (finish rule: a stop in the last T s of a move lets it finish)",
+        note="trade-off: a shorter T = a larger deceleration v / T (torque rows) but a shorter overshoot 0.5 v T; both directions searched by |change|. Level static = the Rule 1 rows of the oracle (stage d); the Rule 4 transfer rows: STOP_T_S_R4"),
+    "STOP_T_S_R4": dict(
+        aliases=[("attr", M_TYPES, "STOP_T_S")], grid=[0.15, 0.2, 0.25, 0.3, 0.4, 0.5], lenient=0, rows=["rule4["], level="rule4", unit="s",
+        justify="same as STOP_T_S", consumers="rule4_contents._stop_t0 (ladder base: STOP_T_S * 2^k, k <= STOP_K_MAX; call-time) via rule4_contents.run_trap",
+        note="the trap scenario of rule4_contents (box 2.5-3.0, carry, t=0.75); the same patched attribute as STOP_T_S"),
 }
 NOT_SWEPT = {
     "rule1.K": "not swept: no consumer. rule1.K and rule1.NODE_CAP are only RECORDED (rule1.py:153-154 assumptions, rule1_contents.py:621/643 `worst`, rule4.py:81); "

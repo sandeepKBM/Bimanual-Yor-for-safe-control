@@ -1,0 +1,112 @@
+{
+ "task": "box",
+ "tag": "ASSUMED (break-even, not measured)",
+ "entries": [],
+ "combos": [
+  {
+   "knob": "COMBO",
+   "value": {
+    "PATH_MARGIN_MIN": 0.015,
+    "U_OBJ_CLEAR_M": 0.002,
+    "CLEAR_M_BOX": 0.04
+   },
+   "settings": {
+    "PATH_MARGIN_MIN": 0.015,
+    "U_OBJ_CLEAR_M": 0.002,
+    "CLEAR_M_BOX": 0.04
+   },
+   "cell": [
+    1.0,
+    1.5
+   ],
+   "task": "box",
+   "level": "static",
+   "today": {
+    "PATH_MARGIN_MIN": 0.05,
+    "MARGIN_WANT": 0.05,
+    "PATH_MARGIN_BOTH": 0.05,
+    "PSI_STEP_DEG": 3.0,
+    "DY_RANGE": [
+     -0.04,
+     0.06
+    ],
+    "CLEARANCE_MIN": 0.005,
+    "CLEAR_M_BOX": 0.03,
+    "U_OBJ_CLEAR_M": 0.005,
+    "SUPPORT_APPROACH_DEG": 30.0,
+    "TAU_NOISE": 0.05,
+    "BIN_WIDTH_KG": 0.5,
+    "A_BACKUP": 0.25,
+    "A_MIN": 0.05,
+    "EPS_CC_POS": 0.002,
+    "EPS_CC_ROT": 0.01,
+    "STOP_K_MAX": 4
+   },
+   "static": {
+    "ok": false,
+    "failed_stage": "a_plan",
+    "failed_stages": null,
+    "tilt_missing": false,
+    "stage_wall_s": {
+     "a_plan": 13.130051851272583
+    },
+    "vals": {
+     "zc": 0.19,
+     "place_dx": 0.0,
+     "place_dy": 0.0,
+     "a": 0.5,
+     "recovery": "stored_backup"
+    }
+   },
+   "effective": {
+    "PATH_MARGIN_MIN": [
+     {
+      "alias": "attr:nero.contents.carry:PATH_MARGIN_MIN",
+      "value": 0.015
+     }
+    ],
+    "U_OBJ_CLEAR_M": [
+     {
+      "alias": "attr:nero.contents.carry:U_OBJ_CLEAR_M",
+      "value": 0.002
+     }
+    ],
+    "CLEAR_M_BOX": [
+     {
+      "alias": "item:stack.planners.closed_chain:CLEAR_M:box",
+      "value": 0.04
+     }
+    ]
+   },
+   "used": {
+    "joint_pos_margin_used": []
+   },
+   "status": "ok",
+   "rows": [
+    {
+     "name": "plan_geometry",
+     "ok": false,
+     "margin": null,
+     "guarantee": "refuted",
+     "why": "no lateral lift offset on the grid has an in-limit configuration for both arms along the lift/carry start (bottleneck margin <= 0); at the lift top (object offset [0.0, 0.0, 0.19], dy = 0) the right arm's closest configuration is 0.047 rad outside a joint limit (inf = out of reach) [reason=unreachable]"
+    }
+   ],
+   "verdict": {
+    "ok": false,
+    "n_rows": 1,
+    "failing": [
+     {
+      "name": "plan_geometry",
+      "margin": null
+     }
+    ]
+   },
+   "wall_s": 15.0
+  }
+ ],
+ "not_swept": {
+  "rule1.K": "not swept: no consumer. rule1.K and rule1.NODE_CAP are only RECORDED (rule1.py:153-154 assumptions, rule1_contents.py:621/643 `worst`, rule4.py:81); no search reads them (the R_K witness is the depth-1 planner admission). Raising them cannot change a verdict.",
+  "rule1.NODE_CAP": "not swept: no consumer (see rule1.K)",
+  "rule4.MAX_ROUNDS / RETRACE_HALVINGS": "not requested here; rule4_contents module globals, add to KNOBS if a Rule 4 near-miss needs them"
+ }
+}
