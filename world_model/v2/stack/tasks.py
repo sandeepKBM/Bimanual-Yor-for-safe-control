@@ -82,6 +82,7 @@ class TaskDef:
     moves: tuple = ()                      # scripted (legacy carry.PLANS) moves: ((segment, (dx, dy, dz)), ...)
     segments: tuple = ()                   # pan: segment names in order
     base: str = ""                         # "" = fixed base (every task before 11-09); "swerve" = the base drives (nero/base: swerve wheels, two-table scene)
+    insert_m: float = 0.0                  # > 0: the default plan has an "s1_insert" move of this length [m] along the base-frame +x between lift and place (box_bookcase)
     routes: tuple = ()                     # base routes as data: ((name, ((kind, arg), ...)), ...); kind "line" [m] or "turn" [deg]
     obj: str = ""                          # object name in the scene
     note: str = ""
@@ -309,6 +310,21 @@ TASKS.update({t.name: t for t in (
     _behind(replace(TASKS["box"], world_kw=(("shelf", False),)), "box_behind",
             "crate; BoxWorld(shelf=False): no wall shelf, the goal is counter2 at counter height (USER 11-09)"),
 )})
+
+# ---- box_bookcase (USER 11-16): lift, base route, turn, insert the crate into the LOWER compartment of a 2-level bookcase, lower it, release.
+# Scene: nero/base/scene.py bookcase variant (BoxWorld(bookcase=True): bookcase INSTEAD of counter2); sizes there (ASSUMED, USER-approved defaults 11-16).
+# Route: back 0.5, turn 180, forward 1.0 + 0.25 (ASSUMED; |line| <= 1.0 m, 4 segments).  The box origin travels 2*(0.38 + 0.875) = 2.51 m (MODEL).
+# goal_dxy MODEL = scene.place_pose_xy(world) - world.obj_xy, place_pose_xy = mirror(obj_xy, mirror_centre(0.5, 1.25)) - (BC_INSERT_M, 0)
+#   = (-2*(0.38 + 0.875) - BC_INSERT_M, 2*(c_y - obj_y)) with c_y the base rotation-centre y; recomputed in adapters/tests/test_tasks_match_nero.py.
+_BOOKCASE_ROUTE = ("RB", (("line", -0.50), ("turn", 180.0), ("line", 1.0), ("line", 0.25)))      # ASSUMED (nero/base/scene.py BC_RETREAT_M / BC_ADVANCE_M)
+_BOOKCASE_INSERT_M = 0.05     # ASSUMED m, = nero/base/scene.py BC_INSERT_M (the arms reach 0.05 m, not the USER range 0.10-0.20: see there)
+_BOOKCASE_DXY = (-2.56, 0.0209)                                                                   # MODEL (see above), BC_INSERT_M = 0.05 ASSUMED
+
+
+TASKS["box_bookcase"] = replace(TASKS["box_behind"], name="box_bookcase", routes=(_BOOKCASE_ROUTE,), goal_support="bookcase_l1", goal_dxy=_BOOKCASE_DXY,
+                                insert_m=_BOOKCASE_INSERT_M, world_kw=(("shelf", False), ("bookcase", True)),
+                                note=f"{_BEHIND_NOTE}; crate into the LOWER compartment of a 2-level bookcase (USER 11-16); BoxWorld(shelf=False, bookcase=True); sizes ASSUMED in nero/base/scene.py; "
+                                     "base_tip = stack/checks/base_tip.py")
 
 # goal xy offset by kind: the ONE copy (closed_chain.GOAL_DXY deleted 11-09).  Fixed-base tasks only (the table-behind rows have their own goal_dxy).
 GOAL_DXY = {t.kind: t.goal_dxy for t in TASKS.values() if t.backend == "carry" and not t.base}

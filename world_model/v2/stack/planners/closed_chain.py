@@ -185,6 +185,11 @@ def default_waypoint(task, world, backend=None):
     sup = be.supports(world)
     zc = CLEAR_M[td.kind]
     dz = float(sup[td.goal_support]["top"]) - (float(sup["counter"]["top"]) + zc)
+    if td.insert_m > 0:        # box_bookcase (USER 11-16): lift -> base route (+ turn) -> insert straight into the compartment at lift height (base-frame +x = toward the bookcase after the turn) -> lower -> release
+        # backups: lift set_down (back on counter 1, as the other tasks); insert retrace (back out of the compartment along the same line, keep holding: the object is not near counter 1, so no set_down);
+        # place hold (the object is on the compartment floor, the plan's own continuation is the release).
+        return WaypointPlan(("s0_lift", "s1_insert", "s2_place"), ((0.0, 0.0, zc), (float(td.insert_m), 0.0, 0.0), (0.0, 0.0, round(dz, 9))), ("set_down", "retrace", "hold"), True,
+                            ((1, BR.default_route(td), BASE_LEVEL_DEFAULT),))
     return WaypointPlan(("s0_lift", "s2_place"), ((0.0, 0.0, zc), (0.0, 0.0, round(dz, 9))), ("set_down", "hold"), True,
                         ((1, BR.default_route(td), BASE_LEVEL_DEFAULT),))
 

@@ -251,8 +251,8 @@ class CarryEpisode:
         (base/monitors.py), `base_move(ref)` runs a route.  goal_support="counter2" (needs base="swerve"): in_R / the drop check read that support."""
         if base not in ("", "swerve"):
             raise ValueError(f"base must be '' or 'swerve', got {base!r}")
-        if goal_support not in ("", "counter2") or (goal_support and base != "swerve"):
-            raise ValueError(f"goal_support {goal_support!r} needs base='swerve' (and is '' or 'counter2')")
+        if goal_support not in ("", "counter2", "bookcase_l1") or (goal_support and base != "swerve"):
+            raise ValueError(f"goal_support {goal_support!r} needs base='swerve' (and is '', 'counter2' or 'bookcase_l1')")
         self.base, self.goal_support = base, goal_support
         self.sb = self.driver = self.bmon = None
         self.step_hooks = []                                    # per-step callbacks hook(ep), run at the end of _step (see _step)
@@ -365,7 +365,7 @@ class CarryEpisode:
         self.sb = SW.SwerveBase(m, self.d)
         self.driver = DR.BaseDriver(self, self.sb)
         self.bmon = MON.BaseMonitors(m, self.sb, self.arm_g, self.carried)
-        self.support_geoms = {n: m.geom(n).id for n in ("counter", "counter2")}
+        self.support_geoms = {n: m.geom(n).id for n in ("counter", "counter2", "bookcase_l1_floor") if mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, n) >= 0}
         if self.goal_support:
             tops = BS.support_tops_behind(self.world)
             # a drop = below the start resting height, or below the goal support's resting height when that is lower (counter2 = counter height, MODEL)
@@ -786,7 +786,8 @@ class CarryEpisode:
         if _tilt_deg(d.xmat[self.obj].reshape(3, 3)) > R_TILT_OBJ:
             why.append("obj_tilt")
         if self.goal_support:                                      # table-behind: at rest on the start counter (a refusal / set_down there) or on the goal support; the goal itself is checked separately
-            sup = {m.geom("counter").id, m.geom(self.goal_support).id}
+            from ..base import scene as BS
+            sup = {m.geom("counter").id, m.geom(BS.goal_geom(self.goal_support)).id}
         else:
             sup = {m.geom("counter").id} | ({m.geom("shelf").id} if self.task == "box" and getattr(self.world, "shelf", False) else set())
         if not any((int(c.geom1) in sup and m.geom_bodyid[c.geom2] == self.obj) or
@@ -946,12 +947,12 @@ class CarryEpisode:
 
 # ---------------------------------------------------------------------------------------------------------------------------
 def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl="lever", strict_claw=False, m_hat=None,
-                fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, planner=None, wp=None):
+                fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, planner=None, wp=None, base="", goal_support=""):
     """m_hat: the robot's nominal contents mass (belief cell centre; None = the prior's centre)."""
     """nominal run of all segments in one world + the stored backup from branch points of each segment.  -> record for admit."""
     t0 = time.time()
     ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp,
-                      coop=coop, weld_solref=weld_solref, planner=planner, wp=wp)
+                      coop=coop, weld_solref=weld_solref, planner=planner, wp=wp, base=base, goal_support=goal_support)
     ep.run_phases([("hold", 0.4)])                            # load transfer, object still on the counter
     rec = dict(tag=tag, task=ep.task, theta=_theta(world), truth=_jsonable(ep.truth0), a_plan=a_plan, m_nom=ep.m_nom, ctl=ctl,
                strict_claw=strict_claw, fric_comp=ep.fc, coop=ep.coop, weld_solref=ep.weld_solref,
