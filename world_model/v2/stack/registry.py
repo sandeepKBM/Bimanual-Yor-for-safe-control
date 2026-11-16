@@ -41,6 +41,7 @@ CHECKERS = {                       # unified rows (11-09): each is a function re
     "monitors_U": "world_model.v2.stack.checks.monitors:u_row",
     "monitors_R": "world_model.v2.stack.checks.monitors:recoverable",
     "admit": "world_model.v2.stack.checks.admit:admit",
+    "rule1_admit": "world_model.v2.stack.checks.rule1:admit_step",
     "goal": "world_model.v2.stack.goal:check_goal",
 }
 
