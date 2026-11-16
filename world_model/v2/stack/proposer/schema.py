@@ -63,8 +63,8 @@ def reply_of(plan):
     return d
 
 
-TASKS = ("box", "tray2", "tray4", "tray6", "pot", "tray6_behind", "box_behind")
-BASE_TASKS = ("tray6_behind", "box_behind")      # TaskDef.base == "swerve": the object goes to the counter BEHIND the robot; the base can move (base_move)
+TASKS = ("box", "tray2", "tray4", "tray6", "pot", "tray6_behind", "box_behind", "box_bookcase")
+BASE_TASKS = ("tray6_behind", "box_behind", "box_bookcase")      # TaskDef.base == "swerve": the object goes to the counter BEHIND the robot; the base can move (base_move)
 MAX_STEPS = 8                  # ASSUMED: longest plan accepted (steps incl. place + release)
 MAX_WHY = 400                  # ASSUMED: characters of the free-text reason per step
 
@@ -101,7 +101,8 @@ def vocabulary(supports=None, base=False):
 
 def _fixed(task):
     """the fixed-base task a table-behind task is built on ("tray6_behind" -> "tray6"): same hidden parameters."""
-    return task[:-len("_behind")] if task in BASE_TASKS else task
+    from world_model.v2.stack import tasks as TK
+    return TK.fixed_task(task) if task in BASE_TASKS else task
 
 
 # ---- hidden parameters (belief) ---------------------------------------------------------------------------------------------------

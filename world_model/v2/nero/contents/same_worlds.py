@@ -332,7 +332,7 @@ def main(argv=None):
                     help="plan OURS executes: fixture = the fixed plan (default, today); codex = the plan the proposer model writes (stack/proposer)")
     ap.add_argument("--plan-spec", default="codex:gpt-5.6-sol:high", help="proposer backend spec (pan/llm.py), e.g. mock:fixture for a dry run")
     ap.add_argument("--plan-cache", help="proposer response cache dir (required with --plan-source codex)")
-    ap.add_argument("--plan-images", choices=("none", "zed", "zed+wrist"), default="none",
+    ap.add_argument("--plan-images", choices=("none", "zed", "zed+wrist", "zed+look"), default="none",
                     help="opt-in: attach rendered views of one world to the plan request (and its Rule 2 / rejection re-asks): torso ZED (proposed mount), + left wrist RealSense. Default none = text only, caches unchanged")
     ap.add_argument("--plan-image-world", type=int, default=0, help="with --plan-images: index i of the world (nero/base/smoke.behind_world) that is rendered (default 0)")
     ap.add_argument("--offline", action="store_true", help="proposer: replay from --plan-cache only; a miss fails loudly, the network is never called")

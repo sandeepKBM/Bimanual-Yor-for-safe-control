@@ -21,7 +21,8 @@ from pathlib import Path
 
 import numpy as np
 
-MODES = ("none", "zed", "zed+wrist")
+MODES = ("none", "zed", "zed+wrist", "zed+look")
+LOOK_BACK_M = 0.50                     # ASSUMED (zed+look): the look-turn stand-in backs the base this far along its start +x before the 180 deg turn (= route RB's first segment)
 SIZE = (640, 360)                      # (width, height) ASSUMED: modest, keeps the request small
 ZED_FOVY_DEG = 70.0                    # scripts/zed_camera.ZED_FOVY_DEG (ZED nominal vertical FOV; datasheet default, not read from the SDK)
 ZED_LOCAL_POS = (0.049604, 0.000450, 0.385865)   # scripts/zed_camera._ZED_POS_LOCAL, in Lift_Top's frame: PROPOSED torso mount, confirm-on-hardware
@@ -31,6 +32,7 @@ SETTLE_S = 0.5                         # as CarryEpisode: objects at rest
 
 _NOTES = {
     "zed": "IMAGES: image 1 is the torso stereo camera (ZED, left imager) at the start of the task, before any probe.",
+    "zed+look": "IMAGES: image 1 is the torso stereo camera (ZED, left imager) at the start of the task, before any probe; image 2 is the same camera after the base backs up 0.5 m and turns 180 degrees in place (a look-around), facing what is behind the robot.",
     "zed+wrist": "IMAGES: image 1 is the torso stereo camera (ZED, left imager) at the start of the task, before any probe; image 2 is the left wrist camera (RealSense RGB, facing the gripper fingers) at the same moment.",
 }
 
@@ -102,12 +104,31 @@ def render_world(world, mode, size=SIZE):
     w, h = size
     m.vis.global_.offwidth, m.vis.global_.offheight = max(w, m.vis.global_.offwidth), max(h, m.vis.global_.offheight)
     out = []
+    if mode == "zed+look":                                     # 11-16: brighter headlight for this mode only (the older modes' images, hence their cache keys, are unchanged)
+        m.vis.headlight.ambient[:] = (0.45, 0.45, 0.45)
+        m.vis.headlight.diffuse[:] = (0.75, 0.75, 0.75)
     r = mujoco.Renderer(m, h, w)
     try:
         m.vis.global_.fovy = ZED_FOVY_DEG                      # free camera uses the global fovy; the wrist camera has its own (fixed camera, own fovy)
         cam, _, _ = _zed_free_camera(m, d)
         r.update_scene(d, camera=cam)
         out.append(("zed_left", r.render().copy()))
+        if mode == "zed+look":                                 # 11-16 stand-in for an UNBUILT look-turn skill: the ZED pose moved as the base would move (back LOOK_BACK_M, turn 180
+            from world_model.v2.adapters import base_sweep as BSW  # about the rotation centre); the robot's own arms are NOT re-posed in this view (they are behind / beside the camera).
+            c0x, c0y, yaw0 = BSW.start_pose(world)
+            _, pos, fwd = _zed_free_camera(m, d)
+            c1 = np.array([c0x, c0y]) + LOOK_BACK_M * -np.array([np.cos(yaw0), np.sin(yaw0)])
+            rel = pos[:2] - np.array([c0x, c0y]) - LOOK_BACK_M * -np.array([np.cos(yaw0), np.sin(yaw0)])
+            p2 = np.array([*(c1 - rel), pos[2]])                 # 180 deg about c1: rel -> -rel
+            f2 = np.array([-fwd[0], -fwd[1], fwd[2]])
+            cam2 = mujoco.MjvCamera()
+            cam2.type = mujoco.mjtCamera.mjCAMERA_FREE
+            cam2.distance = 1.0
+            cam2.lookat[:] = p2 + cam2.distance * f2
+            cam2.azimuth = float(np.degrees(np.arctan2(f2[1], f2[0])))
+            cam2.elevation = float(np.degrees(np.arcsin(f2[2])))
+            r.update_scene(d, camera=cam2)
+            out.append(("zed_left_after_look_turn", r.render().copy()))
         if mode == "zed+wrist":
             r.update_scene(d, camera=WRIST_CAMERA)
             out.append((WRIST_CAMERA, r.render().copy()))

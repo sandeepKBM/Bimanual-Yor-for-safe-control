@@ -70,6 +70,19 @@ def supports(world):
             "counter2": dict(top=float(c1["top"]), x=(float(min(a[0], b[0])), float(max(a[0], b[0]))), y=(float(min(a[1], b[1])), float(max(a[1], b[1]))))}
 
 
+def obstacles(world, prefix="bookcase"):
+    """MODEL (the compiled scene): world-frame axis-aligned extents of the furniture geoms named `prefix*` (the bookcase boards): {name: dict(x, y, z)} [m]."""
+    ep = _episode(world)
+    m, d = ep.m, ep.d
+    out = {}
+    for i in range(m.ngeom):
+        nm = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, i)
+        if nm and nm.startswith(prefix) and m.geom_type[i] == mujoco.mjtGeom.mjGEOM_BOX:
+            c, h = d.geom_xpos[i], m.geom_size[i]
+            out[nm] = {ax: [round(float(c[k] - h[k]), 4), round(float(c[k] + h[k]), 4)] for k, ax in enumerate("xyz")}
+    return out
+
+
 def start_pose(world):
     c, _ = BS.base_geometry()
     ep = _episode(world)

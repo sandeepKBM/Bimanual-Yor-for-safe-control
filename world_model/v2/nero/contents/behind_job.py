@@ -34,7 +34,7 @@ SOURCE = "measured"          # acceleration box of the base rows that ADMITS: th
 
 
 def base_task(task):
-    return task[:-len("_behind")]
+    return TK.fixed_task(task)          # box_bookcase -> box (stack/tasks.FIXED_OF)
 
 
 def _static(task, c_lo, c_hi, w, wp, com=None):
@@ -46,7 +46,7 @@ def _static(task, c_lo, c_hi, w, wp, com=None):
 def c_admit_max(task, wp, tol=0.01):
     """as probe.c_admit_max (bisection on the point interval [c, c]) with the behind task's static rows on wp; the default world (the verdict does not depend on the hidden world)."""
     bt = base_task(task)
-    w = SM.task_world(bt)
+    w = dataclasses.replace(SM.task_world(bt), **dict(TK.task(task).world_kw))     # the TASK's scene (box_bookcase: the bookcase; box_behind: unchanged)
     lo, hi = P.prior_contents(bt)
     refuse = lambda c: _static(task, c, c, w, wp)["action"].startswith("refuse")
     if refuse(lo):

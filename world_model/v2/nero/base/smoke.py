@@ -431,9 +431,12 @@ def task_world(task, seed=None):
 def behind_world(task, i):
     """THE world list of the table-behind tasks, for BOTH methods (same_worlds ours + theirs): (seed, world) of world i of `task` (tray6_behind | box_behind) =
     probe._seed("e2e", base task, i) and task_world(base task, seed) (full prior box; box_behind: shelf=False)."""
-    bt = task[:-len("_behind")] if task.endswith("_behind") else task
+    from dataclasses import replace
+    from ...stack import tasks as TK
+    bt = TK.fixed_task(task)
     seed = PR._seed("e2e", bt, i)
-    return seed, task_world(bt, seed)
+    w = task_world(bt, seed)
+    return seed, (replace(w, **dict(TK.task(task).world_kw)) if task in TK.TASKS else w)
 
 
 def heaviest_seed(n=40, task="tray6"):

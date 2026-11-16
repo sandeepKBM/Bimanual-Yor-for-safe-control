@@ -29,6 +29,13 @@ KINDS = ("fixture", "malformed", "unknown_skill", "narrow", "omit_ph1", "wrong_s
 
 def _motion(task):
     """(steps, recoveries) of the fixture plan: the legacy carry.PLANS shapes (ASSUMED, user-confirmed 11-02); table-behind: lift, the known-good route R1, place on counter 2."""
+    if task == "box_bookcase":                # the default plan of the task (tasks.py route RB + insert_m; ASSUMED): the MOCK's fixture, never shown to the proposer
+        steps = [dict(skill="lift", args=dict(dz=0.03), why="raise the crate off counter 1"),
+                 dict(skill="base_move", args=dict(route=[dict(line=-0.5), dict(turn=180.0), dict(line=1.0), dict(line=0.25)]), why="route RB: back, turn, drive into the opening"),
+                 dict(skill="move", args=dict(dx=-0.05, dy=0.0, dz=0.0), why="push the crate the last 5 cm into the compartment (world -x after the turn)"),
+                 dict(skill="place", args=dict(support="bookcase_l1"), why="lower it onto the plinth"),
+                 dict(skill="release", args={}, why="let go")]
+        return steps, {"0": [dict(skill="set_down", args={})], "1": [dict(skill="retrace", args={})], "2": [dict(skill="retrace", args={})], "3": [dict(skill="hold", args={})]}
     if task in S.BASE_TASKS:                  # route R1 = tasks.py TaskDef.routes, ASSUMED
         steps = [dict(skill="lift", args=dict(dz=0.05), why="raise the object clear of counter 1"),
                  dict(skill="base_move", args=dict(route=[dict(line=-0.5), dict(turn=180.0), dict(line=0.5)]), why="route R1: back, turn around, forward to counter 2"),

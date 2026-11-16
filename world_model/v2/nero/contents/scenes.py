@@ -70,6 +70,11 @@ class Common:
         """table-behind scene (nero/base/scene.build_spec): counter2 = the point mirror of the counter, same height. MODEL."""
         return self.counter_top
 
+    @property
+    def bookcase_l1_top(self):
+        """box_bookcase scene (nero/base/scene._add_bookcase): the plinth top of the lower compartment = the counter top. MODEL (USER 11-16 'Wide + plinth')."""
+        return self.counter_top
+
 
 @dataclass
 class TrayWorld(Common):

@@ -330,6 +330,14 @@ TASKS["box_bookcase"] = replace(TASKS["box_behind"], name="box_bookcase", routes
 GOAL_DXY = {t.kind: t.goal_dxy for t in TASKS.values() if t.backend == "carry" and not t.base}
 
 
+FIXED_OF = {"tray6_behind": "tray6", "box_behind": "box", "box_bookcase": "box"}     # base task -> the fixed-base task with the same object and hidden parameters
+
+
+def fixed_task(name: str) -> str:
+    """the fixed-base task a base task is built on ("tray6_behind" -> "tray6", "box_bookcase" -> "box"); other names unchanged."""
+    return FIXED_OF.get(str(name), str(name))
+
+
 def task(name: str) -> TaskDef:
     if name not in TASKS:
         raise KeyError(f"unknown task {name!r}; have {sorted(TASKS)}")

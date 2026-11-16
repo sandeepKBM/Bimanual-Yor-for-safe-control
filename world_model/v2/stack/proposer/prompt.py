@@ -31,6 +31,8 @@ def task_spec(task, world=None):
     from world_model.v2.nero.contents import objects as OB, scenes as SC
     from world_model.v2.stack.planners import closed_chain as CCP
     from world_model.v2.stack import tasks as TK
+    if str(task) == "box_bookcase":
+        return _task_spec_bookcase(task, world)
     if getattr(TK.TASKS.get(str(task)), "base", ""):
         return _task_spec_behind(task, world)
     w = _world(task, world)
@@ -106,6 +108,33 @@ def _task_spec_behind(task, world=None):
                 routes_known_good={td.routes[0][0]: r1}, supports_world_frame_xy_m=dict(counter_1=sup["counter"], counter_2=sup["counter2"]))
     return dict(task=task, instruction=text, start_xy=obj["start_xy"], goal_xy=goal, goal_support=td.goal_support, goal_top=sup[td.goal_support]["top"],
                 goal_tol_m=GOAL_TOL_M, supports=sup, object=obj, base=base)
+
+
+def _task_spec_bookcase(task, world=None):
+    """box_bookcase (USER 11-16): GOAL ONLY ("we do not need to tell what skills to use", "we should not give steps"): one goal sentence + map facts (supports, the
+    bookcase boards' world extents, the base start pose, the crate size and grasp tabs).  No skill or step hints, no known-good route, no turning hint (the system
+    prompt already lists the skills and their limits).  Images (torso camera) are attached by the caller (nero/contents/plan_images.py)."""
+    from world_model.v2.nero.contents import objects as OB, scenes as SC
+    from world_model.v2.stack import tasks as TK
+    from world_model.v2.stack.planners import base_route as BR
+    td = TK.task(str(task))
+    be = BR.default_backend()
+    w = world if world is not None else be.world_default(task)
+    sup = {k: dict(top=round(float(v["top"]), 4), x=[round(float(a), 4) for a in v["x"]], y=[round(float(a), 4) for a in v["y"]]) for k, v in be.supports(w).items()}
+    gx, gy = td.goal_dxy
+    goal = [round(float(w.obj_xy[0] + gx), 4), round(float(w.obj_xy[1] + gy), 4)]
+    p0 = be.start_pose(w)
+    obj = dict(name="closed crate", footprint_xy_m=[w.box_outer[0], w.box_outer[1]], height_m=w.box_outer[2], empty_mass_kg=OB.BOX["mass"],
+               grasp="end tabs on the +y and -y sides, tab centre %.4f m above the support" % SC.GRASP_Z,
+               start_xy=[round(float(w.obj_xy[0]), 4), round(float(w.obj_xy[1]), 4)], start_support="counter")
+    text = (f"Put the closed crate (it holds hidden contents) from counter 1 into the lower compartment of the two-level bookcase behind the robot, "
+            f"with the crate centre at xy = ({goal[0]}, {goal[1]}) on the compartment's support (support name \"{td.goal_support}\"), and let go.")
+    scene = dict(frame="world; metres; z up", base_start_pose_xy_yaw_deg=[round(float(p0[0]), 4), round(float(p0[1]), 4), round(float(np.degrees(p0[2])), 2)],
+                 base_pose_note="pose of the base rotation centre",
+                 supports_world_frame=dict(counter_1=sup["counter"], bookcase_lower_compartment_support=sup[td.goal_support]),
+                 bookcase_boards_world_extents=be.obstacles(w) if hasattr(be, "obstacles") else None)
+    return dict(task=task, instruction=text, start_xy=obj["start_xy"], goal_xy=goal, goal_support=td.goal_support, goal_top=sup[td.goal_support]["top"],
+                goal_tol_m=GOAL_TOL_M, supports=sup, object=obj, base=scene)
 
 
 def robot_limits():

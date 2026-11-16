@@ -521,7 +521,8 @@ def poslift_dl_step_max():
 # ------------------------------------------------------------------------------------------------- Stage 0b (11-12): poslift_ff and claw_guard
 def _base_key(task):
     """calibration files are keyed by the probe's base task ("box_behind" -> "box")."""
-    return task[:-len("_behind")] if task.endswith("_behind") else task
+    from world_model.v2.stack import tasks as TK
+    return TK.fixed_task(task)
 
 
 def jump_max(task):
