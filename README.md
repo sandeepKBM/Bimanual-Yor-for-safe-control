@@ -218,8 +218,9 @@ world_model/v2/vlm/          VLM runner, prompts, grounding, daemon + client
 world_model/v2/*             other research packages (latent HJ, world-model audits, testbeds, …)
 experiments/ab_smooth_vs_bangbang/   FL-MPC (mpc_fl.py), v4c HOCBF baseline, sim_common.py (on PYTHONPATH)
 experiments/realtime/        exact real-time QP + numba barriers for FL-MPC (on PYTHONPATH)
-control/ collection/ eval/ scripts/ hj_reachability/ teleop/ world_model/*.py
-                             earlier tabletop bimanual work (cup-collect task, data collection, HJ reachability)
+control/ collection/ eval/ scripts/ teleop/
+                             earlier tabletop bimanual work (cup-collect task, data collection)
+archive/                     learned world model + HJ reachability work, archived 2026-11-16 (see archive/README.md)
 scenes/                      MJCF / XML scenes, YOR derived model (camera mount = proposed torso ZED mount)
 YOR/                         upstream robot model (git submodule, unmodified)
 ```

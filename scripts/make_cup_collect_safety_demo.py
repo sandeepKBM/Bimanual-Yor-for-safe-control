@@ -82,23 +82,17 @@ Run (GPU 5 only -- GPUs 1-4 busy):
     MUJOCO_GL=egl CUDA_VISIBLE_DEVICES=5 \\
         /common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python \\
         /common/users/ss5772/bimanual/scripts/make_cup_collect_safety_demo.py \\
-        [--config {geometric_only,geometric_spill}] [--controller {v4c,v7c}] \\
+        [--controller {v4c,v7c,flmpc}] \\
         [--scenario {crossing,spill}] [--no-video] [--baseline-only] [--max-steps N]
 
 --scenario crossing (default, unchanged): the RIGHT-arm pick/carry/deposit crossing described above.
 --scenario spill: RIGHT arm just holds home; LEFT arm (holding the cup) does a FAST wrist tilt/transfer
     (eval/scene_setup.transfer_tilt_offset + left_ee_jac_rot_pinv, reused unmodified) that spills the
     cup -- a failure the geometric HOCBF-QP is structurally blind to (no arm-arm proximity involved at
-    all: the RIGHT arm never moves). --config geometric_spill's WM veto freezes the LEFT arm's OWN tilt
-    clock instead of the right-arm deposit clock (same freeze-clock mechanism, gated on the left tilt).
+    all: the RIGHT arm never moves).
 
---config geometric_only  : the original v4-C* HOCBF-QP-only run (measured failure above, unchanged).
---config geometric_spill : (default) + the REAL trained WM spill monitor
-    (world_model/wm_semantic_monitor.RealWMSpillMonitor, world_model/logdir/wm_cup_full/{best.pt,
-    monitor_head_cup_full.pt}) consulted every --vision-cadence-steps physics steps; its veto FREEZES
-    the right-arm deposit reference clock (freeze-clock pattern from eval/run_eval.py) so the cup
-    (LEFT) arm's QP never has to deflect violently to dodge a fast deposit crossing. --controller v7c
-    forces this OFF (geometric run only, see CHANGE 2).
+--config geometric_only : the only config. The learned world-model spill monitor (--config geometric_spill,
+    --monitor classifier|value) was removed 2026-11-16; its code is archived under archive/world_model/.
 --controller v4c (default) | v7c : see CHANGE 2 above.
 
 --grasp-mode faked (default, byte-identical to before) | real : REAL friction grasp of the cup (SIM ONLY):
@@ -143,7 +137,6 @@ import safety_module as safety_mod  # noqa: E402  (eval/, read-only import; Sema
 from scripts import cup_collect_task_utils as cct  # noqa: E402  (read-only import)
 from teleop import bimanual_teleop as bt  # noqa: E402  (read-only import)
 from control import realgrasp_flmpc as rg  # noqa: E402  (--grasp-mode real helpers; measurement-only in faked mode)
-from world_model.wm_semantic_monitor import RealWMSpillMonitor, LatentValueShield  # noqa: E402  (real WM; LatentValueShield = the learned-HJ-in-the-loop shield)
 
 ART_DIR = REPO_ROOT / "artifacts"
 ART_DIR.mkdir(parents=True, exist_ok=True)
@@ -525,34 +518,15 @@ def right_arm_to_cup_clearance(model, data, cup_kps: list, right_kps: list, left
     return best
 
 # ---------------------------------------------------------------------------
-# Spill-aware semantic layer (config="geometric_spill"): the REAL trained WM
-# spill monitor (world_model/wm_semantic_monitor.RealWMSpillMonitor -- same
-# checkpoints/threshold eval/'s run_wm_eval_harness.py and
-# scripts/make_safety_demo.py already use), consulted at a VISION CADENCE
-# (camera rate << 200 Hz control rate) and used to FREEZE the right-arm
-# deposit reference clock while spill risk is high (freeze-clock pattern
-# from eval/run_eval.py's `transfer_t_elapsed`, avoids a catch-up snap).
+# Spill monitor hook. The learned world-model spill monitor (RealWMSpillMonitor /
+# LatentValueShield, config "geometric_spill") was removed 2026-11-16 with the
+# learned-WM work (archived under archive/world_model/). run_episode() keeps a
+# generic `spill_monitor` hook (any object with .assess(obs) / .reset()); main()
+# always passes None, i.e. the geometric-only run.
 # ---------------------------------------------------------------------------
-# Retrained ON the cup-collect scene (was wm_cup_full, which was OOD here and
-# saturated risk~1.0). cup_collect holdout: spill AUC 0.999, collision AUC 0.992.
-WM_CHECKPOINT = str(REPO_ROOT / "world_model" / "logdir" / "wm_cup_collect" / "best.pt")
-HEAD_CHECKPOINT = str(REPO_ROOT / "world_model" / "logdir" / "wm_cup_collect" / "monitor_head_cup_collect.pt")
-SPILL_RISK_THRESHOLD = 0.5
-VISION_CADENCE_STEPS = 20   # WM/monitor consulted every 20 torque steps (~10 Hz @ DT=0.005s / 200 Hz
-                            # control) -- the veto is held between updates (see run_episode below).
-CONFIG_CHOICES = ("geometric_only", "geometric_spill")
-
-# --monitor axis (additive, orthogonal to --config): which SOURCE backs the
-# geometric_spill config's veto. "classifier" (default, UNCHANGED) = the
-# original RealWMSpillMonitor instantaneous P(spill) head. "value" = the
-# NEW LatentValueShield -- world_model/wm_semantic_monitor.LatentValueShield,
-# the trained latent HJ value V_theta(z) (world_model/
-# train_latent_safety_value.py), veto'ing anticipatorily at V(z) < V_THRESH
-# (a small POSITIVE margin above the V=0 safe/unsafe boundary) instead of
-# waiting for the instantaneous classifier to cross risk_threshold.
-VALUE_CHECKPOINT = str(REPO_ROOT / "world_model" / "logdir" / "wm_cup_collect" / "latent_safety_value.pt")
-VALUE_V_THRESH = 0.1
-MONITOR_CHOICES = ("classifier", "value")
+VISION_CADENCE_STEPS = 20   # monitor consulted every 20 torque steps (~10 Hz @ DT=0.005s / 200 Hz
+                            # control) when a spill_monitor is passed -- the veto is held between updates.
+CONFIG_CHOICES = ("geometric_only",)
 
 # ---------------------------------------------------------------------------
 # Controller axis (CHANGE 2): v4c = the original decentralized cooperative
@@ -1893,8 +1867,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
                 inertial_cup: bool = True, controller_impl: str | None = None):
     """spill_monitor=None -> byte-identical to the original (geometric_only)
     loop: t_r is the plain wall-clock-relative right-arm time, no freeze.
-    spill_monitor=<RealWMSpillMonitor> -> config="geometric_spill": the WM
-    is consulted every `vision_cadence_steps` physics steps (veto held
+    spill_monitor=<object with .assess/.reset> (none ships since the learned WM
+    was archived 2026-11-16): the monitor is consulted every `vision_cadence_steps` physics steps (veto held
     between updates); the right-arm deposit reference clock (t_r, driving
     track_r + the cube weld window) advances ONLY on un-vetoed steps.
     max_steps: truncate the episode early (SHORT foreground smoke only --
@@ -2296,7 +2270,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
         placed_center_xy = np.mean(np.stack([c["place_xyz"][:2] for c in cube_plan]), axis=0)
 
     # Freeze-clock state for the spill-aware right-arm deposit reference
-    # (config="geometric_spill" only; unused/inert when spill_monitor=None).
+    # (only when a spill_monitor is passed; unused/inert when spill_monitor=None).
     right_elapsed = 0.0     # right-arm reference clock; advances only on un-vetoed steps
     # Freeze-clock state for the LEFT arm's own tilt/transfer reference
     # (scenario="spill" only) -- SAME mechanism, gated on the LEFT tilt
@@ -2382,8 +2356,8 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
             data.qvel[_cup_dofadr:_cup_dofadr + 6] = _qvel_fd[_cup_dofadr:_cup_dofadr + 6]
         _prev_qpos = data.qpos.copy()
 
-        # -- spill-aware semantic layer (config="geometric_spill" only): consult the
-        # REAL WM monitor at a vision cadence (camera rate << control rate), hold its
+        # -- spill-aware semantic layer (only when a spill_monitor is passed): consult the
+        # monitor at a vision cadence (camera rate << control rate), hold its
         # veto/risk between updates, and use it to freeze the right-arm deposit clock
         # below -- byte-identical to the original (no freeze) when spill_monitor=None. --
         if spill_monitor is not None and k % vision_cadence_steps == 0:
@@ -3103,7 +3077,7 @@ def run_episode(info: dict, *, controller: str = "v4c", qp_enabled: bool = True,
 # HUD + video encoding (pattern reused from scripts/make_safety_demo.py).
 # ---------------------------------------------------------------------------
 def build_hud_and_encode(log: dict, frames: list, out_path: Path, config: str = "geometric_only",
-                         controller: str = "v4c", scenario: str = "crossing", monitor: str = "classifier"):
+                         controller: str = "v4c", scenario: str = "crossing"):
     from PIL import Image, ImageDraw, ImageFont
 
     W, H = 1280, 720
@@ -3159,8 +3133,6 @@ def build_hud_and_encode(log: dict, frames: list, out_path: Path, config: str = 
             title = "CUP-COLLECT SAFETY DEMO -- v4-C* cooperative HOCBF-QP (both arms)"
         if scenario == "spill":
             title += " -- SPILL scenario (LEFT-arm fast tilt/transfer)"
-        if config == "geometric_spill":
-            title += " + latent HJ value shield V(z)" if monitor == "value" else " + REAL WM spill monitor"
         draw.rectangle([0, 0, W, 46], fill=(0, 0, 0, 150))
         draw.text((14, 8), title, font=F_TITLE, fill=WHITE)
 
@@ -3180,25 +3152,7 @@ def build_hud_and_encode(log: dict, frames: list, out_path: Path, config: str = 
         spill_line = f"spilled balls: {int(log['spilled'][k])}   cubes placed: {int(log['placed'][k])}"
         draw.text((bar_x0, bar_y0 + 34), spill_line, font=F_LABEL, fill=WHITE)
 
-        spill_veto = bool(log["spill_veto"][k] > 0.5) if config == "geometric_spill" else False
-        if config == "geometric_spill":
-            risk_val = float(log["spill_risk"][k])
-            clock_label = "left-arm tilt clock" if scenario == "spill" else "right-arm deposit clock"
-            clock_val = float(log["left_tilt_t"][k]) if scenario == "spill" else float(log["right_track_t"][k])
-            risk_label = f"latent HJ value risk (mapped from V)={risk_val:.2f}" if monitor == "value" \
-                else f"REAL WM spill risk P(spill)={risk_val:.2f}"
-            spill_line2 = f"{risk_label}   {clock_label}={clock_val:.2f}s"
-            draw.text((bar_x0, bar_y0 + 56), spill_line2, font=F_LABEL, fill=WHITE)
-
-        if spill_veto:
-            held_what = "tilt" if scenario == "spill" else "deposit"
-            monitor_label = "LATENT HJ VALUE SHIELD" if monitor == "value" else "REAL WM monitor"
-            banner = f"⚠ SPILL RISK — {monitor_label} HOLDING {held_what}"
-            tw = draw.textlength(banner, font=F_BANNER)
-            bx0, by0 = W / 2 - tw / 2 - 18, 58
-            draw.rectangle([bx0, by0, bx0 + tw + 36, by0 + 44], fill=(200, 130, 20, 210))
-            draw.text((bx0 + 18, by0 + 7), banner, font=F_BANNER, fill=WHITE)
-        elif engaged and scenario == "crossing":
+        if engaged and scenario == "crossing":
             banner = "⚠ COOPERATIVE AVOID — cup arm yielding to stay safe"
             tw = draw.textlength(banner, font=F_BANNER)
             bx0, by0 = W / 2 - tw / 2 - 18, 58
@@ -3226,43 +3180,10 @@ def build_hud_and_encode(log: dict, frames: list, out_path: Path, config: str = 
         img.paste(ins, (ix0, iy0))
 
         if scenario == "spill":
-            if config == "geometric_spill" and monitor == "value":
-                caption = ("MEASURED: h, spilled, deposited, QP deflection, shield risk/veto, LEFT-arm "
-                           "tilt-clock freeze.  REAL: the risk + veto come from V_theta(z), the trained "
-                           "latent HJ safety value (world_model/wm_semantic_monitor.LatentValueShield, "
-                           "world_model/train_latent_safety_value.py), veto'ing anticipatorily at "
-                           "V(z) < v_thresh, consulted at a vision cadence -- not a scripted signal; the "
-                           "geometric HOCBF-QP CANNOT see this failure (no arm-arm proximity involved) -- "
-                           "only the shield prevents the spill.  RIGHT arm holds home.")
-            elif config == "geometric_spill":
-                caption = ("MEASURED: h, spilled, deposited, QP deflection, WM spill risk/veto, LEFT-arm "
-                           "tilt-clock freeze.  REAL: the P(spill) risk + veto come from the frozen trained "
-                           "WorldModel + monitor head (world_model/wm_semantic_monitor.RealWMSpillMonitor, "
-                           "retrained ON this scene: wm_cup_collect), consulted at a vision cadence -- not a "
-                           "scripted signal; the geometric HOCBF-QP CANNOT see this failure (no arm-arm "
-                           "proximity involved) -- only the WM prevents the spill.  RIGHT arm holds home.")
-            else:
-                caption = ("MEASURED: h, spilled, deposited, QP deflection.  The LEFT arm's fast wrist tilt/"
-                           "transfer is a REAL torque-tracked reference (freeze-clock gated, but no monitor "
-                           "here -- geometric HOCBF-QP only, which cannot see a spill: no arm-arm proximity "
-                           "involved).  RIGHT arm holds home.")
-        elif config == "geometric_spill" and monitor == "value":
-            caption = ("MEASURED: h, spilled, deposited, QP deflection, shield risk/veto, deposit-clock "
-                       "freeze.  REAL: the risk + veto come from V_theta(z), the trained latent HJ safety "
-                       "value (world_model/wm_semantic_monitor.LatentValueShield, world_model/"
-                       "train_latent_safety_value.py), veto'ing anticipatorily at V(z) < v_thresh, "
-                       "consulted at a vision cadence -- not a scripted signal.  SCRIPTED (allowed): "
-                       "right-arm pick/carry/deposit path is an IK reference (its clock freezes under "
-                       "veto); cube WELD-attached (real constraint force, magnet-style pickup) in transit, "
-                       "released above the cup for a real physics drop.")
-        elif config == "geometric_spill":
-            caption = ("MEASURED: h, spilled, deposited, QP deflection, WM spill risk/veto, deposit-clock "
-                       "freeze.  REAL: the P(spill) risk + veto come from the frozen trained WorldModel + "
-                       "monitor head (world_model/wm_semantic_monitor.RealWMSpillMonitor), consulted at a "
-                       "vision cadence -- not a scripted signal.  SCRIPTED (allowed): right-arm pick/carry/"
-                       "deposit path is an IK reference (its clock freezes under veto); cube WELD-attached "
-                       "(real constraint force, magnet-style pickup) in transit, released above the cup for "
-                       "a real physics drop.")
+            caption = ("MEASURED: h, spilled, deposited, QP deflection.  The LEFT arm's fast wrist tilt/"
+                       "transfer is a REAL torque-tracked reference (freeze-clock gated, but no monitor "
+                       "here -- geometric HOCBF-QP only, which cannot see a spill: no arm-arm proximity "
+                       "involved).  RIGHT arm holds home.")
         else:
             caption = ("MEASURED: h, spilled, deposited, QP deflection.  SCRIPTED (allowed): right-arm "
                        "pick/carry/deposit path is an IK reference; cube WELD-attached (real constraint "
@@ -3402,50 +3323,13 @@ def _summarize_core(log: dict) -> dict:
     )
 
 
-def _make_spill_monitor(config: str, monitor: str = "classifier"):
-    """Build the REAL semantic-safety shield once (config="geometric_spill"
-    only) -- checkpoints loaded ONCE here, never per-step/per-episode;
-    run_episode() calls .assess() at a vision cadence and the caller calls
-    .reset() before each fresh episode. Returns None for
-    config="geometric_only" regardless of `monitor`.
-
-    monitor="classifier" (default, UNCHANGED): RealWMSpillMonitor's
-    instantaneous P(spill) classifier veto -- byte-identical to before this
-    task's --monitor flag existed.
-    monitor="value" (NEW, this task): LatentValueShield -- the trained
-    latent HJ value V_theta(z), veto'ing at V(z) < VALUE_V_THRESH (small
-    positive, anticipatory margin) instead of P(spill) >= risk_threshold.
-    Everything downstream (vision cadence, freeze-clock veto in
-    run_episode) is unchanged -- only this veto SOURCE differs.
-    """
-    if config == "geometric_only":
-        return None
-    assert monitor in MONITOR_CHOICES, f"unknown monitor {monitor!r}"
-    t_load = time.perf_counter()
-    if monitor == "classifier":
-        print(f"[setup] loading REAL WM spill monitor (config={config}, monitor=classifier): "
-              f"wm={WM_CHECKPOINT}\n         head={HEAD_CHECKPOINT}")
-        shield = RealWMSpillMonitor(wm_checkpoint=WM_CHECKPOINT, head_checkpoint=HEAD_CHECKPOINT,
-                                     risk_threshold=SPILL_RISK_THRESHOLD)
-    else:
-        print(f"[setup] loading LATENT HJ VALUE shield (config={config}, monitor=value): "
-              f"wm={WM_CHECKPOINT}\n         head={HEAD_CHECKPOINT}\n"
-              f"         value={VALUE_CHECKPOINT}  (v_thresh={VALUE_V_THRESH})")
-        shield = LatentValueShield(wm_checkpoint=WM_CHECKPOINT, head_checkpoint=HEAD_CHECKPOINT,
-                                    value_checkpoint=VALUE_CHECKPOINT, v_thresh=VALUE_V_THRESH)
-    print(f"  loaded in {time.perf_counter() - t_load:.1f}s (device={shield.device})")
-    return shield
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--no-video", action="store_true", help="skip rendering/encoding (metrics only)")
     parser.add_argument("--baseline-only", action="store_true", help="only run the no-QP baseline (fast smoke test)")
-    parser.add_argument("--config", choices=CONFIG_CHOICES, default="geometric_spill",
-                         help="geometric_only: original v4-C* HOCBF-QP only (measured failure, unchanged). "
-                              "geometric_spill (default): + the REAL WM spill monitor freezing the right-arm "
-                              "deposit clock (--scenario crossing) or the LEFT-arm tilt clock "
-                              "(--scenario spill) while spill risk is high.")
+    parser.add_argument("--config", choices=CONFIG_CHOICES, default="geometric_only",
+                         help="geometric_only (only choice): the geometric safety layer of the chosen "
+                              "--controller. The learned-WM spill monitor (geometric_spill) was removed 2026-11-16.")
     parser.add_argument("--scenario", choices=SCENARIO_CHOICES, default="crossing",
                          help="crossing (default, unchanged): RIGHT arm pick/carry/deposit crosses near the "
                               "held cup -- arm-arm collision is the geometric layer's job, WM freezes the "
@@ -3456,19 +3340,13 @@ def main():
     parser.add_argument("--controller", choices=CONTROLLER_CHOICES, default="v4c",
                          help="v4c (default, unchanged): decentralized cooperative HOCBF-QP (v4-C*). "
                               "v7c: both arms driven by the cooperative MPC-HOCBF (mpc7.py's JointMPCv7, "
-                              "reused unmodified) -- forces the WM spill monitor OFF regardless of --config "
-                              "(geometric run only for now; see module docstring CHANGE 2). "
+                              "reused unmodified; see module docstring CHANGE 2). "
                               "flmpc: both arms driven by the feedback-linearized cooperative MPC "
                               "(experiments/ab_smooth_vs_bangbang/mpc_fl.py's FLMPC -- plans per-arm "
                               "accelerations and realizes tau=M*a+c so the horizon prediction is exact, "
-                              "no per-step MuJoCo rollout) -- forces the WM spill monitor OFF, same as v7c.")
+                              "no per-step MuJoCo rollout).")
     parser.add_argument("--vision-cadence-steps", type=int, default=VISION_CADENCE_STEPS,
-                         help="physics steps between WM/monitor consultations (veto held between updates)")
-    parser.add_argument("--monitor", choices=MONITOR_CHOICES, default="classifier",
-                         help="classifier (default, UNCHANGED): RealWMSpillMonitor's instantaneous P(spill) "
-                              "veto. value (NEW): LatentValueShield -- the trained latent HJ value V_theta(z) "
-                              "(world_model/train_latent_safety_value.py), veto'ing anticipatorily at "
-                              "V(z) < VALUE_V_THRESH. Only meaningful when --config geometric_spill.")
+                         help="physics steps between spill-monitor consultations (only used when a spill_monitor is passed to run_episode)")
     parser.add_argument("--max-steps", type=int, default=None,
                          help="SMOKE ONLY: truncate the episode to this many steps (full episode when omitted)")
     parser.add_argument("--cup-in-barrier", choices=("on", "off"), default="on",
@@ -3564,7 +3442,7 @@ def main():
 
     t0 = time.perf_counter()
     print(f"[setup] building episode (seed={args.seed}, config={args.config}, "
-          f"controller={args.controller}, scenario={args.scenario}, monitor={args.monitor}, "
+          f"controller={args.controller}, scenario={args.scenario}, "
           f"grasp_mode={args.grasp_mode})...")
     info = build_episode(seed=args.seed, scenario=args.scenario, ee_speed_limit=(args.ee_speed_limit == "on"),
                          cup_jitter_m=args.cup_jitter_m, n_cubes=args.n_cubes,
@@ -3576,17 +3454,7 @@ def main():
     if args.max_steps is not None:
         print(f"  [smoke] max_steps={args.max_steps} (episode truncated)")
 
-    # v7c (CHANGE 2): keep the controller axis orthogonal to the geometric_only/
-    # geometric_spill config axis by simply not building the WM monitor -- a
-    # geometric (no-WM) run, per the task spec ("if not easy, just make v7c a
-    # geometric run for now").
-    if args.controller in ("v7c", "flmpc"):
-        if args.config != "geometric_only":
-            print(f"  [note] --controller {args.controller} forces the WM spill monitor OFF "
-                  f"(--config {args.config} is ignored for spill-monitoring purposes)")
-        spill_monitor = None
-    else:
-        spill_monitor = _make_spill_monitor(args.config, args.monitor)
+    spill_monitor = None   # learned-WM spill monitor removed 2026-11-16 (archived)
 
     if args.baseline_only:
         print("[baseline] running no-QP baseline only...")
@@ -3683,7 +3551,7 @@ def main():
     print(json.dumps(deflection_proof, indent=2))
 
     meta = dict(config=args.config, controller=args.controller, scenario=args.scenario,
-                monitor=args.monitor, cup_in_barrier=args.cup_in_barrier,
+                cup_in_barrier=args.cup_in_barrier,
                 grasp_mode=args.grasp_mode, grasp_info=info_main.get("grasp_info"),
                 table_floor=args.table_floor,
                 ee_speed_limit=args.ee_speed_limit, v_ee_max_ms=V_EE_MAX_MS,
@@ -3705,7 +3573,7 @@ def main():
     # filenames exactly, so existing crossing/v4c artifacts are unaffected).
     ctrl_suffix = "" if args.controller == "v4c" else f"_{args.controller}"
     scenario_suffix = "" if args.scenario == "crossing" else f"_{args.scenario}"
-    monitor_suffix = "" if args.monitor == "classifier" else f"_{args.monitor}"
+    monitor_suffix = ""
     monitor_suffix += "" if args.grasp_mode == "faked" else "_realgrasp"   # never overwrite faked artifacts
     monitor_suffix += "" if args.controller_impl == "py" else f"_{args.controller_impl}"   # never overwrite py artifacts
     video_path = ART_DIR / f"cup_collect_safety_demo_{args.config}{ctrl_suffix}{scenario_suffix}{monitor_suffix}.mp4"
@@ -3714,8 +3582,7 @@ def main():
     if not args.no_video:
         print(f"[video] compositing HUD + encoding {len(frames)} frames...")
         vid_meta = build_hud_and_encode(log_main, frames, video_path, config=args.config,
-                                         controller=args.controller, scenario=args.scenario,
-                                         monitor=args.monitor)
+                                         controller=args.controller, scenario=args.scenario)
         meta["video"] = vid_meta
         print(f"  wrote {video_path}")
 
