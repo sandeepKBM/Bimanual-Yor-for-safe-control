@@ -9,7 +9,8 @@ LearnedStore reuse rule (the only cross-theta reuse):
   block_theta_superset / block_a_ge found on T  applies to every query Q  with Q ⊇ T
   block_all_theta_a                              applies to every query Q
   block_exact                                    applies only to Q == T
-Pass cache: plan passed on T  =>  passes on every Q ⊆ T (exact: admission is "for all theta in the set").
+Pass cache: plan passed on T  =>  passes on every Q ⊆ T (exact: admission is "for all theta in the set"), unless the oracle sets
+  pass_monotone = False (then only Q == T: its checks depend on theta beyond "for all theta", e.g. a path model built at a_admit(theta)).
   Used (a) as an oracle shortcut for any proposed plan, (b) when cost is None, as an immediate answer before calling Z3
   (with a cost it is not used as the answer, since a cached passer need not be cost-optimal).
 """
@@ -52,15 +53,21 @@ class LearnedStore:
     def add_pass(self, plan: dict, t: Theta):
         self.passes.append((dict(plan), t))
 
-    def passed_superset(self, plan: dict, q: Theta):
+    def passed_superset(self, plan: dict, q: Theta, monotone: bool = True):
         k = plan_key(plan)
-        return any(plan_key(p) == k and t.contains(q) for p, t in self.passes)
+        return any(plan_key(p) == k and _covers(t, q, monotone) for p, t in self.passes)
 
-    def any_pass(self, q: Theta):
+    def any_pass(self, q: Theta, monotone: bool = True):
         for p, t in self.passes:
-            if t.contains(q):
+            if _covers(t, q, monotone):
                 return p
         return None
+
+
+def _covers(t: Theta, q: Theta, monotone: bool) -> bool:
+    """pass on t carries to q: q subset of t when the oracle is pass-monotone, else only q == t (review 11-16: the contents oracle's Rule 1
+    stage builds its path model at a_admit(theta), which grows as theta shrinks, so a pass on t does not imply a pass on a subset)."""
+    return t.contains(q) and (monotone or q.contains(t))
 
 
 MAX_PREFILTER_PLANS = 200_000
@@ -96,8 +103,9 @@ def _apply_prefilter(enc, s, domains, prefilter) -> dict:
 def solve(domains, oracle, theta: Theta, learned_store: LearnedStore, cost=None, max_iters: int = 500, prefilter=None):
     enc = Encoding(domains)
     log: list = []
+    mono = bool(getattr(oracle, "pass_monotone", True))      # an oracle sets pass_monotone = False when "passes on T => passes on Q subset T" is not true for it
     if cost is None:
-        hit = learned_store.any_pass(theta)
+        hit = learned_store.any_pass(theta, mono)
         if hit is not None:
             log.append(dict(it=0, plan=dict(hit), ok=True, fail_rows=[], learned_kinds=[], z3_s=0.0, oracle_s=0.0,
                             source="pass_cache", status="found"))
@@ -120,7 +128,7 @@ def solve(domains, oracle, theta: Theta, learned_store: LearnedStore, cost=None,
                             n_prior_learned=n_applied))
             return None, log
         plan = enc.decode(s.model())
-        if learned_store.passed_superset(plan, theta):
+        if learned_store.passed_superset(plan, theta, mono):
             res, src, o_s = OracleResult(ok=True, cached=True), "pass_cache", 0.0
         else:
             t1 = time.perf_counter()

@@ -89,9 +89,9 @@ def split(domains, oracle, theta0: Theta, reading: ReadingModel, max_bins: int =
                                     z3_s=sum(x["z3_s"] for x in sl), oracle_s=sum(x["oracle_s"] for x in sl), solve_log=sl))
                     if plan is not None:
                         solved[key] = plan
-                    elif sl[-1].get("status") == "max_iters":
+                    elif sl[-1].get("status") != "unsat":       # max_iters or z3_unknown (review 11-16): not a proof of "unsolvable"
                         # the cap is NOT "unsolvable": calling it so would make the split edges unsound.  Stop with no verdict.
-                        log.append(dict(k=k, round=rnd, event="capped", theta=key, max_iters=max_iters))
+                        log.append(dict(k=k, round=rnd, event="capped", theta=key, max_iters=max_iters, status=sl[-1].get("status")))
                         return None, log
                 if plan is None:
                     bad.append(T)
@@ -105,5 +105,8 @@ def split(domains, oracle, theta0: Theta, reading: ReadingModel, max_bins: int =
                     unsolvable.append(T)
                 add_excl(T)
             log.append(dict(k=k, round=rnd, event="cegis_cut", edges=edges, bad=[(t.lo, t.hi) for t in bad]))
+        else:                                              # max_rounds used up without an unsat over the edges: a cap, not "no split with k bins"
+            log.append(dict(k=k, event="capped", max_rounds=max_rounds))
+            return None, log
     log.append(dict(event="no_split_up_to", max_bins=max_bins))
     return None, log

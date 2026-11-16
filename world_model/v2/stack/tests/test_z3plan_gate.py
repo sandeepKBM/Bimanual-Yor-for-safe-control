@@ -171,3 +171,39 @@ def test_cap_is_not_unsat():
     p, log = L.solve(DOMS, orc, th, L.LearnedStore(), max_iters=1)
     if p is None:
         assert log[-1]["status"] == "max_iters" or (not feas and log[-1]["status"] == "unsat"), log[-1]
+
+
+# ---------------------------------------------------------------------------------------------------------- review fixes (11-16)
+class NonMonotonePass:
+    """passes only on EXACTLY the interval it was asked first for a plan with a = 0.5 (like a Rule 1 stage whose path model is built at a_admit(theta)):
+    a pass on T says nothing about a subset.  pass_monotone = False must keep the pass cache from answering for Q != T."""
+    pass_monotone = False
+
+    def __init__(self, good_theta):
+        self.good, self.calls = good_theta, 0
+
+    def __call__(self, p, th):
+        self.calls += 1
+        ok = p["a"] == 0.5 and p["zc"] == 0.1 and p["dx"] == 0.0 and p["recovery"] == "stored_backup" and (th.lo, th.hi) == (self.good.lo, self.good.hi)
+        return OracleResult(ok, [dict(name="r1", ok=ok)], [] if ok else [Learned("block_exact", dict(p), th, "exact only")])
+
+
+def test_pass_cache_respects_non_monotone_oracle():
+    T, Q = Theta(1.0, 2.0), Theta(1.2, 1.8)
+    orc, store = NonMonotonePass(T), L.LearnedStore()
+    p, _ = L.solve(DOMS, orc, T, store, max_iters=2000)
+    assert p is not None
+    p2, log2 = L.solve(DOMS, orc, Q, store, max_iters=2000)
+    assert p2 is None and log2[-1]["status"] == "unsat", log2[-1]       # the oracle passes nothing on Q; the cache must not answer
+    assert not any(e.get("source") == "pass_cache" for e in log2)
+    p3, log3 = L.solve(DOMS, orc, T, store, max_iters=2000)              # same T: the exact cache hit is still allowed
+    assert p3 is not None and log3[-1]["source"] == "pass_cache"
+
+
+def test_split_round_cap_is_not_a_negative_answer():
+    orc = OwnerOracle(303, a_mono=True)
+    th0, rd = Theta(0.5, 5.0), ReadingModel(offset_kg=2.0, noise_kg=0.17, tag="test")
+    bins, log = PS.split(DOMS, orc, th0, rd, max_bins=4, max_rounds=1)
+    assert bins is None and any(e.get("event") == "cegis_cut" for e in log)          # seed 303: one round is not enough (checked 11-16)
+    assert log[-1]["event"] == "capped" and log[-1]["max_rounds"] == 1, log[-1]
+    assert not any(e.get("event") == "no_split_up_to" for e in log)
