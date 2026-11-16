@@ -12,17 +12,17 @@ Knobs (domains()): zc (lift height), place_dx / place_dy (offset of the place ta
 
 Learned constraints (only what is true; every one carries its reason):
   block_all_theta_a        geometry failure (IK / reach / lift collision, a SAMPLE distance below d_min, joint_pos / reach row): every knob except a fixed
-  block_theta_superset     static refusal, a above a_admit, a stored_backup step refused, a tilt row refuted: the plan also fails on any Theta containing this one
-                           (admission is "for all theta in the set").  NOT used for a failing read_then_retrace step: its bins depend on theta, so a superset's
-                           bins are different sets and a finer bin could pass where the coarser failed.
+  block_theta_superset     static refusal, a above a_admit: the plan also fails on any Theta containing this one
+                           (admission is "for all theta in the set").  NOT used for a Rule 1 step (stage d: depends on a, theta, recovery; read_then_retrace bins
+                           depend on theta) nor for the tilt row (a table per measured cell): those are block_exact.
   block_exact              everything else, and always added on a failure (the loop contract: at least this one)
   block_a_ge               ONLY when a stage-b torque_payload row fails (static refusal on a torque row, or a above a_admit when no open_content limit exists):
                            MEASURED non-decreasing in a on the default box path (nero/results/z3_stage0_2026-11-16), ASSUMED for other paths / between grid points.
                            Never for open_content, support, collision, or Rule 1 rows.
 
 Known limits (guesses, see the report of the build):
-  * stage d runs rule1_contents.run_cell as is: its path model is at the STATIC ADMISSION's accelerations (a_admit of the cell), not at vals["a"].  a therefore enters
-    stages a, b (a <= a_admit), c and e only.
+  * stage d (11-16): rule1_contents.run_cell(..., a=vals["a"]) builds the path model at the plan's a (the static admission must admit at a: stage b refuses a > a_admit first).
+    A stage-d failure is learned as block_exact only (free=()): Rule 1 depends on a, theta and the recovery.
   * a read_then_retrace step is judged on the program's rows; that program is not executable today (rule1_contents marks executable=False).
   * the place rule checks (compile.py box rules) are re-implemented here for a box WaypointPlan (compile_plan needs a full proposer reply).
 
@@ -53,8 +53,11 @@ PLACE_STEP = 0.005                             # m, ASSUMED grid of the place of
 PLACE_WINDOW = 0.01                            # m, ASSUMED: |place_dx|, |place_dy| <= this (keeps the grid <= 2000 plans); domains(window_m=...) widens it
 TILT_TABLE = pathlib.Path(__file__).resolve().parents[1] / "nero" / "results" / "tilt_table_2026-11-16" / "box_closed_chain" / "TABLE.json"
 EPS_A = 1e-9
-A_GE_REASON = ("torque/payload utilisation non-decreasing in a: MEASURED on the default box path (z3_stage0_2026-11-16), "
-               "ASSUMED for other paths and between the 0.025 grid points")
+A_GE_REASON = ("a above a_admit, with a_admit set by the torque row alone (no open_content limit): a_admit = PAY.a_max = the bisected largest a with u <= U_ADMIT, so a torque row fails at a_admit + eps; "
+               "block_a_ge needs utilisation non-decreasing in a: MEASURED on the default box path (z3_stage0_2026-11-16), ASSUMED for other paths and between the 0.025 grid points")
+A_GE_REASON_REFUSED = ("static refusal with a failing torque_payload row: stack/checks/admit.admit evaluates the torque rows at A_NOM (aa = a_nom when refused), NOT at the plan's a; "
+                       "the refusal itself means PAY.a_max found no a >= A_MIN with u <= U_ADMIT (a_adm None or below A_MIN), so under the monotone assumption (utilisation non-decreasing in a: "
+                       "MEASURED on the default box path z3_stage0_2026-11-16, ASSUMED for other paths and between grid points) every a >= A_MIN fails the torque row")
 
 
 class PlanNotBuildable(ValueError):
@@ -188,6 +191,7 @@ def _from_checker_row(r):
 
 class Oracle:
     """Oracle(vals, theta) -> OracleResult.  Cached on (plan values, theta)."""
+    pass_monotone = False          # a pass on T does not imply a pass on a subset Q: the stage-d Rule 1 steps use the plan's a and the static admission's path model (a_admit of the cell), which depend on theta beyond "for all theta"
 
     def __init__(self, task="box", world=None, work_dir=None, all_stages=False):
         """all_stages=True (opt-in, 11-16, for adapters/assumed_sweep): do not stop at the first failing stage b..e; run every stage that can run (a failure of stage a
@@ -325,7 +329,7 @@ class Oracle:
             names = ", ".join(b["name"] for b in bad) or st["action"]
             ln = [Learned("block_theta_superset", dict(vals), theta, f"static admission refuses on [{theta.lo}, {theta.hi}] ({st['action']}): {names}; admission is for all theta, so any superset fails too. Free a: refuse = a_admit < A_MIN or support/unreachable (admit.py), computed from the path + theta, not from the plan's a. Free recovery: static_cell takes no recovery", free=("a", "recovery"))]
             if any(":torque_payload]" in b["name"] for b in bad):
-                ln.append(Learned("block_a_ge", dict(vals), theta, A_GE_REASON, free=("recovery",)))
+                ln.append(Learned("block_a_ge", dict(vals), theta, A_GE_REASON_REFUSED, free=("recovery",)))
             r_ = fail("b_static", ln, can_continue=True)
             if r_ is not None:
                 return r_
@@ -349,6 +353,8 @@ class Oracle:
             rows.append(_from_checker_row(r))
             if r.ok:
                 continue
+            # NOTE: the block_all_theta_a constraints below (joint_pos / reach / a SAMPLE collision distance below d_min) are STRICTER than this oracle at other a: they block every a,
+            # although the oracle itself only evaluates the plan at vals["a"] (documented, not changed; the sample distance / joint path are geometry and do not depend on a)
             if r.name in ("joint_pos", "reach"):
                 learned.append(Learned("block_all_theta_a", geo_plan, None, f"{r.name} row fails (geometry: the joint path / FK reach of the waypoints, no a, no recovery): {r.why[:300]}", free=("recovery",)))
             elif r.name == "collision":
@@ -373,7 +379,7 @@ class Oracle:
             pathlib.Path(self.work_dir).mkdir(parents=True, exist_ok=True)     # owner fix 11-16: mkdtemp does not create its parent
         tmp = pathlib.Path(tempfile.mkdtemp(prefix="z3orc_", dir=self.work_dir))
         try:
-            recs = RC.run_cell(self.task, (float(theta.lo), float(theta.hi)), tmp, n_sampled=0, planner="closed_chain", fallback=False, wp=wp)
+            recs = RC.run_cell(self.task, (float(theta.lo), float(theta.hi)), tmp, n_sampled=0, planner="closed_chain", fallback=False, wp=wp, a=float(vals["a"]))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
         wall["d_rule1"] = time.time() - ts
@@ -403,9 +409,9 @@ class Oracle:
         if failing:
             msg = f"Rule 1 refuses {', '.join(failing)} on [{theta.lo}, {theta.hi}] kg"
             if prog == "stored_backup":
-                learned = [Learned("block_theta_superset", dict(vals), theta, msg + " (a fixed one-bin program: any superset fails too). Free a: run_cell takes no plan a, its path model is at the static admission's accelerations", free=("a",))]
+                learned = [Learned("block_exact", dict(vals), theta, msg + " (Rule 1 now depends on the plan's a: the path model, the stop deceleration of the finish branches and the retrace rows; the earlier superset claim was unsupported)", free=())]
             else:
-                learned = [Learned("block_exact", dict(vals), theta, msg + " (reading bins depend on theta: no superset claim). Free a: run_cell takes no plan a", free=("a",))]
+                learned = [Learned("block_exact", dict(vals), theta, msg + " (reading bins depend on theta and the path model on a: no superset claim)", free=())]
             r_ = fail("d_rule1", learned, can_continue=True)
             if r_ is not None:
                 return r_
@@ -424,7 +430,7 @@ class Oracle:
         rows.append(_from_checker_row(tr))
         tmissing = tr.guarantee == "missing"
         if not tr.ok and not tmissing:
-            r_ = fail("e_tilt", [Learned("block_theta_superset", dict(vals), theta, f"tilt row refuted on the measured cell {key}: {tr.why[:300]}; free recovery: tilt_row reads the table, a and the cell only", free=("recovery",))], can_continue=True)
+            r_ = fail("e_tilt", [Learned("block_exact", dict(vals), theta, f"tilt row refuted on the measured cell {key}: {tr.why[:300]}; free recovery: tilt_row reads the table, a and the cell only (the table is per measured cell: no superset claim)", free=("recovery",))], can_continue=True)
             if r_ is not None:
                 return r_
         if fails:
