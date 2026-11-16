@@ -6,6 +6,7 @@ on the episode (CarryEpisode._step / _check / snapshot / restore / _add_path).  
 from __future__ import annotations
 
 import copy
+import os
 import time
 
 import numpy as np
@@ -184,6 +185,24 @@ def _interrupt(ep, plan, sg, ix, branches, bk, spec, rec):
         return None
     tr, sn = min(branches, key=lambda b: abs(b[0] - float(spec["t"])))
     out["t_branch"] = float(tr)
+    # --- K8 Rule 3 cover (BIMANUAL_COVER=1 and spec carries "admission" + "theta_new"; otherwise nothing below runs) ---
+    if os.environ.get("BIMANUAL_COVER", "0") == "1" and spec.get("admission") is not None and spec.get("theta_new") is not None:
+        from world_model.v2.stack.checks import cover as COV
+        dec = COV.cover(spec["theta_new"], spec["admission"], float(spec["t"]))
+        out["cover"] = dict(t=float(spec["t"]), action=dec.action, recovery=dec.recovery, why=dec.why, lookup_s=dec.lookup_s)
+        if dec.action == "continue":
+            out["cover"]["ran"] = "nothing (admitted recovery kept; nominal run stands)"
+            return []
+        alt = (sg.meta.get("recoveries") or {}) if dec.action == "switch" else {"fallback": sg.meta.get("fallback_phases")}
+        ph = alt.get(dec.recovery) if dec.recovery is not None else None
+        if ph is not None:
+            bk = ph
+            out["cover"]["ran"] = dec.recovery
+            out["cover"]["verified"] = dec.action == "switch" or dec.recovery is not None
+        else:
+            out["cover"]["ran"] = "stored backup (named recovery has no phases in this segment's meta)"
+            out["cover"]["verified"] = False          # owner 11-16: the stored backup is NOT verified on theta_new here; count it, never report it as covered
+    # --- end K8 ---
     ep.restore(sn)
     ep.reset_track()
     k0 = ep.k
