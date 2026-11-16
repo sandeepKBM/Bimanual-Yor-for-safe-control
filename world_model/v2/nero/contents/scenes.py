@@ -121,6 +121,7 @@ class BoxWorld(Common):
     shelf_top: float = 0.97           # ASSUMED (11-02: counter top + 0.15; a 20 cm lift misses the right arm by 18 mm, 18 cm reaches)
     shelf_t: float = 0.02             # ASSUMED
     shelf_mu: float = 0.6             # ASSUMED
+    bookcase: bool = False            # table-behind task box_bookcase (USER 11-16): the goal is the lower compartment of a 2-level bookcase (nero/base/scene.py), no counter2
 
 
 POT_HANDLE_LEN = 0.11   # ASSUMED m: stack/universes/pot.py NOMINAL (the THETA box has 0.09..0.13; 0.12-0.13 has no passing right pre-grasp with the NYU gripper, 11-04)

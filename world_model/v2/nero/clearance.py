@@ -52,7 +52,7 @@ def classify(m, obj_body: str):
         gn = (m.geom(g).name or "").lower()
         if m.geom_type[g] == mujoco.mjtGeom.mjGEOM_PLANE:
             continue                                                   # floor: handled in report() as hull min-z
-        if any(k in gn for k in ("table", "counter", "shelf", "stove")):
+        if any(k in gn for k in ("table", "counter", "shelf", "stove", "bookcase")):
             world.append(g)
     return robot, world, obj
 

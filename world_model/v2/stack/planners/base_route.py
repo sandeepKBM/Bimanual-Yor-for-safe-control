@@ -176,6 +176,12 @@ def default_route(task_def):
     return normalize_route(task_def.routes[0][1])
 
 
+def _goal_support(sup):
+    """the support the route ends at, from the backend's support dict (the episode path passes the KIND as `task`, not the TaskDef name): the bookcase compartment when the
+    world has one, else counter2."""
+    return "bookcase_l1" if "bookcase_l1" in sup else "counter2"
+
+
 # ---- the checks ---------------------------------------------------------------------------------------------------------------------
 def check(world, task, wp, geo, clear_m, backend=None, margin_m=TRACK_MARGIN_M):
     """geo = a closed_chain.Geometry of `wp` (arm space, base frame).  clear_m = closed_chain.CLEAR_M[kind].  Raises PlanRefused.  -> info dict (stored in geo.info['base'])."""
@@ -188,7 +194,8 @@ def check(world, task, wp, geo, clear_m, backend=None, margin_m=TRACK_MARGIN_M):
     if errs:
         _refuse("; ".join(errs), reason="base_route_range")
     sup = be.supports(world)
-    top1, top2 = float(sup["counter"]["top"]), float(sup["counter2"]["top"])
+    gs = _goal_support(sup)
+    top1, top2 = float(sup["counter"]["top"]), float(sup[gs]["top"])
     if after < 1 or after > len(wp.names):
         _refuse(f"{task}: base_move must come after the first arm move (the object is lifted before the base moves)", reason="base_plan")
     i_hold = geo.bounds[wp.names[after - 1]][1]                       # last sample of the move before the base move

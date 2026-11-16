@@ -18,14 +18,19 @@ def _tilt_deg(R):   # = carry._tilt_deg (checked by the same test)
     return float(np.degrees(np.arccos(np.clip(R[2, 2], -1.0, 1.0))))
 
 
+def _goal_geom(gs):
+    from world_model.v2.nero.base import scene as BS
+    return BS.goal_geom(gs)
+
+
 _kind_task = TK.of_kind          # a TaskDef of this CarryEpisode.task kind ("tray" | "box" | "pot"); the drop bound is the same for every task of a kind
 
 
 def _tops(world, goal_support=""):
     out = {k: float(getattr(world, f"{k}_top")) for k in ("counter", "shelf") if hasattr(world, f"{k}_top")}
-    if goal_support == "counter2":                 # table-behind (11-09): counter2 = same height as the counter (MODEL, nero/base/scene.support_tops_behind)
+    if goal_support in ("counter2", "bookcase_l1"):      # table-behind (11-09): counter2 = same height as the counter; bookcase_l1 floor top = counter top (MODEL, nero/base/scene.support_tops_behind)
         from world_model.v2.nero.base import scene as BS
-        out["counter2"] = float(BS.support_tops_behind(world)["counter2"]["top"])
+        out[goal_support] = float(BS.support_tops_behind(world)[goal_support]["top"])
     return out
 
 
@@ -36,7 +41,7 @@ def from_carry(ep, finished=None, pre_hold_viol=None) -> EndState:
     v = np.zeros(6)
     mujoco.mj_objectVelocity(m, d, mujoco.mjtObj.mjOBJ_BODY, ep.obj, v, 0)
     gs = getattr(ep, "goal_support", "")           # the episode's goal support (table-behind tasks: "counter2"; the TaskDef.goal_support of the row it runs); "" = legacy rule
-    sup = {m.geom(gs).id} if gs else ({m.geom("counter").id} | ({m.geom("shelf").id} if getattr(ep.world, "shelf", False) and _kind_task(ep.task).goal_support == "shelf" else set()))
+    sup = {m.geom(_goal_geom(gs)).id} if gs else ({m.geom("counter").id} | ({m.geom("shelf").id} if getattr(ep.world, "shelf", False) and _kind_task(ep.task).goal_support == "shelf" else set()))
     touching = any((int(c.geom1) in sup and m.geom_bodyid[c.geom2] == ep.obj) or (int(c.geom2) in sup and m.geom_bodyid[c.geom1] == ep.obj)
                    for c in d.contact[:d.ncon])
     tr = ep.track
