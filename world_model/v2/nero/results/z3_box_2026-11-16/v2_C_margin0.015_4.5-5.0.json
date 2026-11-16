@@ -1,0 +1,1839 @@
+{
+ "variant": "C_margin0.015",
+ "margin_override": 0.015,
+ "cell": [
+  4.5,
+  5.0
+ ],
+ "plan": null,
+ "status": "unsat",
+ "oracle_calls": 75,
+ "iters": 77,
+ "wall_s": 870.3,
+ "log": [
+  {
+   "it": 0,
+   "plan": null,
+   "ok": false,
+   "fail_rows": [],
+   "learned_kinds": [],
+   "z3_s": 0.0,
+   "oracle_s": 0.04728890702244826,
+   "source": "prefilter",
+   "n_plans": 2000,
+   "n_rejected": 1400,
+   "n_clauses": 175,
+   "by_rule": {
+    "compile[lowering]": 1400
+   }
+  },
+  {
+   "it": 1,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.008541349990991876,
+   "oracle_s": 18.30425066500902,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 2,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.01735379098681733,
+   "oracle_s": 18.217487162008183,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 3,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.01677055499749258,
+   "oracle_s": 17.893787146982504,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 4,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.011952576984185725,
+   "oracle_s": 0.9094491900177673,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 5,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.010275399981765077,
+   "oracle_s": 18.13448228102061,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 6,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.012356949999229982,
+   "oracle_s": 18.302032748993952,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 7,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.011181067005963996,
+   "oracle_s": 13.70993356499821,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 8,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.019578904000809416,
+   "oracle_s": 19.2175136259757,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 9,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.020473879005294293,
+   "oracle_s": 13.501851429988164,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 10,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.019546132010873407,
+   "oracle_s": 17.718831204023445,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 11,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.019747401005588472,
+   "oracle_s": 17.868045921990415,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 12,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.0202589429973159,
+   "oracle_s": 0.8515862580097746,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 13,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.01298322799266316,
+   "oracle_s": 12.265754205000121,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 14,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.021047367015853524,
+   "oracle_s": 0.9198732350196224,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 15,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.01177199900848791,
+   "oracle_s": 58.16375675200834,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 16,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.015752339008031413,
+   "oracle_s": 12.914624902012292,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 17,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.021697353018680587,
+   "oracle_s": 0.9242734400031622,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 18,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.01470598898595199,
+   "oracle_s": 13.836448615998961,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 19,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.015405898011522368,
+   "oracle_s": 14.609169076022226,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 20,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.023837507993448526,
+   "oracle_s": 0.9752393620146904,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 21,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.015173320018220693,
+   "oracle_s": 18.445990034990245,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 22,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.016866726975422353,
+   "oracle_s": 0.8614665240165778,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 23,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.013185268006054685,
+   "oracle_s": 0.8252366909873672,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 24,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.015231889992719516,
+   "oracle_s": 18.727563322987407,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 25,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.023430672998074442,
+   "oracle_s": 11.599182742997073,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 26,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.01905863598221913,
+   "oracle_s": 13.29765701701399,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 27,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.024022369005251676,
+   "oracle_s": 0.9859793900104705,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 28,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.015338172001065686,
+   "oracle_s": 0.8461722359934356,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 29,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.014366863993927836,
+   "oracle_s": 19.110668943001656,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 30,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02126256498740986,
+   "oracle_s": 18.591359101992566,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 31,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.023926979978568852,
+   "oracle_s": 13.089194276020862,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 32,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.024639812007080764,
+   "oracle_s": 13.101430570008233,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 33,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.023362317006103694,
+   "oracle_s": 0.9461049700039439,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 34,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.017204255011165515,
+   "oracle_s": 12.512102788023185,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 35,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.022292143024969846,
+   "oracle_s": 12.70116385698202,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 36,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.020733257988467813,
+   "oracle_s": 19.01075740798842,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 37,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.0242754640057683,
+   "oracle_s": 18.653481808985816,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 38,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.026457040978129953,
+   "oracle_s": 0.8646495029970538,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 39,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.014419270999496803,
+   "oracle_s": 18.81307693698909,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 40,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.018617503985296935,
+   "oracle_s": 0.9371281510102563,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 41,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.016387437004595995,
+   "oracle_s": 12.871949401014717,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 42,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.018346753990044817,
+   "oracle_s": 14.294844809017377,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 43,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02424611899186857,
+   "oracle_s": 1.014550824998878,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 44,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.019298416009405628,
+   "oracle_s": 0.9791473539953586,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 45,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.022544365987414494,
+   "oracle_s": 19.685461771005066,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 46,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02499311399878934,
+   "oracle_s": 0.9724241190124303,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 47,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.016318106005201116,
+   "oracle_s": 12.522318905976135,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 48,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02393848999054171,
+   "oracle_s": 18.88543807301903,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 49,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02592039998853579,
+   "oracle_s": 0.9976136140176095,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 50,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.016643307986669242,
+   "oracle_s": 0.7907779639936052,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 51,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.020216945005813614,
+   "oracle_s": 13.428947504988173,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 52,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.023234774998854846,
+   "oracle_s": 0.9751551399822347,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 53,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.01065665899659507,
+   "oracle_s": 21.216995733993826,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 54,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02572220700676553,
+   "oracle_s": 1.043731180980103,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 55,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.016351427999325097,
+   "oracle_s": 18.577479005005443,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 56,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.026342584984377027,
+   "oracle_s": 13.119073684996692,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 57,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02462008298607543,
+   "oracle_s": 0.9136445189942606,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 58,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.010891540994634852,
+   "oracle_s": 13.581843469000887,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 59,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02569970500189811,
+   "oracle_s": 1.0273252910119481,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 60,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.01356674698763527,
+   "oracle_s": 19.24123774198233,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 61,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.023192986991489306,
+   "oracle_s": 1.1564371790154837,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 62,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.017002184002194554,
+   "oracle_s": 0.8918671479914337,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 63,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.013816035992931575,
+   "oracle_s": 14.135828488011612,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 64,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.027437005017418414,
+   "oracle_s": 55.78888221501256,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 65,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.020218494988512248,
+   "oracle_s": 12.837323213985655,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 66,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02560766797978431,
+   "oracle_s": 0.865110383980209,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 67,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.015298644982976839,
+   "oracle_s": 8.512336034997134,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 68,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.015749023004900664,
+   "oracle_s": 13.251434867997887,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 69,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.0175796480034478,
+   "oracle_s": 0.5762204350030515,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 70,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.010373024008003995,
+   "oracle_s": 12.804659685003571,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 71,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.0169421790051274,
+   "oracle_s": 12.89524201900349,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 72,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.016257170005701482,
+   "oracle_s": 12.81436292800936,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 73,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.014668920019175857,
+   "oracle_s": 12.731563650013413,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 74,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.013805605005472898,
+   "oracle_s": 12.591679712990299,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 75,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s0_lift:torque_payload]",
+    "static[s1_move:torque_payload]",
+    "static[s2_place:torque_payload]",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.013406354002654552,
+   "oracle_s": 7.438642608001828,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 76,
+   "plan": null,
+   "ok": false,
+   "fail_rows": [],
+   "learned_kinds": [],
+   "z3_s": 0.013144349999492988,
+   "oracle_s": 0.0,
+   "source": "unsat",
+   "status": "unsat",
+   "n_prior_learned": 0
+  }
+ ]
+}

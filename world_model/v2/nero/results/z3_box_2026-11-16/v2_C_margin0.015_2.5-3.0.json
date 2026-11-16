@@ -1,0 +1,2571 @@
+{
+ "variant": "C_margin0.015",
+ "margin_override": 0.015,
+ "cell": [
+  2.5,
+  3.0
+ ],
+ "plan": null,
+ "status": "unsat",
+ "oracle_calls": 111,
+ "iters": 113,
+ "wall_s": 5899.3,
+ "log": [
+  {
+   "it": 0,
+   "plan": null,
+   "ok": false,
+   "fail_rows": [],
+   "learned_kinds": [],
+   "z3_s": 0.0,
+   "oracle_s": 0.060889673011843115,
+   "source": "prefilter",
+   "n_plans": 2000,
+   "n_rejected": 1400,
+   "n_clauses": 175,
+   "by_rule": {
+    "compile[lowering]": 1400
+   }
+  },
+  {
+   "it": 1,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.010378538980148733,
+   "oracle_s": 24.88995975200669,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 2,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.031958706997102126,
+   "oracle_s": 18.782133464002982,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 3,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.013338786986423656,
+   "oracle_s": 0.8053477900102735,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 4,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.011804017995018512,
+   "oracle_s": 18.882107518002158,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 5,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.0186502140131779,
+   "oracle_s": 18.518932216975372,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 6,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.018832058005500585,
+   "oracle_s": 0.9462467079865746,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 7,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.015411789005156606,
+   "oracle_s": 0.9198473559808917,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 8,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.01203727800748311,
+   "oracle_s": 21.82609249401139,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 9,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.019694121001521125,
+   "oracle_s": 1.0280788099917118,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 10,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.01121180399786681,
+   "oracle_s": 22.675102823006455,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 11,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.01992535500903614,
+   "oracle_s": 17.51297930700821,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 12,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.014965939975809306,
+   "oracle_s": 0.7224993970012292,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 13,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.010617074993206188,
+   "oracle_s": 19.677542762015946,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 14,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.018271032022312284,
+   "oracle_s": 0.8830891959951259,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 15,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.015005886001745239,
+   "oracle_s": 21.735514768981375,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 16,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.011899337987415493,
+   "oracle_s": 19.435134230996482,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 17,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.014262773998780176,
+   "oracle_s": 19.748220209003193,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 18,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.01799003197811544,
+   "oracle_s": 24.42285391400219,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 19,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.015453255997272208,
+   "oracle_s": 22.66615930799162,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 20,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.016362327995011583,
+   "oracle_s": 18.587753176980186,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 21,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.01826298498781398,
+   "oracle_s": 17.581654180015903,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 22,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.01748851698357612,
+   "oracle_s": 21.993479433003813,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 23,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.015531156008364633,
+   "oracle_s": 0.8928534489823505,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 24,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.01427604301716201,
+   "oracle_s": 22.768301738018636,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 25,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.023197286995127797,
+   "oracle_s": 19.515034079988254,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 26,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.02137326300726272,
+   "oracle_s": 22.72120044400799,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 27,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.024779815023066476,
+   "oracle_s": 0.9095960859849583,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 28,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.014469716988969594,
+   "oracle_s": 18.60547378199408,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 29,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.02218037299462594,
+   "oracle_s": 23.858207539014984,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 30,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.022793026000726968,
+   "oracle_s": 18.621311143011553,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 31,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02434014601749368,
+   "oracle_s": 0.8933894009969663,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 32,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.00996778198168613,
+   "oracle_s": 21.75606688298285,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 33,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02244910699664615,
+   "oracle_s": 0.8001655440020841,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 34,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.013376978982705623,
+   "oracle_s": 19.445337079989258,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 35,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02134444599505514,
+   "oracle_s": 1.0083809710049536,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 36,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.015504634997341782,
+   "oracle_s": 25.177316575020086,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 37,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.02386805700371042,
+   "oracle_s": 24.460238947998732,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 38,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02656527399085462,
+   "oracle_s": 19.393808007007465,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 39,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.025476145005086437,
+   "oracle_s": 0.9749470080132596,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 40,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.016611558006843552,
+   "oracle_s": 0.7472911179938819,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 41,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.01724380798987113,
+   "oracle_s": 20.814672331995098,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 42,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02059045698842965,
+   "oracle_s": 0.793735041981563,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 43,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.021972739981720224,
+   "oracle_s": 0.7194130659918301,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 44,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.01694632801809348,
+   "oracle_s": 22.2783345390053,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 45,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.022901046002516523,
+   "oracle_s": 22.30575018399395,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 46,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02611861302284524,
+   "oracle_s": 19.72041237601661,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 47,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.025308057985967025,
+   "oracle_s": 19.349227851984324,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 48,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.026842535997275263,
+   "oracle_s": 0.8032187130011152,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 49,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.01379116901080124,
+   "oracle_s": 22.7582764760009,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 50,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.02495081498636864,
+   "oracle_s": 24.913666032021865,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 51,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.024606203980511054,
+   "oracle_s": 18.421502309996868,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 52,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.01733518799301237,
+   "oracle_s": 0.7379167500184849,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 53,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.018880716990679502,
+   "oracle_s": 17.475626177998492,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 54,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.02420107100624591,
+   "oracle_s": 0.8003851379908156,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 55,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.010426253982586786,
+   "oracle_s": 15.552407017006772,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 56,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.019740315998205915,
+   "oracle_s": 13.834056249994319,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 57,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.017257121013244614,
+   "oracle_s": 0.6142941670259461,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 58,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.009891446999972686,
+   "oracle_s": 13.383994511998026,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 59,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.01571143200271763,
+   "oracle_s": 14.52874125802191,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 60,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": 0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.01796462299535051,
+   "oracle_s": 0.6312285410240293,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 61,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.010174972005188465,
+   "oracle_s": 14.95381808100501,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 62,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.015962273988407105,
+   "oracle_s": 0.6610249840014149,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 63,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.009403468982782215,
+   "oracle_s": 14.05496730399318,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 64,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.019264739006757736,
+   "oracle_s": 0.5098719029920176,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 65,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.005,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.00898918998427689,
+   "oracle_s": 0.5474920310080051,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 66,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.015100007993169129,
+   "oracle_s": 13.860162698983913,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 67,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.01346438200562261,
+   "oracle_s": 12.846289836015785,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 68,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.018543112004408613,
+   "oracle_s": 0.6560254899959546,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 69,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.012770597008056939,
+   "oracle_s": 13.150416446995223,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 70,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": 0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.009760430984897539,
+   "oracle_s": 13.07771822399809,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 71,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.005,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.009394433000124991,
+   "oracle_s": 13.826152927998919,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 72,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.01,
+    "place_dy": -0.01,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "static_action",
+    "static[s2_place:support_dest]",
+    "static[release:support_dest]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.00971565701183863,
+   "oracle_s": 13.820218858018052,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 73,
+   "plan": {
+    "zc": 0.16,
+    "place_dx": 0.01,
+    "place_dy": 0.0,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.00981082598445937,
+   "oracle_s": 0.5514104520261753,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 74,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.005,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.010748792003141716,
+   "oracle_s": 12.461946029012324,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 75,
+   "plan": {
+    "zc": 0.2,
+    "place_dx": 0.01,
+    "place_dy": -0.005,
+    "a": 0.5,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "plan_geometry"
+   ],
+   "learned_kinds": [
+    "block_all_theta_a",
+    "block_exact"
+   ],
+   "z3_s": 0.00963298199349083,
+   "oracle_s": 12.911975019000238,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 76,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.25,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.014596524008084089,
+   "oracle_s": 13.235630353010492,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 77,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.25,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.009912133013131097,
+   "oracle_s": 13.374462723004399,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 78,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.25,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.013168980978662148,
+   "oracle_s": 13.262522775999969,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 79,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.25,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.010227855993434787,
+   "oracle_s": 13.777934851997998,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 80,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.25,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.010261871007969603,
+   "oracle_s": 13.378821114980383,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 81,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.25,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.011549123009899631,
+   "oracle_s": 13.037706749979407,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 82,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.25,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.01571415498619899,
+   "oracle_s": 13.552887996018399,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 83,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.25,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.016295027977321297,
+   "oracle_s": 13.43626739399042,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 84,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.25,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.015898991987342015,
+   "oracle_s": 13.895306724996772,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 85,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.1,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.017629098991164938,
+   "oracle_s": 13.659854349010857,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 86,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.1,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.021461691008880734,
+   "oracle_s": 14.24479721399257,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 87,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.1,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.017408960993634537,
+   "oracle_s": 13.893495710013667,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 88,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.1,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.013862027990398929,
+   "oracle_s": 13.734562617988558,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 89,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.1,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.020952361985109746,
+   "oracle_s": 13.48765846499009,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 90,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.1,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.016373715014196932,
+   "oracle_s": 13.927160728984745,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 91,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.1,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.019678804994327947,
+   "oracle_s": 13.653025287989294,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 92,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.1,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.019592652010032907,
+   "oracle_s": 13.61350305902306,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 93,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.1,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "a_le_a_admit"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_a_ge",
+    "block_exact"
+   ],
+   "z3_s": 0.011261884006671607,
+   "oracle_s": 13.5376866949955,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 94,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.05,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.015924328996334225,
+   "oracle_s": 275.02839608999784,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 95,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.05,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.019101300014881417,
+   "oracle_s": 265.2769374749914,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 96,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.005,
+    "a": 0.05,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:read_then_retrace]",
+    "rule1[1:s1_move:read_then_retrace]",
+    "rule1[2:s2_place:read_then_retrace]"
+   ],
+   "learned_kinds": [
+    "block_exact"
+   ],
+   "z3_s": 0.017334494012175128,
+   "oracle_s": 182.87006521999137,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 97,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.05,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.0168534179974813,
+   "oracle_s": 269.44066906601074,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 98,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": -0.005,
+    "a": 0.05,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:read_then_retrace]",
+    "rule1[1:s1_move:read_then_retrace]",
+    "rule1[2:s2_place:read_then_retrace]"
+   ],
+   "learned_kinds": [
+    "block_exact"
+   ],
+   "z3_s": 0.01824577699881047,
+   "oracle_s": 273.4630725070019,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 99,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.05,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.03674409500672482,
+   "oracle_s": 462.2714859310072,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 100,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.05,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:read_then_retrace]",
+    "rule1[1:s1_move:read_then_retrace]",
+    "rule1[2:s2_place:read_then_retrace]"
+   ],
+   "learned_kinds": [
+    "block_exact"
+   ],
+   "z3_s": 0.030765535979298875,
+   "oracle_s": 433.1725713420019,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 101,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.05,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.020828408014494926,
+   "oracle_s": 393.5914120009984,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 102,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": 0.0,
+    "place_dy": 0.0,
+    "a": 0.05,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.019312812015414238,
+   "oracle_s": 212.06498215801548,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 103,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.0,
+    "a": 0.05,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:read_then_retrace]",
+    "rule1[1:s1_move:read_then_retrace]",
+    "rule1[2:s2_place:read_then_retrace]"
+   ],
+   "learned_kinds": [
+    "block_exact"
+   ],
+   "z3_s": 0.018162722000852227,
+   "oracle_s": 190.2807481509808,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 104,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": -0.005,
+    "a": 0.05,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:read_then_retrace]",
+    "rule1[1:s1_move:read_then_retrace]",
+    "rule1[2:s2_place:read_then_retrace]"
+   ],
+   "learned_kinds": [
+    "block_exact"
+   ],
+   "z3_s": 0.026377441972726956,
+   "oracle_s": 186.36779546699836,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 105,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.05,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.025523056014208123,
+   "oracle_s": 269.26856602699263,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 106,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": -0.005,
+    "a": 0.05,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:read_then_retrace]",
+    "rule1[1:s1_move:read_then_retrace]",
+    "rule1[2:s2_place:read_then_retrace]"
+   ],
+   "learned_kinds": [
+    "block_exact"
+   ],
+   "z3_s": 0.0175907310040202,
+   "oracle_s": 184.53094178100582,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 107,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.0,
+    "a": 0.05,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:read_then_retrace]",
+    "rule1[1:s1_move:read_then_retrace]",
+    "rule1[2:s2_place:read_then_retrace]"
+   ],
+   "learned_kinds": [
+    "block_exact"
+   ],
+   "z3_s": 0.01891514300950803,
+   "oracle_s": 186.10948479999206,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 108,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.05,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.021291014010785148,
+   "oracle_s": 263.71658030798426,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 109,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.005,
+    "place_dy": 0.005,
+    "a": 0.05,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:read_then_retrace]",
+    "rule1[1:s1_move:read_then_retrace]",
+    "rule1[2:s2_place:read_then_retrace]"
+   ],
+   "learned_kinds": [
+    "block_exact"
+   ],
+   "z3_s": 0.016839996009366587,
+   "oracle_s": 183.61872003698954,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 110,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.05,
+    "recovery": "stored_backup"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:stored_backup]",
+    "rule1[1:s1_move:stored_backup]",
+    "rule1[2:s2_place:stored_backup]"
+   ],
+   "learned_kinds": [
+    "block_theta_superset",
+    "block_exact"
+   ],
+   "z3_s": 0.016624971001874655,
+   "oracle_s": 273.8664017349947,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 111,
+   "plan": {
+    "zc": 0.18,
+    "place_dx": -0.01,
+    "place_dy": 0.005,
+    "a": 0.05,
+    "recovery": "read_then_retrace"
+   },
+   "ok": false,
+   "fail_rows": [
+    "rule1[0:s0_lift:read_then_retrace]",
+    "rule1[1:s1_move:read_then_retrace]",
+    "rule1[2:s2_place:read_then_retrace]"
+   ],
+   "learned_kinds": [
+    "block_exact"
+   ],
+   "z3_s": 0.016077142994618043,
+   "oracle_s": 182.22779288198217,
+   "source": "oracle",
+   "cached": false
+  },
+  {
+   "it": 112,
+   "plan": null,
+   "ok": false,
+   "fail_rows": [],
+   "learned_kinds": [],
+   "z3_s": 0.027152183989528567,
+   "oracle_s": 0.0,
+   "source": "unsat",
+   "status": "unsat",
+   "n_prior_learned": 0
+  }
+ ]
+}
