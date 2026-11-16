@@ -18,6 +18,7 @@ Where the numbers come from (checked by world_model/v2/adapters/tests/test_tasks
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, field, replace
 
 from world_model.v2.stack.types import Bound
@@ -114,6 +115,11 @@ _CARRY = "nero/contents/carry.py"
 _PAN = "nero/pan/segments.py"
 
 
+def _u_obj_world_on():
+    """USER 11-16 D9: the object-world clearance row is in U unless BIMANUAL_U_OBJ_CONTACT=0 (same flag as nero/contents/carry.py::obj_world_u_enabled)."""
+    return os.environ.get("BIMANUAL_U_OBJ_CONTACT", "1") != "0"
+
+
 def _u_carry(cups: bool, lid: bool):
     u = [("tau_ratio", ub(1.0 - 1e-6, "MODEL", f"{_CARRY} _check: tau_sat when ratio >= 1 - 1e-6 (strict); ratio = |tau| / config.tau_limit() = MJCF forcerange (USER 11-05)", "ratio", strict=True)),
          ("obj_tilt_deg", ub(10.0, _ASM, f"{_CARRY} U_TILT_OBJ", "deg")),
@@ -127,6 +133,8 @@ def _u_carry(cups: bool, lid: bool):
               ("lid_tilt_deg", ub(10.0, _ASM, f"{_CARRY} LID_TILT_DEG (= U_TILT_OBJ)", "deg")),
               ("lid_slide_m", ub(0.005, _ASM, f"{_CARRY} LID_SLIDE_M", "m"))]
     u.append(("collision_flag", ub(0.0, "MODEL", f"{_CARRY} _check: robot geom penetration > 1 mm other than the grasp (flag 0/1)", "flag")))
+    if _u_obj_world_on():
+        u.append(("obj_world_clear_m", lb(0.005, _ASM, f"USER 11-16 D9: {_CARRY} U_OBJ_CLEAR_M; min distance load-geom to world-geom over pairs not resting on a support top (SUPPORT_APPROACH_DEG)", "m")))
     return tuple(u)
 
 

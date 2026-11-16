@@ -8,7 +8,7 @@ the first viol; base U_flags_ever (new) or U_flags (old).  Returns None when the
 from __future__ import annotations
 
 GROUPS = dict(
-    contents=("obj_tilt", "obj_drop", "spill", "cup_tipped", "cup_off_tray", "lid_off", "lid_slide", "load_world_contact", "collision"),
+    contents=("obj_tilt", "obj_drop", "spill", "cup_tipped", "cup_off_tray", "lid_off", "lid_slide", "load_world_contact", "collision", "obj_world"),
     base=("wheel_liftoff", "base_world_contact", "route_unfinished"),
     rating=("claw_payload", "tau_sat", "claw_twist"),
 )

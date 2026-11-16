@@ -87,6 +87,55 @@ PATH_NO_MARGIN = 9.0       # sentinel: no path planned in this window
 U_TILT_OBJ, U_TILT_CUP, R_TILT_OBJ, R_TILT_CUP = 10.0, 20.0, 3.0, 5.0      # deg, ASSUMED thresholds
 LID_SLIDE_M = 0.005        # ASSUMED (11-05, pot): lid xy shift relative to the pot beyond its rest position that counts as "lid slid" (U).  MODEL context: the 4 locating tabs leave ~1 mm of play
 LID_OFF_Z = 0.01           # ASSUMED (11-05, pot): lid height above its rest height relative to the pot that counts as "lid off" (U)
+U_OBJ_CLEAR_M = 0.005      # ASSUMED (USER 11-16 D9): object-world contact is in U; the load (object + what rides on it) must keep this clearance from every world geom it is not resting on / approaching a support top of
+SUPPORT_APPROACH_DEG = 30.0   # ASSUMED: a separation (world nearest point -> load nearest point) within this angle of vertical (+z, load above) = resting on / approaching a support top (allowed)
+_OBJ_WORLD_DMAX = 0.05        # only pairs closer than this [m] are evaluated (> U_OBJ_CLEAR_M)
+
+
+_BOX = int(mujoco.mjtGeom.mjGEOM_BOX)
+
+
+def _box_sat(d, m, w, l):
+    """(separating-axis gap, unit axis from box w toward box l) of two boxes: max over the 15 SAT axes of |a.(c_l - c_w)| - r_w(a) - r_l(a)
+    (> 0 apart; <= 0 overlapping, then -penetration along the least-penetration axis).  Lower bound on the true distance."""
+    Rw, Rl = d.geom_xmat[w].reshape(3, 3), d.geom_xmat[l].reshape(3, 3)
+    hw, hl = m.geom_size[w], m.geom_size[l]
+    dc = d.geom_xpos[l] - d.geom_xpos[w]
+    axes = [Rw[:, i] for i in range(3)] + [Rl[:, i] for i in range(3)]
+    axes += [np.cross(Rw[:, i], Rl[:, j]) for i in range(3) for j in range(3)]
+    best, bn = -np.inf, np.array([0.0, 0.0, 1.0])
+    for a in axes:
+        na = float(np.linalg.norm(a))
+        if na < 1e-6:
+            continue
+        a = a / na
+        gap = abs(float(a @ dc)) - float(np.abs(a @ Rw) @ hw) - float(np.abs(a @ Rl) @ hl)
+        if gap > best:
+            best, bn = gap, a * (1.0 if float(a @ dc) >= 0 else -1.0)
+    return best, bn
+
+
+def _face_axis(d, m, w, l):
+    """unit axis from world geom w toward load geom l when no contact normal is available (touching / overlapping, non box-box pair):
+    plane w -> its normal; box w -> the face normal of w along which l's centre lies farthest (offset / half size, the face l sits on);
+    otherwise the centre-to-centre direction.  Same role as the SAT axis of _box_sat (support test only: n_z >= cos(SUPPORT_APPROACH_DEG))."""
+    Rw = d.geom_xmat[w].reshape(3, 3)
+    if int(m.geom_type[w]) == int(mujoco.mjtGeom.mjGEOM_PLANE):
+        return Rw[:, 2].copy()
+    dc = d.geom_xpos[l] - d.geom_xpos[w]
+    if int(m.geom_type[w]) == _BOX:
+        loc = Rw.T @ dc
+        k = int(np.argmax(np.abs(loc) / np.maximum(m.geom_size[w], 1e-9)))
+        return Rw[:, k] * (1.0 if loc[k] >= 0 else -1.0)
+    nd = float(np.linalg.norm(dc))
+    return dc / nd if nd > 1e-12 else np.array([0.0, 0.0, 1.0])
+
+
+def obj_world_u_enabled():
+    """USER 11-16 D9 object-world clearance in U; BIMANUAL_U_OBJ_CONTACT=0 reproduces the pre-11-16 runs."""
+    return os.environ.get("BIMANUAL_U_OBJ_CONTACT", "1") != "0"
+
+
 LID_TILT_DEG = U_TILT_OBJ  # ASSUMED (11-05, pot): lid tilt relative to the pot that counts as "lid off" (U), = the object tilt threshold
 R_SPEED = 0.005            # m/s
 SPILL_TAU = 0.025          # s, low-pass on the mug acceleration (spill proxy)
@@ -288,6 +337,8 @@ class CarryEpisode:
         self.carried = {self.obj} | set(self.cups) | ({m.body("contents").id} if self.task in ("box", "pot") else set()) \
             | ({m.body("lid").id} if self.task == "pot" and world.lid else set())
         self.lid = m.body("lid").id if (self.task == "pot" and world.lid) else None
+        self.u_obj = obj_world_u_enabled()                                         # USER 11-16 D9, read once per episode
+        self._ow_pairs = self._obj_world_pairs() if self.u_obj else []
         self.lid_rest = self._lid_rel() if self.lid is not None else None          # (xy shift ref, z ref) of the lid in the obj frame at rest
         self.fc = dict(FRIC_COMP, **fric_comp) if isinstance(fric_comp, dict) else (dict(FRIC_COMP) if fric_comp else None)
         if self.fc is not None and ctl == "coopimp" and not C.LEGACY_COOP_FC:
@@ -320,6 +371,83 @@ class CarryEpisode:
             # a drop = below the start resting height, or below the goal support's resting height when that is lower (counter2 = counter height, MODEL)
             self.z_drop_ref = self.z0 + min(0.0, tops[self.goal_support]["top"] - tops["counter"]["top"])
 
+    def _obj_world_pairs(self):
+        """(world geom, load geom) pairs of the object-world clearance row (USER 11-16 D9).  Load = every collidable geom of the carried bodies
+        (obj, mugs, contents, lid) and of their descendants.  World = every other collidable geom outside the robot's kinematic tree (arms, base, gripper)."""
+        m = self.m
+        def is_load(b):
+            while b > 0:
+                if b in self.carried:
+                    return True
+                b = int(m.body_parentid[b])
+            return False
+        robot_roots = {int(m.body_rootid[m.geom_bodyid[g]]) for g in self.arm_g}
+        load, world = [], []
+        for g in range(m.ngeom):
+            if m.geom_contype[g] == 0 and m.geom_conaffinity[g] == 0:
+                continue
+            b = int(m.geom_bodyid[g])
+            if g in self.arm_g or (int(m.body_rootid[b]) in robot_roots and int(m.body_rootid[b]) != 0):
+                continue
+            (load if is_load(b) else world).append(g)
+        self._ow_load = load
+        pairs = [(w, l) for w in world for l in load]
+        self._ow_w = np.array([w for w, _ in pairs], int)
+        self._ow_l = np.array([l for _, l in pairs], int)
+        return pairs
+
+    def _obj_world_check(self, t):
+        """min clearance over the NOT-allowed (load, world) pairs closer than _OBJ_WORLD_DMAX; allowed = load above a support top (separation within SUPPORT_APPROACH_DEG of +z)."""
+        m, d, tr = self.m, self.d, self.track
+        gx, rb = d.geom_xpos, m.geom_rbound
+        cosl = np.cos(np.radians(SUPPORT_APPROACH_DEG))
+        fromto = np.zeros(6)
+        best, bp = np.inf, None
+        cons = None
+        if not self._ow_pairs:
+            return
+        far = (rb[self._ow_w] > 0) & (rb[self._ow_l] > 0) & \
+              (np.linalg.norm(gx[self._ow_w] - gx[self._ow_l], axis=1) > rb[self._ow_w] + rb[self._ow_l] + _OBJ_WORLD_DMAX)      # bounding spheres farther apart than distmax (planes: rbound 0, never skipped)
+        for i in np.flatnonzero(~far):
+            w, l = self._ow_pairs[i]
+            dist = mujoco.mj_geomDistance(m, d, w, l, _OBJ_WORLD_DMAX, fromto)
+            if dist >= _OBJ_WORLD_DMAX:
+                continue
+            if dist == 0.0 and m.geom_type[w] == _BOX == m.geom_type[l]:
+                # MuJoCo's convex distance (GJK) returns exactly 0 with garbage nearest points for some box-box configurations although the boxes
+                # are apart (seen: a box wall 4.5 mm above the counter).  Fallback = separating-axis gap (a lower bound on the distance, exact for face-face) + its axis.
+                dist, n = _box_sat(d, m, w, l)
+                if dist >= _OBJ_WORLD_DMAX:
+                    continue
+                if n[2] >= cosl:
+                    continue
+            elif dist <= 0.0:                                                          # degenerate fromto: use the contact normal (geom1 -> geom2)
+                n = None
+                for c in d.contact[:d.ncon]:
+                    if int(c.geom1) == w and int(c.geom2) == l:
+                        n = np.array(c.frame[:3])
+                        break
+                    if int(c.geom1) == l and int(c.geom2) == w:
+                        n = -np.array(c.frame[:3])
+                        break
+                if n is None and m.geom_type[w] == _BOX == m.geom_type[l]:               # no matching contact entry (contacts lag the geom poses by a step): SAT axis
+                    _, n = _box_sat(d, m, w, l)
+                if n is None:                                                          # owner fix 11-16 (K5a): non box-box pair, no contact entry
+                    n = _face_axis(d, m, w, l)                                         # (seen: pan_bottom cylinder resting on the counter, dist -0.0)
+                if n is not None and n[2] >= cosl:
+                    continue
+            else:
+                v = fromto[3:] - fromto[:3]
+                if v[2] >= cosl * np.linalg.norm(v):
+                    continue
+            if dist < best:
+                best, bp = dist, (w, l)
+        if best < tr["obj_world_clear_min"]:
+            tr["obj_world_clear_min"] = float(best)
+        if best < U_OBJ_CLEAR_M:
+            w, l = bp
+            self._viol("obj_world", t, load=m.geom(l).name or m.body(m.geom_bodyid[l]).name, other=m.geom(w).name or m.body(m.geom_bodyid[w]).name, dist=best)
+
     def _lid_rel(self):
         """lid position in the obj frame (m) and its tilt relative to the pot (deg)."""
         d = self.d
@@ -333,7 +461,8 @@ class CarryEpisode:
                     arm_arm_collide=not C.LEGACY_ARMCOL, coop_sensor=("legacy_constraint_wrench" if C.LEGACY_COOP_SENSOR else "joint_torque_estimate"),
                     coop_fric=("legacy" if C.LEGACY_COOP_FRIC else "fixed"), gripper=C.GRIPPER,
                     fc_kp_ki=(None if self.fc is None else (self.fc["kp"], self.fc["ki"])),
-                    coop_f_sq=(C.coop_f_sq() if self.ctl_kind == "coopimp" else None))
+                    coop_f_sq=(C.coop_f_sq() if self.ctl_kind == "coopimp" else None),
+                    u_obj_world=(U_OBJ_CLEAR_M if self.u_obj else None))        # USER 11-16 D9 clearance [m] (ASSUMED); None = off (BIMANUAL_U_OBJ_CONTACT=0)
 
     # ---------------- weld / state ----------------
     def weld(self, s, on):
@@ -382,6 +511,8 @@ class CarryEpisode:
                           cup_tilt_max=0.0, obj_tilt_max=0.0, e_obj_mm=0.0, e_obj_deg=0.0, e_int_mm=0.0, e_int_deg=0.0,
                           path_ik_err_max=0.0, path_q_margin_min=PATH_NO_MARGIN, path_unreachable=0,
                           viol_all={}, qd_ratio_max=0.0, n_qd_over=0)     # 11-12 Stage 0a: recording only (viol_all = every U kind of the window; qd_* = joint speed vs MANUAL, NOT U)
+        if getattr(self, "u_obj", False):                    # USER 11-16 D9; absent when BIMANUAL_U_OBJ_CONTACT=0 (pre-11-16 records keep their keys)
+            self.track["obj_world_clear_min"] = float("inf")
         if getattr(self, "task", None) == "pot" and getattr(self, "lid", None) is not None:      # pot only: tray / box records keep their keys
             self.track.update(lid_slide_mm=0.0, lid_dz_mm=0.0, lid_tilt_deg=0.0)
         if getattr(self, "bmon", None) is not None:
@@ -639,6 +770,8 @@ class CarryEpisode:
             if ga in self.grip_g and m.geom_bodyid[go] == self.obj:
                 continue                                                       # claw on the object's tab (the grasp)
             self._viol("collision", t, arm=m.geom(ga).name, other=m.geom(go).name or m.body(m.geom_bodyid[go]).name)
+        if self.u_obj:
+            self._obj_world_check(t)
         if self.base == "swerve":                                               # task-gated base U flags (fixed-base U unchanged)
             ok = frozenset() if self.driver.moving() else frozenset(self.support_geoms.values())      # the load may rest on a counter while the base stands
             self.bmon.step(d, t, self.base_flag, load_ok=ok)

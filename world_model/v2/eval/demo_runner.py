@@ -62,7 +62,7 @@ D1_TOTAL_KG = (1.0, 1.75, 2.25, 2.5, 2.75, 3.0, 3.5, 4.5)      # ASSUMED (N1): t
 D1_OFFSETS = ("centre", "half", "wall")                         # ASSUMED (N1): load offset along the claw-to-claw axis (y of the box frame) = 0, half, full interior reach
 
 # U kind -> group (plan Stage 1 Metrics)
-U_CONTENTS = ("obj_tilt", "obj_drop", "spill", "cup_tipped", "cup_off_tray", "lid_off", "lid_slide", "load_world_contact", "collision")
+U_CONTENTS = ("obj_tilt", "obj_drop", "spill", "cup_tipped", "cup_off_tray", "lid_off", "lid_slide", "load_world_contact", "collision", "obj_world")
 U_BASE = ("wheel_liftoff", "base_world_contact", "route_unfinished")
 U_RATING = ("claw_payload", "tau_sat", "claw_twist")
 

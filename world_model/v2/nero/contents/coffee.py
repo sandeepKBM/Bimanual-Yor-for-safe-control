@@ -190,6 +190,9 @@ def _attach(ep):
     ep.cap = m.body("capsule").id
     ep.cweld_id = m.equality("cweld_left").id
     ep.carried = set(ep.carried) | {ep.cap}
+    # owner fix 11-16 (K5a): the object-world pairs were built in CarryEpisode.__init__ BEFORE the capsule joined `carried`, so the capsule stayed a
+    # WORLD geom and tray_base|capsule_geom (3.8 mm while it rides in the tray) was flagged as an object-world U.  Rebuild them with the capsule as load.
+    ep._ow_pairs = ep._obj_world_pairs() if ep.u_obj else []
     for g in range(m.ngeom):
         if (int(m.geom_contype[g]) | int(m.geom_conaffinity[g])) & CAP_BIT:
             raise RuntimeError("coffee: collision bit 128 already used")
