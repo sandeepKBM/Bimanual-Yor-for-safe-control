@@ -31,12 +31,14 @@ from typing import Callable
 import numpy as np
 
 from world_model.v2.adapters import outcome_carry as OCC, skills_contents as SK
+from world_model.v2.stack import u_groups as _UG
 from world_model.v2.nero.contents import carry as CR, probe as P
 from world_model.v2.stack import probing as PB
 from world_model.v2.stack.proposer import compile as PC, propose as PP, schema as S
 from world_model.v2.stack.skills import catalog as CAT
 
 FIELD = SK.FIELD
+THETA_MODES = (None, "no_probe", "oracle_mass", "oracle_theta", "estimate")
 REFUSED_BY = ("static", "coverage", "base_level", "compile", "T3", "probe")
 
 
@@ -62,6 +64,11 @@ class Ctx:
     rows_json: Callable | None = None
     coverage_mode: str = "enforce"
     make_skills: Callable | None = None   # tests: (weigh) -> {skill id: ProbeSkill}
+    # --- demo_runner arms (11-12, Stage 0d).  All default to off: the default path is bit-identical.
+    theta_mode: str | None = None     # None = probe -> Theta_t (default) | "no_probe" (admit on Theta_0, no probe) | "oracle_mass" / "oracle_theta" (Theta = the TRUE contents point [c, c], no probe;
+                                      # oracle_theta also needs `static` / `level` closed over the true COM point) | "estimate" (probe, then admit on the point [mid, mid] of its interval)
+    on_phase: Callable | None = None  # (name) -> None, called at the phase boundaries: "probe" | "ramp_hold" | "nominal" | "refused_fallback"
+    dry: bool = False                 # return right after the admission (no ramp / carry / fallback): smoke and unit tests
 
 
 def clean(x):
@@ -135,6 +142,14 @@ def run_world(c: Ctx):
     seen = {cur_pd.get("plan_id")}
     ran, events, readings = set(), [], []
     cum = PB.ProbeRun(theta_t={FIELD: c0})
+    mode = c.theta_mode
+    if mode not in THETA_MODES:
+        raise ValueError(f"theta_mode {mode!r} not in {THETA_MODES}")
+    if mode in ("oracle_mass", "oracle_theta"):
+        cum.theta_t = {FIELD: (M - e, M - e)}                              # ORACLE: the true contents mass (truth, not a measurement); the world is the point
+    estimate = None
+    if c.on_phase:
+        c.on_phase("probe")
     attempts, reasks, t_events = [], [], []
     stopped, end_reason, decision, st, cov, wp_run, lvl_rows = None, None, None, None, None, None, None
     while True:
@@ -144,7 +159,7 @@ def run_world(c: Ctx):
         att = dict(attempt=k, plan_id=cur_pd.get("plan_id"), phenomena=cur_pd["phenomena"], probes=list(cur_pd["probes"]))
         cm = c.cmax(cur_wp)
         weigh.m_stop = None if cm is None else e + cm
-        todo = [s for s in cur_pd["probes"] if s not in ran]
+        todo = [] if mode in ("no_probe", "oracle_mass", "oracle_theta") else [s for s in cur_pd["probes"] if s not in ran]
         cat = {sid: dataclasses.replace(s, preconditions=tuple(p for p in s.preconditions if p not in ran)) for sid, s in CAT.SKILLS.items()}
         run = PB.run_probes(todo, skills, cum.theta_t, static_same=lambda th, w_=cur_wp: not c.static(*th[FIELD], w_)["action"].startswith("refuse"), skill_catalog=cat)
         att["probe_events"] = clean(run.events)
@@ -153,6 +168,11 @@ def run_world(c: Ctx):
         ran |= {ev["skill"] for ev in run.events if ev["kind"] in ("ran", "T3")}
         cum.theta_t = run.theta_t
         cum.measured = list(dict.fromkeys(cum.measured + run.measured))
+        if mode == "estimate":                                              # admit on the POINT [mid, mid] of the probe interval (the estimate); the interval is kept in the record
+            lo_e, hi_e = cum.theta_t[FIELD]
+            if estimate is None:
+                estimate = dict(interval=[lo_e, hi_e], point=0.5 * (lo_e + hi_e), lower_bound_only=any(r.output == "lower_bound" for r in readings))
+            cum.theta_t = {FIELD: (estimate["point"], estimate["point"])}
         for ev in run.events:
             if ev["kind"] == "T3":
                 t_events.append(dict(kind="T3", attempt=k, skill=ev["skill"], contradictions=clean(ev["contradictions"])))
@@ -207,7 +227,8 @@ def run_world(c: Ctx):
             ev["failing_rows"] = ev.get("failing_rows", []) + [dict(row="base_level", why=clean(decision.get("why_base")))]
         if cov.refuses:
             ev["failing_rows"] = ev.get("failing_rows", []) + [dict(row="coverage", why=f"uncovered phenomena {cov.uncovered}")]
-        new_pd, new_cp, rec_q, info = PP.reask_rule2_until_accepted(task, cur_pd, ev, c.check, backend_spec=cfg["spec"], cache_dir=cfg.get("cache"), offline=bool(cfg.get("offline")))
+        new_pd, new_cp, rec_q, info = PP.reask_rule2_until_accepted(task, cur_pd, ev, c.check, backend_spec=cfg["spec"], cache_dir=cfg.get("cache"), offline=bool(cfg.get("offline")),
+                                                                     images=cfg.get("images"), image_note=cfg.get("image_note"))
         small = {kk: rec_q.get(kk) for kk in ("kind", "spec", "model", "reasoning", "backend", "request_hash", "raw_reply_path", "status", "stage", "reasons", "plan_id", "cached", "trigger")}
         reasks.append(dict(attempt=k, trigger=trigger, from_plan=cur_pd.get("plan_id"), to_plan=new_pd.get("plan_id") if new_cp is not None else None, n_asks=info["n_asks"],
                            rejected_attempts=clean(info["attempts"]), proposer_error=info["proposer_error"], record=small, wall_s=info["wall_s"]))
@@ -221,6 +242,10 @@ def run_world(c: Ctx):
         cur_pd, cur_cp, cur_wp = new_pd, new_cp, new_cp.wp
     # ------------------------------------------------------------------------------------------------------------------ execute
     pr = weigh.probe
+    if c.dry:
+        return clean(dict(dry=True, task=task, i=c.i, seed=c.seed, M_true=M, theta_mode=mode, estimate=estimate, decision=None if stopped else decision, stopped=stopped,
+                          theta_t={f: list(v) for f, v in cum.theta_t.items()}, coverage=None if cov is None else cov.to_dict(), reask_end=end_reason, n_reasks=len(reasks)))
+    ep.mark_contents("after_probe")
     probe_viol = ep.track["viol"]
     w_ok = "PH1" in cum.measured
     theta_total = [pr.M_lo, pr.M_hi] if w_ok else [e + cum.theta_t[FIELD][0], e + cum.theta_t[FIELD][1]]
@@ -236,6 +261,8 @@ def run_world(c: Ctx):
             rec.update(base_level=(decision or {}).get("base_level"), base_rows=c.rows_json(lvl_rows))
     admitted = bool(decision and decision["a_admit"] is not None and not stopped)
     rec["decision"] = None if stopped else decision
+    if c.on_phase:
+        c.on_phase("ramp_hold" if admitted else "refused_fallback")
     if admitted:
         if c.behind:
             ep.wp, ep.cc = wp_run, None                  # the carry runs the plan at the picked level (the geometry key ignores the level)
@@ -247,6 +274,8 @@ def run_world(c: Ctx):
         pr._ramp(m_nom, 0.3)
         ep.run_phases([("hold", 0.4)])
         ep.ctl.mass = m_nom
+        if c.on_phase:
+            c.on_phase("nominal")
         carry = CR.run_segments(ep, dict(segments=[]), branch_backups=True)
         rec["carry"] = dict(segments=carry["segments"], end_in_R=carry["end_in_R"], pre_hold_viol=carry["pre_hold_viol"])
         rec["outcome"] = "carried" if (carry["end_in_R"][0] and not any(s["nominal"]["viol"] for s in carry["segments"])) else "carry_failed"
@@ -261,13 +290,21 @@ def run_world(c: Ctx):
         okR, whyR = ep.in_R()
         rec["refuse_end_in_R"] = [okR, whyR]
         rec["outcome"] = "refused_in_R" if okR and not ep.track["viol"] else "refused_bad"
-    rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", [])))
+    rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", []))
+                        or rec.get("carry", {}).get("pre_hold_viol"))            # 11-12 B12: the ramp / hold between probe and carry
+    rec["recovery"] = _UG.recovery_of(rec.get("carry", {}).get("segments"))                 # 11-12 B4 step 1: recorded, not in the outcome
+    rec["recovery_bad"] = _UG.recovery_bad(rec["recovery"])
     carried = "carry" in rec
     rec.update(OCC.measure(ep, task, carried, rec["any_U"], rec["carry"]["pre_hold_viol"] if carried else None, refused=not carried, reason=rec["outcome"],
                            end_in_R=tuple(rec["carry"]["end_in_R"] if carried else rec["refuse_end_in_R"])))
     rec["refused_by"] = None if carried else ("T3" if stopped else (decision or {}).get("refused_by") or "probe")
+    if end_reason == "reask_error" and not carried and not stopped:      # 11-12 B7: a proposer error ended the Rule 2 loop (not a static refusal)
+        rec["refused_by"] = "proposer_error"
     counts = Counter(t["kind"] for t in t_events)
     final_pd = cur_pd
+    if mode is not None:
+        rec["theta_mode"] = mode
+        rec["estimate"] = clean(estimate)
     rec["v2"] = clean(dict(
         plan_id=final_pd.get("plan_id"), first_plan_id=c.plan["plan_dict"].get("plan_id"), phenomena=final_pd["phenomena"], handles={p["id"] if p["id"] != CAT.NEW else f"NEW:{p.get('name')}": p["handle"] for p in final_pd["phenomena"]},
         probes_selected=list(final_pd["probes"]), probes_run=[ev["skill"] for ev in events if ev["kind"] == "ran"],

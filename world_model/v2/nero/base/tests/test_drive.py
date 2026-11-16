@@ -36,3 +36,11 @@ def test_support_tops_behind_mirrors_the_counter():
     cx = 0.5 * sum(t["counter2"]["x"])
     assert abs(cx - BS.mirror(w.counter_centre[:2], BS.mirror_centre())[0]) < 1e-12
     assert np.isclose(t["counter2"]["x"][1] - t["counter2"]["x"][0], 2 * w.counter_half[0])
+
+
+def test_drive_run_returns_err_m_with_legacy_err_mm():
+    """F3/EV3 (11-13): BaseDriver.run still returns `err_mm` (holds METRES, legacy name) and now also `err_m` (same value)."""
+    import inspect
+    from world_model.v2.nero.base import drive
+    src = inspect.getsource(drive.BaseDriver.run)
+    assert "err_mm=e_m, err_m=e_m" in src

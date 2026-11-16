@@ -25,7 +25,7 @@ import numpy as np
 from world_model.v2.adapters import base_envelope as BE, outcome_carry as OCC
 from world_model.v2.nero.base import smoke as SM
 from world_model.v2.nero.contents import carry as CR, carry_cert as CC, probe as P
-from world_model.v2.stack import tasks as TK
+from world_model.v2.stack import tasks as TK, u_groups as UG
 from world_model.v2.stack.proposer import compile as PC, schema as S
 
 BASE_FLAGS = ("wheel_liftoff", "base_world_contact", "load_world_contact", "route_unfinished")      # nero/base/monitors.py + drive.py (as agentchord_probe.nero.behind)
@@ -37,8 +37,9 @@ def base_task(task):
     return task[:-len("_behind")]
 
 
-def _static(task, c_lo, c_hi, w, wp):
-    return CC.static_cell(task, (round(c_lo, 4), round(c_hi, 4)), w, spec=P.interval_spec(base_task(task), c_lo, c_hi), wp=wp)
+def _static(task, c_lo, c_hi, w, wp, com=None):
+    """com (demo_runner oracle_theta, default None = unchanged): the true contents COM point [x, y, z] (object frame) -> the COM set of the rows is that point."""
+    return CC.static_cell(task, (round(c_lo, 4), round(c_hi, 4)), w, spec=P.interval_spec(base_task(task), c_lo, c_hi, com=com), wp=wp)
 
 
 @functools.lru_cache(maxsize=None)
@@ -73,6 +74,15 @@ def _first_viol(ep, probe_viol):
     return None if not v else dict(kind=v.get("kind"), t=v.get("t"))
 
 
+def _record_extras(rec, ep):
+    """11-13 recording only (additive keys): contents_poses = pose of the loose contents body at start / after_probe / base_start<k> / base_end<k> / end (box and pot worlds; None for
+    tray worlds); base.seg_acc_peak = per route segment the peak achieved base acceleration and its time (BA4)."""
+    ep.mark_contents("end")
+    rec["contents_poses"] = getattr(ep, "contents_poses", None)
+    if isinstance(rec.get("base"), dict):
+        rec["base"]["seg_acc_peak"] = [b.get("seg_acc_peak") for b in getattr(ep, "base_log", [])]
+
+
 def behind_job(args, method=None, adaptive=True):
     """args = (task, i, eps_lo, eps_free, plan).  task = tray6_behind | box_behind.  plan: dict(wp = the compiled WaypointPlan (any level), plan_dict = the proposer's accepted
     plan (compile_plan recompiles it at the world's level), fallback, belief, outside_b, plan_id).  -> record dict (never raises)."""
@@ -91,12 +101,14 @@ def behind_job(args, method=None, adaptive=True):
         cmax = c_admit_max(task, wp0)
         M_stop = None if cmax is None else P.empty_mass(bt) + cmax
         pr = P.make_probe(ep, bt, eps_lo, eps_free, rng=np.random.default_rng(seed), noise=True, method=method, adaptive=adaptive)
+        ep.mark_contents("start")
         c0 = P.prior_contents(bt)
         if not _static(task, *c0, w, wp0)["action"].startswith("refuse"):
             why = "no_probe_needed"                          # verdict "carry" on all of Theta_0 (static rows only; the base level is picked below on Theta)
             pr.M_lo, pr.M_hi = P.empty_mass(bt) + c0[0], P.empty_mass(bt) + c0[1]
         else:
             why = pr.run(M_stop=M_stop)
+        ep.mark_contents("after_probe")
         probe_viol = ep.track["viol"]
         sound = bool(pr.M_lo - 1e-9 <= M <= pr.M_hi + 1e-9)
         rec = dict(task=task, i=i, seed=seed, probe_method=P.method_of(pr), probe_assumptions=P.method_assumptions(P.method_of(pr)), M_true=M, why=why,
@@ -149,15 +161,21 @@ def behind_job(args, method=None, adaptive=True):
             okR, whyR = ep.in_R()
             rec["refuse_end_in_R"] = [okR, whyR]
             rec["outcome"] = "refused_in_R" if okR and not ep.track["viol"] else "refused_bad"
-        rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", [])))
+        rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", []))
+                            or rec.get("carry", {}).get("pre_hold_viol"))             # 11-12 B12: the ramp / hold between probe and carry
+        rec["recovery"] = UG.recovery_of(rec.get("carry", {}).get("segments"))                  # 11-12 B4 step 1: recorded, not in the outcome
+        rec["recovery_bad"] = UG.recovery_bad(rec["recovery"])
         carried = "carry" in rec
         rec.update(OCC.measure(ep, task, carried, rec["any_U"], rec["carry"]["pre_hold_viol"] if carried else None, refused=not carried, reason=rec["outcome"],
                                end_in_R=tuple(rec["carry"]["end_in_R"] if carried else rec["refuse_end_in_R"])))
         bl = getattr(ep, "base_log", [])
         fl = set(ep.bmon.flagged)
         rec["base"] = dict(level=rec["base_level"], n_base_edges=len(bl), n_aborted=sum(1 for b in bl if b.get("aborted")),
-                           route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_deg=[b.get("err_deg") for b in bl],
-                           U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()])
+                           route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_m=[b.get("err_m") for b in bl],   # route_end_err_mm holds METRES (legacy name)
+                            route_end_err_deg=[b.get("err_deg") for b in bl],
+                           U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()],
+                           U_flags_ever=sorted(ep.bmon.flagged_ever))             # 11-12: never reset within the episode (nominal path)
+        _record_extras(rec, ep)
         rec["first_U"] = _first_viol(ep, probe_viol)
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec
@@ -166,26 +184,48 @@ def behind_job(args, method=None, adaptive=True):
         return dict(task=task, i=i, seed=seed, error=repr(e), tb=traceback.format_exc()[-1200:])
 
 
-def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True, make_skills=None):
-    """the schema-v2 per-world run for a table-behind task (probe_select.run_world with this module's static rows, base level pick and compile-at-level) + the base summary."""
+def true_com(ep):
+    """the TRUE contents COM [x, y, z] in the object frame (scenes.object_truth): for the oracle_theta arm only."""
+    import mujoco
+    from world_model.v2.nero.contents import scenes as SC
+    mujoco.mj_forward(ep.m, ep.d)
+    return tuple(float(v) for v in SC.object_truth(ep.m, ep.d)["contents_com"])
+
+
+def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True, make_skills=None, ctx_extra=None, oracle_com=False, hooks=None):
+    """the schema-v2 per-world run for a table-behind task (probe_select.run_world with this module's static rows, base level pick and compile-at-level) + the base summary.
+    demo_runner extras (all default off = unchanged): ctx_extra = extra probe_select.Ctx fields (theta_mode, on_phase, dry, coverage_mode); oracle_com = the static rows and the base
+    level are computed with the TRUE contents COM point; hooks(ep) is called once the episode exists (phase wrapper)."""
     from world_model.v2.nero.contents import probe_select as PS
     bt = base_task(task)
     t0 = time.time()
     try:
         wp0 = plan["wp"]
         ep = CR.CarryEpisode(w, m_hat=0.0, fric_comp=True, weld_solref=CC.WELD_STIFF, wp=wp0, base="swerve", goal_support=TK.task(task).goal_support)
+        ep.mark_contents("start")
+        com = true_com(ep) if oracle_com else None
+        if hooks is not None:
+            hooks(ep)
         ctx = PS.Ctx(task=task, pt=bt, i=i, seed=seed, ep=ep, world=w, plan=plan, eps_lo=eps_lo, eps_free=eps_free,
-                     static=lambda lo, hi, wp: _static(task, lo, hi, w, wp), cmax=lambda wp: c_admit_max(task, wp),
+                     static=lambda lo, hi, wp: _static(task, lo, hi, w, wp, com=com), cmax=lambda wp: c_admit_max(task, wp),
                      check=lambda pl: PC.compile_plan(pl, task, level="L1"), method=method, adaptive=adaptive, behind=True,
-                     level=lambda lo, hi: BE.pick_level(task, P.interval_spec(bt, lo, hi), LEVELS, SOURCE),
-                     at_level=lambda pd, lvl: PC.compile_plan(pd, task, build=False, level=lvl).wp, rows_json=_rows_json, make_skills=make_skills)
+                     level=lambda lo, hi: BE.pick_level(task, P.interval_spec(bt, lo, hi, com=com), LEVELS, SOURCE),
+                     at_level=lambda pd, lvl: PC.compile_plan(pd, task, build=False, level=lvl).wp, rows_json=_rows_json, make_skills=make_skills,
+                     **(ctx_extra or {}))
+        rec_extra = dict(oracle_com=list(com)) if com is not None else {}
         rec = PS.run_world(ctx)
+        rec.update(rec_extra)
+        if rec.get("dry"):
+            return rec
         rec["base_source"] = SOURCE
         bl = getattr(ep, "base_log", [])
         fl = set(ep.bmon.flagged)
         rec["base"] = dict(level=rec["base_level"], n_base_edges=len(bl), n_aborted=sum(1 for b in bl if b.get("aborted")),
-                           route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_deg=[b.get("err_deg") for b in bl],
-                           U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()])
+                           route_end_err_mm=[b.get("err_mm") for b in bl], route_end_err_m=[b.get("err_m") for b in bl],   # route_end_err_mm holds METRES (legacy name)
+                            route_end_err_deg=[b.get("err_deg") for b in bl],
+                           U_flags={k: (k in fl) for k in BASE_FLAGS}, first_viol=CR._jsonable(ep.track["viol"]), base_end_pose=[float(v) for v in ep.sb.pose()],
+                           U_flags_ever=sorted(ep.bmon.flagged_ever))             # 11-12: never reset within the episode (nominal path)
+        _record_extras(rec, ep)
         rec["first_U"] = _first_viol(ep, rec["probe_viol"])
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec

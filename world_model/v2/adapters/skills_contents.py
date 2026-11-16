@@ -1,6 +1,6 @@
 """adapters/skills_contents.py -- the measuring skills of the contents carry as stack ProbeSkills.  SIMULATION ONLY.   (11-09, probe-selection build step 3)
 
-`Weigh` wraps today's probe (nero/contents/probe.make_probe; default method "poslift", env BIMANUAL_PROBE) without changing a number of it:
+`Weigh` wraps today's probe (nero/contents/probe.make_probe; default method "claw_guard" since 11-13, env BIMANUAL_PROBE) without changing a number of it:
   limit_rows(theta_t)  the skill's own limit row BEFORE it runs: stack/checks/probe_rung.rung_row on the LIGHTEST total mass of Theta_t (the first push may not exceed it:
                        overshoot 0 by construction; payload at the rest pose u <= U_ADMIT, MODEL).  The probe's internal per-rung admission (Probe.admissible, rung_torque_u)
                        stays as it is.

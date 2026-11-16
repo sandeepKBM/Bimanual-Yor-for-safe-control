@@ -38,7 +38,7 @@ import os
 import pathlib
 import time
 
-from world_model.v2.stack import outcome as OC, tasks as TK
+from world_model.v2.stack import outcome as OC, tasks as TK, u_groups as UG
 
 CALIB = None          # default: probe.default_calib() = the CALIB of the active probe method (poslift: repo copy; ladder: the 11-03 file)
 
@@ -193,6 +193,37 @@ def _v2_lines(by):
     return out
 
 
+def _u_group_cell(ok):
+    """11-12: worlds with ANY U kind on the nominal path (probe, ramp / hold, segments, base), by group; from viol_all / U_flags_ever.  '-' when no record has them."""
+    ks = [(r, UG.nominal_kinds(r)) for r in ok]
+    ks = [k for _, k in ks if k is not None]
+    if not ks:
+        return "-"
+    parts = []
+    for g in (*UG.GROUPS, "other"):
+        c = collections.Counter(k for kk in ks for k in kk if UG.group_of(k) == g)
+        n = sum(any(UG.group_of(k) == g for k in kk) for kk in ks)
+        parts.append(f"{g} {n}" + (f" ({', '.join(f'{k} {v}' for k, v in sorted(c.items()))})" if c else ""))
+    return "; ".join(parts) + f" [of {len(ks)}" + (f"/{len(ok)} with the field" if len(ks) != len(ok) else "") + "]"
+
+
+def _recovery_cell(ok):
+    """11-12 B4: worlds whose stored recovery failed at some branch point (rec['recovery_bad']); '-' when no record carries the key."""
+    have = [r for r in ok if "recovery_bad" in r]
+    return f"{sum(bool(r['recovery_bad']) for r in have)}/{len(have)}" if have else "-"
+
+
+def _infeas_cell(ok):
+    """11-12: FL-MPC infeasible steps on the nominal path: worlds with torque-infeasible steps / worlds with speed-only-infeasible steps."""
+    segs = [(r, [s.get("nominal", {}) for s in (r.get("carry") or {}).get("segments", [])]) for r in ok]
+    have = [(r, ss) for r, ss in segs if ss and any("fl_n_infeas_torque" in x for x in ss)]
+    if not have:
+        return "-"
+    a = sum(any(x.get("fl_n_infeas_torque", 0) > 0 for x in ss) for _, ss in have)
+    b = sum(any(x.get("fl_n_infeas_speed_only", 0) > 0 for x in ss) for _, ss in have)
+    return f"{a} / {b} [of {len(have)}]"
+
+
 def summary(out):
     out = pathlib.Path(out)
     rows = [json.loads(l) for l in open(out / "trials.jsonl")]
@@ -208,6 +239,8 @@ def summary(out):
     if has_behind:                                       # table-behind rows: one more column (base level histogram: ours = the admission's pick, none = refused; theirs = the fixed cap)
         lines[-2] = lines[-2] + " base level (count) |"
         lines[-1] = lines[-1] + "---|"
+    lines[-2] = lines[-2] + " U any kind (worlds), by group | runs with a failed stored recovery | FL-MPC infeasible (torque / speed-only, worlds) |"      # 11-12: appended, nominal path only
+    lines[-1] = lines[-1] + "---|---|---|"
     for (task, method), rs in sorted(by.items()):
         ok = [r for r in rs if "error" not in r]
         kinds = collections.Counter(_first_U(r) for r in ok if r.get("any_U"))
@@ -217,7 +250,8 @@ def summary(out):
         lines.append(f"| {task} | {method} | {len(rs)} | {len(rs) - len(ok)} | {f('success')} | {f('safe_success')} | {f('unsafe')} | {f('in_R')} | {t['refused']}{_refused_cell(ok)} "
                      f"| {dict(kinds) or '-'} | {sound} | {_reask_cell(rs)} | {_rule2_cell(ok) if method == 'ours' else '-'} |"
                      + (f" {dict(sorted(collections.Counter(str(r.get('base_level') or 'none') for r in ok if r.get('outcome') != 'plan_rejected').items())) or '-'} |"
-                        if has_behind and TK.task(task).base else (" - |" if has_behind else "")))
+                        if has_behind and TK.task(task).base else (" - |" if has_behind else ""))
+                     + f" {_u_group_cell(ok)} | {_recovery_cell(ok)} | {_infeas_cell(ok)} |")
     if any(n_rej.values()):                              # proposer plans that could not be used (never silently dropped)
         lines += ["", "Ours, proposer plan REJECTED (counted in n, not in carried / refused): " + ", ".join(f"{k[0]} {v}/{len(by[k])}" for k, v in sorted(n_rej.items()) if v)]
     lines += [""] + _v2_lines(by) if _v2_lines(by) else []
@@ -234,6 +268,18 @@ def summary(out):
     print("\n".join(lines))
 
 
+def _plan_images(task, a):
+    """--plan-images zed|zed+wrist: render the proposer's views of world `--plan-image-world` of `task` (plan_images.py) into <plan_cache>/images/.  none (default) -> no images, request unchanged.
+    The plan is proposed ONCE per task (the prompt holds no world), so one world's views stand for the task; the world index is recorded."""
+    from world_model.v2.nero.contents import plan_images as PI
+    mode = getattr(a, "plan_images", "none") or "none"
+    if mode == "none":
+        return PI.PlanImages(mode="none", task=task)
+    if not TK.task(task).base:
+        raise SystemExit(f"--plan-images needs a table-behind task (got {task})")
+    return PI.render_views(task, int(getattr(a, "plan_image_world", 0)), mode, pathlib.Path(a.plan_cache) / "images")
+
+
 def _proposer_plans(tasks, a, out):
     """--plan-source codex: one proposer plan per task (propose -> validate -> compile + build).  -> {task: extras dict for the 'ours' jobs}.  Written to OUT/plans/<task>.json
     (reply, record, compiled plan or the rejection).  A cache miss with --offline raises ProposerCacheMiss (no fallback to the network)."""
@@ -241,19 +287,25 @@ def _proposer_plans(tasks, a, out):
     (out / "plans").mkdir(exist_ok=True)
     res = {}
     for t in tasks:
+        pim = _plan_images(t, a)                                                # 11-12 opt-in: rendered views of world a.plan_image_world, BEFORE any probe; none -> text-only request
         def _check(pl, t=t):                                                   # compile + build (planner); raises PS.PlanRejected -> the proposer is re-asked (USER 11-09, no cap)
             return PC.compile_plan(pl, t, level=("L1" if TK.task(t).base else None))      # behind: validated at L1 (the level does not enter the geometry); per world the admission's level is applied
-        plan, cp, rec, info = PP.propose_until_accepted(t, _check, backend_spec=a.plan_spec, cache_dir=a.plan_cache, offline=a.offline)
+        plan, cp, rec, info = PP.propose_until_accepted(t, _check, backend_spec=a.plan_spec, cache_dir=a.plan_cache, offline=a.offline, **pim.proposer_cfg())
         small = {k: rec.get(k) for k in ("kind", "spec", "model", "reasoning", "backend", "caveats", "request_hash", "raw_reply_path", "status", "stage", "reasons", "plan_id", "cached")}
         if plan.get("status") == "ok" and "phenomena" in plan:                 # schema v2: what the model named (recorded per task)
             small.update(phenomena=plan["phenomena"], probes=plan["probes"])
         small.update(n_reasks=info["n_reasks"], reask_attempts=info["attempts"], proposer_wall_s=info["proposer_wall_s"], proposer_error=info["proposer_error"])
         item = dict(plan_source="codex", plan_record=small, plan_id=plan.get("plan_id"), n_reasks=info["n_reasks"])        # full record (caveats, prompt hash) in OUT/plans/<task>.json
         doc = dict(plan=plan, record=rec, reask=info)
+        if pim.paths:
+            doc["plan_images"] = pim.record()
+            item["plan_record"]["plan_images"] = pim.record()
         if cp is not None:
             item["plan"] = cp.job_plan(a.outside_b)
             item["plan"]["plan_dict"] = plan                                   # schema v2 (probe_select) and behind (recompiled per world at the admission's base level)
             item["plan"]["proposer"] = dict(spec=a.plan_spec, cache=a.plan_cache, offline=bool(a.offline), reask_limit=getattr(a, "reask_limit", None))   # Rule 2 re-asks in the workers
+            if pim.paths:                                                      # the same initial images ride along on every Rule 2 / rejection re-ask
+                item["plan"]["proposer"].update(images=list(pim.paths), image_note=pim.note)
             doc["compiled"] = cp.to_json()
         else:                                                                  # only a proposer ERROR leaves no accepted plan (info["proposer_error"])
             item["rejected"] = dict(status="plan_rejected", stage=plan.get("stage"), reasons=plan.get("reasons"))
@@ -273,13 +325,16 @@ def main(argv=None):
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--procs", type=int, default=4)
     ap.add_argument("--calib", default=CALIB, help="default: the CALIB of the active probe method")
-    ap.add_argument("--probe-method", choices=("poslift", "ladder"), default=None, help="default: env BIMANUAL_PROBE, else poslift")
+    ap.add_argument("--probe-method", choices=("poslift", "ladder", "poslift_ff", "claw_guard"), default=None, help="default: env BIMANUAL_PROBE, else claw_guard (USER 11-13)")
     ap.add_argument("--planner", choices=("scripted", "closed_chain"), default=None,
                     help="plan BOTH methods execute and are admitted on (carry.resolve_planner; default = env BIMANUAL_PLANNER, else scripted = the legacy PLANS)")
     ap.add_argument("--plan-source", choices=("fixture", "codex"), default="fixture",
                     help="plan OURS executes: fixture = the fixed plan (default, today); codex = the plan the proposer model writes (stack/proposer)")
     ap.add_argument("--plan-spec", default="codex:gpt-5.6-sol:high", help="proposer backend spec (pan/llm.py), e.g. mock:fixture for a dry run")
     ap.add_argument("--plan-cache", help="proposer response cache dir (required with --plan-source codex)")
+    ap.add_argument("--plan-images", choices=("none", "zed", "zed+wrist"), default="none",
+                    help="opt-in: attach rendered views of one world to the plan request (and its Rule 2 / rejection re-asks): torso ZED (proposed mount), + left wrist RealSense. Default none = text only, caches unchanged")
+    ap.add_argument("--plan-image-world", type=int, default=0, help="with --plan-images: index i of the world (nero/base/smoke.behind_world) that is rendered (default 0)")
     ap.add_argument("--offline", action="store_true", help="proposer: replay from --plan-cache only; a miss fails loudly, the network is never called")
     ap.add_argument("--reask-limit", type=int, default=None, help="schema v2 Rule 2: stop re-asking after this many per world (default: NO cap, ruling 11-09)")
     ap.add_argument("--outside-b", choices=("refuse", "carry"), default="refuse", help="probe set not inside the plan's belief B: refuse (default) or carry anyway (recorded)")
@@ -326,7 +381,7 @@ def main(argv=None):
             ex[t]["ours"] = plans[t]
         from world_model.v2.stack.proposer import schema as PS0
         from world_model.v2.stack.skills import catalog as CAT0
-        cfg.update(plan_source="codex", plan_spec=a.plan_spec, plan_cache=a.plan_cache, offline=a.offline, outside_b=a.outside_b, proposer_schema="v1" if PS0.legacy_v1() else "v2",
+        cfg.update(plan_source="codex", plan_spec=a.plan_spec, plan_cache=a.plan_cache, plan_images=a.plan_images, plan_image_world=a.plan_image_world, offline=a.offline, outside_b=a.outside_b, proposer_schema="v1" if PS0.legacy_v1() else "v2",
                    reask_limit=a.reask_limit, rule2="T1/T2/T3, no cap on re-asks (ruling 11-09); fixed-point stop", out_of_scope=CAT0.OUT_OF_SCOPE_NOTE,
                    plans={t: dict(status=plans[t]["plan_record"]["status"], plan_id=plans[t].get("plan_id"), rejected=plans[t].get("rejected")) for t in tasks})
     for t in tasks:

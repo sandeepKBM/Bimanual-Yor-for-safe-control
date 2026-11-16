@@ -67,3 +67,27 @@ def test_plan_map_and_summary_columns(tmp_path):
     txt = (tmp_path / "SUMMARY.md").read_text()
     assert "base level (count)" in txt and "{'L2': 1, 'none': 1}" in txt and "{'L3': 1}" in txt
     assert TK.task("tray6_behind").base
+
+
+def test_summary_new_columns_dash_for_old_records_values_for_new(tmp_path):
+    """11-12: the appended columns print '-' for a record without the new keys (never 0) and the counts for one with them; the old columns are untouched."""
+    import json
+    seg_old = dict(seg="lift", nominal=dict(viol=None), family={"0.0": dict(n=3, n_bad=0)})
+    seg_new = dict(seg="lift", nominal=dict(viol=dict(kind="obj_tilt", t=1.0), viol_all=dict(obj_tilt=dict(n=2), tau_sat=dict(n=1)), fl_n_infeas_torque=0, fl_n_infeas_speed_only=4),
+                   family={"0.0": dict(n=3, n_bad=1)})
+    base = dict(task="box_behind", method="ours", i=0, seed=1, outcome="carried", any_U=False, theta_sound=True, result=dict(success=True, safe_success=True, unsafe=False, in_R=True, refused=False))
+    old = dict(base, carry=dict(segments=[seg_old], end_in_R=[True, ""], pre_hold_viol=None))
+    new = dict(base, i=1, any_U=True, recovery=dict(lift=dict(n=3, n_bad=1)), recovery_bad=True, base=dict(U_flags_ever=["wheel_liftoff"]),
+               carry=dict(segments=[seg_new], end_in_R=[True, ""], pre_hold_viol=None))
+    for name, rows in (("old", [old]), ("new", [new])):
+        d = tmp_path / name
+        d.mkdir()
+        (d / "trials.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+        SW.summary(d)
+    row_old = [l for l in (tmp_path / "old" / "SUMMARY.md").read_text().splitlines() if l.startswith("| box_behind | ours")][0]
+    row_new = [l for l in (tmp_path / "new" / "SUMMARY.md").read_text().splitlines() if l.startswith("| box_behind | ours")][0]
+    assert row_old.endswith("| - | - | - |"), row_old
+    assert "contents 1 (obj_tilt 1); base 1 (wheel_liftoff 1); rating 1 (tau_sat 1); other 0 [of 1]" in row_new
+    assert row_new.endswith("| 1/1 | 0 / 1 [of 1] |"), row_new
+    hdr = [l for l in (tmp_path / "new" / "SUMMARY.md").read_text().splitlines() if l.startswith("| task | method")][0]
+    assert hdr.endswith("U any kind (worlds), by group | runs with a failed stored recovery | FL-MPC infeasible (torque / speed-only, worlds) |")

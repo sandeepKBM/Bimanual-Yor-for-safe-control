@@ -491,7 +491,7 @@ def run_world(args):
             AG.drive = drive0
         okR, whyR = ep.in_R()
         rec.update(edges=env.log, monitor_errors=env.monitor_errors, end_in_R=okR, R_fail=whyR,
-                   track={k: (v if k == "viol" else round(float(v), 4)) for k, v in ep.track.items()}, sim_s=round(ep.k * CR.DT, 2))
+                   track={k: (round(float(v), 4) if (k != "viol" and isinstance(v, (int, float, np.number))) else v) for k, v in ep.track.items()}, sim_s=round(ep.k * CR.DT, 2))
         ex = [e for e in env.log if e["status"] in ("executed", "aborted_by_monitor")]
         rec.update(n_edges_executed=len(ex), n_rejected=sum(1 for e in env.log if str(e["status"]).startswith(("rejected", "unmappable"))),
                    rejections=[dict(edge=e["edge_id"], status=e["status"], detail=e.get("detail")) for e in env.log if str(e["status"]).startswith(("rejected", "unmappable"))],

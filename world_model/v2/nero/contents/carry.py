@@ -50,6 +50,10 @@ from ..pan.handle_grasp import TwoCtl, _set_fingers
 from . import envelope as E
 from . import objects as OB
 from . import scenes as SC
+
+_QD_MAX = np.radians(np.asarray(C.MANUAL["joint_speed_deg_s"], float))     # MEASURED/OFFICIAL: NERO manual joint speed [rad/s] (config.MANUAL)
+
+
 def _hold_finger():
     from .nyu_hold import hold_finger_frac       # nyu 11-03: V-jaw opening over the whole tab depth (nyu_hold.hold_opening, theta 0.662 rad ASSUMED clearance 2 mm/side)
     return hold_finger_frac()
@@ -376,7 +380,8 @@ class CarryEpisode:
     def reset_track(self):
         self.track = dict(viol=None, tau_ratio=0.0, n_sat=0, Fz_max=0.0, twist_max=0.0, F_int_max=0.0, spill_ratio=0.0,
                           cup_tilt_max=0.0, obj_tilt_max=0.0, e_obj_mm=0.0, e_obj_deg=0.0, e_int_mm=0.0, e_int_deg=0.0,
-                          path_ik_err_max=0.0, path_q_margin_min=PATH_NO_MARGIN, path_unreachable=0)
+                          path_ik_err_max=0.0, path_q_margin_min=PATH_NO_MARGIN, path_unreachable=0,
+                          viol_all={}, qd_ratio_max=0.0, n_qd_over=0)     # 11-12 Stage 0a: recording only (viol_all = every U kind of the window; qd_* = joint speed vs MANUAL, NOT U)
         if getattr(self, "task", None) == "pot" and getattr(self, "lid", None) is not None:      # pot only: tray / box records keep their keys
             self.track.update(lid_slide_mm=0.0, lid_dz_mm=0.0, lid_tilt_deg=0.0)
         if getattr(self, "bmon", None) is not None:
@@ -514,6 +519,9 @@ class CarryEpisode:
         self.track["tau_ratio"] = max(self.track["tau_ratio"], r)
         self.track["n_sat"] += int(r >= 1.0 - 1e-6)
         self.track.update(ctl.rec.scalars())               # 11-03 F2 (logging only)
+        qr = max(float(np.max(np.abs(d.qvel[ctl.ld]) / _QD_MAX)), float(np.max(np.abs(d.qvel[ctl.rd]) / _QD_MAX)))     # 11-12: reported only, NOT U
+        self.track["qd_ratio_max"] = max(self.track["qd_ratio_max"], qr)
+        self.track["n_qd_over"] += int(qr > 1.0)
         self._check(t, r)
 
     # ---------------- truth: claw wrench, U, R ----------------
@@ -551,8 +559,16 @@ class CarryEpisode:
         return F, T
 
     def _viol(self, kind, t, **kw):
+        det = None
+        if self.track["viol"] is None or kind not in self.track["viol_all"]:
+            det = dict(kind=kind, t=round(float(t), 3), **{k: (round(float(v), 4) if isinstance(v, (int, float, np.number)) else v) for k, v in kw.items()})
         if self.track["viol"] is None:
-            self.track["viol"] = dict(kind=kind, t=round(float(t), 3), **{k: (round(float(v), 4) if isinstance(v, (int, float, np.number)) else v) for k, v in kw.items()})
+            self.track["viol"] = det
+        va = self.track["viol_all"].get(kind)           # 11-12 B1: every kind, count + first detail (viol stays the first of any kind)
+        if va is None:
+            self.track["viol_all"][kind] = dict(n=1, t_first=det["t"], first=dict(det))
+        else:
+            va["n"] += 1
 
     def _check(self, t, r):
         m, d, tr = self.m, self.d, self.track
@@ -672,7 +688,23 @@ class CarryEpisode:
         """a base U flag (wheel_liftoff, base_world_contact, load_world_contact, route_unfinished): once per kind per window (reset_track), through _viol."""
         if kind not in self.bmon.flagged:
             self.bmon.flagged.add(kind)
+            self.bmon.flagged_ever.add(kind)
             self._viol(kind, t, **kw)
+
+    def mark_contents(self, label):
+        """recording only (11-13): pose of the loose contents body (box world: the block; pot: the puck) at a key time -> self.contents_poses[label] = dict(t_s, xyz_world,
+        quat_world, xyz_in_obj [object frame]).  No-op (returns None) when the scene has no `contents` body (tray worlds)."""
+        try:
+            b = self.m.body("contents").id
+        except Exception:
+            return None
+        d = self.d                                  # xpos of the last step (no mj_forward here: recording must not touch the sim)
+        rec = dict(t_s=float(self.k * DT), xyz_world=[float(v) for v in d.xpos[b]], quat_world=[float(v) for v in d.xquat[b]],
+                   xyz_in_obj=[float(v) for v in d.xmat[self.obj].reshape(3, 3).T @ (d.xpos[b] - d.xpos[self.obj])])
+        if not hasattr(self, "contents_poses"):
+            self.contents_poses = {}
+        self.contents_poses[label] = rec
+        return rec
 
     def base_move(self, ref, branch=None):
         """run a base route while the arms hold their joint references (ASSUMED A4).  ref = {"route": [["line", d_m] | ["turn", deg], ...],
@@ -682,6 +714,44 @@ class CarryEpisode:
         self.base_log = getattr(self, "base_log", [])
         out = self.driver.run(ref, branch)
         self.base_log.append(out)
+        return out
+
+    # ASSUMED (11-13 F2): base_stop tolerances / timeout (no measured base card yet)
+    BASE_STOP_TOL_MPS = 2e-3       # ASSUMED m/s: base counts as at rest below this (commanded twist AND measured displacement rate)
+    BASE_STOP_TOL_RADPS = 2e-3     # ASSUMED rad/s
+    BASE_STOP_WIN_S = 0.1          # ASSUMED s: window of the measured-rate estimate
+    BASE_STOP_MAX_S = 4.0          # ASSUMED s: give up (flag base_stop_timeout) after this long
+
+    def base_stop(self, max_s=None):
+        """base_stop recovery (11-13 F2): drop the rest of the route (driver.abort: the twist is rate-limited to 0 at the level's a / alpha), the arms keep
+        their last command (paths trimmed at now), step until the base is at rest or max_s.  -> dict(T_s, at_rest, pose, v_mps, w_radps)."""
+        if self.base != "swerve":
+            raise ValueError("base_stop needs CarryEpisode(base='swerve')")
+        max_s = self.BASE_STOP_MAX_S if max_s is None else float(max_s)
+        t = self.k * DT
+        for s_ in self.paths:
+            self._trim(s_, t)
+        self.driver.abort()
+        sb, w = self.sb, int(round(self.BASE_STOP_WIN_S / DT))
+        k0, p_prev, n = self.k, sb.pose(), 0
+        v = om = np.inf
+        at_rest = False
+        while (self.k - k0) * DT < max_s:
+            self._step()
+            n += 1
+            if n % w == 0:
+                p = sb.pose()
+                v = float(np.linalg.norm(p[:2] - p_prev[:2])) / (w * DT)
+                om = abs(float((p[2] - p_prev[2] + np.pi) % (2 * np.pi) - np.pi)) / (w * DT)
+                p_prev = p
+                if v < self.BASE_STOP_TOL_MPS and om < self.BASE_STOP_TOL_RADPS and np.linalg.norm(sb._v[:2]) < self.BASE_STOP_TOL_MPS and abs(sb._v[2]) < self.BASE_STOP_TOL_RADPS:
+                    at_rest = True
+                    break
+        self.driver.active = False
+        if not at_rest:
+            self.base_flag("base_stop_timeout", self.k * DT, max_s=max_s, v_mps=v, w_radps=om, tol="2 mm/s, 2 mrad/s, 4 s ASSUMED")
+        out = dict(T_s=(self.k - k0) * DT, at_rest=bool(at_rest), pose=sb.pose().tolist(), v_mps=v, w_radps=om)
+        self.base_stop_log = getattr(self, "base_stop_log", []) + [out]
         return out
 
     def body_delta(self, v):
@@ -756,7 +826,7 @@ def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl
     return run_segments(ep, rec, branch_backups, t0)
 
 
-def run_segments(ep, rec, branch_backups=True, t0=None):
+def run_segments(ep, rec, branch_backups=True, t0=None, interrupt=None):
     """the segment loop of world_trial on an existing episode (11-02: probe.py runs it after the probe, same episode)."""
     from world_model.v2.stack import executor as EX
     from world_model.v2.stack.planners.scripted import ScriptedPlanner
@@ -769,7 +839,7 @@ def run_segments(ep, rec, branch_backups=True, t0=None):
                                        **({"wp": ep.wp.key_data()} if getattr(ep, "wp", None) is not None else {})))
     else:
         plan = ScriptedPlanner().plan(None, SkillCall("carry_task", dict(task=ep.task, a_plan=ep.a_plan)), None)
-    return EX.run_segments(ep, plan, rec, branch_backups, t0)
+    return EX.run_segments(ep, plan, rec, branch_backups, t0, interrupt=interrupt)
 
 
 def _theta(world):
