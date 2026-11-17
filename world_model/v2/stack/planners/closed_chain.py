@@ -296,6 +296,41 @@ def _nodes(arm, T, psis):
     return (np.array(Q).reshape(-1, 7), np.array(P), np.array(M))
 
 
+REACH_STEP_M = 0.01      # resolution of reach_summary's scan (a grid step, not a bound)
+REACH_MAX_M = 0.40       # scan range of reach_summary
+_REACH_MEMO = {}
+
+
+def reach_summary(inp, z=0.0):
+    """MODEL (USER 11-16, option b: the planner's refusal states the arms' reach).  Per robot axis (+x forward, -x back toward the robot, +y robot's left,
+    -y robot's right; the hold frame), the largest crate offset from the grasp pose, scanned outward in REACH_STEP_M steps at height z, up to which BOTH
+    arms have an in-limit SRS pose (any arm angle on the psi grid, any branch).  One axis at a time, lateral lift offset dy = 0; joint continuity and
+    combined offsets are not checked.  -> dict(axis -> metres)."""
+    key = (inp.key(), round(float(z), 3))
+    if key in _REACH_MEMO:
+        return _REACH_MEMO[key]
+    psis = {s: _psi_grid(inp.arms[s], inp.q0[s])[0] for s in SIDES}
+    out = {}
+    for name, d in (("forward", (1.0, 0.0, 0.0)), ("back", (-1.0, 0.0, 0.0)), ("left", (0.0, 1.0, 0.0)), ("right", (0.0, -1.0, 0.0))):
+        d, last = np.asarray(d), 0.0
+        for k in range(1, int(round(REACH_MAX_M / REACH_STEP_M)) + 1):
+            o = k * REACH_STEP_M * d + np.array([0.0, 0.0, float(z)])
+            if not all(len(_nodes(inp.arms[s], _tcp_pose(inp.T0[s], o), psis[s])[0]) for s in SIDES):
+                break
+            last = k * REACH_STEP_M
+        out[name] = round(last, 3)
+    _REACH_MEMO[key] = out
+    return out
+
+
+def reach_text(inp, z=0.0):
+    r = reach_summary(inp, z)
+    return (f"arm reach (MODEL, planner): with the object {z:.2f} m above its grasp height, both arms have an in-limit pose for object offsets from the grasp pose, "
+            f"along one robot axis at a time, up to: forward {r['forward']:.2f} m, back toward the robot {r['back']:.2f} m, robot's left {r['left']:.2f} m, "
+            f"robot's right {r['right']:.2f} m ({REACH_STEP_M * 100:.0f} cm steps; combined offsets and joint continuity not checked).  "
+            f"These offsets are relative to the robot; a base move carries the object with the robot and does not use arm reach.")
+
+
 def _limit_violation(arm, T, psis):
     """the smallest joint-limit excess [rad] over all (psi, branch) solutions of pose T (inf if the pose is out of the arm's reach): how far outside its joint limits the closest solution is."""
     pr = arm._prep(T)

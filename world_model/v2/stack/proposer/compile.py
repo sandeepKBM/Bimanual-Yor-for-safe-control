@@ -24,6 +24,7 @@ and whether a recovery's claimed `covers` holds.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -34,6 +35,7 @@ from world_model.v2.stack.proposer import prompt as PR
 from world_model.v2.stack.proposer import schema as S
 
 MIN_CLEAR_M = 0.02          # ASSUMED [m]: height of the object underside above its start support for any horizontal motion (the planner's own shelf clearance CLEAR_M is separate)
+REACH_REASONS = ("no in-limit solution at the sample", "disconnected", "unreachable")   # planner refusals that get the arm-reach line (USER 11-16 option b)
 MIN_MOVE_M = 0.005          # ASSUMED [m]: shortest motion (a shorter one is degenerate for the timing)
 Z_EPS = 1e-6
 ASSUMPTIONS = dict(MIN_CLEAR_M=dict(tag="ASSUMED", value=MIN_CLEAR_M, src="compile.py: horizontal motion clearance above the start support"),
@@ -246,7 +248,14 @@ def build_geometry(cp, world=None):
     try:
         g = CCP.geometry_for(inp)
     except CCP.PlanRefused as e:
-        raise S.PlanRejected("planner", [str(e), f"reason={e.info.get('reason')}"] + ([f"arm={e.info['arm']}"] if "arm" in e.info else [])) from e
+        extra = []
+        if e.info.get("reason") in REACH_REASONS and os.environ.get("BIMANUAL_LEGACY_NO_REACH_TEXT", "0") != "1":   # USER 11-16 option b
+            z = float((e.info.get("offset") or [0.0, 0.0, 0.0])[2])
+            try:
+                extra = [CCP.reach_text(inp, z)]
+            except Exception as ex:                      # the reach line is information only: never turn a refusal into a crash
+                extra = [f"arm reach: not computed ({type(ex).__name__})"]
+        raise S.PlanRejected("planner", [str(e), f"reason={e.info.get('reason')}"] + ([f"arm={e.info['arm']}"] if "arm" in e.info else []) + extra) from e
     cp.planner = dict(dy=g.info["dy"], z_c=g.info["z_c"], goal_xy=g.info["goal_xy"], margin_min=g.info["margin_min"], n_samples=g.info["n_samples"], key=inp.key())
     if "base" in g.info:
         cp.planner["base"] = g.info["base"]
