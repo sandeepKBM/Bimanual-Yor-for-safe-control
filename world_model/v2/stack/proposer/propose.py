@@ -27,6 +27,7 @@ from world_model.v2.stack.proposer import schema as S
 
 DEFAULT_SPEC = LLM.DEFAULT                  # "codex:gpt-5.6-sol:high" (USER 11-05)
 MAX_IDENTICAL_REJECTED = 3                  # ASSUMED (11-09, not a re-ask cap): stop when the model returns the SAME rejected reply this many times (it ignores the feedback; a livelock, seen with a mock)
+MAX_SAME_T4_SIGNATURE = 3              # ASSUMED (USER 11-16 approved N = 3): a T4 (Rule 1 refusal) re-ask loop stops ("t4_repeat") when the failing FIXABLE rows have the same signature on this many consecutive T4 attempts; used by nero/contents/probe_select
 MAX_NEW_TOKENS = 4096                       # part of the cache key; Codex ignores it (its own limits)
 
 
@@ -126,7 +127,7 @@ def propose(task, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache
 
 
 def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, images=None, image_note=None):
-    """Rule 2 re-ask.  `plan` = a status-ok plan dict.  Schema v2 (default): `evidence` = the dict of nero/contents/probe_select ({trigger T1|T2, readings, probes_skipped,
+    """Rule 2 re-ask.  `plan` = a status-ok plan dict.  Schema v2 (default): `evidence` = the dict of nero/contents/probe_select ({trigger T1|T2|T4, readings, probes_skipped,
     failing_rows, worst, ...}, prompt.reask_evidence_block); ask for a complete new plan; record["evidence"], record["trigger"] say what was asked.  BIMANUAL_LEGACY_PROPOSER_V1=1:
     `evidence` = probe_set {param: [lo, hi]} that is not inside B (11-05 Rule 2); record["probe_set"], record["uncovered"].  -> (new plan dict, record)."""
     if plan.get("status") != "ok":

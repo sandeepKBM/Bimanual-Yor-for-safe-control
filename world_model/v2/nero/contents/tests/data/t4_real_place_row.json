@@ -1,0 +1,97 @@
+{
+ "name": "stored_backup:motion@t=0.25/stop_back[place]",
+ "ok": false,
+ "margin": -0.002857871465732407,
+ "unit": "mixed",
+ "guarantee": "refuted",
+ "worst": {
+  "stop": {
+   "ok": true,
+   "margin": 0.4533951841377929,
+   "unit": "utilisation",
+   "guarantee": "proof",
+   "u_max": 0.5466048158622071,
+   "a": 0.5,
+   "n_samples": 2,
+   "m": 1.5,
+   "c": [
+    0.095,
+    -0.145,
+    0.145
+   ],
+   "wp": "g42"
+  },
+  "hold_after_stop": {
+   "ok": true,
+   "margin": 0.47990366304995735,
+   "unit": "utilisation",
+   "guarantee": "proof",
+   "u_max": 0.5200963369500426,
+   "a": 0.0,
+   "n_samples": 1,
+   "m": 1.5,
+   "c": [
+    0.095,
+    -0.145,
+    0.145
+   ],
+   "wp": "g43"
+  },
+  "retrace": {
+   "ok": true,
+   "margin": 0.4666494212918666,
+   "unit": "utilisation",
+   "guarantee": "proof",
+   "u_max": 0.5333505787081334,
+   "a": 0.25,
+   "n_samples": 42,
+   "m": 1.5,
+   "c": [
+    0.095,
+    -0.145,
+    0.145
+   ],
+   "wp": "g40"
+  },
+  "collision": {
+   "ok": false,
+   "margin": -0.002857871465732407,
+   "unit": "m",
+   "guarantee": "refuted",
+   "why": "obj_world shelf|box_wall_e distance 0.0071 m, swept bound 0.0021 m < d_min 0.0050 m at t = 0.000 s (interval 0)",
+   "n": 45,
+   "eps_upper": null
+  }
+ },
+ "n": 45,
+ "eps_upper": null,
+ "assumptions": {
+  "stop": {
+   "model": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 1.0 MODEL, USER 11-09) over the theta hull [1.250, 1.750] kg x acceleration box at 2 path samples",
+   "between_samples": "not bounded (samples only)",
+   "branch_grid": "0.25 s grid; triggers between grid points not checked"
+  },
+  "hold_after_stop": {
+   "model": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 1.0 MODEL, USER 11-09) over the theta hull [1.250, 1.750] kg x acceleration box at 1 path samples",
+   "between_samples": "not bounded (samples only)",
+   "branch_grid": "0.25 s grid; triggers between grid points not checked"
+  },
+  "retrace": {
+   "model": "proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, no claw rows (user 11-02), admit u <= 1.0 MODEL, USER 11-09) over the theta hull [1.250, 1.750] kg x acceleration box at 42 path samples",
+   "between_samples": "not bounded (samples only)",
+   "branch_grid": "0.25 s grid; triggers between grid points not checked"
+  },
+  "collision": {
+   "d_min": {
+    "arm_arm": 0.005,
+    "arm_world": 0.005,
+    "obj_world": 0.005
+   },
+   "between_samples": "not bounded (samples only)",
+   "samples": "45 geometry samples (indices 42..0), swept bound per 1 cm interval (dt = 1 per sample)",
+   "not_covered": "arm links vs the carried object, self-collision, base / lift column, anything the speed model misses; same d_min as collision_rows",
+   "branch_grid": "0.25 s grid; triggers between grid points not checked"
+  }
+ },
+ "why": "collision: obj_world shelf|box_wall_e distance 0.0071 m, swept bound 0.0021 m < d_min 0.0050 m at t = 0.000 s (interval 0)"
+}

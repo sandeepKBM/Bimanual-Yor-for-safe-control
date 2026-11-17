@@ -13,6 +13,9 @@ spec "mock:<kind>":
   numeric        the fixture plan plus a numeric contents belief and a `covers` range (v1 fields): rejected in v2
   t2_reask       first reply = the omit_ph1 plan (no probe, PH1 on its fallback: the checker refuses it on the whole prior -> Rule 2 T2); the Rule 2 re-ask ("RULE 2 RE-ASK") is
                  answered with the fixture plan (PH1 -> weigh), which the checker then admits or refuses on the weigh's reading
+A T4 re-ask ("RULE 2 RE-ASK (T4)", Rule 1 refusal, 11-16) is answered DETERMINISTICALLY from the request text: the previous plan (the "YOUR PREVIOUS PLAN (JSON)" block) with (a) the first
+recovery of every refused step (step_index of "RULE 1 REFUSALS YOU CAN FIX") moved to the next skill of hold -> retrace -> set_down -> hold, and (b) when a refused row's knobs name the
+placement, the "move" step's dx shifted by +0.01 m.  Not a model: it exercises the loop offline; the same request gives the same reply, a new request (a changed plan) a changed one.
 fixture / narrow follow the format of the mode (narrow is always the v1 belief reply).
 A v1 re-ask prompt ("NEW MEASUREMENT") is answered with the fixture plan whose belief is the sanity ranges; a v2 Rule 2 re-ask ("RULE 2 RE-ASK") with the fixture v2 plan.
 """
@@ -84,6 +87,30 @@ def fixture_plan_v2(task, variant="fixture"):
     return d
 
 
+T4_MARK = "RULE 2 RE-ASK (T4)"
+RECOVERY_CYCLE = ("hold", "retrace", "set_down")
+T4_DX_SHIFT_M = 0.01                      # ASSUMED (mock only): placement shift per T4 re-ask
+
+
+def t4_reply(task, text):
+    """the deterministic T4 reply (see the module doc): the previous plan with the refused steps' first recovery rotated and, for placement knobs, the move dx shifted."""
+    m = re.search(r"YOUR PREVIOUS PLAN \(JSON\):\n(\{.*?\})\n\n", text, re.S)
+    d = json.loads(m.group(1)) if m else fixture_plan_v2(task)
+    rr = re.search(r"RULE 1 REFUSALS YOU CAN FIX[^\n]*\n(\[.*?\])\n", text, re.S)
+    refs = json.loads(rr.group(1)) if rr else []
+    for ix in sorted({r["step_index"] for r in refs if r.get("step_index") is not None}):
+        lst = d.get("recoveries", {}).get(str(ix))
+        if lst:
+            cur = lst[0]["skill"]
+            nxt = RECOVERY_CYCLE[(RECOVERY_CYCLE.index(cur) + 1) % len(RECOVERY_CYCLE)] if cur in RECOVERY_CYCLE else RECOVERY_CYCLE[0]
+            lst[0] = dict(skill=nxt, args={})
+    if any(any("placement" in k for k in r.get("knobs", [])) for r in refs):
+        for st in d.get("steps", []):
+            if st.get("skill") == "move" and "dx" in st.get("args", {}):
+                st["args"]["dx"] = round(float(st["args"]["dx"]) + T4_DX_SHIFT_M, 4)
+    return d
+
+
 def fixture_plan(task, narrow=False):
     """the fixture plan as the reply dict, in the format of the mode: schema v2 (default) or, under BIMANUAL_LEGACY_PROPOSER_V1=1 or narrow=True, the v1 plan
     (belief = the task's sanity ranges).  Same motion shapes as carry.PLANS (ASSUMED, user-confirmed 11-02)."""
@@ -117,7 +144,9 @@ class MockProposer(Backend):
         self.calls += 1
         m = re.search(r"TASK_ID: (\w+)", text)
         task = m.group(1)
-        if "NEW MEASUREMENT" in text or "RULE 2 RE-ASK" in text:
+        if T4_MARK in text and not S.legacy_v1():
+            reply = json.dumps(t4_reply(task, text))
+        elif "NEW MEASUREMENT" in text or "RULE 2 RE-ASK" in text:
             reply = json.dumps(fixture_plan(task))
         elif self.kind == "t2_reask":
             reply = json.dumps(fixture_plan_v2(task, "omit_ph1"))
