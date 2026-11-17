@@ -1,0 +1,1592 @@
+{
+ "task": "box_bookcase",
+ "i": 2,
+ "seed": 1159931768,
+ "probe_method": "claw_guard",
+ "probe_assumptions": {
+  "probe_method": "claw_guard",
+  "DZ": "0.001 m ASSUMED, USER-approved 11-09",
+  "Z_MAX": "0.02 m ASSUMED, USER-approved 11-09",
+  "FREE_TOL": "0.05 kg ASSUMED, USER-approved 11-09",
+  "T_HOLD": "1.2 s ASSUMED, USER-approved 11-09",
+  "N_FREE_CONFIRM": "2 ASSUMED, USER-approved 11-09",
+  "T_MOVE": "0.3 s design",
+  "TAU_NOISE": "+-0.05 Nm/joint ASSUMED uniform",
+  "tracker": "carry.LeverCtl (FL-MPC, pre-11-07)",
+  "DZ_MIN": "0.0001 m ASSUMED, USER-approved 11-09",
+  "K_STEP": "MEASURED 7.104 kg/mm, CALIB K_STEP (adaptive step dz = min(DZ, H/K_STEP))",
+  "free_test": "rate |dL|/dz < FREE_TOL/DZ",
+  "DL_STEP_MAX": "MEASURED, CALIB.json DL_STEP_MAX (pre-check of the next height step, fixed-step probe only); guard: u(read L) > U_ADMIT (1.0 MODEL: rated limits, USER 11-09)",
+  "U_ADMIT": "1.0 MODEL (rated limits, USER 11-09)",
+  "claw_cap": "MODEL: per-claw F_cap / g of the static rows ((3 kg NERO payload rating, MEASURED-spec) - gripper mass)",
+  "EPS_CLAW": "0.0332 kg MEASURED /common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/results/probe_calib_claw_guard_2026-11-12/CALIB.json (MEASURED: max |per-claw read - sim-truth claw load| over all rungs and both claw)",
+  "K_STEP_CLAW": "2.1149 kg/mm MEASURED /common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/results/probe_calib_claw_guard_2026-11-12/CALIB.json (MEASURED: max per-claw dL_s/dz over height rungs with L < M_true - 0.05)",
+  "torque_rows": "MODEL: joint-torque rows kept at the worst COM (rung_tau_u)",
+  "split": "MODEL lever rule on the per-claw reads; interval from EPS_CLAW + per-claw noise bound (ASSUMED TAU_NOISE); the arms' load split, not the COM"
+ },
+ "M_true": 1.4288574483568972,
+ "why": "free",
+ "rungs": [
+  {
+   "m_ff": 0.75,
+   "z_cmd_mm": 0.0,
+   "claw_rise_mm": 0.592,
+   "rise_mm": 0.251,
+   "L": 0.6615,
+   "dL": null,
+   "noise_bound": 0.0784,
+   "peak_u": 0.1364,
+   "u_read": 0.1336,
+   "u": 0.206,
+   "overshoot": 0.0,
+   "free": false,
+   "dz_mm": 0.0,
+   "rate_kg_per_mm": null,
+   "headroom": null,
+   "claw": {
+    "L": {
+     "left": 0.3208,
+     "right": 0.3407
+    },
+    "nb": {
+     "left": 0.0397,
+     "right": 0.0387
+    },
+    "truth": {
+     "left": 0.3233,
+     "right": 0.3391
+    },
+    "u_claw": 0.1336,
+    "u_tau": 0.0861,
+    "headroom_claw": null,
+    "headroom_tau": null,
+    "split": {
+     "frac_left": 0.485,
+     "offset_m": -0.00724,
+     "offset_lo_m": -0.06008,
+     "offset_hi_m": 0.04542,
+     "width_m": 0.48191
+    }
+   },
+   "Theta": [
+    0.75,
+    5.25
+   ]
+  },
+  {
+   "m_ff": 0.75,
+   "z_cmd_mm": 1.0,
+   "claw_rise_mm": 0.616,
+   "rise_mm": 0.236,
+   "L": 0.7626,
+   "dL": 0.1011,
+   "noise_bound": 0.0784,
+   "peak_u": 0.165,
+   "u_read": 0.1495,
+   "u": 0.1618,
+   "overshoot": 0.0,
+   "u_claw": 0.1618,
+   "u_tau": 0.0876,
+   "free": false,
+   "dz_mm": 1.0,
+   "rate_kg_per_mm": 0.1011,
+   "headroom": 2.1374,
+   "claw": {
+    "L": {
+     "left": 0.3813,
+     "right": 0.3813
+    },
+    "nb": {
+     "left": 0.0398,
+     "right": 0.0387
+    },
+    "truth": {
+     "left": 0.3796,
+     "right": 0.3767
+    },
+    "u_claw": 0.1495,
+    "u_tau": 0.0878,
+    "headroom_claw": 2.1374,
+    "headroom_tau": 29.2059,
+    "split": {
+     "frac_left": 0.5,
+     "offset_m": 2e-05,
+     "offset_lo_m": -0.0458,
+     "offset_hi_m": 0.0457,
+     "width_m": 0.4819
+    }
+   },
+   "Theta": [
+    0.75,
+    5.25
+   ]
+  },
+  {
+   "m_ff": 0.75,
+   "z_cmd_mm": 1.991,
+   "claw_rise_mm": 0.672,
+   "rise_mm": 0.241,
+   "L": 0.8781,
+   "dL": 0.1155,
+   "noise_bound": 0.0784,
+   "peak_u": 0.1849,
+   "u_read": 0.1752,
+   "u": 0.1782,
+   "overshoot": 0.0,
+   "u_claw": 0.1782,
+   "u_tau": 0.0876,
+   "free": false,
+   "dz_mm": 0.99093,
+   "rate_kg_per_mm": 0.1165,
+   "headroom": 2.0957,
+   "claw": {
+    "L": {
+     "left": 0.4467,
+     "right": 0.4313
+    },
+    "nb": {
+     "left": 0.0398,
+     "right": 0.0387
+    },
+    "truth": {
+     "left": 0.4444,
+     "right": 0.4292
+    },
+    "u_claw": 0.1752,
+    "u_tau": 0.0898,
+    "headroom_claw": 2.0957,
+    "headroom_tau": 29.1048,
+    "split": {
+     "frac_left": 0.5088,
+     "offset_m": 0.00422,
+     "offset_lo_m": -0.03556,
+     "offset_hi_m": 0.0439,
+     "width_m": 0.48188
+    }
+   },
+   "Theta": [
+    0.75,
+    5.25
+   ]
+  },
+  {
+   "m_ff": 0.75,
+   "z_cmd_mm": 2.951,
+   "claw_rise_mm": 0.785,
+   "rise_mm": 0.285,
+   "L": 1.0069,
+   "dL": 0.1288,
+   "noise_bound": 0.0784,
+   "peak_u": 0.2092,
+   "u_read": 0.2029,
+   "u": 0.2038,
+   "overshoot": 0.0,
+   "u_claw": 0.2038,
+   "u_tau": 0.0876,
+   "free": false,
+   "dz_mm": 0.96,
+   "rate_kg_per_mm": 0.1342,
+   "headroom": 2.0303,
+   "claw": {
+    "L": {
+     "left": 0.5175,
+     "right": 0.4894
+    },
+    "nb": {
+     "left": 0.0398,
+     "right": 0.0387
+    },
+    "truth": {
+     "left": 0.5156,
+     "right": 0.4885
+    },
+    "u_claw": 0.2029,
+    "u_tau": 0.092,
+    "headroom_claw": 2.0303,
+    "headroom_tau": 28.9893,
+    "split": {
+     "frac_left": 0.514,
+     "offset_m": 0.00673,
+     "offset_lo_m": -0.02795,
+     "offset_hi_m": 0.04134,
+     "width_m": 0.48186
+    }
+   },
+   "Theta": [
+    0.8743,
+    5.25
+   ]
+  },
+  {
+   "m_ff": 0.8743,
+   "z_cmd_mm": 3.877,
+   "claw_rise_mm": 1.071,
+   "rise_mm": 0.442,
+   "L": 1.256,
+   "dL": 0.2491,
+   "noise_bound": 0.0785,
+   "peak_u": 0.2522,
+   "u_read": 0.2514,
+   "u": 0.2316,
+   "overshoot": 0.0,
+   "u_claw": 0.2316,
+   "u_tau": 0.0897,
+   "free": false,
+   "dz_mm": 0.92653,
+   "rate_kg_per_mm": 0.2688,
+   "headroom": 1.9595,
+   "claw": {
+    "L": {
+     "left": 0.641,
+     "right": 0.615
+    },
+    "nb": {
+     "left": 0.0398,
+     "right": 0.0387
+    },
+    "truth": {
+     "left": 0.6394,
+     "right": 0.6139
+    },
+    "u_claw": 0.2514,
+    "u_tau": 0.0962,
+    "headroom_claw": 1.9595,
+    "headroom_tau": 28.8605,
+    "split": {
+     "frac_left": 0.5104,
+     "offset_m": 0.00499,
+     "offset_lo_m": -0.02282,
+     "offset_hi_m": 0.03275,
+     "width_m": 0.48183
+    }
+   },
+   "Theta": [
+    1.1233,
+    5.25
+   ]
+  },
+  {
+   "m_ff": 1.1233,
+   "z_cmd_mm": 4.746,
+   "claw_rise_mm": 3.21,
+   "rise_mm": 2.536,
+   "L": 1.4512,
+   "dL": 0.1953,
+   "noise_bound": 0.0787,
+   "peak_u": 0.2897,
+   "u_read": 0.2922,
+   "u": 0.28,
+   "overshoot": 0.0,
+   "u_claw": 0.28,
+   "u_tau": 0.094,
+   "free": false,
+   "dz_mm": 0.86813,
+   "rate_kg_per_mm": 0.2249,
+   "headroom": 1.836,
+   "claw": {
+    "L": {
+     "left": 0.7061,
+     "right": 0.7452
+    },
+    "nb": {
+     "left": 0.04,
+     "right": 0.0388
+    },
+    "truth": {
+     "left": 0.6941,
+     "right": 0.7347
+    },
+    "u_claw": 0.2922,
+    "u_tau": 0.0995,
+    "headroom_claw": 1.836,
+    "headroom_tau": 28.6114,
+    "split": {
+     "frac_left": 0.4865,
+     "offset_m": -0.00649,
+     "offset_lo_m": -0.0306,
+     "offset_hi_m": 0.01759,
+     "width_m": 0.48181
+    }
+   },
+   "Theta": [
+    1.3183,
+    5.25
+   ]
+  },
+  {
+   "m_ff": 1.3183,
+   "z_cmd_mm": 5.565,
+   "claw_rise_mm": 5.874,
+   "rise_mm": 5.256,
+   "L": 1.4689,
+   "dL": 0.0176,
+   "noise_bound": 0.079,
+   "peak_u": 0.2915,
+   "u_read": 0.2996,
+   "u": 0.3204,
+   "overshoot": 0.0,
+   "u_claw": 0.3204,
+   "u_tau": 0.0973,
+   "free": false,
+   "dz_mm": 0.81937,
+   "rate_kg_per_mm": 0.0215,
+   "headroom": 1.7329,
+   "claw": {
+    "L": {
+     "left": 0.705,
+     "right": 0.7639
+    },
+    "nb": {
+     "left": 0.04,
+     "right": 0.039
+    },
+    "truth": {
+     "left": 0.6902,
+     "right": 0.7385
+    },
+    "u_claw": 0.2996,
+    "u_tau": 0.0998,
+    "headroom_claw": 1.7329,
+    "headroom_tau": 28.4158,
+    "split": {
+     "frac_left": 0.48,
+     "offset_m": -0.00966,
+     "offset_lo_m": -0.03353,
+     "offset_hi_m": 0.01418,
+     "width_m": 0.48183
+    }
+   },
+   "Theta": [
+    1.3356,
+    5.25
+   ]
+  },
+  {
+   "m_ff": 1.3356,
+   "z_cmd_mm": 6.375,
+   "claw_rise_mm": 6.711,
+   "rise_mm": 6.107,
+   "L": 1.4499,
+   "dL": -0.019,
+   "noise_bound": 0.0791,
+   "peak_u": 0.2916,
+   "u_read": 0.2942,
+   "u": 0.3279,
+   "overshoot": 0.0,
+   "u_claw": 0.3279,
+   "u_tau": 0.0976,
+   "free": false,
+   "dz_mm": 0.81043,
+   "rate_kg_per_mm": -0.0234,
+   "headroom": 1.714,
+   "claw": {
+    "L": {
+     "left": 0.6998,
+     "right": 0.7501
+    },
+    "nb": {
+     "left": 0.0401,
+     "right": 0.039
+    },
+    "truth": {
+     "left": 0.6905,
+     "right": 0.7383
+    },
+    "u_claw": 0.2942,
+    "u_tau": 0.0995,
+    "headroom_claw": 1.714,
+    "headroom_tau": 28.3979,
+    "split": {
+     "frac_left": 0.4826,
+     "offset_m": -0.00836,
+     "offset_lo_m": -0.03256,
+     "offset_hi_m": 0.0158,
+     "width_m": 0.48183
+    }
+   },
+   "Theta": [
+    1.3356,
+    5.25
+   ]
+  },
+  {
+   "m_ff": 1.3356,
+   "z_cmd_mm": 7.192,
+   "claw_rise_mm": 7.488,
+   "rise_mm": 6.89,
+   "L": 1.4291,
+   "dL": -0.0207,
+   "noise_bound": 0.0792,
+   "peak_u": 0.2916,
+   "u_read": 0.2904,
+   "u": 0.3225,
+   "overshoot": 0.0,
+   "u_claw": 0.3225,
+   "u_tau": 0.0976,
+   "free": true,
+   "dz_mm": 0.81691,
+   "rate_kg_per_mm": -0.0254,
+   "headroom": 1.7277,
+   "claw": {
+    "L": {
+     "left": 0.6886,
+     "right": 0.7405
+    },
+    "nb": {
+     "left": 0.0401,
+     "right": 0.0391
+    },
+    "truth": {
+     "left": 0.6909,
+     "right": 0.7375
+    },
+    "u_claw": 0.2904,
+    "u_tau": 0.0992,
+    "headroom_claw": 1.7277,
+    "headroom_tau": 28.4168,
+    "split": {
+     "frac_left": 0.4818,
+     "offset_m": -0.00875,
+     "offset_lo_m": -0.03332,
+     "offset_hi_m": 0.01578,
+     "width_m": 0.48183
+    }
+   },
+   "Theta": [
+    1.3439,
+    1.5144
+   ]
+  }
+ ],
+ "Theta": [
+  1.3438504385864263,
+  1.514429781899407
+ ],
+ "theta_sound": true,
+ "peak_u": 0.2916,
+ "probe_time_s": 14.1,
+ "probe_viol": null,
+ "probe_track": {
+  "rise_mm": 6.890188134125896,
+  "tilt": 0.4946659864620356,
+  "spill": 0.0
+ },
+ "theta_world": {
+  "contents_kg": 1.1788574483568972,
+  "contents_xy": [
+   -0.04135599330590416,
+   -0.01786677655387403
+  ],
+  "contents_mu": 0.4
+ },
+ "u_read_max": 0.2996,
+ "guard_events": [],
+ "probe_summary": {
+  "adaptive": true,
+  "n_rungs": 9,
+  "min_dz_mm": 0.81043,
+  "z_used_mm": 7.1923,
+  "probe_time_s": 14.1,
+  "k_step": 2.1149,
+  "dz_min_mm": 0.1,
+  "claw": {
+   "cap_kg": 2.55,
+   "eps_claw": 0.0332,
+   "eps_claw_src": "MEASURED /common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/results/probe_calib_claw_guard_2026-11-12/CALIB.json (MEASURED: max |per-claw read - sim-truth claw load| over all rungs and both claw)",
+   "k_step": 2.1149,
+   "k_step_src": "MEASURED /common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/results/probe_calib_claw_guard_2026-11-12/CALIB.json (MEASURED: max per-claw dL_s/dz over height rungs with L < M_true - 0.05)",
+   "l_tau_admit_max": 30.0,
+   "split_last": {
+    "frac_left": 0.4818,
+    "offset_m": -0.00875,
+    "offset_lo_m": -0.03332,
+    "offset_hi_m": 0.01578,
+    "width_m": 0.48183
+   },
+   "split_last_free": true,
+   "com_truth_offset_m": -0.01477
+  }
+ },
+ "sim_abort": null,
+ "base_level": "L2",
+ "base_rows": {
+  "L1": {
+   "base_tip": {
+    "ok": true,
+    "margin": 0.023791806983884577,
+    "unit": "m",
+    "guarantee": "sampled",
+    "n": 4,
+    "why": "",
+    "worst": {
+     "a_b": [
+      -0.847,
+      -0.0
+     ],
+     "edge": [
+      1,
+      0
+     ],
+     "com_xy": [
+      0.0462,
+      0.003
+     ],
+     "com_z": 0.4022,
+     "M": 42.895,
+     "kind": "line",
+     "contents_m": 1.264,
+     "contents_com_obj": [
+      0.095,
+      0.145,
+      0.145
+     ]
+    }
+   },
+   "base_torque": {
+    "ok": true,
+    "margin": 0.5538806557254837,
+    "unit": "utilisation",
+    "guarantee": "sampled",
+    "n": 4,
+    "why": "",
+    "worst": {
+     "kind": "line",
+     "arm": "right",
+     "binding": "claw_Fz",
+     "joint": 2,
+     "u_tau": 0.1041,
+     "u_Fz": 0.4461,
+     "contents_m": 1.264,
+     "contents_com_obj": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "a_b": [
+      -0.795,
+      -0.294
+     ]
+    }
+   }
+  },
+  "L2": {
+   "base_tip": {
+    "ok": true,
+    "margin": 0.011540492790006095,
+    "unit": "m",
+    "guarantee": "sampled",
+    "n": 4,
+    "why": "",
+    "worst": {
+     "a_b": [
+      -1.146,
+      -0.0
+     ],
+     "edge": [
+      1,
+      0
+     ],
+     "com_xy": [
+      0.0462,
+      0.003
+     ],
+     "com_z": 0.4022,
+     "M": 42.895,
+     "kind": "line",
+     "contents_m": 1.264,
+     "contents_com_obj": [
+      0.095,
+      0.145,
+      0.145
+     ]
+    }
+   },
+   "base_torque": {
+    "ok": true,
+    "margin": 0.5538806557254837,
+    "unit": "utilisation",
+    "guarantee": "sampled",
+    "n": 4,
+    "why": "",
+    "worst": {
+     "kind": "line",
+     "arm": "right",
+     "binding": "claw_Fz",
+     "joint": 2,
+     "u_tau": 0.1054,
+     "u_Fz": 0.4461,
+     "contents_m": 1.264,
+     "contents_com_obj": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "a_b": [
+      -1.075,
+      -0.398
+     ]
+    }
+   }
+  },
+  "L3": {
+   "base_tip": {
+    "ok": false,
+    "margin": -0.21512522048509108,
+    "unit": "m",
+    "guarantee": "sampled",
+    "n": 4,
+    "why": "ZMP leaves the wheel polygon by 215.1 mm (line, contents 1.264 kg)",
+    "worst": {
+     "a_b": [
+      -6.674,
+      -0.0
+     ],
+     "edge": [
+      1,
+      0
+     ],
+     "com_xy": [
+      0.0462,
+      0.003
+     ],
+     "com_z": 0.4022,
+     "M": 42.895,
+     "kind": "line",
+     "contents_m": 1.264,
+     "contents_com_obj": [
+      0.095,
+      0.145,
+      0.145
+     ]
+    }
+   },
+   "base_torque": {
+    "ok": true,
+    "margin": 0.5538806557254837,
+    "unit": "utilisation",
+    "guarantee": "sampled",
+    "n": 4,
+    "why": "",
+    "worst": {
+     "kind": "line",
+     "arm": "right",
+     "binding": "claw_Fz",
+     "joint": 1,
+     "u_tau": 0.1326,
+     "u_Fz": 0.4461,
+     "contents_m": 1.264,
+     "contents_com_obj": [
+      0.095,
+      -0.145,
+      0.145
+     ],
+     "a_b": [
+      2.229,
+      6.291
+     ]
+    }
+   }
+  }
+ },
+ "base_source": "measured",
+ "decision": {
+  "action": "two arms",
+  "a_admit": 0.5,
+  "u_nom": 0.4689,
+  "contents": [
+   1.0938504385864263,
+   1.264429781899407
+  ],
+  "refused_by": null,
+  "base_level": "L2"
+ },
+ "carry": {
+  "segments": [
+   {
+    "seg": "s0_lift",
+    "nominal": {
+     "viol": null,
+     "tau_ratio": 0.0962,
+     "n_sat": 0.0,
+     "Fz_max": 7.6497,
+     "twist_max": 0.5493,
+     "F_int_max": 1.1812,
+     "spill_ratio": 0.0,
+     "cup_tilt_max": 0.0,
+     "obj_tilt_max": 1.3754,
+     "e_obj_mm": 10.8534,
+     "e_obj_deg": 1.4375,
+     "e_int_mm": 0.0849,
+     "e_int_deg": 0.1399,
+     "path_ik_err_max": 0.0,
+     "path_q_margin_min": 0.051,
+     "path_unreachable": 0.0,
+     "qd_ratio_max": 0.2254,
+     "n_qd_over": 0.0,
+     "obj_world_clear_min": Infinity,
+     "fl_n_sat_steps": 0.0,
+     "fl_n_tau_clipped": 0.0,
+     "fl_n_speed_binding": 0.0,
+     "fl_n_speed_resolves": 0.0,
+     "fl_n_a_bound": 0.0,
+     "fl_n_infeas_torque": 0.0,
+     "fl_n_infeas_speed_only": 0.0,
+     "fl_steps": 280.0,
+     "fl_n_infeasible": 0.0,
+     "fl_n_relaxed": 0.0,
+     "fl_n_zero": 0.0,
+     "fl_n_scale_called": 0.0,
+     "fl_n_scale_shrunk": 0.0,
+     "fl_n_taumax_relaxed": 0.0,
+     "fl_res_armarm_min_m": 0.1291,
+     "fl_res_static_min_m": 0.0248,
+     "fl_res_n_armarm_pen": 0.0,
+     "fl_res_n_static_pen": 0.0,
+     "fl_res_tau_ratio_max": 0.0921,
+     "fl_res_tau_joint": 8.0,
+     "fl_res_n_tau_over": 0.0,
+     "viol_all": {},
+     "end_in_R": false,
+     "R_fail": [
+      "not_supported"
+     ]
+    },
+    "family": {
+     "0.0": {
+      "n_bad": 0,
+      "first_bad": null,
+      "n": 5
+     }
+    },
+    "fl": {
+     "fl_n_sat_steps": 0,
+     "fl_n_tau_clipped": 0,
+     "fl_n_speed_binding": 0,
+     "fl_n_speed_resolves": 0,
+     "fl_n_a_bound": 0,
+     "fl_n_infeas_torque": 0,
+     "fl_n_infeas_speed_only": 0,
+     "fl_steps": 280,
+     "fl_n_infeasible": 0,
+     "fl_n_relaxed": 0,
+     "fl_n_zero": 0,
+     "fl_n_scale_called": 0,
+     "fl_n_scale_shrunk": 0,
+     "fl_n_taumax_relaxed": 0,
+     "fl_res_armarm_min_m": 0.1291,
+     "fl_res_static_min_m": 0.0248,
+     "fl_res_n_armarm_pen": 0,
+     "fl_res_n_static_pen": 0,
+     "fl_res_tau_ratio_max": 0.0921,
+     "fl_res_tau_joint": 8,
+     "fl_res_n_tau_over": 0,
+     "fl_res_tau_ratio_joint": [
+      0.065,
+      0.0894,
+      0.0581,
+      0.0215,
+      0.0203,
+      0.0037,
+      0.0014,
+      0.0648,
+      0.0921,
+      0.0567,
+      0.0121,
+      0.0189,
+      0.0025,
+      0.0019
+     ],
+     "fl_res_geometry_checked": true
+    },
+    "accel": {
+     "T": 1.1,
+     "a_plan": 0.5,
+     "a_cmd_peak": 0.5,
+     "clamped": false
+    }
+   },
+   {
+    "seg": "carry",
+    "nominal": {
+     "viol": null,
+     "tau_ratio": 0.0983,
+     "n_sat": 0.0,
+     "Fz_max": 9.0178,
+     "twist_max": 0.9021,
+     "F_int_max": 3.0434,
+     "spill_ratio": 0.0,
+     "cup_tilt_max": 0.0,
+     "obj_tilt_max": 0.4254,
+     "e_obj_mm": 3.2705,
+     "e_obj_deg": 0.3535,
+     "e_int_mm": 0.1071,
+     "e_int_deg": 0.1467,
+     "path_ik_err_max": 0.0,
+     "path_q_margin_min": 9.0,
+     "path_unreachable": 0.0,
+     "qd_ratio_max": 0.0706,
+     "n_qd_over": 0.0,
+     "obj_world_clear_min": 0.0493,
+     "fl_n_sat_steps": 0.0,
+     "fl_n_tau_clipped": 0.0,
+     "fl_n_speed_binding": 0.0,
+     "fl_n_speed_resolves": 0.0,
+     "fl_n_a_bound": 0.0,
+     "fl_n_infeas_torque": 0.0,
+     "fl_n_infeas_speed_only": 0.0,
+     "fl_steps": 2638.0,
+     "fl_n_infeasible": 0.0,
+     "fl_n_relaxed": 0.0,
+     "fl_n_zero": 0.0,
+     "fl_n_scale_called": 0.0,
+     "fl_n_scale_shrunk": 0.0,
+     "fl_n_taumax_relaxed": 0.0,
+     "fl_res_armarm_min_m": 0.1291,
+     "fl_res_static_min_m": 0.0651,
+     "fl_res_n_armarm_pen": 0.0,
+     "fl_res_n_static_pen": 0.0,
+     "fl_res_tau_ratio_max": 0.0991,
+     "fl_res_tau_joint": 1.0,
+     "fl_res_n_tau_over": 0.0,
+     "viol_all": {},
+     "end_in_R": false,
+     "R_fail": [
+      "not_supported"
+     ]
+    },
+    "family": {
+     "0.0": {
+      "n_bad": 0,
+      "first_bad": null,
+      "n": 0
+     }
+    },
+    "fl": {
+     "fl_n_sat_steps": 0,
+     "fl_n_tau_clipped": 0,
+     "fl_n_speed_binding": 0,
+     "fl_n_speed_resolves": 0,
+     "fl_n_a_bound": 0,
+     "fl_n_infeas_torque": 0,
+     "fl_n_infeas_speed_only": 0,
+     "fl_steps": 2638,
+     "fl_n_infeasible": 0,
+     "fl_n_relaxed": 0,
+     "fl_n_zero": 0,
+     "fl_n_scale_called": 0,
+     "fl_n_scale_shrunk": 0,
+     "fl_n_taumax_relaxed": 0,
+     "fl_res_armarm_min_m": 0.1291,
+     "fl_res_static_min_m": 0.0651,
+     "fl_res_n_armarm_pen": 0,
+     "fl_res_n_static_pen": 0,
+     "fl_res_tau_ratio_max": 0.0991,
+     "fl_res_tau_joint": 1,
+     "fl_res_n_tau_over": 0,
+     "fl_res_tau_ratio_joint": [
+      0.077,
+      0.0991,
+      0.0523,
+      0.0217,
+      0.0176,
+      0.002,
+      0.0038,
+      0.0776,
+      0.0983,
+      0.0507,
+      0.0177,
+      0.0175,
+      0.001,
+      0.0033
+     ],
+     "fl_res_geometry_checked": true
+    },
+    "accel": {
+     "source": "base_card",
+     "level": "L2"
+    }
+   },
+   {
+    "seg": "s2_place",
+    "nominal": {
+     "viol": null,
+     "tau_ratio": 0.0882,
+     "n_sat": 0.0,
+     "Fz_max": 8.005,
+     "twist_max": 0.6263,
+     "F_int_max": 1.2217,
+     "spill_ratio": 0.0,
+     "cup_tilt_max": 0.0,
+     "obj_tilt_max": 1.6676,
+     "e_obj_mm": 12.0168,
+     "e_obj_deg": 1.6086,
+     "e_int_mm": 0.0959,
+     "e_int_deg": 0.131,
+     "path_ik_err_max": 0.0,
+     "path_q_margin_min": 0.051,
+     "path_unreachable": 0.0,
+     "qd_ratio_max": 0.1765,
+     "n_qd_over": 0.0,
+     "obj_world_clear_min": 0.05,
+     "fl_n_sat_steps": 0.0,
+     "fl_n_tau_clipped": 0.0,
+     "fl_n_speed_binding": 0.0,
+     "fl_n_speed_resolves": 0.0,
+     "fl_n_a_bound": 0.0,
+     "fl_n_infeas_torque": 0.0,
+     "fl_n_infeas_speed_only": 0.0,
+     "fl_steps": 280.0,
+     "fl_n_infeasible": 0.0,
+     "fl_n_relaxed": 0.0,
+     "fl_n_zero": 0.0,
+     "fl_n_scale_called": 0.0,
+     "fl_n_scale_shrunk": 0.0,
+     "fl_n_taumax_relaxed": 0.0,
+     "fl_res_armarm_min_m": 0.1291,
+     "fl_res_static_min_m": 0.0292,
+     "fl_res_n_armarm_pen": 0.0,
+     "fl_res_n_static_pen": 0.0,
+     "fl_res_tau_ratio_max": 0.0934,
+     "fl_res_tau_joint": 8.0,
+     "fl_res_n_tau_over": 0.0,
+     "viol_all": {},
+     "end_in_R": true,
+     "R_fail": []
+    },
+    "family": {
+     "0.0": {
+      "n_bad": 0,
+      "first_bad": null,
+      "n": 5
+     }
+    },
+    "fl": {
+     "fl_n_sat_steps": 0,
+     "fl_n_tau_clipped": 0,
+     "fl_n_speed_binding": 0,
+     "fl_n_speed_resolves": 0,
+     "fl_n_a_bound": 0,
+     "fl_n_infeas_torque": 0,
+     "fl_n_infeas_speed_only": 0,
+     "fl_steps": 280,
+     "fl_n_infeasible": 0,
+     "fl_n_relaxed": 0,
+     "fl_n_zero": 0,
+     "fl_n_scale_called": 0,
+     "fl_n_scale_shrunk": 0,
+     "fl_n_taumax_relaxed": 0,
+     "fl_res_armarm_min_m": 0.1291,
+     "fl_res_static_min_m": 0.0292,
+     "fl_res_n_armarm_pen": 0,
+     "fl_res_n_static_pen": 0,
+     "fl_res_tau_ratio_max": 0.0934,
+     "fl_res_tau_joint": 8,
+     "fl_res_n_tau_over": 0,
+     "fl_res_tau_ratio_joint": [
+      0.0628,
+      0.088,
+      0.0559,
+      0.0114,
+      0.0177,
+      0.0057,
+      0.002,
+      0.0669,
+      0.0934,
+      0.0581,
+      0.0113,
+      0.0193,
+      0.0048,
+      0.0021
+     ],
+     "fl_res_geometry_checked": true
+    },
+    "accel": {
+     "T": 1.1,
+     "a_plan": 0.5,
+     "a_cmd_peak": 0.5,
+     "clamped": false
+    }
+   },
+   {
+    "seg": "release",
+    "nominal": {
+     "viol": null,
+     "tau_ratio": 0.0852,
+     "n_sat": 0.0,
+     "Fz_max": 6.9309,
+     "twist_max": 0.5654,
+     "F_int_max": 0.6264,
+     "spill_ratio": 0.0,
+     "cup_tilt_max": 0.0,
+     "obj_tilt_max": 0.5028,
+     "e_obj_mm": 1.7937,
+     "e_obj_deg": 0.4357,
+     "e_int_mm": 0.0675,
+     "e_int_deg": 0.1066,
+     "path_ik_err_max": 0.0,
+     "path_q_margin_min": 9.0,
+     "path_unreachable": 0.0,
+     "qd_ratio_max": 0.0898,
+     "n_qd_over": 0.0,
+     "obj_world_clear_min": Infinity,
+     "fl_n_sat_steps": 0.0,
+     "fl_n_tau_clipped": 0.0,
+     "fl_n_speed_binding": 0.0,
+     "fl_n_speed_resolves": 0.0,
+     "fl_n_a_bound": 0.0,
+     "fl_n_infeas_torque": 0.0,
+     "fl_n_infeas_speed_only": 0.0,
+     "fl_steps": 300.0,
+     "fl_n_infeasible": 0.0,
+     "fl_n_relaxed": 0.0,
+     "fl_n_zero": 0.0,
+     "fl_n_scale_called": 0.0,
+     "fl_n_scale_shrunk": 0.0,
+     "fl_n_taumax_relaxed": 0.0,
+     "fl_res_armarm_min_m": 0.1291,
+     "fl_res_static_min_m": 0.0291,
+     "fl_res_n_armarm_pen": 0.0,
+     "fl_res_n_static_pen": 0.0,
+     "fl_res_tau_ratio_max": 0.0882,
+     "fl_res_tau_joint": 8.0,
+     "fl_res_n_tau_over": 0.0,
+     "viol_all": {},
+     "end_in_R": true,
+     "R_fail": []
+    },
+    "family": {
+     "0.0": {
+      "n_bad": 0,
+      "first_bad": null,
+      "n": 0
+     }
+    },
+    "fl": {
+     "fl_n_sat_steps": 0,
+     "fl_n_tau_clipped": 0,
+     "fl_n_speed_binding": 0,
+     "fl_n_speed_resolves": 0,
+     "fl_n_a_bound": 0,
+     "fl_n_infeas_torque": 0,
+     "fl_n_infeas_speed_only": 0,
+     "fl_steps": 300,
+     "fl_n_infeasible": 0,
+     "fl_n_relaxed": 0,
+     "fl_n_zero": 0,
+     "fl_n_scale_called": 0,
+     "fl_n_scale_shrunk": 0,
+     "fl_n_taumax_relaxed": 0,
+     "fl_res_armarm_min_m": 0.1291,
+     "fl_res_static_min_m": 0.0291,
+     "fl_res_n_armarm_pen": 0,
+     "fl_res_n_static_pen": 0,
+     "fl_res_tau_ratio_max": 0.0882,
+     "fl_res_tau_joint": 8,
+     "fl_res_n_tau_over": 0,
+     "fl_res_tau_ratio_joint": [
+      0.06,
+      0.0845,
+      0.0539,
+      0.0053,
+      0.0172,
+      0.0038,
+      0.002,
+      0.0609,
+      0.0882,
+      0.054,
+      0.0046,
+      0.0178,
+      0.0025,
+      0.0013
+     ],
+     "fl_res_geometry_checked": true
+    },
+    "accel": null
+   }
+  ],
+  "end_in_R": [
+   true,
+   []
+  ],
+  "pre_hold_viol": null
+ },
+ "outcome": "carried",
+ "any_U": false,
+ "recovery": {
+  "s0_lift": {
+   "n": 5,
+   "n_bad": 0
+  },
+  "carry": {
+   "n": 0,
+   "n_bad": 0
+  },
+  "s2_place": {
+   "n": 5,
+   "n_bad": 0
+  },
+  "release": {
+   "n": 0,
+   "n_bad": 0
+  }
+ },
+ "recovery_bad": false,
+ "goal": {
+  "name": "goal",
+  "ok": true,
+  "margin": 0.01999946816326213,
+  "unit": "mixed (see worst)",
+  "guarantee": "runtime",
+  "worst": {
+   "xy_err": 0.04444889332422349,
+   "z_err": 0.01999946816326213,
+   "obj_tilt_deg": 44.939625101943264
+  },
+  "n": null,
+  "eps_upper": null,
+  "assumptions": {
+   "xy_err": {
+    "lo": -Infinity,
+    "hi": 0.05,
+    "tag": "ASSUMED",
+    "src": "AgentChord ac_success (execute.py:25,157), adopted USER 11-09 (success = their rule, both methods): xy_err <= 0.05 m",
+    "unit": "m",
+    "strict": false
+   },
+   "z_err": {
+    "lo": -Infinity,
+    "hi": 0.02,
+    "tag": "ASSUMED",
+    "src": "AgentChord ac_success (execute.py:25,157), adopted USER 11-09 (success = their rule, both methods): support-relative z_err <= 0.02 m",
+    "unit": "m",
+    "strict": false
+   },
+   "obj_tilt_deg": {
+    "lo": -Infinity,
+    "hi": 45.0,
+    "tag": "ASSUMED",
+    "src": "AgentChord ac_success (execute.py:25,157), adopted USER 11-09 (success = their rule, both methods): object tilt < 45 deg (strict)",
+    "unit": "deg",
+    "strict": true
+   }
+  },
+  "why": ""
+ },
+ "measured": {
+  "xy_err": 0.0056,
+  "tilt_deg": 0.06,
+  "mug_tilt_deg": 0.0,
+  "goal_support": "bookcase_l1",
+  "z_err": 0.0
+ },
+ "result": {
+  "finished": true,
+  "success": true,
+  "unsafe": false,
+  "pre_hold_unsafe": false,
+  "in_R": true,
+  "safe_success": true,
+  "refused": false,
+  "reason": "carried",
+  "goal_ok": true
+ },
+ "refused_by": null,
+ "v2": {
+  "plan_id": "8857466d7c4a",
+  "first_plan_id": "8857466d7c4a",
+  "phenomena": [
+   {
+    "id": "PH1",
+    "why": "The total hidden mass determines whether the arms can carry the crate within torque limits.",
+    "handle": {
+     "measure": "weigh"
+    }
+   },
+   {
+    "id": "PH2",
+    "why": "An off-centre load can unevenly load the arms and torque the crate about its grasp axis.",
+    "handle": {
+     "unmeasurable": "The available measuring skill reads total mass but not moments or horizontal load distribution."
+    }
+   },
+   {
+    "id": "PH3",
+    "why": "A high centre of mass can increase grasp loading and tipping effects during motion.",
+    "handle": {
+     "unmeasurable": "The available measuring skill does not determine the contents' height."
+    }
+   },
+   {
+    "id": "PH5",
+    "why": "A loose hidden item can shift during turning or translation and change the load distribution.",
+    "handle": {
+     "unmeasurable": "No available measuring skill detects or tracks internal sliding or rolling."
+    }
+   }
+  ],
+  "handles": {
+   "PH1": {
+    "measure": "weigh"
+   },
+   "PH2": {
+    "unmeasurable": "The available measuring skill reads total mass but not moments or horizontal load distribution."
+   },
+   "PH3": {
+    "unmeasurable": "The available measuring skill does not determine the contents' height."
+   },
+   "PH5": {
+    "unmeasurable": "No available measuring skill detects or tracks internal sliding or rolling."
+   }
+  },
+  "probes_selected": [
+   "weigh"
+  ],
+  "probes_run": [
+   "weigh"
+  ],
+  "probes_skipped": [],
+  "readings": [
+   {
+    "skill": "weigh",
+    "output": "interval",
+    "fields": {
+     "contents_mass_kg": [
+      1.0938504385864263,
+      1.264429781899407
+     ]
+    },
+    "why": "free"
+   }
+  ],
+  "theta_t": {
+   "contents_mass_kg": [
+    1.0938504385864263,
+    1.264429781899407
+   ]
+  },
+  "coverage": {
+   "task": "box_bookcase",
+   "mode": "enforce",
+   "covered": true,
+   "uncovered": [],
+   "rows": [
+    {
+     "phi": "PH1",
+     "status": "measured",
+     "by": "weigh",
+     "tag": "",
+     "note": ""
+    },
+    {
+     "phi": "PH2",
+     "status": "fallback",
+     "by": "interior",
+     "tag": "MODEL",
+     "note": "the contents prism P: the container interior (the COM may be anywhere inside)"
+    },
+    {
+     "phi": "PH3",
+     "status": "fallback",
+     "by": "interior",
+     "tag": "MODEL",
+     "note": "the contents prism P: the container interior (the COM may be anywhere inside)"
+    }
+   ],
+   "theta_t": {
+    "contents_mass_kg": [
+     1.0938504385864263,
+     1.264429781899407
+    ]
+   },
+   "named_by_llm": [
+    "PH1",
+    "PH2",
+    "PH3",
+    "PH5"
+   ],
+   "new_names": [
+    "PH5"
+   ],
+   "out_of_scope": "OUT OF SCOPE (ruling 11-09 Q1, option c): PH4 liquid slosh, PH5 hidden loose item and PH6 visible loose item are not measured by any built skill and not covered by any checker row; they are not in PHI(task), so a result says nothing about them."
+  },
+  "n_reasks": 0,
+  "reasks": [],
+  "reask_end": null,
+  "t_events": [],
+  "t_counts": {},
+  "stopped": null,
+  "attempts": [
+   {
+    "attempt": 0,
+    "plan_id": "8857466d7c4a",
+    "phenomena": [
+     {
+      "id": "PH1",
+      "why": "The total hidden mass determines whether the arms can carry the crate within torque limits.",
+      "handle": {
+       "measure": "weigh"
+      }
+     },
+     {
+      "id": "PH2",
+      "why": "An off-centre load can unevenly load the arms and torque the crate about its grasp axis.",
+      "handle": {
+       "unmeasurable": "The available measuring skill reads total mass but not moments or horizontal load distribution."
+      }
+     },
+     {
+      "id": "PH3",
+      "why": "A high centre of mass can increase grasp loading and tipping effects during motion.",
+      "handle": {
+       "unmeasurable": "The available measuring skill does not determine the contents' height."
+      }
+     },
+     {
+      "id": "PH5",
+      "why": "A loose hidden item can shift during turning or translation and change the load distribution.",
+      "handle": {
+       "unmeasurable": "No available measuring skill detects or tracks internal sliding or rolling."
+      }
+     }
+    ],
+    "probes": [
+     "weigh"
+    ],
+    "probe_events": [
+     {
+      "kind": "ran",
+      "skill": "weigh",
+      "phenomena": [
+       "PH1"
+      ],
+      "output": "interval",
+      "fields": {
+       "contents_mass_kg": [
+        1.0938504385864263,
+        1.264429781899407
+       ]
+      },
+      "order": 0
+     }
+    ],
+    "coverage": {
+     "task": "box_bookcase",
+     "mode": "enforce",
+     "covered": true,
+     "uncovered": [],
+     "rows": [
+      {
+       "phi": "PH1",
+       "status": "measured",
+       "by": "weigh",
+       "tag": "",
+       "note": ""
+      },
+      {
+       "phi": "PH2",
+       "status": "fallback",
+       "by": "interior",
+       "tag": "MODEL",
+       "note": "the contents prism P: the container interior (the COM may be anywhere inside)"
+      },
+      {
+       "phi": "PH3",
+       "status": "fallback",
+       "by": "interior",
+       "tag": "MODEL",
+       "note": "the contents prism P: the container interior (the COM may be anywhere inside)"
+      }
+     ],
+     "theta_t": {
+      "contents_mass_kg": [
+       1.0938504385864263,
+       1.264429781899407
+      ]
+     },
+     "named_by_llm": [
+      "PH1",
+      "PH2",
+      "PH3",
+      "PH5"
+     ],
+     "new_names": [
+      "PH5"
+     ],
+     "out_of_scope": "OUT OF SCOPE (ruling 11-09 Q1, option c): PH4 liquid slosh, PH5 hidden loose item and PH6 visible loose item are not measured by any built skill and not covered by any checker row; they are not in PHI(task), so a result says nothing about them."
+    },
+    "decision": {
+     "action": "two arms",
+     "a_admit": 0.5,
+     "u_nom": 0.4689,
+     "contents": [
+      1.0938504385864263,
+      1.264429781899407
+     ],
+     "refused_by": null,
+     "base_level": "L2"
+    },
+    "t1_shown": []
+   }
+  ],
+  "out_of_scope": "OUT OF SCOPE (ruling 11-09 Q1, option c): PH4 liquid slosh, PH5 hidden loose item and PH6 visible loose item are not measured by any built skill and not covered by any checker row; they are not in PHI(task), so a result says nothing about them.",
+  "guarantee": "proof for the admission rows under MODEL; Theta_t from the weigh = sampled (calibration n = 20 per task)"
+ },
+ "wall_s": 370.5,
+ "base": {
+  "level": "L2",
+  "n_base_edges": 1,
+  "n_aborted": 0,
+  "route_end_err_mm": [
+   0.003594294391030831
+  ],
+  "route_end_err_m": [
+   0.003594294391030831
+  ],
+  "route_end_err_deg": [
+   -0.29567701356769877
+  ],
+  "U_flags": {
+   "wheel_liftoff": false,
+   "base_world_contact": false,
+   "load_world_contact": false,
+   "route_unfinished": false
+  },
+  "first_viol": null,
+  "base_end_pose": [
+   -1.7971793565839738,
+   -0.20727974889109932,
+   3.134085583532777
+  ],
+  "U_flags_ever": [],
+  "seg_acc_peak": [
+   [
+    {
+     "seg": 0,
+     "kind": "line",
+     "a_peak_mps2": 0.9665482075871386,
+     "t_s": 17.025,
+     "a_cmd_mps2": 0.5
+    },
+    {
+     "seg": 1,
+     "kind": "turn",
+     "a_peak_mps2": 0.6968709953280586,
+     "t_s": 19.415,
+     "a_cmd_mps2": 1.0
+    },
+    {
+     "seg": 2,
+     "kind": "line",
+     "a_peak_mps2": 1.519663490452489,
+     "t_s": 24.16,
+     "a_cmd_mps2": 0.5
+    },
+    {
+     "seg": 3,
+     "kind": "line",
+     "a_peak_mps2": 0.8808152912077251,
+     "t_s": 28.325,
+     "a_cmd_mps2": 0.5
+    }
+   ]
+  ]
+ },
+ "contents_poses": {
+  "start": {
+   "t_s": 0.0,
+   "xyz_world": [
+    0.3385884896171306,
+    -0.23787725224822936,
+    0.8740389105207287
+   ],
+   "quat_world": [
+    0.9999998677309556,
+    9.529876435161746e-05,
+    -0.0005054267671653547,
+    9.097977476918176e-09
+   ],
+   "xyz_in_obj": [
+    -0.041357139293994975,
+    -0.0178669494610821,
+    0.054533830831923376
+   ]
+  },
+  "after_probe": {
+   "t_s": 14.4,
+   "xyz_world": [
+    0.33843634576766773,
+    -0.23784776095154908,
+    0.8747238261454611
+   ],
+   "quat_world": [
+    0.9999968225249903,
+    -0.0001234550609600341,
+    -0.002517275551380488,
+    -5.497789443563411e-05
+   ],
+   "xyz_in_obj": [
+    -0.041400340161447016,
+    -0.017877512222744217,
+    0.05453382215641789
+   ]
+  },
+  "base_start0": {
+   "t_s": 16.5,
+   "xyz_world": [
+    0.3379238189814436,
+    -0.23305601411903717,
+    1.0238262993813532
+   ],
+   "quat_world": [
+    0.9999999587589729,
+    0.00014168816496188438,
+    9.485340582843486e-05,
+    0.00023110462611305028
+   ],
+   "xyz_in_obj": [
+    -0.04139180486768258,
+    -0.01788670155183232,
+    0.05453383864247322
+   ]
+  },
+  "base_end0": {
+   "t_s": 29.69,
+   "xyz_world": [
+    -2.1342937291482484,
+    -0.1825093054689075,
+    1.024108845731647
+   ],
+   "quat_world": [
+    0.0030248567339868624,
+    0.0014145213988194395,
+    -0.0002749406349569338,
+    0.9999943868735451
+   ],
+   "xyz_in_obj": [
+    -0.042333780223050475,
+    -0.018303881336187777,
+    0.054533654479224654
+   ]
+  },
+  "end": {
+   "t_s": 32.59,
+   "xyz_world": [
+    -2.1349808149360245,
+    -0.17614197369705045,
+    0.8740364767160593
+   ],
+   "quat_world": [
+    0.0038353984578850856,
+    0.0005189048694201171,
+    0.00011463452980872333,
+    0.9999925036295684
+   ],
+   "xyz_in_obj": [
+    -0.042365883915888546,
+    -0.018294068070515566,
+    0.054533830855076695
+   ]
+  }
+ },
+ "first_U": null
+}
