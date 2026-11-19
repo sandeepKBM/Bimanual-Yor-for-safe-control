@@ -249,7 +249,7 @@ def build_geometry(cp, world=None):
         g = CCP.geometry_for(inp)
     except CCP.PlanRefused as e:
         extra = []
-        if e.info.get("reason") in REACH_REASONS and os.environ.get("BIMANUAL_LEGACY_NO_REACH_TEXT", "0") != "1":   # USER 11-16 option b
+        if e.info.get("reason") in REACH_REASONS and os.environ.get("BIMANUAL_LEGACY_REACH_TEXT", "0") == "1" and os.environ.get("BIMANUAL_LEGACY_NO_REACH_TEXT", "0") != "1":   # USER 11-17: the arm-reach line is a clue, OFF by default; BIMANUAL_LEGACY_REACH_TEXT=1 restores the 11-16 option b text (NO_REACH_TEXT=1 still wins: off)
             z = float((e.info.get("offset") or [0.0, 0.0, 0.0])[2])
             try:
                 extra = [CCP.reach_text(inp, z)]

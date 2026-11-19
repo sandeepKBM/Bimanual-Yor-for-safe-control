@@ -54,6 +54,7 @@ def _stop_t0() -> float:
     return TY.STOP_T_S
 
 
+R4_HOLD_S = 0.3        # ASSUMED (11-17): hold between the transfer's stop and its retrace [s] (the rows are static, so this only costs time; = the stored backups' post-retrace hold)
 STOP_K_MAX = 4         # ASSUMED (to be raised to the user): the stop time may be doubled up to 4 times (0.3 -> 4.8 s)
 
 # the proposer's recovery skill (schema.RECOVERY_SKILLS) -> the target kind it is read as
@@ -67,6 +68,7 @@ class CarryState:
     model: object
     seg: str
     t: float
+    rest_at: "int | None" = None     # 11-17: the arms are AT REST at this geometry sample (after a stop + read hold): v0 = 0 there, the stop is a pure hold (None = the planned state at t)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -212,8 +214,11 @@ def _choose_stop(ctx, model, ext, theta, seg, arc, ib, v, direction, it=None, a_
     return last
 
 
-def _state_at(ctx, model, seg, t):
-    """EXACT branch state at time t of segment seg (not snapped to the 0.25 s grid): (ib, v) from the planned piece at the control period, as closed_chain._model_cc does at its grid times."""
+def _state_at(ctx, model, seg, t, rest_at=None):
+    """EXACT branch state at time t of segment seg (not snapped to the 0.25 s grid): (ib, v) from the planned piece at the control period, as closed_chain._model_cc does at its grid times.
+    rest_at (11-17): the arms are at rest at that geometry sample -> (rest_at, 0.0)."""
+    if rest_at is not None:
+        return int(rest_at), 0.0
     CCP, g = ctx.CCP, model.geo
     pc = model.cc.pieces[seg]
     kk = min(pc.n, max(0, int(round(t / CCP.DT))))
@@ -234,7 +239,7 @@ def build_transfer(st: CarryState, tg: Target, theta_t: TH.ThetaSet):
         return Transfer(tg.name, seg, float(st.t), to, None, None, prob), TH.RecoveryProgram.fixed(f"transfer:{tg.name}", tp, tg.landing)
     g, arc = _geo(m)
     ext = ext_model(ctx, m)
-    ib, v0 = _state_at(ctx, m, seg, st.t)
+    ib, v0 = _state_at(ctx, m, seg, st.t, st.rest_at)
     lo, hi = RC._hull(theta_t)
     cont = ctx.spec_for(lo, hi).contents
     env = ctx.env(ext.a)
@@ -405,6 +410,23 @@ def continuation(st: CarryState, tg: Target, theta_t: TH.ThetaSet, adm=None) -> 
     return "static_only (Rule 1 refuses the next step: safe park, the task may not continue)"
 
 
+def transfer_phases(st: CarryState, tg: Target, tr: Transfer) -> list:
+    """11-17: the EXACT phase list the executor runs for an accepted transfer (JSON lists): stop (stop_T), hold R4_HOLD_S, retrace (the segments from the current one back to
+    retrace_to, at the transfer's a), then the target's tail (set-down: hold 0.3, weld off, jretreat start, hold 0.6; in-air targets: hold 0.6).  A target without a retrace
+    (hold_here / let_go) has no retrace phase."""
+    ph = [["stop", float(tr.stop_T)], ["hold", R4_HOLD_S]]
+    names = list(st.model.names)
+    if tr.retrace_to is not None:
+        ph.append(["retrace", names[names.index(tr.retrace_to):names.index(st.seg) + 1][::-1], float(tr.a)])
+    if tg.kind in ("set_down_start", "set_down_support"):
+        ph += [["hold", 0.3], ["weld", False], ["jretreat", "start"], ["hold", 0.6]]
+    elif tg.kind == "let_go":
+        ph += [["hold", 0.3], ["weld", False], ["retreat", RC.CR.RETREAT, 0.8], ["hold", 0.6]]
+    else:
+        ph += [["hold", 0.6]]
+    return ph
+
+
 def make_check(st: CarryState, theta_t: TH.ThetaSet):
     programs_at, transfers = programs_at_for(st, theta_t)
     base_cm, lo = st.ctx.callables(st.model, st.seg)
@@ -423,10 +445,16 @@ def make_check(st: CarryState, theta_t: TH.ThetaSet):
             adm["transfer"] = dict(dataclasses.asdict(tr), branch_times=times, duration=tp.duration, t_state=float(st.t),
                                    per_branch=[tp_.per_branch[k] for k in sorted(tp_.per_branch)])
             adm["continuation"] = continuation(st, tg, theta_t, adm)
+            # 11-17: what the executor needs to run the transfer (stack/executor.py ("transfer", rec)): the phases, the plan it was certified on, the set, the state
+            adm["transfer_phases"] = transfer_phases(st, tg, tr) if (tr.stop_T is not None and (tr.retrace_to is None or tr.a is not None)) else None
+            adm["plan_key"] = st.ctx.plan_key(st.model)
+            adm["theta_t"] = theta_t.to_json()
+            adm["state"] = dict(seg=st.seg, t=float(st.t), rest_at=(None if st.rest_at is None else int(st.rest_at)))
             adm["assumptions"] += [dict(name="STOP_K_MAX", value=STOP_K_MAX, tag="ASSUMED", src="rule4_contents: stop time ladder STOP_T0 * 2^k, k <= STOP_K_MAX (to be raised to the user)"),
                                    dict(name="RETRACE_HALVINGS", value=RETRACE_HALVINGS, tag="ASSUMED", src="rule4_contents: retrace acceleration halved at most this often, never below A_MIN"),
                                    dict(name="stop_finish", value="a stop (initial: remaining time of the segment; in-flight in the accelerating half of the retrace: remaining time of the retrace) with remaining time <= T finishes the move: end = the move's end sample, deceleration = the plan's a (initial) / the retrace a (in-flight)", tag="MODEL",
                                         src="executor stop branch 11-16 (rest-to-rest references); BIMANUAL_LEGACY_STOP=1 restores the 0.5 v T Hermite overshoot"),
+                                   dict(name="R4_HOLD_S", value=R4_HOLD_S, tag="ASSUMED", src="rule4_contents: hold between the transfer's stop and its retrace [s] (11-17)"),
                                    dict(name="STOP_T0", value=_stop_t0(), tag="ASSUMED", src="rule4_contents: shortest stop time = the stored backups' stop time (carry backup_phases)")]
         return ok, rows, adm
     return check, transfers

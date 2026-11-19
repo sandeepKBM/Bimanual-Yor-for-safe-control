@@ -119,6 +119,7 @@ def test_rule1_model_finishes_exactly_the_last_T_branches(monkeypatch):
 
 def test_rule1_model_legacy_keeps_the_missing_place_branch(monkeypatch):
     monkeypatch.setenv("BIMANUAL_LEGACY_STOP", "1")
+    monkeypatch.setenv("BIMANUAL_LEGACY_NO_ARM_EXT", "1")          # 11-17: the overshoot past the last sample is now extended and checked (USER 11-17); the old MISSING branch needs both flags
     ctx, model = _box_model()
     assert not any(getattr(b, "finish", False) for s in model.names for b in model.branches[s])
     assert any(b.ahead is None for b in model.branches["place"])

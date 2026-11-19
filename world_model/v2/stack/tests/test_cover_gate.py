@@ -51,3 +51,36 @@ def test_timing_fields():
     tm = COV.cover_timing(adm, th)
     assert tm["n"] == 200 and tm["p50"] <= tm["p95"] <= tm["max"]
     assert COV.cover(box(1.2, 1.8), adm, 0.3).action == "fallback"     # at 0.25 only B (from 1.5) is listed: not covered
+
+
+# ---------------------------------------------------------------- owner gate 11-17: Rule 3 fails closed (USER 11-17 "each rule proper handling")
+def _empty():
+    return box(1.0, 2.0).intersect(box(3.0, 4.0)) if hasattr(TH.ThetaSet, "intersect") else box(2.0, 1.0)
+
+
+def test_empty_theta_new_fails_closed(monkeypatch):
+    monkeypatch.delenv("BIMANUAL_LEGACY_COVER_EMPTY_OK", raising=False)
+    adm = _adm()
+    e = _empty()
+    assert e.is_empty()
+    for t in (0.0, 0.3, 0.6):
+        d = COV.cover(e, adm, t)
+        assert d.action == "fallback" and d.recovery is None and d.certified is False, d
+    assert COV.cover(None, adm, 0.3).action == "fallback"
+    monkeypatch.setenv("BIMANUAL_LEGACY_COVER_EMPTY_OK", "1")
+    assert COV.cover(e, adm, 0.6).action == "continue"                 # the old fail-open behaviour, kept only behind the flag
+
+
+def test_field_mismatch_fails_closed(monkeypatch):
+    monkeypatch.delenv("BIMANUAL_LEGACY_COVER_EMPTY_OK", raising=False)
+    d = COV.cover(TH.ThetaSet.box(other=(0.0, 1.0)), _adm(), 0.6)
+    assert d.action == "fallback" and d.recovery is None and d.certified is False and "field mismatch" in d.why
+
+
+def test_every_uncovered_answer_is_uncertified():
+    adm, rng = _adm(), np.random.default_rng(1117)
+    for _ in range(300):
+        a, b = np.sort(rng.uniform(-1.0, 5.0, 2))
+        d = COV.cover(box(float(a), float(b)), adm, float(rng.uniform(0.0, 0.9)))
+        assert (d.recovery is None) == (d.certified is False), d
+        assert d.action in ("continue", "switch", "fallback")

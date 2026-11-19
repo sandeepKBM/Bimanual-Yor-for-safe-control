@@ -110,7 +110,16 @@ def test_reask_prompt_v2_has_evidence_and_no_truth():
               probes_skipped=[], failing_rows=[dict(row="torque_payload[s0_lift]", u_max=1.07, a=0.5, worst=dict(m=5.0, c=[0.02, 0.0, 0.1]))],
               worst=dict(m=5.0, c=[0.02, 0.0, 0.1], wp="p3"), action="refuse")
     txt = PR.reask_prompt("box", plan, ev)
-    assert PR.REASK_MARK in txt and "(T2)" in txt and "torque_payload[s0_lift]" in txt and "1.6" in txt and "WORST VERTEX" in txt
+    assert PR.REASK_MARK in txt and "(T2)" in txt and "torque_payload[s0_lift]" in txt and "1.6" in txt
+    # USER 11-17 (no clues): no worst vertex / belief corner (contents COM c, mass corner m) goes to the proposer; BIMANUAL_LEGACY_REASK_WORST=1 restores it
+    evi = txt[txt.index(PR.REASK_MARK):]                                                # the evidence section (scene facts above it hold 0.02 / 5.0 legitimately)
+    assert "WORST VERTEX" not in evi and "0.02" not in evi and "5.0" not in evi and '"worst"' not in evi
+    import os
+    os.environ["BIMANUAL_LEGACY_REASK_WORST"] = "1"
+    try:
+        assert "WORST VERTEX" in PR.reask_prompt("box", plan, ev)
+    finally:
+        os.environ.pop("BIMANUAL_LEGACY_REASK_WORST")
     assert "YOUR PREVIOUS PLAN" in txt and "phenomena" in txt and "belief" not in txt.split("YOUR PREVIOUS PLAN")[1].split("RULE 2")[0]
     for w in ("seed", "theta_world", "M_true", "truth"):
         assert w not in txt

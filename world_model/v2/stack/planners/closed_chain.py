@@ -48,7 +48,8 @@ MOVES = ("lift", "carry", "place")
 
 # ---- ASSUMED planner numbers (each listed in plan.assumptions)
 CLEAR_M = {"tray": 0.05, "box": 0.03, "pot": 0.05}       # ASSUMED [m]: object underside clearance above the highest support it passes over (the clearances implied by the user-confirmed 11-02 plans: tray lift 5 cm, box 18 cm = shelf 15 cm + 3 cm)
-LAT_CLEAR = 0.005                           # ASSUMED [m]: lateral bloat of the object volume in the shelf collision test
+LEGACY_SMOOTH_ALL_D2 = os.environ.get("BIMANUAL_LEGACY_SMOOTH_ALL_D2") == "1"
+LAT_CLEAR = 0.005                           # ASSUMED [m]: lateral bloat of the object volume in the shelf collision test.  USER 11-17: kept at 5 mm (the 10 mm try added no clearance: the box starts exactly 10 mm from the shelf edge; the shelf contact that prompted it was a test-setup error, belief not set)
 DY_GRID = tuple(np.round(np.arange(-0.04, 0.0601, 0.005), 4))   # ASSUMED search grid of the lateral lift offset [m]
 MARGIN_WANT = 0.05                          # ASSUMED [rad] (= carry.PATH_MARGIN_MIN): joint-limit distance wanted at every path sample
 M_GOOD = 0.15                               # ASSUMED [rad]: above this a joint margin is not traded against smoothness in the DP
@@ -62,6 +63,10 @@ FK_TOL_M, FK_TOL_RAD = 1e-6, 1e-6           # MODEL checks of the chosen configu
 RETREAT_T = 0.8                             # s, legacy release retreat time (carry.run_phases)
 RETREAT_M = 0.05                            # m, = carry.RETREAT
 BIG_ACC = 1e4                               # sentinel for "no joint acceleration limit" in TOPP-RA (NOT a robot limit; config.py has none)
+LEGACY_NO_QDD_LIMIT = os.environ.get("BIMANUAL_LEGACY_NO_QDD_LIMIT") == "1"
+LEGACY_BANGBANG_ENDS = os.environ.get("BIMANUAL_LEGACY_BANGBANG_ENDS") == "1"
+QDD_MAX = BIG_ACC if LEGACY_NO_QDD_LIMIT else 6.0    # ASSUMED (USER confirmed 11-17) [rad/s^2]: joint acceleration limit of all 14 arm joints in TOPP-RA (config.py has none; the datasheet publishes none).  USER 11-17; BIMANUAL_LEGACY_NO_QDD_LIMIT=1 restores BIG_ACC
+RAMP_T_S = 0.0 if LEGACY_BANGBANG_ENDS else 0.15     # ASSUMED (USER confirmed 11-17) [s]: the TOPP-RA path acceleration s-ddot(t) is smoothed with a box filter of this width (jerk-limited ramps at piece start/end and at the accel->decel flip); +RAMP_T_S to every piece.  BIMANUAL_LEGACY_BANGBANG_ENDS=1 restores the bang-bang profile
 BIG_VEL = 1e3                               # sentinel for the object-offset dimensions' speed (no object speed limit)
 CACHE_DIR = pathlib.Path(os.environ.get("BIMANUAL_PLAN_CACHE", pathlib.Path(__file__).resolve().parent / "plan_cache"))
 
@@ -158,7 +163,7 @@ class PlanInputs:
                  box=list(w.box_outer) if self.task == "box" else None, shelf_t=getattr(w, "shelf_t", None),
                  q0={s: [round(float(x), 9) for x in self.q0[s]] for s in SIDES}, lim=[SRSArm_limits(self.arms[s]) for s in SIDES],
                  params=dict(CLEAR_M=CLEAR_M[self.task], GOAL=TK.GOAL_DXY[self.task], LAT=LAT_CLEAR, DY=list(map(float, DY_GRID)), MW=MARGIN_WANT, MG=M_GOOD,
-                             DS=DS, PSI=PSI_STEP_DEG, DQ=DQ_MAX, SS=list(SMOOTH_SIGMAS), SL=SMOOTH_MARGIN_LOSS), v=3)
+                             DS=DS, PSI=PSI_STEP_DEG, DQ=DQ_MAX, SS=list(SMOOTH_SIGMAS), SL=SMOOTH_MARGIN_LOSS, LAT_LEG=True, SM_LEG=LEGACY_SMOOTH_ALL_D2), v=4)
         if self.wp is not None:                                                        # only a waypoint plan adds a key: default-plan keys (and cache files) are unchanged
             d["wp"] = self.wp.key_data()
         return hashlib.sha256(json.dumps(d, sort_keys=True, default=float).encode()).hexdigest()[:20]
@@ -186,9 +191,11 @@ def default_waypoint(task, world, backend=None):
     zc = CLEAR_M[td.kind]
     dz = float(sup[td.goal_support]["top"]) - (float(sup["counter"]["top"]) + zc)
     if td.insert_m > 0:        # box_bookcase (USER 11-16): lift -> base route (+ turn) -> insert straight into the compartment at lift height (base-frame +x = toward the bookcase after the turn) -> lower -> release
-        # backups: lift set_down (back on counter 1, as the other tasks); insert retrace (back out of the compartment along the same line, keep holding: the object is not near counter 1, so no set_down);
-        # place hold (the object is on the compartment floor, the plan's own continuation is the release).
-        return WaypointPlan(("s0_lift", "s1_insert", "s2_place"), ((0.0, 0.0, zc), (float(td.insert_m), 0.0, 0.0), (0.0, 0.0, round(dz, 9))), ("set_down", "retrace", "hold"), True,
+        # backups (USER 11-17 "Change the plan's backups"): set_down for every step.  Lift: back on counter 1.  After the base move set_down means advance
+        # onto the plinth and release (the landing is set_down:goal), because USER 11-17 "safe = resting on a support" refutes a hold landing.
+        # BIMANUAL_LEGACY_BOOKCASE_BACKUPS=1 = the 11-16 backups (set_down, retrace, hold): insert / place then land in a hold and Rule 1 refuses them.
+        bk = ("set_down", "retrace", "hold") if os.environ.get("BIMANUAL_LEGACY_BOOKCASE_BACKUPS") == "1" else ("set_down", "set_down", "set_down")
+        return WaypointPlan(("s0_lift", "s1_insert", "s2_place"), ((0.0, 0.0, zc), (float(td.insert_m), 0.0, 0.0), (0.0, 0.0, round(dz, 9))), bk, True,
                             ((1, BR.default_route(td), BASE_LEVEL_DEFAULT),))
     return WaypointPlan(("s0_lift", "s2_place"), ((0.0, 0.0, zc), (0.0, 0.0, round(dz, 9))), ("set_down", "hold"), True,
                         ((1, BR.default_route(td), BASE_LEVEL_DEFAULT),))
@@ -373,7 +380,7 @@ def _reach_forward(Q, M, q0, mu, dq_max):
     return alive
 
 
-def _dp_chain(arm, T0, offs, q0, psis):
+def _dp_chain(arm, T0, offs, q0, psis, corners=()):
     """-> dict(q (N,7), psi (N,), margin (N,), mu_star, mu_used, ...) or raises PlanRefused with the first sample that has no continuation."""
     N = len(offs)
     nodes = [(_nodes(arm, _tcp_pose(T0, offs[i]), psis)) for i in range(N)]
@@ -425,21 +432,33 @@ def _dp_chain(arm, T0, offs, q0, psis):
     q = np.array([Q[i][idx[i]] for i in range(N)])
     psi = np.array([PSI[i][idx[i]] for i in range(N)])
     mg = np.array([M[i][idx[i]] for i in range(N)])
-    sm = _smooth_chain(arm, T0, offs, q, psi, mg, mu_use)
+    sm = _smooth_chain(arm, T0, offs, q, psi, mg, mu_use, corners)
     return dict(q=sm["q"], psi=sm["psi"], margin=sm["margin"], mu_star=float(mu_star), mu_used=float(mu_use), n_nodes=[int(len(x)) for x in Q],
                 smooth=dict(sigma=sm["sigma"], max_d2_raw=sm["d2_raw"], max_d2=sm["d2"]))
 
 
-def _max_d2(q):
-    return float(np.abs(q[2:] - 2 * q[1:-1] + q[:-2]).max()) if len(q) > 2 else 0.0
+def _max_d2(q, corners=()):
+    """largest second difference of q(s) [rad].  `corners` = sample indices where two rest-to-rest pieces join (a corner of the object polyline): the joint path
+    has a real kink there and each piece starts/ends at rest, so those samples are left out (USER 11-17 fix: the corner used to dominate the metric, so the
+    smoothing never 'improved' it and was dropped for the right arm, sigma 0.0).  BIMANUAL_LEGACY_SMOOTH_ALL_D2=1 restores the old metric."""
+    if len(q) <= 2:
+        return 0.0
+    d2 = np.abs(q[2:] - 2 * q[1:-1] + q[:-2]).max(1)
+    if corners and not LEGACY_SMOOTH_ALL_D2:
+        keep = np.ones(len(d2), bool)
+        for c in corners:
+            if 1 <= c <= len(q) - 2:
+                keep[c - 1] = False
+        d2 = d2[keep] if keep.any() else d2
+    return float(d2.max())
 
 
-def _smooth_chain(arm, T0, offs, q, psi, mg, mu_use):
+def _smooth_chain(arm, T0, offs, q, psi, mg, mu_use, corners=()):
     """the DP chain sits on a psi GRID (PSI_STEP_DEG), which makes q(s) a staircase.  Smooth psi(s) (Gaussian over SMOOTH_SIGMAS samples, first sample pinned = the hold pose),
     re-solve the IK exactly at the smoothed psi on the branch nearest the previous sample, and keep the smoothest candidate (smallest max second difference of q) that
     stays inside the joint limits with margin >= mu_use - SMOOTH_MARGIN_LOSS and |dq| <= DQ_MAX.  Falls back to the DP chain."""
     from scipy.ndimage import gaussian_filter1d
-    best = dict(q=q, psi=psi, margin=mg, sigma=0.0, d2_raw=_max_d2(q), d2=_max_d2(q))
+    best = dict(q=q, psi=psi, margin=mg, sigma=0.0, d2_raw=_max_d2(q, corners), d2=_max_d2(q, corners))
     pu = np.unwrap(psi)
     for sig in SMOOTH_SIGMAS:
         ps = gaussian_filter1d(pu, sig, mode="nearest")
@@ -466,7 +485,7 @@ def _smooth_chain(arm, T0, offs, q, psi, mg, mu_use):
         if not ok:
             continue
         qn = np.array(qn)
-        d2 = _max_d2(qn)
+        d2 = _max_d2(qn, corners)
         if d2 < best["d2"]:
             best = dict(q=qn, psi=ps.copy(), margin=np.array(mn), sigma=float(sig), d2_raw=best["d2_raw"], d2=d2)
     return best
@@ -550,7 +569,7 @@ def plan_geometry(inp: PlanInputs, use_cache=True):
         nodes, oi = object_path(inp, dy)
         offs, seg, bounds = _samples(nodes, names=(inp.wp.names if inp.wp is not None else MOVES))
         try:
-            ch = {s: _dp_chain(inp.arms[s], inp.T0[s], offs, inp.q0[s], psis[s][0]) for s in SIDES}
+            ch = {s: _dp_chain(inp.arms[s], inp.T0[s], offs, inp.q0[s], psis[s][0], corners=tuple(sorted({b[0] for b in bounds.values()} - {0}))) for s in SIDES}
         except PlanRefused as e:
             last_err = e
             continue
@@ -625,22 +644,54 @@ def _toppra(QL, QR, P, a_cap):
     path = ta.SplineInterpolator(s, Y)
     v = vlim()
     vl = np.r_[v, v, np.full(3, BIG_VEL)]
-    al = np.r_[np.full(14, BIG_ACC), np.full(3, float(a_cap))]
+    al = np.r_[np.full(14, float(QDD_MAX)), np.full(3, float(a_cap))]
     cons = [tc.JointVelocityConstraint(np.vstack([-vl, vl]).T), tc.JointAccelerationConstraint(np.vstack([-al, al]).T)]
     inst = alg.TOPPRA(cons, path, gridpoints=np.linspace(0, 1, N_GRID), parametrizer="ParametrizeConstAccel")
     jc = inst.compute_trajectory(0, 0)
     if jc is None:
         raise PlanRefused("TOPP-RA found no feasible time parametrization", reason="toppra")
     T = float(jc.duration)
-    n = max(int(np.ceil(T / DT - 1e-9)), 1)
-    ts = np.minimum(np.arange(n + 1) * DT, T)
-    y, yd, ydd = jc(ts, 0), jc(ts, 1), jc(ts, 2)
+    if RAMP_T_S > 0 and T > 0:
+        ramp = _ramp_profile(jc, RAMP_T_S)
+        T = ramp["T"]
+        n = max(int(np.ceil(T / DT - 1e-9)), 1)
+        ts = np.minimum(np.arange(n + 1) * DT, T)
+        sv, vv, uv = (np.interp(ts, ramp["t"], ramp[k]) for k in ("s", "v", "u"))
+        P_ = jc._path
+        y = P_(sv)
+        yd = P_(sv, 1) * vv[:, None]
+        ydd = P_(sv, 2) * (vv ** 2)[:, None] + P_(sv, 1) * uv[:, None]
+    else:
+        n = max(int(np.ceil(T / DT - 1e-9)), 1)
+        ts = np.minimum(np.arange(n + 1) * DT, T)
+        y, yd, ydd = jc(ts, 0), jc(ts, 1), jc(ts, 2)
     q = {"left": y[:, :7], "right": y[:, 7:14]}
     qd = {"left": yd[:, :7], "right": yd[:, 7:14]}
     qdd = {"left": ydd[:, :7], "right": ydd[:, 7:14]}
     ratio = max(float(np.max(np.abs(qd[s]) / v)) for s in SIDES)
     p = y[:, 14:] + Pstart                                                           # object offset from the path start S (absolute)
     return Piece(n * DT, q, qd, qdd, p, ydd[:, 14:], ratio)
+
+
+def _ramp_profile(jc, tr, dtf=0.00025):
+    """TOPP-RA's s-ddot(t) is piecewise constant (bang-bang).  Box-filter it (causal, width tr) on a fine time grid and integrate: s-ddot becomes continuous (ramps of
+    duration tr; jerk <= a/tr), s-dot returns exactly to 0 at the end (unit-area kernel), the final path position is unchanged (convolution preserves the integral of
+    s-dot), |p-ddot| <= the cap (averaging), duration + tr.  -> dict(t, s, v, u, T).  Joint speed/accel limits are only approximately kept (the profile is shifted by tr/2 in
+    time against the limit curves): the caller reports the qd ratio and max |qdd|."""
+    T0 = float(jc.duration)
+    tf = np.arange(0.0, T0 + dtf, dtf)
+    uf = jc._us[np.clip(np.searchsorted(jc._ts, tf, side="right") - 1, 0, len(jc._us) - 1)]
+    k = max(int(round(tr / dtf)), 1)
+    L = len(uf) + k
+    cs = np.r_[0.0, np.cumsum(np.r_[np.zeros(k), uf, np.zeros(k)])]
+    u = (cs[k + 1:k + 1 + L] - cs[1:1 + L]) / k                                     # causal moving average: u[j] = mean(uf[j-k+1 .. j]), zeros outside
+    t = np.arange(len(u)) * dtf
+    v = np.r_[0.0, np.cumsum(0.5 * (u[1:] + u[:-1]) * dtf)]
+    s = np.r_[0.0, np.cumsum(0.5 * (v[1:] + v[:-1]) * dtf)]
+    s_end = float(jc._ss[-1])
+    s *= s_end / s[-1]                                                              # remove the O(dtf^2) quadrature drift (relative 1e-6)
+    v[-1] = 0.0
+    return dict(t=t, s=s, v=v, u=u, T=float(t[-1]))
 
 
 def _joint_only_piece(KL, KR, p0, t_min=0.1):
@@ -993,7 +1044,7 @@ class ClosedChainPlanner:
 
 def _base_segment(inp, cc, prev, base, level, t0):
     """the Segment of a base move: mode "carry" (no new Mode literal), phases [("base_move", ref)], arms hold the last planned q of the previous move (ASSUMED A4).
-    ref = dict(route=[[kind, value], ...], level).  meta: base_ref, accel = dict(source="base_card", level), backup_phases None (v1: no recovery run inside a base move) unless BIMANUAL_BASE_BACKUP=1 (base_stop, hold)."""
+    ref = dict(route=[[kind, value], ...], level).  meta: base_ref, accel = dict(source="base_card", level), backup_phases = [(base_stop, BASE_STOP_MAX_S), (hold, 0.5)] by default (11-16; rows: stack/checks/base_stop.py); None under BIMANUAL_LEGACY_NO_BASE_BACKUP=1 (BIMANUAL_BASE_BACKUP=1 forces it on)."""
     after, route, lv = base
     lv = level or lv or BASE_LEVEL_DEFAULT
     be = _BASE_BACKEND or BR.default_backend()
@@ -1001,7 +1052,7 @@ def _base_segment(inp, cc, prev, base, level, t0):
     pc = cc.pieces[prev]
     q_end = {s: (pc.q[s][-1].copy(), np.zeros(7), np.zeros(7)) for s in SIDES}
     dur = BR.route_duration(route, lv, be.levels())
-    bk = [("base_stop", BASE_STOP_MAX_S), ("hold", 0.5)] if os.environ.get("BIMANUAL_BASE_BACKUP") == "1" else None     # 11-13 F2: opt-in base_stop recovery (off = None, bit-identical)
+    bk = None if (os.environ.get("BIMANUAL_LEGACY_NO_BASE_BACKUP") == "1" and os.environ.get("BIMANUAL_BASE_BACKUP") != "1") else [("base_stop", BASE_STOP_MAX_S), ("hold", 0.5)]     # 11-16: base_stop recovery ON by default (11-13 F2 had it opt-in); BIMANUAL_LEGACY_NO_BASE_BACKUP=1 = the old None
     meta = dict(phases=[("base_move", ref)], base_ref=ref, accel=dict(source="base_card", level=lv), backup_phases=bk, cc=cc,
                 end_pose=cc.geo.info.get("base", {}).get("end_pose"))
     return Segment(mode="carry", t0=t0, t1=t0 + dur, q_ref=lambda t, q=q_end: q, x_obj=None, weld={s: True for s in SIDES}, meta=meta)
@@ -1051,7 +1102,8 @@ def assumptions():
         object_acc=A("per-axis |a_i| <= a_plan", "the box the static rows are certified on; a_plan = admitted acceleration (envelope.A_NOM 0.5 ASSUMED, or a*)"),
         a_backup=A("carry.A_BACKUP", "ASSUMED 0.25 m/s^2"), retreat=A(dict(m=RETREAT_M, T=RETREAT_T), "legacy release retreat, smoothstep"),
         joint_speed=dict(tag="MEASURED-spec", value=list(C.MANUAL["joint_speed_deg_s"]), src="NERO datasheet, config.MANUAL (deg/s)"),
-        joint_accel=dict(tag="OPEN", value=None, src="config.py has no joint acceleration limit; none imposed (TOPP-RA sentinel 1e4 rad/s^2 is not a limit); max |qdd| reported"),
+        joint_accel=A(QDD_MAX, "joint acceleration limit of the 14 arm joints in TOPP-RA [rad/s^2] (USER 11-17; config.py has none; BIMANUAL_LEGACY_NO_QDD_LIMIT=1 = none, sentinel 1e4)"),
+        ramp_t_s=A(RAMP_T_S, "box-filter width of the TOPP-RA path acceleration = jerk-limited ramp at piece ends and the accel->decel flip [s] (USER 11-17; BIMANUAL_LEGACY_BANGBANG_ENDS=1 = 0)"),
         kinematics=dict(tag="MODEL", src="SRS constants read from the compiled MJCF; every chosen q FK-validated (MuJoCo)"),
         base_route=A(dict(MAX_SEGMENTS=BR.MAX_SEGMENTS, MAX_LINE_M=BR.MAX_LINE_M, MAX_TURN_DEG=BR.MAX_TURN_DEG, STEP_M=BR.STEP_M, STEP_DEG=BR.STEP_DEG, GAP_S=BR.GAP_S,
                          TRACK_MARGIN_M=BR.TRACK_MARGIN_M, level_default=BASE_LEVEL_DEFAULT),

@@ -11,6 +11,8 @@ a model plan and the fixture plan are judged on one goal.  Goal tolerance GOAL_T
 from __future__ import annotations
 
 import json
+import os
+import re
 
 import numpy as np
 
@@ -81,7 +83,8 @@ def _task_spec_behind(task, world=None):
     gx, gy = td.goal_dxy
     goal = [round(float(w.obj_xy[0] + gx), 4), round(float(w.obj_xy[1] + gy), 4)]
     p0 = be.start_pose(w)
-    r1 = [{k: v} for k, v in BR.default_route(td)]
+    legacy_hints = os.environ.get("BIMANUAL_LEGACY_BEHIND_HINTS") == "1"     # USER 11-17: no route hint (cheat); the legacy prompt keeps R1 and the turning hint
+    r1 = [{k: v} for k, v in BR.default_route(td)] if legacy_hints else None
     if td.kind == "box":
         obj = dict(name="closed crate", footprint_xy_m=[w.box_outer[0], w.box_outer[1]], height_m=w.box_outer[2], empty_mass_kg=OB.BOX["mass"],
                    grasp="end tabs on the +y and -y sides, tab centre %.4f m above the support" % SC.GRASP_Z)
@@ -100,12 +103,15 @@ def _task_spec_behind(task, world=None):
             f"The robot base can drive: the step skill base_move(route) moves the whole robot, the arms hold still and keep carrying the object during it; "
             f"the robot's +x axis turns with the base (so after a 180 degree turn the robot faces -x).  base_move is a motion step like lift and place: give it a recovery too.  "
             f"The planner refuses a base route that sweeps the base, arms or object into a counter or table.  "
-            f"Known-good route R1 (it sweeps clear): {json.dumps(r1)}.  Turning in place at the pick pose hits counter 1.  Place only on counter 2 (support name \"counter2\").")
+            + (f"Known-good route R1 (it sweeps clear): {json.dumps(r1)}.  Turning in place at the pick pose hits counter 1.  " if legacy_hints else "")
+            + "Place only on counter 2 (support name \"counter2\").")
     obj["start_xy"] = [round(float(w.obj_xy[0]), 4), round(float(w.obj_xy[1]), 4)]
     obj["start_support"] = "counter"
     base = dict(start_pose_xy_yaw_deg=[round(float(p0[0]), 4), round(float(p0[1]), 4), round(float(np.degrees(p0[2])), 2)],
                 note="pose of the base rotation centre; in-place turns turn about it; a line moves along the robot's CURRENT +x axis (negative = backwards)",
-                routes_known_good={td.routes[0][0]: r1}, supports_world_frame_xy_m=dict(counter_1=sup["counter"], counter_2=sup["counter2"]))
+                supports_world_frame_xy_m=dict(counter_1=sup["counter"], counter_2=sup["counter2"]))
+    if legacy_hints:
+        base["routes_known_good"] = {td.routes[0][0]: r1}
     return dict(task=task, instruction=text, start_xy=obj["start_xy"], goal_xy=goal, goal_support=td.goal_support, goal_top=sup[td.goal_support]["top"],
                 goal_tol_m=GOAL_TOL_M, supports=sup, object=obj, base=base)
 
@@ -281,6 +287,34 @@ def reask_prompt(task, plan_dict, evidence, facts=None, world=None):
 REASK_MARK = "RULE 2 RE-ASK"          # the mock proposer keys on it (mock.py)
 
 
+_CORNER_KEYS = ("worst", "worst_nom", "worst_one", "c", "m", "contents_com", "contents_mass_set_kg", "theta", "vertex", "corner")   # keys that carry a belief-box vertex / contents COM
+_CORNER_RE = re.compile(r"(?:,\s*|;\s*|\(\s*|\s)(?:worst\s+vertex|vertex|corner|contents\s+COM|COM|theta|Theta|c|m)\s*[=:]\s*(?:\[[^\]]*\]|\([^)]*\)|[-+0-9.eE]+)", re.I)
+
+
+def _strip_text(t):
+    """remove 'c = [..]', 'm = 3.2', 'vertex=(..)', 'COM: [..]' fragments from a checker why string (they are belief-box corners / contents COM)."""
+    return _CORNER_RE.sub("", t) if isinstance(t, str) else t
+
+
+def _scrub(x):
+    if isinstance(x, dict):
+        return {k: _scrub(v) for k, v in x.items() if k not in _CORNER_KEYS}
+    if isinstance(x, (list, tuple)):
+        return [_scrub(v) for v in x]
+    return _strip_text(x)
+
+
+def _scrub_evidence(ev):
+    """the evidence minus every belief-box corner / worst vertex / contents COM (USER 11-17).  Kept: measured readings, skipped probes, failing row names + numbers that are not corners, coverage.
+    Legacy: BIMANUAL_LEGACY_REASK_WORST=1 keeps the old block."""
+    out = dict(ev)
+    out.pop("worst", None)
+    for k in ("failing_rows", "probes_skipped", "fixed_constraints", "rule1_refusals"):
+        if k in out:
+            out[k] = _scrub(out[k])
+    return out
+
+
 def reask_evidence_block(ev):
     """the schema-v2 Rule 2 evidence as prompt text (T1: a reading showed a phenomenon the plan did not name; T2: no recovery of the plan is viable on the current set).  Only what
     the robot measured and the checker computed: readings (sound intervals), the probes the checker skipped (with the failing own-limit rows), the failing admission rows, the worst
@@ -291,6 +325,9 @@ def reask_evidence_block(ev):
             "T2": f"{REASK_MARK} (T2): no recovery of your plan is viable on the parameter set the probes left (the checker refuses the plan on it).",
             "T4": f"{REASK_MARK} (T4): the checker refuses step(s) {steps_t4} of your plan (Rule 1: no recovery works for every remaining world from every stop point)."}[trig]
     parts = [head]
+    legacy = os.environ.get("BIMANUAL_LEGACY_REASK_WORST") == "1"
+    if not legacy:                                           # USER 11-17: no belief-box corner / worst vertex in the evidence (a clue towards the answer)
+        ev = _scrub_evidence(ev)
     parts.append("READINGS (the robot's measurements; treat as correct; a one-sided reading has hi = null, i.e. only a lower bound was read):\n"
                  + json.dumps(ev.get("readings", []), sort_keys=True))
     if ev.get("probes_skipped"):
@@ -299,7 +336,7 @@ def reask_evidence_block(ev):
         parts.append("PHENOMENA SHOWN BY A READING AND NOT NAMED IN YOUR PLAN:\n" + json.dumps(ev["phenomena_shown"], sort_keys=True))
     if ev.get("failing_rows"):
         parts.append("FAILING CHECKER ROWS ON THE CURRENT SET:\n" + json.dumps(ev["failing_rows"], sort_keys=True))
-    if ev.get("worst"):
+    if ev.get("worst") and legacy:
         parts.append("WORST VERTEX OF THE BINDING ROW (contents mass m [kg], contents COM c [m], waypoint wp):\n" + json.dumps(ev["worst"], sort_keys=True))
     if ev.get("rule1_refusals"):
         parts.append("RULE 1 REFUSALS YOU CAN FIX (step, recovery, stop time, row, pair, distance vs limit, which of your plan's choices affects it):\n"

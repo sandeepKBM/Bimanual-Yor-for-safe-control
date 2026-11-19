@@ -314,3 +314,77 @@ def dense_min_distance(plan, sg, cls, k, upsample=20, scene=None):
         D = np.where(al, sc.cap[cls], D)
         best = min(best, float(D.min()) if len(D) else sc.cap[cls])
     return best
+
+
+# ---- adaptive refinement of the swept row (USER 11-17 "Both", part 1)
+SWEPT_MAX_DEPTH = 4      # ASSUMED (USER to confirm): an interval is halved at most this many times -> minimum step = interval / 2**4 = 0.625 mm of a 1 cm geometry interval (allowance / 16)
+
+
+def swept_coarse():
+    import os
+    return os.environ.get("BIMANUAL_LEGACY_SWEPT_COARSE", "0") == "1"
+
+
+def _class_lb(sc, c, Da, Db, X2, R2, h):
+    """swept lower bound [m] on class c over ONE interval of length h (same pair-mask rule as the row): min(d) - v h / 2, with v = max pair speed over the pairs that can bind."""
+    if Da.shape[0] == 0:
+        return float(sc.cap[c])
+    sp = _geom_speeds(sc, X2, R2, h)
+    S = _pair_speed(sc, c, sp, 1)[0]
+    dm_p = np.minimum(Da, Db)
+    v = np.where(dm_p <= dm_p.min() + S.max() * h, S, 0.0).max()
+    return float(dm_p.min() - v * h / 2.0)
+
+
+def refine_samples(sc, args, D0, X0, R0, d_min, max_depth=None):
+    """Adaptive refinement of a sample sequence.  args[k] = (ql, qr, p, post) of sample k; D0 {class: (n, P)}, X0 (n, G, 3), R0 (n, G, 9) the states there.  An interval whose swept
+    bound is below d_min while both endpoints are above it is halved (state = linear interpolation in q and p, the model the row already assumes), down to max_depth halvings
+    (SWEPT_MAX_DEPTH).  Each sub-interval gets its own speed bound, so the row's bound min over sub-intervals stays a sound bound on the whole interval (same MODEL).
+    Intervals across a base-move boundary (post differs) are not refined.
+    -> t (m,) fractional sample index, {class: (m, P)}, X (m, G, 3), R (m, G, 9), n_added."""
+    max_depth = SWEPT_MAX_DEPTH if max_depth is None else max_depth
+    n = len(args)
+    nodes = [dict(u=float(k), D={c: D0[c][k] for c in CLASSES}, X=X0[k], R=R0[k], a=args[k]) for k in range(n)]
+    added = 0
+
+    def tight(a, b, depth):
+        if depth >= max_depth:
+            return False
+        h = b["u"] - a["u"]
+        for c in CLASSES:
+            Da, Db = a["D"][c], b["D"][c]
+            if Da.shape[0] == 0 or min(Da.min(), Db.min()) < d_min[c]:      # no pairs / the endpoint itself already fails: refining cannot change the verdict
+                continue
+            lb = _class_lb(sc, c, Da, Db, np.stack([a["X"], b["X"]]), np.stack([a["R"], b["R"]]), h)
+            if lb < d_min[c]:
+                return True
+        return False
+
+    def mid(a, b):
+        (ql0, qr0, p0, po0), (ql1, qr1, p1, po1) = a["a"], b["a"]
+        ar = (0.5 * (np.asarray(ql0) + ql1), 0.5 * (np.asarray(qr0) + qr1), 0.5 * (np.asarray(p0) + p1), po0)
+        sc.set_state(*ar)
+        dd = sc.distances()
+        X, R = sc.geom_state()
+        return dict(u=0.5 * (a["u"] + b["u"]), D={c: np.where(dd[c][1], sc.cap[c], dd[c][0]) for c in CLASSES}, X=X, R=R, a=ar)
+
+    out = []
+
+    def rec(a, b, depth):
+        nonlocal added
+        if a["a"][3] == b["a"][3] and tight(a, b, depth):
+            m = mid(a, b)
+            added += 1
+            rec(a, m, depth + 1)
+            out.append(m)
+            rec(m, b, depth + 1)
+
+    seq = []
+    for k in range(n - 1):
+        seq.append(nodes[k])
+        out = []
+        rec(nodes[k], nodes[k + 1], 0)
+        seq.extend(out)
+    seq.append(nodes[-1])
+    return (np.array([x["u"] for x in seq]), {c: np.stack([x["D"][c] for x in seq]) for c in CLASSES},
+            np.stack([x["X"] for x in seq]), np.stack([x["R"] for x in seq]), added)

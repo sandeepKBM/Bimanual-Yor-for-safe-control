@@ -89,12 +89,29 @@ def step_skills(task=None):
     return {**STEP_SKILLS, **BASE_STEP_SKILLS} if task in BASE_TASKS else dict(STEP_SKILLS)
 
 
+def legacy_route_vocab():
+    """BIMANUAL_LEGACY_ROUTE_VOCAB=1: the 11-09..11-16 route description (keys line_m / turn_deg; the validator wants "line" / "turn") -- old prompts replay byte-identical."""
+    return os.environ.get("BIMANUAL_LEGACY_ROUTE_VOCAB") == "1"
+
+
+def _route_vocab():
+    """the real route format (USER 11-17: the prompt said line_m/turn_deg, the validator demands one key line | turn).  Descriptive strings only, no example route.
+    Ranges = BASE_STEP_SKILLS' ASSUMED outer ranges (BASE_TAG)."""
+    lo, hi = BASE_STEP_SKILLS["base_move"]["route"]["line_m"]
+    tlo, thi = BASE_STEP_SKILLS["base_move"]["route"]["turn_deg"]
+    return dict(format="a list of 1 to 4 objects; each object has exactly ONE key, either \"line\" or \"turn\"",
+                line=f"number, metres along the robot's current +x axis (negative = backwards); range [{lo}, {hi}]",
+                turn=f"number, degrees counter-clockwise, in place; range [{tlo}, {thi}]")
+
+
 def vocabulary(supports=None, base=False):
     """JSON-able description of the vocabulary (what the prompt shows).  supports = the support names of the scene (default: all enum values).  base=True adds base_move."""
     steps = {k: {n: (list(supports) if (k == "place" and supports is not None) else list(r)) for n, r in a.items()} for k, a in STEP_SKILLS.items()}
     tags = dict(ranges=RANGE_TAG)
     if base:
         steps.update({k: {n: dict(r) for n, r in a.items()} for k, a in BASE_STEP_SKILLS.items()})
+        if not legacy_route_vocab():
+            steps["base_move"] = {"route": _route_vocab()}
         tags["base_move"] = BASE_TAG
     return dict(steps=steps, recoveries=list(RECOVERY_SKILLS), tags=tags)
 
@@ -525,7 +542,20 @@ def validate_reply(text, task, supports=("counter", "shelf")):
     return validate(parse_reply(text), task, supports)
 
 
+def _canon_plan(d):
+    """canonical form for the plan id: no free-text fields (step 'why', phenomenon 'why' / 'name', unmeasurable reasons), so a re-worded identical plan has the same id."""
+    out = {k: v for k, v in d.items() if k not in ("why", "status", "proposer", "plan_id")}
+    out["steps"] = [dict(skill=st.get("skill"), args=st.get("args")) for st in d.get("steps", [])]
+    if "phenomena" in d:
+        out["phenomena"] = sorted([dict(id=ph.get("id"), handle=({"measure": h["measure"]} if "measure" in (h := ph.get("handle") or {}) else {"unmeasurable": True}))
+                                   for ph in d["phenomena"]], key=lambda x: json.dumps(x, sort_keys=True))
+    if "probes" in d:
+        out["probes"] = [q.get("skill") if isinstance(q, dict) else q for q in d["probes"]]
+    return out
+
+
 def plan_id(plan_dict):
     import hashlib
-    return hashlib.sha256(json.dumps(plan_dict, sort_keys=True).encode()).hexdigest()[:12]
+    body = plan_dict if os.environ.get("BIMANUAL_LEGACY_PLAN_ID") == "1" else _canon_plan(plan_dict)
+    return hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:12]
 

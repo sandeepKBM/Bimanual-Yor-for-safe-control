@@ -161,12 +161,12 @@ def test_rule1_admits_only_inside_the_static_admission(box_records):
                 assert r["admission"]["recovery"] == r["program"]
     light = {r["seg"]: r for r in box_records[(1.0, 1.5)]}
     assert light["lift"]["admitted"] and light["carry"]["admitted"], [(s, r.get("refusal")) for s, r in light.items()]
-    # 11-16 stop-finish fix: no place branch is MISSING any more (a stop in the last T s finishes the move); place is still refused, now ONLY by the
-    # D9 object-world row: box_wall_e vs shelf, sample distance 7.1 mm, swept bound 2.1 mm < d_min 5 mm (U_OBJ_CLEAR_M, ASSUMED).  Pinned so a silent
-    # change shows up; re-decide when the place pose / D9 rule changes.
-    assert not light["place"]["admitted"]
-    fails = [f for p in light["place"]["per_program"].values() for f in p["failing"]]
-    assert fails and all(f["guarantee"] == "refuted" and "obj_world" in (f.get("why") or "") for f in fails), [(f["name"], f.get("why")) for f in fails]
+    # 11-17 (USER "Both / Accept 4"): the swept collision bound is refined (adapters/collision_rows.refine_samples, SWEPT_MAX_DEPTH 4).  The place gap
+    # box_wall_e vs shelf (sample distance 7.1 mm; coarse bound 2.1 mm) now bounds at 5.9 mm, so place is ADMITTED; the binding row is a lift interval
+    # (shelf|box_wall_w, bound 5.256 mm, margin about +0.26 mm over d_min 5 mm = U_OBJ_CLEAR_M, ASSUMED).  Soundness checked 11-17 on this plan: over all
+    # 43 geometry intervals, refined bound <= dense true minimum (256 subdivisions, linear-interpolation MODEL) and >= the coarse bound; min slack 1.25 mm.
+    # The coarse refusal is pinned in test_coarse_swept_bound_refuses_place below.
+    assert light["place"]["admitted"], light["place"].get("refusal")
     for r in box_records[(1.0, 1.5)]:
         if r["admitted"]:
             assert r.get("executable") is True and any(a["name"] == "between_samples" or "between_samples" in str(a) for a in r["admission"]["assumptions"])
@@ -178,3 +178,16 @@ def test_empty_theta_is_never_admitted():
     cm, lo, _ = make_callables({"A": box(0.0, 5.0)})
     adm, per = R1.admit_step(0, TH.ThetaSet(()), [TH.RecoveryProgram.fixed("A", "A", "set_down")], TIMES, cm, lo)
     assert adm is None and any(not r.ok for r in per["A"])
+
+
+def test_coarse_swept_bound_refuses_place(tmp_path, monkeypatch):
+    """BIMANUAL_LEGACY_SWEPT_COARSE=1 = the 11-16 coarse swept bound: place refused ONLY by the D9 object-world row (box_wall_e vs shelf,
+    swept bound 2.1 mm < 5 mm)."""
+    from world_model.v2.adapters import rule1_contents as RC
+    monkeypatch.setenv("BIMANUAL_LEGACY_SWEPT_COARSE", "1")
+    monkeypatch.setattr(RC, "_CTX", {})                     # fresh contexts: Ctx._crow caches collision rows by (a, seg, idxs) without the coarse flag
+    recs = {r["seg"]: r for r in RC.run_cell("box", (1.0, 1.5), tmp_path, n_sampled=0, planner="closed_chain", fallback=False)}
+    assert recs["lift"]["admitted"] and recs["carry"]["admitted"]
+    assert not recs["place"]["admitted"]
+    fails = [f for p in recs["place"]["per_program"].values() for f in p["failing"]]
+    assert fails and all(f["guarantee"] == "refuted" and "obj_world" in (f.get("why") or "") for f in fails), [(f["name"], f.get("why")) for f in fails]

@@ -6,6 +6,8 @@ a PlanRefused never gets here), so this module imports no planner.  Keys, roundi
 """
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 from world_model.v2.adapters import payload_envelope as PE
@@ -29,14 +31,38 @@ def support_top(task: str, world) -> dict:
     return SC.support_tops(world)[t.goal_support]
 
 
+def plan_end_xy(task: str, world, wp):
+    """MODEL: world xy of the carried object at the END of the compiled plan of a table-behind task: the run world's object start xy + the planned object offset (geometry knots, arm/base frame),
+    mapped through the nominal base end pose (the transform closed_chain._x_obj(after_base) applies to the carry).  None when there is no waypoint plan or it has no base move.
+    GUESS (stated): the base start / end pose come from the NOMINAL geometry (default world); the object's start xy is the run world's."""
+    if wp is None or not getattr(wp, "base", None):
+        return None
+    from world_model.v2.stack.planners import closed_chain as CCP
+    g = CCP.geometry_for(CCP._nominal_inputs(task, wp))
+    b = (g.info or {}).get("base")
+    if not b:
+        return None
+    c0, ce = np.asarray(b["start_pose"][:2], float), np.asarray(b["end_pose"][:2], float)
+    dl = float(b["end_pose"][2]) - float(b["start_pose"][2])
+    x_end = np.asarray(world.obj_xy, float)[:2] + np.asarray(g.offs[-1], float)[:2]
+    return ce + CCP.BR.rot(dl) @ (x_end - c0)
+
+
 def admit_static(task: str, cell, world, spec, path: AD.PathSamples, planner: str, wp=None) -> dict:
     t = TK.task(task)
     be = PE.EnvelopeBackend()
     sup = support_top(task, world)
-    if t.base:     # legacy: the destination is the scene's place pose (MODEL: scene.place_pose_xy), not o_ref + planned offset
-        from world_model.v2.nero.base import scene as BS
+    if t.base:
         d = np.asarray(path.disp, float).copy()
-        d[:2] = np.asarray(BS.place_pose_xy(world), float) - be.o_ref()[:2]
+        if os.environ.get("BIMANUAL_LEGACY_SUPPORT_PLACE_POSE") == "1":     # legacy: the destination is the scene's place pose (MODEL: scene.place_pose_xy), not the plan's end pose
+            from world_model.v2.nero.base import scene as BS
+            end_xy = np.asarray(BS.place_pose_xy(world), float)
+        else:                                                               # USER 11-17: the support row at the PLAN's end pose
+            end_xy = plan_end_xy(task, world, wp)
+            if end_xy is None:                                              # no plan end pose = MISSING = refused (never an admission)
+                from world_model.v2.nero.contents import carry_cert as CCT
+                return CCT.refused_static(task, cell, spec, "support_dest: the plan's end pose is not available (MISSING): " + ("no waypoint plan" if wp is None else "no base move in the plan"))
+        d[:2] = end_xy - be.o_ref()[:2]
         path = AD.PathSamples(path.offs, path.per_seg, path.cap, d)
     adm = AD.admit(t, spec, path, be, (sup["x"], sup["y"]))
     rows = {}

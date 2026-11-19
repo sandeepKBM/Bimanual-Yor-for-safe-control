@@ -170,7 +170,10 @@ def test_any_U_includes_the_pre_hold_violation(tmp_path, monkeypatch):
             return PB.Reading("weigh", {"contents_mass_kg": (lo, lo + 0.1 * (hi - lo))}, "interval", dict(why="free", shows=["PH1"]))
 
     inj = dict(kind="obj_tilt", t=0.2)
-    monkeypatch.setattr(PS.CR, "run_segments", lambda ep, p, branch_backups=True: dict(segments=[], end_in_R=(True, ""), pre_hold_viol=inj))
+    monkeypatch.setattr(PS.CR, "run_segments", lambda ep, p, branch_backups=True, **kw: dict(segments=[], end_in_R=(True, ""), pre_hold_viol=inj))   # **kw: certs= / handles= (11-17)
+    # 11-17: the planned-path rows (incl. the per-plan tilt measurement) also call CR.run_segments, which is faked above for the carry only;
+    # they are not the subject of this test, so they are stubbed to pass (planned_path_rows has its own gates)
+    monkeypatch.setattr(PS, "planned_path_rows", lambda *a, **k: [PS._row_dict("planned_path", True, 0.0, "sampled", "stubbed in this test")])
     r = PS.fixed_job(("box", 1, *EPS, plan), method="poslift", make_skills=lambda w: {"weigh": Light(w)})
     assert "error" not in r, r.get("tb")
     assert "carry" in r and r["carry"]["pre_hold_viol"] == inj and r["probe_viol"] is None

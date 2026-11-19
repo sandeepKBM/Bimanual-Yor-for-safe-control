@@ -290,11 +290,14 @@ def _proposer_plans(tasks, a, out):
         pim = _plan_images(t, a)                                                # 11-12 opt-in: rendered views of world a.plan_image_world, BEFORE any probe; none -> text-only request
         def _check(pl, t=t):                                                   # compile + build (planner); raises PS.PlanRejected -> the proposer is re-asked (USER 11-09, no cap)
             return PC.compile_plan(pl, t, level=("L1" if TK.task(t).base else None))      # behind: validated at L1 (the level does not enter the geometry); per world the admission's level is applied
-        plan, cp, rec, info = PP.propose_until_accepted(t, _check, backend_spec=a.plan_spec, cache_dir=a.plan_cache, offline=a.offline, **pim.proposer_cfg())
+        budget = PP.RequestBudget(int(getattr(a, "max_requests", 8))) if hasattr(PP, "RequestBudget") and getattr(a, "max_requests", 8) is not None else None   # ONE per task run (USER 11-16/17, cap 8 ASSUMED by the user): Phase A + every Rule 2 / T4 re-ask
+        bkw = {} if budget is None else dict(budget=budget)
+        plan, cp, rec, info = PP.propose_until_accepted(t, _check, backend_spec=a.plan_spec, cache_dir=a.plan_cache, offline=a.offline, **pim.proposer_cfg(), **bkw)
         small = {k: rec.get(k) for k in ("kind", "spec", "model", "reasoning", "backend", "caveats", "request_hash", "raw_reply_path", "status", "stage", "reasons", "plan_id", "cached")}
         if plan.get("status") == "ok" and "phenomena" in plan:                 # schema v2: what the model named (recorded per task)
             small.update(phenomena=plan["phenomena"], probes=plan["probes"])
-        small.update(n_reasks=info["n_reasks"], reask_attempts=info["attempts"], proposer_wall_s=info["proposer_wall_s"], proposer_error=info["proposer_error"])
+        small.update(n_reasks=info["n_reasks"], reask_attempts=info["attempts"], proposer_wall_s=info["proposer_wall_s"], proposer_error=info["proposer_error"],
+                     request_budget=None if budget is None else budget.record(), end_reason=info.get("end_reason") or info.get("final"))
         item = dict(plan_source="codex", plan_record=small, plan_id=plan.get("plan_id"), n_reasks=info["n_reasks"])        # full record (caveats, prompt hash) in OUT/plans/<task>.json
         doc = dict(plan=plan, record=rec, reask=info)
         if pim.paths:
@@ -303,7 +306,8 @@ def _proposer_plans(tasks, a, out):
         if cp is not None:
             item["plan"] = cp.job_plan(a.outside_b)
             item["plan"]["plan_dict"] = plan                                   # schema v2 (probe_select) and behind (recompiled per world at the admission's base level)
-            item["plan"]["proposer"] = dict(spec=a.plan_spec, cache=a.plan_cache, offline=bool(a.offline), reask_limit=getattr(a, "reask_limit", None))   # Rule 2 re-asks in the workers
+            item["plan"]["proposer"] = dict(spec=a.plan_spec, cache=a.plan_cache, offline=bool(a.offline), reask_limit=getattr(a, "reask_limit", None),
+                                            budget=budget, tilt_dir=str(out / "tilt"), tilt_procs=int(getattr(a, "tilt_procs", 1)), tilt_n=getattr(a, "tilt_n", None))                     # Rule 2 / T4 re-asks in the workers (a worker POOL gets a pickled COPY of the budget: the cap is per process there; run_bookcase is in-process = one shared budget)
             if pim.paths:                                                      # the same initial images ride along on every Rule 2 / rejection re-ask
                 item["plan"]["proposer"].update(images=list(pim.paths), image_note=pim.note)
             doc["compiled"] = cp.to_json()
@@ -336,6 +340,9 @@ def main(argv=None):
                     help="opt-in: attach rendered views of one world to the plan request (and its Rule 2 / rejection re-asks): torso ZED (proposed mount), + left wrist RealSense. Default none = text only, caches unchanged")
     ap.add_argument("--plan-image-world", type=int, default=0, help="with --plan-images: index i of the world (nero/base/smoke.behind_world) that is rendered (default 0)")
     ap.add_argument("--offline", action="store_true", help="proposer: replay from --plan-cache only; a miss fails loudly, the network is never called")
+    ap.add_argument("--max-requests", type=int, default=8, help="proposer request budget per task run: Phase A asks + every Rule 2 / T4 re-ask (default 8, USER 11-16)")
+    ap.add_argument("--tilt-procs", type=int, default=1, help="processes of the per-plan tilt measurement (default 1)")
+    ap.add_argument("--tilt-n", type=int, default=None, help="worlds per per-plan tilt measurement (default 20, ASSUMED)")
     ap.add_argument("--reask-limit", type=int, default=None, help="schema v2 Rule 2: stop re-asking after this many per world (default: NO cap, ruling 11-09)")
     ap.add_argument("--outside-b", choices=("refuse", "carry"), default="refuse", help="probe set not inside the plan's belief B: refuse (default) or carry anyway (recorded)")
     ap.add_argument("--theirs", choices=("ungated", "agentchord"), default="ungated")

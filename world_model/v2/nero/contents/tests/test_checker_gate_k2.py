@@ -39,7 +39,20 @@ def _both(monkeypatch, *a, **k):
     return out["legacy"], out["unified"]
 
 
+TOL_M = 1e-6          # USER 11-17 "Compare with tolerance": the unified support row reads the plan's end pose (static_admission.plan_end_xy), 5.4e-8 m
+                      # from scene.place_pose_xy; numbers equal within TOL_M; which of two tied corners is named in support_dest.worst is ignored
+
+
+def _num(x):
+    return isinstance(x, (int, float, np.number)) and not isinstance(x, (bool, np.bool_))
+
+
 def _diff(a, b, path=""):
+    if _num(a) and _num(b):
+        fa, fb = float(a), float(b)
+        return [] if (fa == fb or abs(fa - fb) <= TOL_M or (np.isnan(fa) and np.isnan(fb))) else [f"{path}: {a!r} vs {b!r}"]     # fa == fb first: inf == inf
+    if path.endswith("support_dest.worst.c"):
+        return []
     if type(a) is not type(b):
         return [f"{path}: type {type(a).__name__} vs {type(b).__name__}"]
     if isinstance(a, dict):

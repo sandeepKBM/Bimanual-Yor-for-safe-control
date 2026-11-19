@@ -119,7 +119,8 @@ def test_plan_structure(planned):
     assert plan.segments[3].meta["backup_phases"] is None
     q, qd, qdd = plan.segments[0].q_ref(0.0)["left"]
     assert q.shape == (7,) and np.allclose(qd, 0)
-    assert "joint_accel" in plan.assumptions and plan.assumptions["joint_accel"]["tag"] == "OPEN"
+    assert "joint_accel" in plan.assumptions and plan.assumptions["joint_accel"]["tag"] == "ASSUMED"      # USER 11-17: QDD_MAX 6 rad/s^2 (was OPEN = no limit)
+    assert CC.QDD_MAX == 6.0 and CC.RAMP_T_S == 0.15 and CC.LAT_CLEAR == 0.005
 
 
 def test_static_path_has_no_ik_miss(planned):

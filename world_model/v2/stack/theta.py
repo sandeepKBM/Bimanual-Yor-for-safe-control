@@ -328,6 +328,26 @@ def bin_sets(program: RecoveryProgram, theta: ThetaSet) -> list:
     return out
 
 
+def theta_from_reading(spec: ReadingSpec, theta_0: ThetaSet, y: float, nu: "float | None" = None, theta_t: "ThetaSet | None" = None) -> ThetaSet:
+    """11-17 (D1): the belief after ONE reading y.  Per-cell bounding box of the slab {theta : h(theta) in [y - nu, y + nu]} (nu default = spec.noise; a sound superset when h depends
+    on >= 2 fields).
+      theta_t given and y inside reading_range(spec, theta_t) (the reading is CONSISTENT with theta_t): theta_t ∩ slab  (a subset of theta_t: sound narrowing)
+      otherwise (a contradiction of theta_t, or no theta_t): theta_0 ∩ slab  (read on the PRIOR box; D1).
+    Empty = no world of that set produces this reading."""
+    nu = float(spec.noise if nu is None else nu)
+    base = theta_0
+    if theta_t is not None and not theta_t.is_empty():
+        R = reading_range(spec, theta_t)
+        if R.lo - 1e-12 <= float(y) <= R.hi + 1e-12:
+            base = theta_t
+    cells = []
+    for c in base.cells:
+        cj, _ex = _slab_cell(spec, c, float(y) - nu, float(y) + nu)
+        if cj is not None:
+            cells.append(cj)
+    return ThetaSet(tuple(cells))
+
+
 def covers_readings(program: RecoveryProgram, theta: ThetaSet) -> tuple:
     """(True, []) iff the union of the bins' Y_j contains reading_range(spec, Theta); else (False, uncovered reading intervals)."""
     if program.reading is None or theta.is_empty():

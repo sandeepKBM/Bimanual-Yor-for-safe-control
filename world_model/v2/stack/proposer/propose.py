@@ -35,6 +35,43 @@ class ProposerCacheMiss(RuntimeError):
     """offline replay asked for a request that is not in the cache.  Raised, never swallowed: the run must not fall back to the network."""
 
 
+class RequestCapReached(RuntimeError):
+    """the run's request budget is used up (USER 11-16: cap 8 requests per run).  Raised by RequestBudget.charge BEFORE the request is sent."""
+
+
+class RequestBudget:
+    """requests per run (USER 11-16: cap 8, ASSUMED by the user).  Every backend request charges 1, including a cache hit in offline replay (it replays a request that was sent).
+    The caller shares ONE budget over the run's propose / reask / reask_rejected calls (budget=...); budget=None everywhere = no cap (the old behaviour)."""
+
+    def __init__(self, max_requests=8):
+        self.max, self.used = int(max_requests), 0
+
+    @property
+    def remaining(self):
+        return self.max - self.used
+
+    def charge(self, n=1):
+        if self.used + n > self.max:
+            raise RequestCapReached(f"request cap reached: {self.used} of {self.max} requests used, {n} more asked")
+        self.used += n
+
+    def record(self):
+        return dict(max=self.max, used=self.used)
+
+
+def _capped(task, spec, budget, hist, t0, n_asks=None, kind="until"):
+    """the (plan, accepted, rec, info) of a loop that ended on the request cap: plan = plan_rejected stage "request_cap", accepted None, info["end_reason"] = info["final"] = "request_cap"."""
+    err = f"request cap reached ({budget.record()['used']} of {budget.max} requests)"
+    plan = dict(status="plan_rejected", stage="request_cap", reasons=[err], task=task)
+    rec = dict(kind="request_cap", task=task, spec=spec, status="plan_rejected", stage="request_cap", reasons=[err])
+    if kind == "rule2":
+        info = dict(n_asks=n_asks, attempts=hist, proposer_error=None, wall_s=round(time.time() - t0, 2))
+    else:
+        info = dict(n_reasks=len(hist), attempts=hist, accepted_plan_id=None, proposer_wall_s=round(time.time() - t0, 2), proposer_error=None, final="request_cap")
+    info.update(end_reason="request_cap", budget=budget.record())
+    return plan, None, rec, info
+
+
 class _ReplayOnly(Backend):
     name = "replay-only"
 
@@ -116,17 +153,19 @@ def _finish(kind, task, spec, be, key, out, wall, system, user, image, reply, su
     return d, rec
 
 
-def propose(task, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None, images=None, image_note=None):
+def propose(task, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None, images=None, image_note=None, budget=None):
     """-> (plan dict, record).  scene_facts default = prompt.scene_facts(task) (no hidden truth).  image = optional camera image path (the only extra input)."""
     f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
     be = make_backend(backend_spec, cache_dir, offline)
     image = _imgs(image, images) if images else image
     user = _user(PR.user_prompt(task, f), images, image_note)
+    if budget is not None:
+        budget.charge()
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
     return _finish("plan", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]))
 
 
-def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, images=None, image_note=None):
+def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, images=None, image_note=None, budget=None):
     """Rule 2 re-ask.  `plan` = a status-ok plan dict.  Schema v2 (default): `evidence` = the dict of nero/contents/probe_select ({trigger T1|T2|T4, readings, probes_skipped,
     failing_rows, worst, ...}, prompt.reask_evidence_block); ask for a complete new plan; record["evidence"], record["trigger"] say what was asked.  BIMANUAL_LEGACY_PROPOSER_V1=1:
     `evidence` = probe_set {param: [lo, hi]} that is not inside B (11-05 Rule 2); record["probe_set"], record["uncovered"].  -> (new plan dict, record)."""
@@ -136,13 +175,15 @@ def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cac
     be = make_backend(backend_spec, cache_dir, offline)
     image = _imgs(image, images) if images else image
     user = _user(PR.reask_prompt(task, plan, evidence, f), images, image_note)
+    if budget is not None:
+        budget.charge()
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
     extra = (dict(probe_set=evidence, uncovered=PR.uncovered(plan["belief"], evidence), previous_plan_id=plan.get("plan_id")) if S.legacy_v1()
              else dict(trigger=evidence.get("trigger"), evidence=evidence, previous_plan_id=plan.get("plan_id")))
     return _finish("reask", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]), extra)
 
 
-def reask_rule2_until_accepted(task, plan, evidence, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None, images=None, image_note=None):
+def reask_rule2_until_accepted(task, plan, evidence, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None, images=None, image_note=None, budget=None):
     """Rule 2 re-ask (schema v2) whose new plan must also be ACCEPTED (validated + compiled by `check`, as propose_until_accepted): the first request is the Rule 2 prompt (plan +
     evidence); every rejection of the new plan is fed back (rejection_prompt with the evidence block kept as its prefix) and the model is asked again, NO cap (user 11-09).
     -> (plan, accepted, rec, info); info = dict(n_asks (Rule 2 request + rejection re-asks), attempts (every REJECTED attempt), proposer_error, wall_s).
@@ -156,11 +197,13 @@ def reask_rule2_until_accepted(task, plan, evidence, check, scene_facts=None, im
         n_asks += 1
         try:
             if not rejected:
-                new, rec = reask(task, plan, evidence, f, backend_spec, cache_dir, offline, image, world, images, image_note)
+                new, rec = reask(task, plan, evidence, f, backend_spec, cache_dir, offline, image, world, images, image_note, budget)
             else:
-                new, rec = reask_rejected(task, rejected, f, backend_spec, cache_dir, offline, image, world, prefix=prefix, images=images, image_note=image_note)
+                new, rec = reask_rejected(task, rejected, f, backend_spec, cache_dir, offline, image, world, prefix=prefix, images=images, image_note=image_note, budget=budget)
         except ProposerCacheMiss:
             raise
+        except RequestCapReached:
+            return _capped(task, backend_spec, budget, hist, t0, n_asks - 1, kind="rule2")
         except Exception as e:
             err = f"{type(e).__name__}: {e}"
             return (dict(status="plan_rejected", stage="proposer", reasons=[err], task=task), None, dict(kind="proposer_error", task=task, spec=backend_spec, status="plan_rejected",
@@ -183,24 +226,28 @@ def reask_rule2_until_accepted(task, plan, evidence, check, scene_facts=None, im
                     stage="proposer", reasons=[err]), dict(n_asks=n_asks, attempts=hist, proposer_error=err, wall_s=round(time.time() - t0, 2)))
 
 
-def reask_rejected(task, attempts, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, prefix=None, images=None, image_note=None):
+def reask_rejected(task, attempts, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, prefix=None, images=None, image_note=None, budget=None):
     """Re-ask after a REJECTED plan (schema / compile / planner).  attempts = [{"plan", "reply", "stage", "reasons"}, ...] oldest first (prompt.rejection_prompt).
     The feedback text is part of the request, hence of the cache key: replays are deterministic and --offline works.  -> (plan dict, record)."""
     f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
     be = make_backend(backend_spec, cache_dir, offline)
     image = _imgs(image, images) if images else image
     user = _user(PR.rejection_prompt(task, attempts, f, prefix=prefix), images, image_note)
+    if budget is not None:
+        budget.charge()
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
     return _finish("reask_rejected", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]),
                    dict(previous_plan_id=(attempts[-1].get("plan") or {}).get("plan_id"), n_prior_rejections=len(attempts)))
 
 
-def propose_until_accepted(task, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None, images=None, image_note=None):
+def propose_until_accepted(task, check, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, world=None, images=None, image_note=None, budget=None):
     """propose, then re-ask on every rejection until a plan is accepted.  NO cap on re-asks (user 11-09), no hidden retry.
     check(plan) -> the accepted object (e.g. a CompiledPlan) or raises schema.PlanRejected (stage, reasons).  A plan that failed validation (status plan_rejected) is rejected
     without calling check.  A proposer ERROR (backend exception; ProposerCacheMiss under --offline is re-raised) ends the loop: final plan = plan_rejected stage "proposer".
     -> (plan, accepted, rec, info); rec = the accepted (or last) attempt's record; info = dict(n_reasks, attempts=[{attempt, plan_id, stage, reasons}] for every REJECTED attempt,
-    accepted_plan_id, proposer_wall_s, proposer_error, final="accepted"|"proposer_error")."""
+    accepted_plan_id, proposer_wall_s, proposer_error, final="accepted"|"proposer_error"|"request_cap").
+    budget = a RequestBudget (shared over the run) or None (no cap).  Each backend request charges 1 BEFORE it is sent; when the budget is exhausted the loop returns (plan_rejected stage
+    \"request_cap\", None, rec kind \"request_cap\", info) with info[\"final\"] = info[\"end_reason\"] = \"request_cap\" and info[\"budget\"] = {max, used}."""
     t0 = time.time()
     rejected, hist = [], []
     attempt = 0
@@ -208,11 +255,13 @@ def propose_until_accepted(task, check, scene_facts=None, image=None, backend_sp
         attempt += 1
         try:
             if not rejected:
-                plan, rec = propose(task, scene_facts, image, backend_spec, cache_dir, offline, world, images, image_note)
+                plan, rec = propose(task, scene_facts, image, backend_spec, cache_dir, offline, world, images, image_note, budget)
             else:
-                plan, rec = reask_rejected(task, rejected, scene_facts, backend_spec, cache_dir, offline, image, world, images=images, image_note=image_note)
+                plan, rec = reask_rejected(task, rejected, scene_facts, backend_spec, cache_dir, offline, image, world, images=images, image_note=image_note, budget=budget)
         except ProposerCacheMiss:
             raise
+        except RequestCapReached:
+            return _capped(task, backend_spec, budget, hist, t0)
         except Exception as e:                       # the proposer itself failed: the only way this loop ends without an accepted plan
             err = f"{type(e).__name__}: {e}"
             plan = dict(status="plan_rejected", stage="proposer", reasons=[err], task=task)

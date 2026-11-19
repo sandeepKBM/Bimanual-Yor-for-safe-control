@@ -60,6 +60,15 @@ KNOWN_ROW_FAMILIES = {
     "tilt":                       "NOT_FIXABLE: leaf `obj_tilt` (measured table; plan does not set the acceleration)",
     "base":                       "NOT_FIXABLE: leaf base starting `base_` (base tip / torque / open content at the base level) and `recovery[base_move]` (no stored base recovery)",
     "missing:<family>":           "NOT_FIXABLE: any leaf with guarantee missing (no model built): stop overshoot past the last sample (`stop_back[seg]` ...), `S`, `R_K`, `plan`, `tilt`, `recovery[base_move]`",
+    "base_stop.<fixable>":        "FIXABLE (also when MISSING / refuted): `base_stop.recovery` (the step's recovery skill), `base_stop.continuation` (the plan's route), `base_stop.landing_hold` (waypoints / hold pose); "
+                                  "EXCEPT a row MISSING because the MEASURED stop card is absent / does not cover the level or task (why names the card) -> NOT_FIXABLE, key `missing:measured stop card`",
+    "base_stop.goal_support":     "FIXABLE: the support row at the goal on theta_t (the landing of the finished plan); knobs placement (a MISSING one stays FIXABLE only when the why does not name the stop card)",
+    "base_stop.next_step":        "copies the MOST FIXABLE tag among the refusing later steps (step_tag of each refused step's records; the row's worst['step_tags']); NOT_FIXABLE when every refusing step is; "
+                                  "a caller that passes no worst gets the bare row's default (FIXABLE, waypoints)",
+    "base_stop.open_content":     "NOT_FIXABLE (11-17): the open-content limit of the tray at the BASE level's acceleration (pick_level row base_open_content); the base level is not a plan choice",
+    "landing.not_supported":      "FIXABLE: a `hold` landing (held in the arms, not on a support; USER 11-17); knobs recovery skill",
+    "base_stop.<checker>":        "NOT_FIXABLE: `base_stop.in_route` | `at_rest` | `tip` | `torque` (the checker's speed / stop model; MISSING without the MEASURED stop card)",
+    "not_executable":             "NOT_FIXABLE (11-17): a step admitted ONLY by a program the executor cannot run yet (run_cell refusal, `executable` False); BIMANUAL_LEGACY_NONEXEC_ADMIT=1 admits it",
     "rule1_a_exceeds":            "NOT_FIXABLE: run_cell refusal 'a exceeds a_admit' (no rows)",
 }
 
@@ -83,19 +92,46 @@ def leaves(row: dict) -> list:
     w = row.get("worst")
     subs = [(k, v) for k, v in (w or {}).items() if isinstance(v, dict) and "ok" in v and "guarantee" in v] if isinstance(w, dict) else []
     if not subs:
-        return [dict(name=row.get("name", ""), guarantee=row.get("guarantee", ""), why=row.get("why") or "", parent=row.get("name", ""))]
-    out = [dict(name=k, guarantee=v.get("guarantee", ""), why=v.get("why") or "", parent=row.get("name", "")) for k, v in subs if not v.get("ok")]
+        return [dict(name=row.get("name", ""), guarantee=row.get("guarantee", ""), why=row.get("why") or "", parent=row.get("name", ""), worst=w if isinstance(w, dict) else None)]
+    out = [dict(name=k, guarantee=v.get("guarantee", ""), why=v.get("why") or "", parent=row.get("name", ""), worst=v) for k, v in subs if not v.get("ok")]
     return out or [dict(name=row.get("name", ""), guarantee=row.get("guarantee", ""), why=row.get("why") or "", parent=row.get("name", ""))]
 
 
 _RECOV = {"stop", "hold_after_stop", "retrace", "advance"}
 
 
-def tag_leaf(name: str, guarantee: str = "", why: str = "") -> Tag:
+def _next_step_tag(worst, why: str = "") -> Tag:
+    """base_stop.next_step: the most fixable tag among the refusing later steps (worst["step_tags"] = [dict(step, kind, knobs, key)]); NOT_FIXABLE when all are; no info -> FIXABLE (waypoints)."""
+    sts = [t for t in ((worst or {}).get("step_tags") or []) if isinstance(t, dict) and t.get("kind") in _ORDER]
+    if not sts:
+        m = re.search(r"\[most fixable refused step: (\w+)\]", why or "")        # callers that pass no worst: the row's why carries the kind
+        if m and m.group(1) in _ORDER:
+            return Tag(m.group(1), (K_WAYPTS,) if m.group(1) == FIXABLE else (), f"most fixable of the refusing later steps: {m.group(1)}", key="base_stop.next_step")
+        return Tag(FIXABLE, (K_WAYPTS,), "the plan's later steps (each refused by its own rows)", key="base_stop.next_step")
+    best = min(sts, key=lambda t: _ORDER[t["kind"]])
+    return Tag(best["kind"], tuple(best.get("knobs") or ()), f"most fixable of the refusing later steps ({best.get('step', '?')}: {best['kind']})", key="base_stop.next_step")
+
+
+def tag_leaf(name: str, guarantee: str = "", why: str = "", worst=None) -> Tag:
     leaf = name.split("/")[-1]
     base = leaf.split("[")[0]
     arg = leaf[len(base) + 1:].rstrip("]") if "[" in leaf else ""
     miss = guarantee == "missing"
+    if base == "landing.not_supported":
+        return Tag(FIXABLE, (K_RECOV,), "held in the arms is not on a support (USER 11-17): the plan's recovery choice", key=base)
+    if base == "not_executable":
+        return Tag(NOT_FIXABLE, (), "admitted only by a program the executor cannot run yet (read_then_retrace has no executor phase): not a plan choice", key="not_executable")
+    if base == "base_stop.open_content":
+        return Tag(NOT_FIXABLE, (), "open-content limit at the base level's acceleration (base level is not a plan choice)", key=base)
+    if miss and base.startswith("base_stop.") and "card" in (why or "").lower():
+        return Tag(NOT_FIXABLE, (), "missing: measured stop card", key="missing:measured stop card")
+    if base == "base_stop.next_step" and not miss:
+        return _next_step_tag(worst, why)
+    if base in ("base_stop.recovery", "base_stop.continuation", "base_stop.landing_hold", "base_stop.goal_support", "base_stop.next_step"):
+        kn = {"base_stop.recovery": (K_RECOV,), "base_stop.continuation": (K_WAYPTS,), "base_stop.landing_hold": (K_WAYPTS,), "base_stop.goal_support": (K_PLACE,), "base_stop.next_step": (K_WAYPTS,)}[base]
+        return Tag(FIXABLE, kn, {"base_stop.recovery": "the base step's recovery skill", "base_stop.continuation": "the plan's route (sweep from the landed pose)",
+                                 "base_stop.landing_hold": "the hold pose (waypoints) carrying the payload at rest (prefix row)",
+                                 "base_stop.goal_support": "the goal placement (support at the goal)", "base_stop.next_step": "the plan's later steps (each refused by its own rows)"}[base], key=base)
     if miss:
         return Tag(NOT_FIXABLE, (), f"no model for this row ({why[:160]})" if why else "no model for this row", key=f"missing:{base}")
     if base == "collision":
@@ -131,6 +167,8 @@ def tag_leaf(name: str, guarantee: str = "", why: str = "") -> Tag:
         return Tag(NOT_FIXABLE, (), "reading-bin coverage (ASSUMED bin width) or an empty theta set: not a plan choice", key="coverage")
     if base == "obj_tilt":
         return Tag(NOT_FIXABLE, (), "tilt table is measured at the checker's accelerations", key="tilt")
+    if base in ("base_stop.in_route", "base_stop.at_rest", "base_stop.tip", "base_stop.torque"):
+        return Tag(NOT_FIXABLE, (), "the checker's speed / stop model (base level, measured stop overshoot / settle, tip / torque at the level)", key=base)
     if base.startswith("base_") or leaf == "recovery[base_move]" or base == "recovery":
         return Tag(NOT_FIXABLE, (), "base level / base speed / no stored base recovery: not a plan choice", key="base")
     return Tag(UNTAGGED, (), f"row {name!r} not recognised", key=f"untagged:{base}")
@@ -139,12 +177,43 @@ def tag_leaf(name: str, guarantee: str = "", why: str = "") -> Tag:
 _ORDER = {UNTAGGED: 0, FIXABLE: 1, FIXABLE_GEOMETRY: 2, NOT_FIXABLE: 3}
 
 
+_SEV = {FIXABLE: 1, FIXABLE_GEOMETRY: 2, NOT_FIXABLE: 3}
+
+
+def _severest(ts):
+    """UNTAGGED if any leaf is (the gate), else the most severe kind (FIXABLE only when ALL are FIXABLE)."""
+    for t in ts:
+        if t.kind == UNTAGGED:
+            return t
+    return max(ts, key=lambda t: _SEV[t.kind])
+
+
 def tag(row: dict) -> Tag:
-    """tag one Row dict.  A merged row is tagged by its failing leaves: UNTAGGED if any leaf is, else the most fixable one."""
-    ts = [tag_leaf(lf["name"], lf["guarantee"], lf["why"]) for lf in leaves(row)]
-    return min(ts, key=lambda t: _ORDER[t.kind])
+    """tag one Row dict.  A merged row is tagged by its failing leaves: UNTAGGED if any leaf is, else the MOST SEVERE one (reviewer F7: a row is FIXABLE only when every failing
+    leaf is; fixing one leaf does not pass a row whose other leaf is not fixable)."""
+    return _severest([tag_leaf(lf["name"], lf["guarantee"], lf["why"], lf.get("worst")) for lf in leaves(row)])
+
+
+def step_tag(rec: dict) -> Tag:
+    """tag a refused STEP record of rule1_contents.run_cell (11-17, reviewer F7).  Per program: the failing leaves of its failing rows (rec["per_program"][p]["failing"]; a record with no
+    per_program: rec["rows"] as one program) -> the program's kind = _severest of the leaves.  The step is FIXABLE only if at least one program's failing leaves are ALL fixable;
+    otherwise the most severe program kind.  No failing rows at all -> NOT_FIXABLE (nothing the plan can change is named)."""
+    progs = [pp.get("failing", []) for pp in (rec.get("per_program") or {}).values()]
+    if not any(progs):
+        progs = [rec.get("rows") or []]                    # no program failing row (e.g. admitted only by a non-executable program, or a record with no per_program): the record's own rows
+    kinds = []
+    for rows in progs:
+        ts = [tag_leaf(lf["name"], lf["guarantee"], lf["why"], lf.get("worst")) for r in rows for lf in leaves(r)]
+        if ts:
+            kinds.append(_severest(ts))
+    if not kinds:
+        return Tag(NOT_FIXABLE, (), "no failing row named", key="step:no_rows")
+    for t in kinds:
+        if t.kind == FIXABLE:
+            return t
+    return _severest(kinds)
 
 
 def row_names_untagged(rows) -> list:
     """names of the rows (leaves) in `rows` (Row dicts) that tag as UNTAGGED (the owner's gate)."""
-    return [lf["name"] for r in rows for lf in leaves(r) if tag_leaf(lf["name"], lf["guarantee"], lf["why"]).kind == UNTAGGED]
+    return [lf["name"] for r in rows for lf in leaves(r) if tag_leaf(lf["name"], lf["guarantee"], lf["why"], lf.get("worst")).kind == UNTAGGED]

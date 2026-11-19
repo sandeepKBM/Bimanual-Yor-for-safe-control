@@ -6,6 +6,7 @@ D1 (user 11-16): the fallback's set F is the prior box Theta_0; whether admissio
 decision records `why` when the fallback is not certified on theta_new, and does not refuse."""
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass
 
@@ -20,6 +21,7 @@ class CoverDecision:
     recovery: "str | None"
     why: str
     lookup_s: float
+    certified: bool = True      # 11-17: False = nothing is certified on theta_new (recovery None: empty / field-mismatched / uncovered set)
 
 
 def branch_time(admission, t: float):
@@ -31,8 +33,21 @@ def branch_time(admission, t: float):
 def cover(theta_new, admission, t: float) -> CoverDecision:
     t0 = time.perf_counter()
 
-    def out(action, rec, why):
-        return CoverDecision(action, rec, why, time.perf_counter() - t0)
+    def out(action, rec, why, cert=True):
+        return CoverDecision(action, rec, why, time.perf_counter() - t0, cert)
+
+    # 11-17 (fail closed): an EMPTY theta_new (contradictory evidence) is contained in every set (minus(...).is_empty()), which used to answer "continue"; a set over other fields raises.
+    # Both now answer fallback with recovery None = nothing certified.  BIMANUAL_LEGACY_COVER_EMPTY_OK=1 restores the old behaviour (read at call time).
+    if os.environ.get("BIMANUAL_LEGACY_COVER_EMPTY_OK") != "1":
+        if theta_new is None or theta_new.is_empty():
+            return out("fallback", None, "contradiction: theta_new is empty, nothing is certified", False)
+        for _t, _lst in admission.table.items():
+            for _n, _s in _lst:
+                if not _s.is_empty() and _s.fields != theta_new.fields:
+                    return out("fallback", None, f"field mismatch: theta_new over {theta_new.fields}, table over {_s.fields}: nothing certified", False)
+        fb_ = admission.fallback_ok_on
+        if fb_ is not None and not fb_.is_empty() and fb_.fields != theta_new.fields:
+            return out("fallback", None, "field mismatch with fallback_ok_on: nothing certified", False)
 
     tb = branch_time(admission, t)
     lst = []
@@ -51,7 +66,7 @@ def cover(theta_new, admission, t: float) -> CoverDecision:
     if fb is not None and fb.contains(theta_new):
         return out("fallback", FALLBACK_NAME, f"no listed recovery covers theta_new at branch t={tb}; fallback certified on it")
     return out("fallback", None, "fallback not certified on this set (D1: F = prior box; requirement OPEN, recorded not enforced)"
-               + ("" if tb is not None else "; no branch time <= t in the table"))
+               + ("" if tb is not None else "; no branch time <= t in the table"), False)
 
 
 def cover_timing(admission, thetas, t: "float | None" = None) -> dict:

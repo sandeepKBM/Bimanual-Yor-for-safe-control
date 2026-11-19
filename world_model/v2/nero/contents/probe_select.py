@@ -19,6 +19,16 @@ One world, one episode (the carry continues in the episode the probe ran in).  A
               every theta from every branch point; n_sampled = 0, closed_chain, the plan's wp and a_admit).  A refused step's failing rows are tagged by stack/checks/fixability.  Any FIXABLE /
               FIXABLE_GEOMETRY row -> re-ask (trigger "T4", evidence rule1_refusals + fixed_constraints); only NOT_FIXABLE rows -> refuse (refused_by "rule1", no re-ask).  The same failing-FIXABLE
               signature on MAX_SAME_T4_SIGNATURE (3, ASSUMED, USER 11-16) consecutive T4 attempts -> stop ("t4_repeat") and refuse.  A T4 loop that ends without a plan Rule 1 admits refuses.
+    11-17 (USER "gate on all, fail closed"; env BIMANUAL_LEGACY_NO_PATH_ROWS=1 / BIMANUAL_LEGACY_RULE1_SKIP=1 = the old behaviour):
+      PLANNED-PATH ROWS  after the static admission and the base level pick, every run evaluates the closed_chain plan at a_admit: motion rows (joint_pos with margin carry.PATH_MARGIN_MIN
+              0.05 rad ASSUMED, joint_speed, reach, closed_chain), the swept collision row (arm_arm, arm_world, obj_world must ALL be present, else MISSING) and the tilt row (MEASURED for THIS
+              plan at admission, tilt_measure.measure_plan: n = 20 ASSUMED worlds from the belief cell, base move included, fresh every run, table + seeds in the row; n_over / n_stopped / n_errors > 0 refuse).  Any ok=False or MISSING -> decision "refuse (planned path)"
+              (refused_by "path_rows"), trigger T2-like (re-ask with the failing row names).  All rows are in att["path_rows"].
+      RULE 1 MISSING     a task not in RULE1_TASKS (or BIMANUAL_LEGACY_NO_T4=1) is refused: rule1 = dict(guarantee="missing", why=...), decision "refuse (Rule 1 missing)" (no silent skip).
+      Rule 1 crash (run_rule1 or the failure tagging) = "refuse (Rule 1 error)", the error recorded.  The admitted base level is handed to rule1_contents.run_cell(level=).
+      REQUEST BUDGET     ONE stack.proposer.propose.RequestBudget per run (plan["proposer"]["budget"], made by same_worlds._proposer_plans) charges the Phase A asks and every Rule 2 / T4 re-ask;
+              "request_cap" ends the loop with no carry.
+      T1 (a reading showed a phenomenon the plan did not name) is NOT REACHABLE with the built skills: the only built probe is Weigh, which always shows PH1 (rec["t1_reachable"] = False).
 Not run here: a re-ask needs plan["proposer"] = dict(spec, cache, offline[, reask_limit]); without it a refusal ends the run ("reask_unavailable").
 Out of scope (ruling 11-09 Q1 option c): PH4 / PH5 / PH6 (catalog.OUT_OF_SCOPE_NOTE) in every record.
 Bounds: nothing numeric is new here; the probe numbers are probe.py's (EPS from the poslift CALIB, MEASURED), the admission thresholds are the checkers' (U_ADMIT 1.0 MODEL).
@@ -26,8 +36,10 @@ Bounds: nothing numeric is new here; the probe numbers are probe.py's (EPS from 
 from __future__ import annotations
 
 import dataclasses
+import json
 import math
 import os
+import pathlib
 import tempfile
 import time
 from collections import Counter
@@ -46,11 +58,15 @@ from world_model.v2.stack.skills import catalog as CAT
 
 FIELD = SK.FIELD
 THETA_MODES = (None, "no_probe", "oracle_mass", "oracle_theta", "estimate")
-REFUSED_BY = ("static", "coverage", "base_level", "compile", "T3", "probe", "rule1")
+REFUSED_BY = ("static", "coverage", "base_level", "compile", "T3", "probe", "rule1", "path_rows")
 MAX_SAME_T4_SIGNATURE = PP.MAX_SAME_T4_SIGNATURE      # ASSUMED, USER 11-16 approved N = 3 (one place: stack/proposer/propose.py)
-RULE1_TASKS = ("box", "tray2", "tray4", "tray6", "box_behind", "tray6_behind")     # adapters/rule1_contents supports these (not pot)
+RULE1_TASKS = ("box", "tray2", "tray4", "tray6", "box_behind", "tray6_behind", "box_bookcase")     # adapters/rule1_contents supports these (not pot); box_bookcase added 11-17 (USER)
 T4_REFUSE_ACTION = "refuse (Rule 1, not fixable by the plan)"
 T4_NO_PLAN_ACTION = "refuse (Rule 1: no re-asked plan admitted)"
+PATH_ACTION = "refuse (planned path)"
+RULE1_MISSING_ACTION = "refuse (Rule 1 missing)"
+RULE1_ERROR_ACTION = "refuse (Rule 1 error)"
+T1_REACHABLE = False          # the only built probe (Weigh) always shows PH1; no built skill can show a phenomenon the plan did not name (recorded in every run record)
 
 
 @dataclass
@@ -71,6 +87,8 @@ class Ctx:
     adaptive: bool = True
     behind: bool = False
     level: Callable | None = None     # behind: (c_lo, c_hi) -> (level | None, rows)
+    level_wp: Callable | None = None  # behind (11-17): (c_lo, c_hi, wp) -> (level | None, rows); preferred over `level` when set (the rows then record the plan's lift as not modelled)
+    path_rows: Callable | None = None  # (task, wp, a, (c_lo, c_hi)) -> [row dict]; None = planned_path_rows (closed_chain plan at a; tests inject a stub)
     at_level: Callable | None = None  # behind: (plan dict, level) -> WaypointPlan  (raises PlanRejected)
     rows_json: Callable | None = None
     coverage_mode: str = "enforce"
@@ -118,14 +136,110 @@ def legacy_no_t4():
     return os.environ.get("BIMANUAL_LEGACY_NO_T4") == "1"
 
 
-def run_rule1(c, lo, hi, wp, a):
-    """Rule 1 per step on the admitted plan (rule1_contents.run_cell, n_sampled = 0, closed_chain, fallback not evaluated) -> the step records."""
+def legacy_no_path_rows():
+    return os.environ.get("BIMANUAL_LEGACY_NO_PATH_ROWS") == "1"
+
+
+def legacy_rule1_skip():
+    return os.environ.get("BIMANUAL_LEGACY_RULE1_SKIP") == "1"
+
+
+def round_out(lo, hi, nd=4):
+    """Theta rounded OUTWARD (floor for lo, ceil for hi at nd decimals): the set may only grow (11-17).  BIMANUAL_LEGACY_ROUND_NEAREST=1 = round() as before."""
+    if os.environ.get("BIMANUAL_LEGACY_ROUND_NEAREST") == "1":
+        return round(lo, nd), round(hi, nd)
+    f = 10.0 ** nd
+    def snap(x):
+        n = float(x) * f
+        return float(round(n)) if abs(n - round(n)) < 1e-6 else n      # a value that IS a 4-decimal number stays itself (float noise)
+    return math.floor(snap(lo)) / f, math.ceil(snap(hi)) / f
+
+
+def _cap_exc():
+    return getattr(PP, "RequestCapReached", None) or type("_NoCap", (Exception,), {})
+
+
+def _row_dict(name, ok, margin=None, guarantee="", why="", **extra):
+    m = None if margin is None or not math.isfinite(float(margin)) else float(margin)
+    return dict(name=str(name), ok=bool(ok) if ok is not None else None, margin=m, guarantee=str(guarantee), why=str(why)[:600], **extra)
+
+
+def _from_row(r):
+    return _row_dict(r.name, r.ok, r.margin, r.guarantee, r.why)
+
+
+TILT_N = 20            # ASSUMED (11-17): worlds per per-plan tilt measurement (tilt_measure.N_PLAN_DEFAULT)
+
+
+def planned_path_rows(task, wp, a, theta, level=None, plan_id="", tilt_dir=None, procs=1, n=None, strict_claw=False):
+    """USER 11-17: the rows of the NOMINAL planned closed_chain path (plan_for(inputs(task, wp), a)): motion (joint_pos margin PATH_MARGIN_MIN, joint_speed, reach, closed_chain), the swept
+    collision row (arm_arm, arm_world, obj_world: every class present on every piece, else MISSING), the tilt row (measured table, default plan only, else MISSING).
+    The tilt row is MEASURED for this plan at admission time (tilt_measure.measure_plan; n = TILT_N 20 ASSUMED; worlds i.i.d. from the belief cell; base move included).
+    -> [row dict]; ok False or guarantee "missing" refuses.  Raises nothing for a row failure (a crashed row is a MISSING row)."""
+    from world_model.v2.adapters import collision_rows as RCOL, motion_rows as MR
+    from world_model.v2.stack.checks import collision as K, tilt as TL
+    from world_model.v2.stack.planners import closed_chain as CCP
+    rows = []
+    try:
+        plan = CCP.plan_for(CCP._nominal_inputs(task, wp), float(a))
+    except Exception as ex:                                              # PlanRefused or anything else: no plan = no rows = MISSING (never an admission)
+        return [_row_dict("planned_path", False, None, "missing", f"closed_chain plan at a = {a} not built: {ex!r}"[:500])]
+    try:
+        rows += [_from_row(r) for r in MR.motion_rows(plan)]
+    except Exception as ex:
+        rows.append(_row_dict("motion_rows", False, None, "missing", f"motion_rows crashed: {ex!r}"[:500]))
+    try:
+        cr = RCOL.collision_rows(plan)
+        by = (cr.worst or {}).get("by_class_all", {})
+        absent = sorted({c for c in K.CLASSES for bc in by.values() if c not in bc} | ({c for c in K.CLASSES} if not by else set()))
+        d = _from_row(cr)
+        if absent:
+            d = _row_dict("collision", False, None, "missing", f"collision classes missing on some piece: {absent}")
+        rows.append(d)
+    except Exception as ex:
+        rows.append(_row_dict("collision", False, None, "missing", f"collision_rows crashed: {ex!r}"[:500]))
+    try:
+        from world_model.v2.nero.contents import carry as CR
+        from world_model.v2.nero.contents import tilt_measure as TM
+        lo, hi = round_out(theta[0], theta[1])
+        tdir = pathlib.Path(tilt_dir) if tilt_dir else pathlib.Path(tempfile.mkdtemp(prefix="tilt_plan_"))
+        tab, tinfo = TM.measure_plan(task, wp, (lo, hi), float(a), n=int(n or TILT_N), procs=procs, out_dir=tdir / f"{plan_id or 'plan'}_a{a}_{level or 'L-'}_{lo}-{hi}",
+                                     level=level, plan_id=plan_id, strict_claw=strict_claw)       # MEASURED for THIS plan, fresh in this run (USER 11-17); refuses on n_over / n_stopped / n_errors via tilt_row
+        tr = TL.tilt_row(tab, TM.cell_key(task, (lo, hi)), float(a), CR.U_TILT_OBJ)
+        tx = dict(table_path=tinfo["table_path"], seeds=tinfo["seeds"], n=tinfo["n"], tilt_wall_s=tinfo["wall_s"], procs=tinfo["procs"], n_tag="ASSUMED")
+        rows.append(dict(_from_row(tr), **tx))
+    except Exception as ex:
+        rows.append(_row_dict("obj_tilt", False, None, "missing", f"tilt row crashed: {ex!r}"[:500]))
+    return rows
+
+
+def path_rows_failing(rows):
+    """names (with why) of the rows that refuse: ok False or MISSING."""
+    out = []
+    for r in rows:
+        miss = r.get("guarantee") == "missing"
+        if r.get("ok") is True and not miss:
+            continue
+        out.append(r)
+    return out
+
+
+CERT_MISMATCH_ACTION = "refuse (cert mismatch)"      # 11-17: the Rule 1 certificate does not match the plan / episode the carry would run
+
+
+def legacy_no_runtime_rules():
+    """BIMANUAL_LEGACY_NO_RUNTIME_RULES=1 (11-17): no certificates / Rule 4 hook reach the carry (the planner's stored backups, as before); Rule 1 then runs with fallback=False."""
+    return os.environ.get("BIMANUAL_LEGACY_NO_RUNTIME_RULES") == "1"
+
+
+def run_rule1(c, lo, hi, wp, a, level=None):
+    """Rule 1 per step on the admitted plan (rule1_contents.run_cell, n_sampled = 0, closed_chain; 11-17: fallback=True = the wide Rule 3 table needs Theta_0, unless BIMANUAL_LEGACY_NO_RUNTIME_RULES=1) -> the step records.  level = the admitted base level (behind tasks)."""
     if c.rule1 is not None:
         return c.rule1(c.task, (lo, hi), wp, a)
     from world_model.v2.adapters import rule1_contents as R1
+    kw = {} if level is None else dict(level=level)
     with tempfile.TemporaryDirectory(prefix="t4_rule1_") as td:
-        import pathlib
-        return R1.run_cell(c.task, (lo, hi), pathlib.Path(td), n_sampled=0, planner="closed_chain", fallback=False, wp=wp, a=a)
+        return R1.run_cell(c.task, (lo, hi), pathlib.Path(td), n_sampled=0, planner="closed_chain", fallback=not legacy_no_runtime_rules(), wp=wp, a=a, **kw)
 
 
 def rule1_failures(recs):
@@ -211,6 +325,7 @@ def run_world(c: Ctx):
         c.on_phase("probe")
     attempts, reasks, t_events = [], [], []
     stopped, end_reason, decision, st, cov, wp_run, lvl_rows = None, None, None, None, None, None, None
+    r1_final = None                                                          # 11-17: the Rule 1 records + the (wp, a, level) they were computed on, set only when every step was admitted
     t4_sigs, t4_pending = [], None                                          # T4 (11-16): the failing-FIXABLE signatures so far; the Rule 1 refusal of the current attempt
     while True:
         k = len(attempts)
@@ -222,7 +337,7 @@ def run_world(c: Ctx):
         weigh.m_stop = None if cm is None else e + cm
         todo = [] if mode in ("no_probe", "oracle_mass", "oracle_theta") else [s for s in cur_pd["probes"] if s not in ran]
         cat = {sid: dataclasses.replace(s, preconditions=tuple(p for p in s.preconditions if p not in ran)) for sid, s in CAT.SKILLS.items()}
-        run = PB.run_probes(todo, skills, cum.theta_t, static_same=lambda th, w_=cur_wp: not c.static(*th[FIELD], w_)["action"].startswith("refuse"), skill_catalog=cat)
+        run = PB.run_probes(todo, skills, cum.theta_t, static_same=lambda th, w_=cur_wp: not c.static(*th[FIELD], w_)["action"].startswith("refuse"), skill_catalog=cat)     # ARM-SIDE static verdict only (static_same_arm_only, 11-17): the base level pick, the planned-path rows and Rule 1 are NOT in it
         att["probe_events"] = clean(run.events)
         events += [dict(ev, attempt=k) for ev in run.events]
         readings += run.readings
@@ -256,7 +371,7 @@ def run_world(c: Ctx):
             st = c.static(c_lo, c_hi, cur_wp)
             decision = dict(action=st["action"], a_admit=st["a_admit"], u_nom=st["u_nom"], contents=[c_lo, c_hi], refused_by=None if st["a_admit"] is not None else "static")
             if c.behind and decision["a_admit"] is not None:                  # base level: highest of L1..L3 with every base row passing on Theta; then the plan at that level
-                lvl, lvl_rows = c.level(c_lo, c_hi)
+                lvl, lvl_rows = c.level_wp(c_lo, c_hi, cur_wp) if c.level_wp is not None else c.level(c_lo, c_hi)
                 decision["base_level"] = lvl
                 if lvl is None:
                     decision = dict(decision, action="refuse (base level)", a_admit=None, refused_by="base_level",
@@ -266,29 +381,50 @@ def run_world(c: Ctx):
                         wp_run = c.at_level(cur_pd, lvl)
                     except S.PlanRejected as ex:
                         decision = dict(decision, action="refuse (compile at level)", a_admit=None, refused_by="compile", why_compile=[ex.stage, list(ex.reasons)])
+            if decision["a_admit"] is not None and not legacy_no_path_rows():       # USER 11-17: the planned-path rows of the NOMINAL plan at a_admit (after the static admission and the base level pick)
+                wp_path = wp_run if c.behind else cur_wp
+                try:
+                    prows = (c.path_rows(c.task, wp_path, decision["a_admit"], (c_lo, c_hi)) if c.path_rows is not None else
+                             planned_path_rows(c.task, wp_path, decision["a_admit"], (c_lo, c_hi), level=decision.get("base_level"), plan_id=str(cur_pd.get("plan_id") or ""),
+                                               tilt_dir=cfg.get("tilt_dir"), procs=int(cfg.get("tilt_procs") or 1), n=cfg.get("tilt_n"),
+                                               strict_claw=bool(getattr(ep, "strict_claw", False))))       # 11-17: the tilt measurement uses the run's own strict_claw
+                except Exception as ex:                                              # a crashed row is MISSING, never an admission
+                    prows = [_row_dict("planned_path", False, None, "missing", f"path rows crashed: {ex!r}"[:500])]
+                att["path_rows"] = clean(prows)
+                bad = path_rows_failing(prows)
+                if bad:
+                    decision = dict(decision, action=PATH_ACTION, a_admit=None, refused_by="path_rows", path_rows_failing=clean([dict(row=r["name"], guarantee=r.get("guarantee"), why=r.get("why")) for r in bad]))
         att.update(coverage=cov.to_dict(), decision=clean(decision), t1_shown=shown)
         attempts.append(att)
         if shown:
             trigger = "T1"
         elif decision["a_admit"] is None:
             trigger = "T2"
-        elif legacy_no_t4() or c.task not in RULE1_TASKS:
+        elif (legacy_no_t4() or c.task not in RULE1_TASKS) and legacy_rule1_skip():
+            break                                                           # BIMANUAL_LEGACY_RULE1_SKIP=1: the old silent skip (no Rule 1 for this task)
+        elif legacy_no_t4() or c.task not in RULE1_TASKS:                   # USER 11-17: no Rule 1 for this task = refused as MISSING, never a silent admission
+            att["rule1"] = dict(guarantee="missing", why="Rule 1 not built for this task" if c.task not in RULE1_TASKS else "Rule 1 (T4) switched off (BIMANUAL_LEGACY_NO_T4=1)")
+            decision, end_reason = dict(decision, action=RULE1_MISSING_ACTION, a_admit=None, refused_by="rule1"), "rule1_missing"
+            att["decision"] = clean(decision)
+            t_events.append(dict(kind="T4", attempt=k, missing=True, reasked=False))
             break
         else:                                                               # T4: the static admission admits; Rule 1 (a recovery viable from every stop point) on the plan it admits
             wp_r1 = wp_run if c.behind else cur_wp
             try:
-                r1 = run_rule1(c, round(c_lo, 4), round(c_hi, 4), wp_r1, decision["a_admit"])
-            except Exception as ex:                                         # owner 11-16: fail CLOSED (a crashed safety check never lets the carry run); recorded
+                r1 = run_rule1(c, *round_out(c_lo, c_hi), wp_r1, decision["a_admit"], level=decision.get("base_level") if c.behind else None)
+                att["rule1"] = dict(a=decision["a_admit"], level=decision.get("base_level") if c.behind else None,
+                                    steps=clean([dict(step=x.get("step"), seg=x.get("seg"), admitted=bool(x.get("admitted")), program=x.get("program"), refusal=x.get("refusal"),
+                                                      programs=x.get("programs")) for x in r1]))
+                if all(x.get("admitted") for x in r1):
+                    r1_final = dict(recs=r1, wp=wp_r1, a=decision["a_admit"], level=decision.get("base_level") if c.behind else None)
+                    break
+                r1_fixable, r1_fixed, r1_untag = rule1_failures(r1)
+            except Exception as ex:                                         # owner 11-16 / 11-17: fail CLOSED (a crashed safety check, or its failure tagging, never lets the carry run); recorded
                 att["rule1"] = dict(error=repr(ex)[:300])
-                decision, end_reason = dict(decision, action="refuse (Rule 1 error)", a_admit=None, refused_by="rule1"), "rule1_error"
+                decision, end_reason = dict(decision, action=RULE1_ERROR_ACTION, a_admit=None, refused_by="rule1"), "rule1_error"
                 att["decision"] = clean(decision)
                 t_events.append(dict(kind="T4", attempt=k, error=att["rule1"]["error"], reasked=False))
                 break
-            att["rule1"] = dict(a=decision["a_admit"], steps=clean([dict(step=x.get("step"), seg=x.get("seg"), admitted=bool(x.get("admitted")), program=x.get("program"), refusal=x.get("refusal"),
-                                                                          programs=x.get("programs")) for x in r1]))
-            if all(x.get("admitted") for x in r1):
-                break
-            r1_fixable, r1_fixed, r1_untag = rule1_failures(r1)
             att["rule1"]["fixable"], att["rule1"]["fixed"], att["rule1"]["untagged"] = clean(r1_fixable), clean(r1_fixed), clean(r1_untag)
             sig = t4_signature(r1_fixable)
             t4_pending = dict(decision, action=T4_NO_PLAN_ACTION, a_admit=None, refused_by="rule1", rule1_rows=clean(r1_fixable + r1_fixed + r1_untag))
@@ -309,7 +445,7 @@ def run_world(c: Ctx):
                 break
         lower_only = any(r.output == "lower_bound" for r in readings)
         t_events.append(dict(kind=trigger, attempt=k, refused_by=decision["refused_by"], lower_bound_only=bool(lower_only), phenomena_shown=shown,
-                             failing_rows=[r["row"] for r in failing_rows(st)], **t4_ev))
+                             failing_rows=[r["row"] for r in failing_rows(st)] + [r["row"] for r in (decision or {}).get("path_rows_failing", [])], **t4_ev))
         if not cfg.get("spec"):
             end_reason = "reask_unavailable"
             break
@@ -321,13 +457,21 @@ def run_world(c: Ctx):
             ev["failing_rows"] = ev.get("failing_rows", []) + [dict(row="base_level", why=clean(decision.get("why_base")))]
         if cov.refuses:
             ev["failing_rows"] = ev.get("failing_rows", []) + [dict(row="coverage", why=f"uncovered phenomena {cov.uncovered}")]
-        new_pd, new_cp, rec_q, info = PP.reask_rule2_until_accepted(task, cur_pd, ev, c.check, backend_spec=cfg["spec"], cache_dir=cfg.get("cache"), offline=bool(cfg.get("offline")),
-                                                                     images=cfg.get("images"), image_note=cfg.get("image_note"))
+        if decision.get("refused_by") == "path_rows":                      # 11-17: the planned-path rows that refused (T2-like re-ask)
+            ev["failing_rows"] = ev.get("failing_rows", []) + [dict(row=r["row"], why=f"{r.get('guarantee')}: {r.get('why')}"[:400]) for r in decision.get("path_rows_failing", [])]
+        bkw = {} if cfg.get("budget") is None else dict(budget=cfg["budget"])      # ONE RequestBudget per run (same_worlds._proposer_plans / run_bookcase): Phase A asks + every re-ask
+        try:
+            new_pd, new_cp, rec_q, info = PP.reask_rule2_until_accepted(task, cur_pd, ev, c.check, backend_spec=cfg["spec"], cache_dir=cfg.get("cache"), offline=bool(cfg.get("offline")),
+                                                                         images=cfg.get("images"), image_note=cfg.get("image_note"), **bkw)
+        except _cap_exc():                                                  # the backstop (the loop itself returns "request_cap" in info)
+            end_reason = "request_cap"
+            reasks.append(dict(attempt=k, trigger=trigger, from_plan=cur_pd.get("plan_id"), to_plan=None, n_asks=0, rejected_attempts=[], proposer_error=None, record={}, wall_s=0.0))
+            break
         small = {kk: rec_q.get(kk) for kk in ("kind", "spec", "model", "reasoning", "backend", "request_hash", "raw_reply_path", "status", "stage", "reasons", "plan_id", "cached", "trigger")}
         reasks.append(dict(attempt=k, trigger=trigger, from_plan=cur_pd.get("plan_id"), to_plan=new_pd.get("plan_id") if new_cp is not None else None, n_asks=info["n_asks"],
                            rejected_attempts=clean(info["attempts"]), proposer_error=info["proposer_error"], record=small, wall_s=info["wall_s"]))
         if new_cp is None:
-            end_reason = "reask_error"
+            end_reason = "request_cap" if info.get("end_reason") == "request_cap" else "reask_error"
             break
         if new_pd.get("plan_id") in seen:
             end_reason = "reask_fixed_point"
@@ -374,10 +518,37 @@ def run_world(c: Ctx):
         ep.ctl.mass = m_nom
         if c.on_phase:
             c.on_phase("nominal")
-        carry = CR.run_segments(ep, dict(segments=[]), branch_backups=True)
-        rec["carry"] = dict(segments=carry["segments"], end_in_R=carry["end_in_R"], pre_hold_viol=carry["pre_hold_viol"])
-        rec["outcome"] = "carried" if (carry["end_in_R"][0] and not any(s["nominal"]["viol"] for s in carry["segments"])) else "carry_failed"
-    else:
+        certs = handles = None
+        cert_refusal, carry = None, None
+        if r1_final is not None and not legacy_no_runtime_rules():
+            # 11-17: Rule 1 must have run on exactly the (wp, a) the episode carries; any difference refuses (never carries)
+            wp_now = wp_run if c.behind else cur_wp
+            if r1_final["wp"] is not wp_now and r1_final["wp"] != wp_now:
+                cert_refusal = "Rule 1 ran on a different waypoint plan than the episode carries"
+            elif abs(float(r1_final["a"]) - float(ep.a_plan)) > 1e-9:
+                cert_refusal = f"Rule 1 ran at a = {r1_final['a']} but the episode plans at a_plan = {ep.a_plan}"
+            else:
+                from . import runtime_rules as RR
+                certs = RR.certs_from_rule1(r1_final["recs"])
+                handles = dict(rule4=RR.rule4_hook(task, wp_now, float(r1_final["a"])))
+                ep.read_seed = int(np.random.SeedSequence([44, int(P.CC.TASK_ID.get(task, 0)), int(c.i)]).generate_state(1)[0])               # deterministic per world (the noise stream of the in-carry claw-load reads)
+        if cert_refusal is None:
+            carry = CR.run_segments(ep, dict(segments=[]), branch_backups=True, certs=certs, handles=handles)
+            cert_refusal = carry.get("refused")
+        if cert_refusal is not None:
+            admitted = False
+            decision = dict(decision, action=CERT_MISMATCH_ACTION, refused_by="cert_mismatch", cert_problems=(carry.get("cert_problems") if carry is not None else None), why_cert=cert_refusal)
+            rec["decision"] = decision
+        else:
+            rec["carry"] = dict(segments=carry["segments"], end_in_R=carry["end_in_R"], pre_hold_viol=carry["pre_hold_viol"])
+            for k_ in ("rule3", "boundary", "boundary_reads"):
+                if carry.get(k_) is not None:
+                    rec["carry"][k_] = carry[k_]
+            rec["carry"]["refused"] = None
+            rec["uncertified"] = bool((carry.get("rule3") or {}).get("n_uncertified", 0) > 0)
+            rec["outcome"] = "carried" if (carry["end_in_R"][0] and not any(s["nominal"]["viol"] for s in carry["segments"])) else "carry_failed"
+    if not admitted:
+        cert_mm = (decision or {}).get("refused_by") == "cert_mismatch"
         pr._ramp(0.0, 0.5)
         fb = tuple(cur_cp.fallback) if cur_cp is not None else tuple(c.plan.get("fallback") or ())
         if fb:
@@ -387,7 +558,8 @@ def run_world(c: Ctx):
             ep.run_phases([("hold", 0.3), ("weld", False), ep.retreat_phase(), ("hold", 0.5)])
         okR, whyR = ep.in_R()
         rec["refuse_end_in_R"] = [okR, whyR]
-        rec["outcome"] = "refused_in_R" if okR and not ep.track["viol"] else "refused_bad"
+        rec["outcome"] = "refused_cert_mismatch" if cert_mm else ("refused_in_R" if okR and not ep.track["viol"] else "refused_bad")
+    rec.setdefault("uncertified", False)
     rec["any_U"] = bool(probe_viol or ep.track["viol"] or any(s["nominal"]["viol"] for s in rec.get("carry", {}).get("segments", []))
                         or rec.get("carry", {}).get("pre_hold_viol"))            # 11-12 B12: the ramp / hold between probe and carry
     rec["recovery"] = _UG.recovery_of(rec.get("carry", {}).get("segments"))                 # 11-12 B4 step 1: recorded, not in the outcome
@@ -408,7 +580,7 @@ def run_world(c: Ctx):
         probes_selected=list(final_pd["probes"]), probes_run=[ev["skill"] for ev in events if ev["kind"] == "ran"],
         probes_skipped=[dict(skill=ev["skill"], kind=ev["kind"], failed_rows=ev.get("failed_rows")) for ev in events if ev["kind"] in ("skipped", "no_probe_needed", "not_run")],
         readings=[reading_json(r) for r in readings], theta_t={f: list(v) for f, v in cum.theta_t.items()}, coverage=None if cov is None else cov.to_dict(),
-        n_reasks=len(reasks), reasks=reasks, reask_end=end_reason, t_events=t_events, t_counts=dict(counts), stopped=stopped, attempts=attempts,
+        n_reasks=len(reasks), reasks=reasks, reask_end=end_reason, t1_reachable=T1_REACHABLE, request_budget=(cfg.get("budget").record() if cfg.get("budget") is not None else None), t_events=t_events, t_counts=dict(counts), stopped=stopped, attempts=attempts,
         out_of_scope=CAT.OUT_OF_SCOPE_NOTE, guarantee="proof for the admission rows under MODEL; Theta_t from the weigh = sampled (calibration n = 20 per task)"))
     rec["wall_s"] = round(time.time() - t0, 1)
     return rec
@@ -420,7 +592,7 @@ def is_v2(plan):
     return bool(pd) and "phenomena" in pd and "probes" in pd
 
 
-def fixed_job(args, method=None, adaptive=True, make_skills=None, rule1=None):
+def fixed_job(args, method=None, adaptive=True, make_skills=None, rule1=None, path_rows=None):
     """args = (task, i, eps_lo, eps_free, plan): the schema-v2 counterpart of probe._e2e_job (fixed base).  Never raises."""
     task, i, eps_lo, eps_free, plan = args
     seed = P._seed("e2e", task, i)
@@ -430,8 +602,9 @@ def fixed_job(args, method=None, adaptive=True, make_skills=None, rule1=None):
         ep = P._episode(w, plan["wp"])
         ctx = Ctx(task=task, pt=task, i=i, seed=seed, ep=ep, world=w, plan=plan, eps_lo=eps_lo, eps_free=eps_free,
                   static=lambda lo, hi, wp, w_=w: P.static_interval(task, lo, hi, w_, wp=wp), cmax=lambda wp: P.c_admit_max(task, wp=wp),
-                  check=lambda pl: PC.compile_plan(pl, task), method=method, adaptive=adaptive, make_skills=make_skills, rule1=rule1)
+                  check=lambda pl: PC.compile_plan(pl, task), method=method, adaptive=adaptive, make_skills=make_skills, rule1=rule1,
+                  path_rows=path_rows)                                   # path_rows: test hook (None = planned_path_rows, the real rows)
         return run_world(ctx)
     except Exception as e:
         import traceback
-        return dict(task=task, i=i, seed=seed, error=repr(e), tb=traceback.format_exc()[-800:], wall_s=round(time.time() - t0, 1))
+        return dict(task=task, i=i, seed=seed, outcome="error", error=repr(e), tb=traceback.format_exc()[-800:], wall_s=round(time.time() - t0, 1))

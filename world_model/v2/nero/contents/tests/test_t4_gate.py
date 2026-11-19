@@ -77,9 +77,15 @@ def prompts(monkeypatch):
     return seen
 
 
-def run(tmp_path, stub):
+def ok_path_rows(task, wp, a, cell):
+    """11-17: the planned-path rows run before Rule 1 (probe_select.py ~384); this loop gate tests Rule 1 / T4, so the path rows are stubbed to pass.
+    (Real rows on this box world refuse: right J7 1.5502 vs limit 1.5197 at the hold pose; see test_path_rows_refuse_before_rule1.)"""
+    return [PS._row_dict("planned_path", True, 0.0, "sampled", "stubbed in the T4 gate")]
+
+
+def run(tmp_path, stub, path_rows=ok_path_rows):
     plan = plan_for("box", tmp_path)
-    r = PS.fixed_job(("box", WORLD_I, *EPS, plan), method="poslift", rule1=stub)
+    r = PS.fixed_job(("box", WORLD_I, *EPS, plan), method="poslift", rule1=stub, path_rows=path_rows)
     assert "error" not in r, r.get("tb")
     return r
 
@@ -150,13 +156,16 @@ def test_only_missing_rows_are_not_fixable():
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------- loop (sim)
-def test_a_fixable_reasks_then_carries(tmp_path, prompts):
+def test_a_fixable_reasks_then_rule1_admits(tmp_path, prompts):
     stub = Stub(recs([REAL]), recs(None))
     r = run(tmp_path, stub)
     v = r["v2"]
     assert len(stub.calls) == 2 and v["t_counts"].get("T4") == 1 and v["n_reasks"] == 1 and v["reasks"][0]["trigger"] == "T4"
-    assert v["first_plan_id"] != v["plan_id"]                                    # the carry ran on the re-asked plan
-    assert "carry" in r and r["refused_by"] is None
+    assert v["first_plan_id"] != v["plan_id"]                                    # Rule 1 admitted the re-asked plan
+    # USER 11-17 "Assert the cert refusal": the stub's admitted records carry no program_spec / plan_key, so the executor's certificate check
+    # (stack/executor.py ~501) refuses the run, fail closed.  A real Rule 1 record carries them (adapters/rule1_contents.py).
+    assert "carry" not in r and r["refused_by"] == "cert_mismatch" and r["outcome"] == "refused_cert_mismatch", (r.get("refused_by"), r.get("outcome"))
+    assert any("no program_spec" in p_ for p_ in (r["decision"].get("cert_problems") or [])), r["decision"].get("cert_problems")
     assert len(prompts) == 1
     t = prompts[0]
     assert "RULE 1 REFUSALS YOU CAN FIX" in t and "shelf|box_wall_e" in t and "0.0071" in t and "0.005" in t and "placement" in t
@@ -190,12 +199,35 @@ def test_d_repeat_guard_stops_after_three(tmp_path, prompts):
 
 
 def test_g_legacy_flag_skips_rule1(tmp_path, monkeypatch, prompts):
+    """BIMANUAL_LEGACY_NO_T4=1 + BIMANUAL_LEGACY_RULE1_SKIP=1 = the pre-T4 loop: Rule 1 is skipped in silence."""
     monkeypatch.setenv("BIMANUAL_LEGACY_NO_T4", "1")
+    monkeypatch.setenv("BIMANUAL_LEGACY_RULE1_SKIP", "1")
     stub = Stub(raise_on_call=True)
     r = run(tmp_path, stub)
     v = r["v2"]
     assert stub.calls == [] and "T4" not in v["t_counts"] and prompts == []
     assert "rule1" not in v["attempts"][-1]
+
+
+def test_g2_no_t4_without_skip_fails_closed(tmp_path, monkeypatch, prompts):
+    """USER 11-17 fail closed: BIMANUAL_LEGACY_NO_T4=1 alone refuses as Rule 1 MISSING (never a silent admission); Rule 1 is not called."""
+    monkeypatch.setenv("BIMANUAL_LEGACY_NO_T4", "1")
+    monkeypatch.delenv("BIMANUAL_LEGACY_RULE1_SKIP", raising=False)
+    stub = Stub(raise_on_call=True)
+    r = run(tmp_path, stub)
+    v = r["v2"]
+    assert stub.calls == [] and "carry" not in r
+    assert v["attempts"][-1]["rule1"]["guarantee"] == "missing", v["attempts"][-1].get("rule1")
+
+
+def test_path_rows_refuse_before_rule1(tmp_path, prompts):
+    """11-17: a failing planned-path row refuses the attempt before Rule 1 runs (fail closed)."""
+    bad = lambda task, wp, a, cell: [PS._row_dict("joint_pos", False, -0.03, "refuted", "stub: joint margin")]
+    stub = Stub(raise_on_call=True)
+    r = run(tmp_path, stub, path_rows=bad)
+    v = r["v2"]
+    assert stub.calls == [] and "carry" not in r
+    assert any(a.get("decision", {}).get("refused_by") == "path_rows" for a in v["attempts"]), [a.get("decision") for a in v["attempts"]]
 
 
 def test_h_rule1_crash_fails_closed(tmp_path, prompts):

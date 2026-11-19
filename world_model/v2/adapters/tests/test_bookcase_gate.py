@@ -6,7 +6,8 @@ Checked here:
   1. the TaskDef goal equals the scene (place_pose_xy - obj_xy), the goal support is the plinth top at counter height, the route matches the scene constants;
   2. the old table-behind scenes are untouched (no bookcase geom, counter2 present) and the bookcase scene has no counter2;
   3. the default plan builds; collision rows pass; every arm-world distance to a bookcase geom over insert + place is >= 20 mm (ASSUMED margin of this gate);
-  4. Rule 1 admits lift, insert and place; base_move is refused as MISSING (no stored base recovery; known gap).
+  4. Rule 1 admits lift, insert and place; base_move is checked by the base-stop rows (11-17: program base_stop_finish, MEASURED per-level stop card):
+     admitted, or refused by named base_stop.* rows -- never the old "no recovery" MISSING.  BIMANUAL_LEGACY_NO_BASE_BACKUP-era behaviour is not tested here.
 """
 import numpy as np
 import pytest
@@ -84,4 +85,14 @@ def test_rule1_admits_the_arm_steps_and_flags_the_base_step(tmp_path):
     for seg in ("s0_lift", "s1_insert", "s2_place"):
         assert recs[seg]["admitted"], (seg, recs[seg].get("refusal"))
     base = [r for s, r in recs.items() if "base" in s]
-    assert base and not base[0]["admitted"] and "recovery" in (base[0].get("refusal") or "")
+    assert base, sorted(recs)
+    b0 = base[0]
+    names = [r.get("name") or r.get("row") for r in b0.get("all_rows", [])]
+    assert names and all(str(n).startswith("base_stop.") for n in names), names         # the base step is checked by the base-stop rows
+    assert "base_stop.next_step" in names                                                 # run_cell links the steps after the base move
+    if not b0["admitted"]:
+        bad = [(r.get("name") or r.get("row"), r.get("why")) for r in b0["all_rows"] if not r.get("ok")]
+        assert bad and all(str(n).startswith("base_stop.") for n, _ in bad), bad
+        assert "no stored" not in (b0.get("refusal") or "") and "not built" not in (b0.get("refusal") or ""), b0.get("refusal")
+    else:
+        assert b0.get("program") == "base_stop_finish" and b0.get("guarantee") in ("sampled", "proof"), (b0.get("program"), b0.get("guarantee"))

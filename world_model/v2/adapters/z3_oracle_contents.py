@@ -391,12 +391,24 @@ class Oracle:
             if "refusal" in rec and "per_program" not in rec:
                 rows.append(_row(nm, False, None, "refuted", rec["refusal"]))
                 failing.append(nm)
+            elif "all_rows" in rec and not pp:           # a base_move record (no per_program): judged on its own admitted / all_rows / guarantee (11-17)
+                bad = [x for x in rec["all_rows"] if not x.get("ok")]
+                if rec.get("admitted"):
+                    ms = [x.get("margin") for x in rec["all_rows"] if isinstance(x.get("margin"), (int, float)) and math.isfinite(x["margin"])]
+                    rows.append(_row(nm, True, min(ms) if ms else None, rec.get("guarantee", "")))
+                else:
+                    why = "; ".join(f"{x['name']}: {(x.get('why') or x['guarantee'])[:140]}" for x in bad[:3])
+                    rows.append(_row(nm, False, None, rec.get("guarantee") or "refuted", f"{len(rec['all_rows'])} rows, failing: {why}"))
+                    failing.append(nm)
             elif prog not in pp:
                 rows.append(_row(nm, False, None, "missing", f"program {prog!r} is not offered for this step (offered: {sorted(pp)})"))
                 failing.append(nm)
             else:
                 p = pp[prog]
-                if p["ok"]:
+                if p["ok"] and rec.get("refusal_tag") == "NOT_FIXABLE:not_executable":
+                    rows.append(_row(nm, False, None, "refuted", rec.get("refusal", "admitted only by a program the executor cannot run yet")))
+                    failing.append(nm)
+                elif p["ok"]:
                     m = None
                     if rec.get("admitted") and rec.get("program") == prog:
                         ms = [x.get("margin") for x in rec["admission"]["rows"] if isinstance(x.get("margin"), (int, float)) and math.isfinite(x["margin"])]

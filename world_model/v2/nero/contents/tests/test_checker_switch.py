@@ -17,8 +17,21 @@ def _both(monkeypatch, *a, **k):
     return leg, uni
 
 
+TOL_M = 1e-6          # USER 11-17 "Compare with tolerance": the unified support row reads the plan's end pose (static_admission.plan_end_xy), 5.4e-8 m
+                      # from scene.place_pose_xy; numbers equal within TOL_M; which of two tied corners is named in support_dest.worst is ignored
+
+
+def _num(x):
+    return isinstance(x, (int, float, np.number)) and not isinstance(x, (bool, np.bool_))
+
+
 def _equal(a, b, path=""):
-    """first difference as a readable string, '' when equal (exact; np arrays element-wise)."""
+    """first difference as a readable string, '' when equal (numbers within TOL_M; np arrays element-wise within TOL_M)."""
+    if path.endswith("support_dest.worst.c"):
+        return ""
+    if _num(a) and _num(b):
+        fa, fb = float(a), float(b)
+        return "" if (fa == fb or abs(fa - fb) <= TOL_M or (fa != fa and fb != fb)) else f"{path}: legacy {a!r} unified {b!r}"     # fa == fb first: inf == inf
     if isinstance(a, dict) and isinstance(b, dict):
         if set(a) != set(b):
             return f"{path}: keys legacy-only {sorted(set(a) - set(b))} unified-only {sorted(set(b) - set(a))}"
@@ -36,7 +49,9 @@ def _equal(a, b, path=""):
                 return d
         return ""
     if isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
-        return "" if np.array_equal(np.asarray(a), np.asarray(b)) else f"{path}: legacy {a} unified {b}"
+        A, B = np.asarray(a), np.asarray(b)
+        ok = A.shape == B.shape and (np.array_equal(A, B) or (np.issubdtype(A.dtype, np.number) and np.issubdtype(B.dtype, np.number) and np.allclose(A, B, rtol=0, atol=TOL_M)))
+        return "" if ok else f"{path}: legacy {a} unified {b}"
     return "" if (a == b or (a != a and b != b)) else f"{path}: legacy {a!r} unified {b!r}"
 
 

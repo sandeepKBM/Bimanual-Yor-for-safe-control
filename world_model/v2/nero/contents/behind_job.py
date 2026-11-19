@@ -39,7 +39,8 @@ def base_task(task):
 
 def _static(task, c_lo, c_hi, w, wp, com=None):
     """com (demo_runner oracle_theta, default None = unchanged): the true contents COM point [x, y, z] (object frame) -> the COM set of the rows is that point."""
-    return CC.static_cell(task, (round(c_lo, 4), round(c_hi, 4)), w, spec=P.interval_spec(base_task(task), c_lo, c_hi, com=com), wp=wp)
+    from world_model.v2.nero.contents import probe_select as PS
+    return CC.static_cell(task, PS.round_out(c_lo, c_hi), w, spec=P.interval_spec(base_task(task), c_lo, c_hi, com=com), wp=wp)
 
 
 @functools.lru_cache(maxsize=None)
@@ -62,7 +63,7 @@ def c_admit_max(task, wp, tol=0.01):
 
 def _row(r):
     return dict(ok=bool(r.ok), margin=None if r.margin is None else float(r.margin), unit=r.unit, guarantee=r.guarantee, n=r.n, why=r.why,
-                worst=CR._jsonable(r.worst))
+                worst=CR._jsonable(r.worst), assumptions=CR._jsonable(getattr(r, "assumptions", None)))
 
 
 def _rows_json(rows):
@@ -128,7 +129,7 @@ def behind_job(args, method=None, adaptive=True):
                 if not rec["probe_in_B"]["inside"] and plan.get("outside_b", "refuse") == "refuse" and decision["a_admit"] is not None:
                     decision = dict(decision, action="refuse (probe set outside B)", a_admit=None, why_B=rec["probe_in_B"], refused_by="outside_B")
             if decision["a_admit"] is not None:              # base level: highest of L1..L3 with every base row passing on Theta
-                lvl, rows = BE.pick_level(task, P.interval_spec(bt, c_lo, c_hi), LEVELS, SOURCE)
+                lvl, rows = BE.pick_level(task, P.interval_spec(bt, c_lo, c_hi), LEVELS, SOURCE, wp=wp0)
                 rec.update(base_level=lvl, base_rows=_rows_json(rows))
                 if lvl is None:
                     decision = dict(decision, action="refuse (base level)", a_admit=None, refused_by="base_level",
@@ -181,7 +182,7 @@ def behind_job(args, method=None, adaptive=True):
         return rec
     except Exception as e:
         import traceback
-        return dict(task=task, i=i, seed=seed, error=repr(e), tb=traceback.format_exc()[-1200:])
+        return dict(task=task, i=i, seed=seed, outcome="error", error=repr(e), tb=traceback.format_exc()[-1200:])
 
 
 def true_com(ep):
@@ -210,6 +211,7 @@ def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True,
                      static=lambda lo, hi, wp: _static(task, lo, hi, w, wp, com=com), cmax=lambda wp: c_admit_max(task, wp),
                      check=lambda pl: PC.compile_plan(pl, task, level="L1"), method=method, adaptive=adaptive, behind=True,
                      level=lambda lo, hi: BE.pick_level(task, P.interval_spec(bt, lo, hi, com=com), LEVELS, SOURCE),
+                     level_wp=lambda lo, hi, wp_: BE.pick_level(task, P.interval_spec(bt, lo, hi, com=com), LEVELS, SOURCE, wp=wp_),
                      at_level=lambda pd, lvl: PC.compile_plan(pd, task, build=False, level=lvl).wp, rows_json=_rows_json, make_skills=make_skills,
                      **(ctx_extra or {}))
         rec_extra = dict(oracle_com=list(com)) if com is not None else {}
@@ -231,4 +233,4 @@ def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True,
         return rec
     except Exception as e:
         import traceback
-        return dict(task=task, i=i, seed=seed, error=repr(e), tb=traceback.format_exc()[-1200:])
+        return dict(task=task, i=i, seed=seed, outcome="error", error=repr(e), tb=traceback.format_exc()[-1200:])

@@ -21,6 +21,9 @@ def main():
     ap.add_argument("--plan-cache", required=True)
     ap.add_argument("--offline", action="store_true")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--tilt-procs", type=int, default=1)
+    ap.add_argument("--tilt-n", type=int, default=None)
+    ap.add_argument("--max-requests", type=int, default=8, help="proposer request budget for the whole run: Phase A asks + every Rule 2 / T4 re-ask (default 8, USER 11-16)")
     ap.add_argument("--propose-only", action="store_true", help="ask the proposer (and record / cache its plan), run no world")
     a = ap.parse_args()
     task = "box_bookcase"
@@ -32,7 +35,7 @@ def main():
     eps_lo, eps_free = float(cal["EPS_LO"]), float(cal["EPS_FREE"])
     worlds = [int(x) for x in a.worlds.split(",")]
     ns = argparse.Namespace(plan_spec=a.spec, plan_cache=a.plan_cache, offline=a.offline, outside_b="refuse", plan_images=a.plan_images,
-                            plan_image_world=worlds[0], reask_limit=None)
+                            plan_image_world=worlds[0], reask_limit=None, max_requests=a.max_requests, tilt_procs=a.tilt_procs, tilt_n=a.tilt_n)
     t0 = time.time()
     ex = SW._proposer_plans([task], ns, out)[task]
     (out / "proposer.json").write_text(json.dumps({k: v for k, v in ex.items() if k != "plan" or True}, default=str, indent=1))
@@ -45,7 +48,7 @@ def main():
         (out / f"world_{i}.json").write_text(json.dumps(r, default=str, indent=1))
         v2 = r.get("v2") or {}
         print(f"world {i}: outcome={r.get('outcome')} refused_by={r.get('refused_by')} any_U={r.get('any_U')} t_counts={v2.get('t_counts')} "
-              f"reask_end={v2.get('reask_end')} level={r.get('base_level')} {time.time() - t1:.0f}s", flush=True)
+              f"reask_end={v2.get('reask_end')} level={r.get('base_level')} budget={v2.get('request_budget')} {time.time() - t1:.0f}s", flush=True)
 
 
 if __name__ == "__main__":

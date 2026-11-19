@@ -22,7 +22,8 @@ from pathlib import Path
 import numpy as np
 
 MODES = ("none", "zed", "zed+wrist", "zed+look")
-LOOK_BACK_M = 0.50                     # ASSUMED (zed+look): the look-turn stand-in backs the base this far along its start +x before the 180 deg turn (= route RB's first segment)
+LOOK_BACK_M = 0.0                      # ASSUMED (zed+look, USER 11-17): the look-turn stand-in turns about the base rotation centre with NO retreat.  BIMANUAL_LEGACY_LOOK_BACK=1: 0.50 m (copied from route RB's first segment) and the old caption
+LOOK_BACK_LEGACY_M = 0.50
 SIZE = (640, 360)                      # (width, height) ASSUMED: modest, keeps the request small
 ZED_FOVY_DEG = 70.0                    # scripts/zed_camera.ZED_FOVY_DEG (ZED nominal vertical FOV; datasheet default, not read from the SDK)
 ZED_LOCAL_POS = (0.049604, 0.000450, 0.385865)   # scripts/zed_camera._ZED_POS_LOCAL, in Lift_Top's frame: PROPOSED torso mount, confirm-on-hardware
@@ -32,7 +33,8 @@ SETTLE_S = 0.5                         # as CarryEpisode: objects at rest
 
 _NOTES = {
     "zed": "IMAGES: image 1 is the torso stereo camera (ZED, left imager) at the start of the task, before any probe.",
-    "zed+look": "IMAGES: image 1 is the torso stereo camera (ZED, left imager) at the start of the task, before any probe; image 2 is the same camera after the base backs up 0.5 m and turns 180 degrees in place (a look-around), facing what is behind the robot.",
+    "zed+look": "IMAGES: image 1 is the torso stereo camera (ZED, left imager) at the start of the task, before any probe; image 2 is the same camera after the base turns in place to look behind the robot.",
+    "zed+look_legacy": "IMAGES: image 1 is the torso stereo camera (ZED, left imager) at the start of the task, before any probe; image 2 is the same camera after the base backs up 0.5 m and turns 180 degrees in place (a look-around), facing what is behind the robot.",
     "zed+wrist": "IMAGES: image 1 is the torso stereo camera (ZED, left imager) at the start of the task, before any probe; image 2 is the left wrist camera (RealSense RGB, facing the gripper fingers) at the same moment.",
 }
 
@@ -55,10 +57,21 @@ class PlanImages:
         return dict(mode=self.mode, paths=list(self.paths), cameras=list(self.cameras), size=list(self.size), world=dict(task=self.task, i=self.i), assumptions=self.assumptions)
 
 
+def _legacy_look_back():
+    return os.environ.get("BIMANUAL_LEGACY_LOOK_BACK") == "1"
+
+
+def look_back_m():
+    """how far the look-turn stand-in backs up before turning: 0.0 (USER 11-17), 0.5 with BIMANUAL_LEGACY_LOOK_BACK=1."""
+    return LOOK_BACK_LEGACY_M if _legacy_look_back() else LOOK_BACK_M
+
+
 def image_note(mode):
     """the one prompt line for a mode ('' for none)."""
     if mode not in MODES:
         raise ValueError(f"plan images mode {mode!r} not in {MODES}")
+    if mode == "zed+look" and _legacy_look_back():
+        return _NOTES["zed+look_legacy"]
     return _NOTES.get(mode, "")
 
 
@@ -113,12 +126,13 @@ def render_world(world, mode, size=SIZE):
         cam, _, _ = _zed_free_camera(m, d)
         r.update_scene(d, camera=cam)
         out.append(("zed_left", r.render().copy()))
-        if mode == "zed+look":                                 # 11-16 stand-in for an UNBUILT look-turn skill: the ZED pose moved as the base would move (back LOOK_BACK_M, turn 180
+        if mode == "zed+look":                                 # 11-16 stand-in for an UNBUILT look-turn skill: the ZED pose moved as the base would move (back look_back_m() = 0 by default, turn 180
             from world_model.v2.adapters import base_sweep as BSW  # about the rotation centre); the robot's own arms are NOT re-posed in this view (they are behind / beside the camera).
             c0x, c0y, yaw0 = BSW.start_pose(world)
             _, pos, fwd = _zed_free_camera(m, d)
-            c1 = np.array([c0x, c0y]) + LOOK_BACK_M * -np.array([np.cos(yaw0), np.sin(yaw0)])
-            rel = pos[:2] - np.array([c0x, c0y]) - LOOK_BACK_M * -np.array([np.cos(yaw0), np.sin(yaw0)])
+            lb = look_back_m()
+            c1 = np.array([c0x, c0y]) + lb * -np.array([np.cos(yaw0), np.sin(yaw0)])
+            rel = pos[:2] - np.array([c0x, c0y]) - lb * -np.array([np.cos(yaw0), np.sin(yaw0)])
             p2 = np.array([*(c1 - rel), pos[2]])                 # 180 deg about c1: rel -> -rel
             f2 = np.array([-fwd[0], -fwd[1], fwd[2]])
             cam2 = mujoco.MjvCamera()

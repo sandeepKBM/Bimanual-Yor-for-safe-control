@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import dataclasses
 import math
+import os
 
 from world_model.v2.stack import theta as TH
 from world_model.v2.stack.checks import payload as PAY
@@ -24,7 +25,8 @@ from world_model.v2.stack.checks.row import Row, combine
 
 K = 3                  # ASSUMED (to be raised to the user): R_K depth -- the planner must find a sequence to the next subgoal of at most K admitted steps
 NODE_CAP = 50          # ASSUMED (to be raised to the user): node cap of that search
-BRANCH_DT = 0.25       # s, reused: executor.run_segments stores a branch snapshot every 0.25 s (design: carry_cert / executor.py:99)
+BRANCH_DT = 0.25       # ASSUMED s: the branch grid.  executor.run_segments stores a branch snapshot every 0.25 s, but a trigger can come at ANY control step, so a step admission
+                       # is checked on the grid only: its guarantee is capped at "sampled" (11-17; BIMANUAL_LEGACY_R1_PROOF=1 restores the uncapped "proof")
 
 
 def branch_times(duration: float, dt: float = BRANCH_DT) -> list:
@@ -133,13 +135,37 @@ def admit_step(step: int, theta_t: TH.ThetaSet, programs, branch_times, check_mo
     if not ok_names:
         return None, per
     win = next(p for p in programs if p.name == ok_names[0])
+    # 11-17 (USER Q5, wide table): table[t] = the set each listed program is verified on at branch time t.  Narrow (BIMANUAL_LEGACY_TABLE_THETA_T=1, the old table): theta_t for every
+    # viable program.  Wide (default, needs theta_0): theta_t UNION every prior cell c of theta_0 on which ALL rows of the program at t and every time-independent row pass
+    # (program_viable on {c}).  Without it every table set equals theta_t, and any sound update (theta_new = theta_t ∩ reading) is inside theta_t: cover could never answer "switch".
+    # The admitted program is still listed at every t it passes on theta_t.  A reading program cannot extend beyond theta_t: its coverage row fails on a cell outside it.
+    wide = theta_0 is not None and not theta_0.is_empty() and os.environ.get("BIMANUAL_LEGACY_TABLE_THETA_T") != "1"
+    extra = {}                      # program name -> [(c, tagged rows)] for the prior cells NOT inside theta_t
+    if wide:
+        for p in programs:
+            for c in theta_0.cells:
+                if theta_t.contains(TH.ThetaSet((c,))):
+                    continue
+                if p.reading is not None and not TH.covers_readings(p, TH.ThetaSet((c,)))[0]:
+                    continue                          # the bins do not cover this cell's readings: no extension (skips the expensive rows)
+                extra.setdefault(p.name, []).append((c, _rows(p, TH.ThetaSet((c,)), times, check_motion, landing_ok)))
     table = {}
     for t in times:
         lst = []
         for p in programs:
             tr = viable[p.name]
-            if all(r.ok for tt, r in tr if tt is None or tt == t):          # the rows of this branch time + the rows that hold for every time
-                lst.append((p.name, theta_t))
+            on_t = all(r.ok for tt, r in tr if tt is None or tt == t)       # the rows of this branch time + the rows that hold for every time
+            if on_t:
+                ts = theta_t
+            elif extra.get(p.name):
+                ts = TH.ThetaSet(())                  # not verified on theta_t at this t: only the prior cells it passes on (GUESS: a switch target need not pass on theta_t)
+            else:
+                continue
+            for c, rows_c in extra.get(p.name, []):
+                if rows_c and all(r.ok for tt, r in rows_c if tt is None or tt == t):
+                    ts = ts.union(TH.ThetaSet((c,)))
+            if not ts.is_empty():
+                lst.append((p.name, ts))
         table[float(t)] = lst
     fb_ok = None
     if fallback is not None and theta_0 is not None and not theta_0.is_empty():
@@ -150,11 +176,14 @@ def admit_step(step: int, theta_t: TH.ThetaSet, programs, branch_times, check_mo
                 good.append(c)
         fb_ok = TH.ThetaSet(tuple(good)) if good else None
     verdict = combine(per[win.name], "rule1")
+    guarantee = verdict.guarantee
+    if guarantee == "proof" and os.environ.get("BIMANUAL_LEGACY_R1_PROOF") != "1":
+        guarantee = "sampled"                      # the branch times are a 0.25 s grid (ASSUMED): between grid points nothing is checked, so never "proof"
     ass = [_assumption("K", K, "ASSUMED", "R_K depth (to be raised to the user)"),
            _assumption("NODE_CAP", NODE_CAP, "ASSUMED", "R_K node cap (to be raised to the user)"),
-           _assumption("branch_dt", BRANCH_DT, "MODEL", "stack/executor.py run_segments: branch snapshot every 0.25 s"),
+           _assumption("branch_dt", BRANCH_DT, "ASSUMED", "branch grid = the executor's snapshot period (stack/executor.py run_segments, 0.25 s); a trigger between grid points is not checked: the step guarantee is capped at sampled"),
            _assumption("U_ADMIT", PAY.U_ADMIT, "MODEL", "checks/payload.U_ADMIT (rated limits, USER 11-09)"),
-           _assumption("guarantee", verdict.guarantee, "MODEL", f"row.combine over {len(per[win.name])} rows of program {win.name!r} (weakest row)"),
+           _assumption("guarantee", guarantee, "MODEL", f"row.combine over {len(per[win.name])} rows of program {win.name!r} (weakest row), capped at sampled (0.25 s branch grid)"),
            _assumption("fallback_F", "prior box Theta_0 (recorded, not required)", "ASSUMED", "user ruling 11-16 D1")]
     if win.reading is not None:
         ass.append(_assumption("reading_noise", win.reading.noise, win.reading.noise_tag, win.reading.noise_src))

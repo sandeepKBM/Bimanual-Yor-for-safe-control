@@ -339,13 +339,23 @@ def test_v2_prompt_has_no_contents_prior_no_sanity_range_no_truth():
     assert "0.5, 5.0" not in t and "(0.0, 20.0)" not in t and "20.0" not in PR.user_prompt("box")
 
 
-def test_v2_behind_prompt_keeps_base_move_and_scene_facts():
+def test_v2_behind_prompt_keeps_base_move_and_scene_facts(monkeypatch):
+    """USER 11-17 "codex should make plans, not your clues": the behind prompts are goal-only (no known-good route, no turning hint); the route
+    vocabulary states the real format (line / turn).  BIMANUAL_LEGACY_BEHIND_HINTS=1 + BIMANUAL_LEGACY_ROUTE_VOCAB=1 give the 11-09..11-16 text back."""
     for task in BEHIND:
         txt = PR.user_prompt(task)
         f = PR.scene_facts(task)
-        assert "base_move" in json.dumps(f["vocabulary"]) and "Known-good route R1" in txt and "Turning in place at the pick pose hits counter 1" in txt
-        assert "R1" in json.dumps(f["task"]["base"]["routes_known_good"]) and f["phenomena"]
+        v = json.dumps(f["vocabulary"])
+        assert "base_move" in v and '\\"line\\"' in v and '\\"turn\\"' in v and "line_m" not in v and f["phenomena"]
+        assert "Known-good" not in txt and "Turning in place" not in txt and "routes_known_good" not in json.dumps(f["task"]["base"])
     assert "base_move" not in json.dumps(PR.scene_facts("tray6")["vocabulary"])
+    monkeypatch.setenv("BIMANUAL_LEGACY_BEHIND_HINTS", "1")
+    monkeypatch.setenv("BIMANUAL_LEGACY_ROUTE_VOCAB", "1")
+    for task in BEHIND:
+        txt = PR.user_prompt(task)
+        f = PR.scene_facts(task)
+        assert "Known-good route R1" in txt and "Turning in place at the pick pose hits counter 1" in txt
+        assert "R1" in json.dumps(f["task"]["base"]["routes_known_good"]) and "line_m" in json.dumps(f["vocabulary"])
 
 
 def test_v2_reask_prompt_is_built_and_rejection_prompt_uses_v2_keys(tmp_path):
