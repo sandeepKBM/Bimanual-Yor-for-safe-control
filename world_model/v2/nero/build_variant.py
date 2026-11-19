@@ -82,7 +82,7 @@ def _add_swerve(root) -> None:
 
 def variant_xml(lift: bool = False, gravcomp: bool = False, tau=None, arm_arm_collide: bool | None = None, base: str = "fixed") -> str:
     """base: "fixed" (default, byte-identical to before) | "swerve" (floating base + 4 steer + 4 drive joints + actuators, see _add_swerve).
-    arm_arm_collide: None = on unless BIMANUAL_LEGACY_ARMCOL=1; adapters.compose_scene / democ.scene pass False (they patch the
+    arm_arm_collide: None = on; adapters.compose_scene / democ.scene pass False (they patch the
     bits themselves with adapters.patch_collision, which already gives arm-arm + self collision)."""
     # the source's header comment contains '--' (invalid XML, MuJoCo tolerates it): strip all comments first
     txt = re.sub(r"<!--.*?-->", "", SRC.read_text(), flags=re.S)
@@ -105,7 +105,7 @@ def variant_xml(lift: bool = False, gravcomp: bool = False, tau=None, arm_arm_co
             lt.remove(b)
     for side in C.SIDES:
         lt.append(_el(X.body_xml(f"{side}_arm_", C.ASSUMED[f"mount_{side}"], gravcomp)))
-    if (not C.LEGACY_ARMCOL) if arm_arm_collide is None else arm_arm_collide:
+    if True if arm_arm_collide is None else arm_arm_collide:
         _arm_arm_collision(lt)
     # --- actuators
     act = root.find("actuator")

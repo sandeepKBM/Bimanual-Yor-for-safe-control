@@ -2,7 +2,7 @@
 USER 11-16 "go with a and build the base stop check"; USER 11-17 rulings: resume = finish the planned route (base_route.remaining_route), safe = on a support,
 the measured extra overshoot is always added.  SIMULATION ONLY, offline.  Slow (minutes); the result records go to BIMANUAL_GATE_OUT if set.
 
-What is pinned here is the STRUCTURE and the legacy switches.  The verdicts themselves are printed and written out (they depend on the MEASURED stop card)."""
+What is pinned here is the STRUCTURE.  The verdicts themselves are printed and written out (they depend on the MEASURED stop card)."""
 import json
 import os
 import pathlib
@@ -62,10 +62,3 @@ def test_base_move_record_has_every_row(tmp_path):
             if lf["name"].startswith("landing[hold:"):
                 assert not lf["ok"], lf
     print({r["seg"]: (r.get("admitted"), r.get("program"), r.get("guarantee"), [x["name"] for x in (r.get("rows") or []) if not x.get("ok")]) for r in res})
-
-
-def test_legacy_flags_restore_old_records(tmp_path):
-    res = _run(tmp_path, {"BIMANUAL_LEGACY_NO_BASE_BACKUP": "1", "BIMANUAL_LEGACY_HOLD_IS_SAFE": "1"})
-    _dump("rule1_box_bookcase_legacy.json", res)
-    b = next(r for r in res if r["seg"] == "base_move")
-    assert b["admitted"] is False and b["guarantee"] == "missing" and b["rows"][0]["name"] == "recovery[base_move]"

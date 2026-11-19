@@ -96,7 +96,7 @@ def admit(t: TaskDef, spec, path: PathSamples, backend, support, a_nom: float = 
         if a_open < np.inf and "open_content" in t.rows:
             rows.append(OCN.open_content_row(aa, a_open, name=f"open_content[{seg}]"))
     dest = np.asarray(backend.o_ref(), float)[:2] + np.asarray(path.disp, float)[:2]
-    sup_row = SUP.support_row(t, dest, support[0], support[1], spec.empty_mass, spec.empty_com, cont)
+    sup_row = SUP.support_row(t, dest, support[0], support[1], spec.empty_mass, spec.empty_com, cont, geo=(support[2] if len(support) > 2 else None))
     rows.append(sup_row)
     if coverage is not None:
         rows.append(COV.row(coverage))

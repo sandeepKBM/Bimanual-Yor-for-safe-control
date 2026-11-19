@@ -19,12 +19,12 @@ retrace to poses stored when the segment was admitted):
 Unsafe set U (truth, checked every control step): torque saturation (|tau| >= config.tau_limit()), object tilt > 10 deg or drop, a mug tipped (> 20 deg) or off the tray, spill
 (quasi-static surface-tilt proxy from the sim mug acceleration: (D/2) tan(phi) > freeboard; slosh NOT modelled), arm contact with the
 environment or the object (gripper-tab contact allowed).
-Claw load (vertical force vs (3 kg - gripper) g, twist vs T_cap) is RECORDED from the weld constraint wrench but is NOT in U by
+Claw load (vertical force vs (3 kg - gripper) g, twist) is RECORDED from the weld constraint wrench but is NOT in U by
 default (strict_claw=True puts it in U): under the rigid weld the two position-tracking arms hold the object with a closed-chain
 internal stress set by their tracking errors (11-02 diagnosis: ~19 N pull along the grasp line and 1.2-1.7 Nm twist in the air
 with the payload feedforward OFF), so the measured claw wrench reflects the weld + controller, not the hidden contents.  The
 claw limits enter the certificate through the static rows (model wrench of the commanded split, proof under MODEL).
-USER 11-02 pm: the grasp is not our problem -> no claw rows anywhere (twist cap dropped; T_cap/strict_claw only reproduce old runs).
+USER 11-02 pm: the grasp is not our problem -> no claw rows anywhere (twist cap removed 11-19).
 The claw wrench stays a logged diagnostic.  U above is arm/object-side: joint torque, object/mug tilt, drop, spill, collisions.
 R (rest set): object resting on a support (speed < 5 mm/s, tilt < 3 deg), mugs upright (< 5 deg) on the tray, no U entry.
 """
@@ -63,7 +63,7 @@ HOLD_FINGER = _hold_finger()
 
 SIDES = ("left", "right")
 DT = 0.005
-TAU_PRESET = None      # None = config.tau_limit() (MJCF 100 Nm since USER 11-05; BIMANUAL_TAU_MIT16=1 -> 16 Nm)
+TAU_PRESET = None      # None = config.tau_limit() (MJCF 100 Nm since USER 11-05)
 CAP_FILE = E.CAP_FILE
 PLANS = {   # ASSUMED (user-confirmed 11-02); (segment, common TCP delta [m])
     "tray": [("lift", (0, 0, 0.05)), ("carry", (-0.10, 0, 0)), ("place", (0, 0, -0.05))],
@@ -129,17 +129,6 @@ def _face_axis(d, m, w, l):
         return Rw[:, k] * (1.0 if loc[k] >= 0 else -1.0)
     nd = float(np.linalg.norm(dc))
     return dc / nd if nd > 1e-12 else np.array([0.0, 0.0, 1.0])
-
-
-def support_exempt_enabled():
-    """USER 11-17 "Release: exempt the support": once both welds are off, the world geoms the load touches at that moment (the landing support) are
-    exempt from the obj_world row; every other world geom still counts.  BIMANUAL_LEGACY_NO_SUPPORT_EXEMPT=1 = the 11-16..11-17 monitor (no exemption)."""
-    return os.environ.get("BIMANUAL_LEGACY_NO_SUPPORT_EXEMPT") != "1"
-
-
-def obj_world_u_enabled():
-    """USER 11-16 D9 object-world clearance in U; BIMANUAL_U_OBJ_CONTACT=0 reproduces the pre-11-16 runs."""
-    return os.environ.get("BIMANUAL_U_OBJ_CONTACT", "1") != "0"
 
 
 LID_TILT_DEG = U_TILT_OBJ  # ASSUMED (11-05, pot): lid tilt relative to the pot that counts as "lid off" (U), = the object tilt threshold
@@ -251,9 +240,10 @@ def _tilt_deg(R):
 
 
 class CarryEpisode:
-    def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, T_cap=None, ctl="lever", strict_claw=False,
-                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, planner=None, wp=None, base="", goal_support=""):
-        """base="" (default): the fixed-base scene, every path bit-identical to before.  base="swerve" (table-behind tasks, 11-09): the swerve-base scene with
+    def __init__(self, world, a_plan=E.A_NOM, m_hat=None, share=0.5, ctl="lever", strict_claw=False,
+                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, planner=None, wp=None, base="", goal_support="", hold_q=None):
+        """hold_q (11-19): {side: q7} the arms' start pose; None (default) = nyu_hold.hold_pose(world) (claws on the world's tabs; GraspUnreachable if there is none).  Geometry-only callers (adapters/base_sweep._episode: base pose, object box, goal) pass a pose because they never read the arms.
+        base="" (default): the fixed-base scene, every path bit-identical to before.  base="swerve" (table-behind tasks, 11-09): the swerve-base scene with
         the second table (nero/base/scene.build_spec), `self.sb` = SwerveBase, `self.driver` = base/drive.BaseDriver (step hook), base U flags in _check
         (base/monitors.py), `base_move(ref)` runs a route.  goal_support="counter2" (needs base="swerve"): in_R / the drop check read that support."""
         if base not in ("", "swerve"):
@@ -268,13 +258,13 @@ class CarryEpisode:
         if wp is not None:
             self.planner = "closed_chain"                       # a waypoint plan is planned by the closed-chain planner only
         self.cc = None                                          # closed_chain plan being executed (set by the planner / executor)
-        # 11-03 item 6: PHYS_DEFAULT -> config.carry_physics() (fric_comp=True + stiff weld; legacy pair None/None under BIMANUAL_LEGACY_CARRY_PHYS=1);
+        # 11-03 item 6: PHYS_DEFAULT -> config.carry_physics() (fric_comp=True + stiff weld);
         # an explicit None / False / value is honoured as before.
         cp = C.carry_physics()
         fric_comp = cp["fric_comp"] if isinstance(fric_comp, str) and fric_comp == PHYS_DEFAULT else fric_comp
         weld_solref = cp["weld_solref"] if isinstance(weld_solref, str) and weld_solref == PHYS_DEFAULT else weld_solref
         self.world, self.task = world, ("tray" if isinstance(world, SC.TrayWorld) else ("pot" if isinstance(world, SC.PotWorld) else "box"))
-        self.a_plan, self.T_cap, self.strict_claw = float(a_plan), T_cap, bool(strict_claw)
+        self.a_plan, self.strict_claw = float(a_plan), bool(strict_claw)
         if base == "swerve":
             from ..base import scene as BS            # late: base.scene imports contents.scenes (not carry)
             spec = BS.build_spec(world)
@@ -291,11 +281,12 @@ class CarryEpisode:
                 m.eq_solref[m.equality(f"weld_{s}").id] = self.weld_solref
         d = self.d = mujoco.MjData(m)
         SC.settle(m, d, 0.5)                                   # objects at rest, arms at their initial pose
-        cap = json.loads(CAP_FILE.read_text())["pot"]
+        from . import nyu_hold as NH
+        hq = NH.hold_pose(world) if hold_q is None else {s: np.asarray(hold_q[s], float) for s in SIDES}                               # 11-19: claws on THIS world's tabs (was the nominal capture's W0_liftoff); GraspUnreachable -> the caller refuses
         self.addr = {s: A.arm_addrs(m, s)[0] for s in SIDES}
         self.dofs = {s: A.arm_addrs(m, s)[1] for s in SIDES}
         for s in SIDES:
-            d.qpos[self.addr[s]] = cap["q"]["W0_liftoff"][s]
+            d.qpos[self.addr[s]] = hq[s]
             _set_fingers(m, d, s, HOLD_FINGER)
         d.qvel[:] = 0.0
         mujoco.mj_forward(m, d)
@@ -312,7 +303,7 @@ class CarryEpisode:
             self.weld(s, True)
         self.truth0 = SC.object_truth(m, d)
         self.z0 = float(d.xpos[self.obj][2])                   # resting height on the counter
-        self.spec_obj = OB.coffee_tray(world.n_cups) if self.task == "tray" else (SC.pot_spec(world=world) if self.task == "pot" else OB.boxed())
+        self.spec_obj = OB.coffee_tray(world.n_cups) if self.task == "tray" else (SC.pot_spec(world=world) if self.task == "pot" else OB.boxed(outer=getattr(world, "box_outer", None)))
         cont = self.spec_obj.contents
         self.m_hat = 0.5 * (cont.m_lo + cont.m_hi) if m_hat is None else float(m_hat)
         self.m_nom = float(self.truth0["empty_mass"] + self.m_hat)
@@ -344,14 +335,14 @@ class CarryEpisode:
         self.carried = {self.obj} | set(self.cups) | ({m.body("contents").id} if self.task in ("box", "pot") else set()) \
             | ({m.body("lid").id} if self.task == "pot" and world.lid else set())
         self.lid = m.body("lid").id if (self.task == "pot" and world.lid) else None
-        self.u_obj = obj_world_u_enabled()                                         # USER 11-16 D9, read once per episode
-        self._ow_pairs = self._obj_world_pairs() if self.u_obj else []
+        self.u_obj = True                                                          # USER 11-16 D9: the object-world clearance row is always in U
+        self._ow_pairs = self._obj_world_pairs()
         self._ow_support = frozenset()                                             # USER 11-17 landing-support exemption (latched at the last weld-off)
         self.lid_rest = self._lid_rel() if self.lid is not None else None          # (xy shift ref, z ref) of the lid in the obj frame at rest
         self.fc = dict(FRIC_COMP, **fric_comp) if isinstance(fric_comp, dict) else (dict(FRIC_COMP) if fric_comp else None)
-        if self.fc is not None and ctl == "coopimp" and not C.LEGACY_COOP_FC:
+        if self.fc is not None and ctl == "coopimp":
             # USER 11-03: under coopimp drop the wrapper's joint-level kp/ki terms (they fight the object-level impedance);
-            # the Coulomb term f*tanh(v/v_s) stays.  BIMANUAL_LEGACY_COOP_FC=1 = the pre-11-03 wrapper (kp/ki on).
+            # the Coulomb term f*tanh(v/v_s) stays.
             self.fc = dict(self.fc, kp=0.0, ki=0.0)
         self.e_int = {s: np.zeros(7) for s in SIDES}
         self.coop = dict(COOP, **coop) if isinstance(coop, dict) else (dict(COOP) if coop else None)
@@ -467,12 +458,12 @@ class CarryEpisode:
 
     def physics_flags(self):
         """the physics switches this episode ran with (carried by every record, 11-03 items 5, 6, 8, 9)."""
-        return dict(fric_comp=self.fc is not None, weld_solref=self.weld_solref, legacy_carry_phys=C.LEGACY_CARRY_PHYS,
-                    arm_arm_collide=not C.LEGACY_ARMCOL, coop_sensor=("legacy_constraint_wrench" if C.LEGACY_COOP_SENSOR else "joint_torque_estimate"),
-                    coop_fric=("legacy" if C.LEGACY_COOP_FRIC else "fixed"), gripper=C.GRIPPER,
+        return dict(fric_comp=self.fc is not None, weld_solref=self.weld_solref,
+                    arm_arm_collide=True, coop_sensor="joint_torque_estimate",
+                    coop_fric="fixed", gripper=C.GRIPPER,
                     fc_kp_ki=(None if self.fc is None else (self.fc["kp"], self.fc["ki"])),
                     coop_f_sq=(C.coop_f_sq() if self.ctl_kind == "coopimp" else None),
-                    u_obj_world=(U_OBJ_CLEAR_M if self.u_obj else None))        # USER 11-16 D9 clearance [m] (ASSUMED); None = off (BIMANUAL_U_OBJ_CONTACT=0)
+                    u_obj_world=U_OBJ_CLEAR_M)        # USER 11-16 D9 clearance [m] (ASSUMED)
 
     # ---------------- weld / state ----------------
     def weld(self, s, on):
@@ -493,7 +484,7 @@ class CarryEpisode:
 
     def _latch_support(self):
         """USER 11-17: latch the landing support when the LAST weld goes off = the world geoms in contact with the load now; cleared on re-grasp."""
-        if any(self.d.eq_active[self.weld_id[s]] for s in SIDES) or not support_exempt_enabled() or not getattr(self, "_ow_pairs", None):
+        if any(self.d.eq_active[self.weld_id[s]] for s in SIDES) or not getattr(self, "_ow_pairs", None):
             self._ow_support = frozenset()
             return
         if self._ow_support:
@@ -519,7 +510,7 @@ class CarryEpisode:
                     ctl=copy.deepcopy(self.ctl, {id(self.m): self.m}), k=self.k, paths={s: list(v) for s, v in self.paths.items()},
                     track=copy.deepcopy(self.track), acc=copy.deepcopy(self._acc), vprev=copy.deepcopy(self._vprev),
                     e_int=copy.deepcopy(self.e_int), wc=self.wc.state(), active_piece=getattr(self, "_active_piece", None), ow_support=getattr(self, "_ow_support", frozenset()),     # 11-17: the closed_chain piece being tracked (path stop)
-                    **({} if os.environ.get("BIMANUAL_LEGACY_SNAPSHOT_NO_LOGS") == "1" else dict(logs=self._logs_state())),
+                    logs=self._logs_state(),
                     **({} if self.base != "swerve" else dict(base=self.driver.state(), bmon=self.bmon.state())))
 
     _LOGS = ("stop_log", "path_log", "base_stop_log", "base_log")
@@ -540,7 +531,7 @@ class CarryEpisode:
         self.e_int = copy.deepcopy(sn["e_int"])
         self._active_piece = sn.get("active_piece")
         self._ow_support = sn.get("ow_support", frozenset())                     # USER 11-17: the latched landing support belongs to the snapshot
-        for k, v in (sn.get("logs") or {}).items():       # 11-17 (BIMANUAL_LEGACY_SNAPSHOT_NO_LOGS=1: not saved, so not restored)
+        for k, v in (sn.get("logs") or {}).items():       # 11-17
             if v is None:
                 if k in self.__dict__:
                     del self.__dict__[k]
@@ -556,8 +547,7 @@ class CarryEpisode:
                           cup_tilt_max=0.0, obj_tilt_max=0.0, e_obj_mm=0.0, e_obj_deg=0.0, e_int_mm=0.0, e_int_deg=0.0,
                           path_ik_err_max=0.0, path_q_margin_min=PATH_NO_MARGIN, path_unreachable=0,
                           viol_all={}, qd_ratio_max=0.0, n_qd_over=0)     # 11-12 Stage 0a: recording only (viol_all = every U kind of the window; qd_* = joint speed vs MANUAL, NOT U)
-        if getattr(self, "u_obj", False):                    # USER 11-16 D9; absent when BIMANUAL_U_OBJ_CONTACT=0 (pre-11-16 records keep their keys)
-            self.track["obj_world_clear_min"] = float("inf")
+        self.track["obj_world_clear_min"] = float("inf")           # USER 11-16 D9
         if getattr(self, "task", None) == "pot" and getattr(self, "lid", None) is not None:      # pot only: tray / box records keep their keys
             self.track.update(lid_slide_mm=0.0, lid_dz_mm=0.0, lid_tilt_deg=0.0)
         if getattr(self, "bmon", None) is not None:
@@ -663,13 +653,12 @@ class CarryEpisode:
                 dq = {s: self.coop["gain"] * dq_c[s] for s in SIDES}
         ctl.qe_ref = np.stack([self._cmd("left", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["left"]
         ctl.qi_ref = np.stack([self._cmd("right", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["right"]
-        if os.environ.get("BIMANUAL_LEGACY_ZERO_VREF") != "1":
-            # 11-17 (USER ruling "velocity reference in tracker"): the FL-MPC velocity reference over the horizon = d/dt of the position reference
-            # (rad/s; control rate 1/DT = 200 Hz, horizon nodes spaced FDT = fl.DT; np.gradient = central difference, one-sided at the ends).  The reference is the
-            # planned joint path (_cmd = piecewise-linear closed_chain / stop / Hermite waypoints), so this is its derivative.  The coop shift dq is constant over the
-            # horizon and drops out.  A held reference (equal nodes) gives exactly 0.  BIMANUAL_LEGACY_ZERO_VREF=1 = zeros (the pre-11-17 tracker).
-            ctl.qe_vref = np.gradient(ctl.qe_ref, self.FDT, axis=0)
-            ctl.qi_vref = np.gradient(ctl.qi_ref, self.FDT, axis=0)
+        # 11-17 (USER ruling "velocity reference in tracker"): the FL-MPC velocity reference over the horizon = d/dt of the position reference
+        # (rad/s; control rate 1/DT = 200 Hz, horizon nodes spaced FDT = fl.DT; np.gradient = central difference, one-sided at the ends).  The reference is the
+        # planned joint path (_cmd = piecewise-linear closed_chain / stop / Hermite waypoints), so this is its derivative.  The coop shift dq is constant over the
+        # horizon and drops out.  A held reference (equal nodes) gives exactly 0.
+        ctl.qe_vref = np.gradient(ctl.qe_ref, self.FDT, axis=0)
+        ctl.qi_vref = np.gradient(ctl.qi_ref, self.FDT, axis=0)
         if self.ctl_kind == "coopimp" and ctl.on:
             ctl.ref_in = dict(qr={s: np.stack([self._cmd(s, t + j * 0.05) - dq[s] for j in (-1, 0, 1)]) for s in SIDES},
                               h_meas=np.concatenate([np.concatenate(self.claw_wrench(s)) for s in SIDES]),           # sim truth (weld constraint wrench)
@@ -686,7 +675,7 @@ class CarryEpisode:
                 qc = self._cmd(s, t) - dq[s]
                 # 11-03 item 9: qc carries the coop shift dq, _cmd(t + DT) did not -> the old difference was v_ref + dq / DT (rad / s of a rad shift
                 # over one 5 ms step: ~0.2 rad/s for dq = 1 mrad, 10 x v_s = 0.02), saturating tanh = a spurious +-f sign torque.  Commanded velocity = d/dt _cmd.
-                vc = ((self._cmd(s, t + DT) - self._cmd(s, t)) / DT) if not C.LEGACY_COOP_FRIC else ((self._cmd(s, t + DT) - qc) / DT)
+                vc = (self._cmd(s, t + DT) - self._cmd(s, t)) / DT
                 e = qc - d.qpos[self.addr[s]]
                 self.e_int[s] = np.clip(self.e_int[s] + e * DT, -fc["i_max"] / max(fc["ki"], 1e-9), fc["i_max"] / max(fc["ki"], 1e-9))
                 add = fc["f"] * np.tanh(vc / fc["v_s"]) + fc["ki"] * self.e_int[s] + fc["kp"] * e
@@ -765,8 +754,6 @@ class CarryEpisode:
             tr["F_int_max"] = max(tr.get("F_int_max", 0.0), abs(float(F[1])))          # along the grasp line (internal)
             if self.strict_claw and abs(F[2]) > self.F_cap:
                 self._viol("claw_payload", t, side=s, Fz=float(F[2]))
-            if self.strict_claw and self.T_cap and tw > self.T_cap:
-                self._viol("claw_twist", t, side=s, twist=tw)
         tilt = _tilt_deg(d.xmat[self.obj].reshape(3, 3))
         tr["obj_tilt_max"] = max(tr["obj_tilt_max"], tilt)
         if tilt > U_TILT_OBJ:
@@ -822,8 +809,7 @@ class CarryEpisode:
             if ga in self.grip_g and m.geom_bodyid[go] == self.obj:
                 continue                                                       # claw on the object's tab (the grasp)
             self._viol("collision", t, arm=m.geom(ga).name, other=m.geom(go).name or m.body(m.geom_bodyid[go]).name)
-        if self.u_obj:
-            self._obj_world_check(t)
+        self._obj_world_check(t)
         if self.base == "swerve":                                               # task-gated base U flags (fixed-base U unchanged)
             ok = frozenset() if self.driver.moving() else frozenset(self.support_geoms.values())      # the load may rest on a counter while the base stands
             self.bmon.step(d, t, self.base_flag, load_ok=ok)
@@ -858,10 +844,8 @@ class CarryEpisode:
 
     def landed_safe(self):
         """USER 11-17 "welded = held, not safe": the SAFE-set test of a recovery landing = in_R() AND both welds released (the object rests on a support, the claws have let go).
-        in_R is unchanged (the nominal end of "place" keeps using it).  BIMANUAL_LEGACY_SAFE_WELDED=1 -> in_R() (a welded object on a support counts as safe).  -> (ok, why)"""
+        in_R is unchanged (the nominal end of "place" keeps using it).  -> (ok, why)"""
         ok, why = self.in_R()
-        if os.environ.get("BIMANUAL_LEGACY_SAFE_WELDED") == "1":
-            return ok, why
         why = list(why)
         if any(self.d.eq_active[self.weld_id[s]] for s in SIDES):
             why.append("welded")
@@ -992,14 +976,14 @@ class CarryEpisode:
                 p_prev = p
                 # the twist command sb._v is only updated while the driver is active; after the route has ended (driver inactive) sb.stop() decays the wheels but
                 # leaves sb._v at its last value, so the command test never passed (2/2 end-of-route stops timed out, 11-17).  Inactive driver -> no command:
-                # the measured motion alone decides.  BIMANUAL_LEGACY_BASE_STOP_CMD=1 = the old test (sb._v always).
-                cmd_ok = ((not self.driver.active) and os.environ.get("BIMANUAL_LEGACY_BASE_STOP_CMD") != "1") or (
+                # the measured motion alone decides. 
+                cmd_ok = (not self.driver.active) or (
                     np.linalg.norm(sb._v[:2]) < self.BASE_STOP_TOL_MPS and abs(sb._v[2]) < self.BASE_STOP_TOL_RADPS)
                 if v < self.BASE_STOP_TOL_MPS and om < self.BASE_STOP_TOL_RADPS and cmd_ok:
                     at_rest = True
                     break
         self.driver.active = False
-        if at_rest and os.environ.get("BIMANUAL_LEGACY_BASE_STOP_CMD") != "1":
+        if at_rest:
             sb._v[:] = 0.0                  # 11-17: at rest and the driver is inactive: the stale twist command is cleared (sb.stop() leaves sb._v at its last value)
         if not at_rest:
             self.base_flag("base_stop_timeout", self.k * DT, max_s=max_s, v_mps=v, w_radps=om, tol="2 mm/s, 2 mrad/s, 4 s ASSUMED")
@@ -1065,12 +1049,12 @@ class CarryEpisode:
 
 
 # ---------------------------------------------------------------------------------------------------------------------------
-def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl="lever", strict_claw=False, m_hat=None,
+def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, ctl="lever", strict_claw=False, m_hat=None,
                 fric_comp=PHYS_DEFAULT, coop=None, weld_solref=PHYS_DEFAULT, planner=None, wp=None, base="", goal_support=""):
     """m_hat: the robot's nominal contents mass (belief cell centre; None = the prior's centre)."""
     """nominal run of all segments in one world + the stored backup from branch points of each segment.  -> record for admit."""
     t0 = time.time()
-    ep = CarryEpisode(world, a_plan=a_plan, T_cap=T_cap, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp,
+    ep = CarryEpisode(world, a_plan=a_plan, ctl=ctl, strict_claw=strict_claw, m_hat=m_hat, fric_comp=fric_comp,
                       coop=coop, weld_solref=weld_solref, planner=planner, wp=wp, base=base, goal_support=goal_support)
     ep.run_phases([("hold", 0.4)])                            # load transfer, object still on the counter
     rec = dict(tag=tag, task=ep.task, theta=_theta(world), truth=_jsonable(ep.truth0), a_plan=a_plan, m_nom=ep.m_nom, ctl=ctl,

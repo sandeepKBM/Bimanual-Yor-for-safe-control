@@ -406,7 +406,7 @@ class Episode:
             sel = m.geom_bodyid == lid_b
             m.geom_friction[sel, 0] *= perturb["lid_mu_scale"]
             m.geom_priority[sel] = 1
-        self.tau_max = C.tau_limit()      # F3 11-03: one source (config.tau_limit; 16 Nm ASSUMED, BIMANUAL_LEGACY_TAU=1 -> 100)
+        self.tau_max = C.tau_limit()      # F3 11-03: one source (config.tau_limit, 100 Nm MJCF)
         d = self.d = mujoco.MjData(m)
         S.settle(m, d, 1.0)
         self.pan, self.lid = m.body("pan").id, m.body("lid").id

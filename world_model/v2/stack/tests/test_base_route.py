@@ -89,8 +89,7 @@ def test_fixed_base_schema_unchanged():
     assert S.step_skills("tray6") == S.STEP_SKILLS and "base_move" in S.step_skills("box_behind")
 
 
-def test_prompt_behind(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_BEHIND_HINTS", raising=False)
+def test_prompt_behind():
     sp = PR.task_spec("tray6_behind")
     assert set(sp["supports"]) == {"counter", "counter2"} and sp["goal_support"] == "counter2"
     assert abs(sp["goal_xy"][0] + 1.38) < 1e-3 and abs(sp["goal_xy"][1] + 0.1991) < 1e-3
@@ -101,19 +100,9 @@ def test_prompt_behind(monkeypatch):
         assert frag not in t, frag
     f = PR.scene_facts("tray6_behind")
     assert "base_move" in f["vocabulary"]["steps"] and "hidden_parameters" not in f and f["phenomena"] and "routes_known_good" not in str(f)
-    monkeypatch.setenv("BIMANUAL_LEGACY_BEHIND_HINTS", "1")                                          # the legacy prompt keeps them
-    t_old = PR.task_spec("tray6_behind")["instruction"]
-    assert "Known-good route R1" in t_old and "Turning in place at the pick pose hits counter 1" in t_old
     assert "prior" not in str(f).lower().replace("prior box", "") and "sanity" not in str(f).lower()
     f6 = PR.scene_facts("tray6")                                       # fixed task: no base block, no base_move, no ranges either
     assert "base" not in f6["task"] and "hidden_parameters" not in f6 and "base_move" not in f6["vocabulary"]["steps"]
-    import os
-    os.environ["BIMANUAL_LEGACY_PROPOSER_V1"] = "1"                    # the 11-05..11-09 facts stay replayable
-    try:
-        f1, f61 = PR.scene_facts("tray6_behind"), PR.scene_facts("tray6")
-    finally:
-        del os.environ["BIMANUAL_LEGACY_PROPOSER_V1"]
-    assert "sanity_range" not in str(f1["hidden_parameters"]) and "sanity_range" in f61["hidden_parameters"]["fill_total_kg"]
     assert PR.task_spec("box_behind")["object"]["name"] == "closed crate"
 
 

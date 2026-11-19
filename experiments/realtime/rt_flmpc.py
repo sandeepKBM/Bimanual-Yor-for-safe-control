@@ -40,7 +40,7 @@ for _p in (_HERE, os.path.join(_REPO, "experiments", "ab_smooth_vs_bangbang")):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-import mpc_fl  # noqa: E402
+from world_model.v2.flmpc import mpc_fl  # noqa: E402
 import sim_common as sc  # noqa: E402
 import rt_kernels as K  # noqa: E402
 import rt_qp  # noqa: E402

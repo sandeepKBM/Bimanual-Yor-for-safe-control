@@ -46,7 +46,7 @@ from numba import njit
 
 import _demo_env  # noqa: F401  (sys.path shim only)
 import sim_common as sc
-import mpc_fl
+from world_model.v2.flmpc import mpc_fl
 
 _HINGE = 3
 _SLIDE = 2

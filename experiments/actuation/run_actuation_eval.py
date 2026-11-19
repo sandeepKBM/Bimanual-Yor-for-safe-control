@@ -173,7 +173,7 @@ def run_one(job):
         if job.get("demo_dir"):
             assert str(Path(demo.__file__).resolve()).startswith(job["demo_dir"]), demo.__file__
         import sim_common as sc
-        import mpc_fl
+        from world_model.v2.flmpc import mpc_fl
         conds = make_conditions(job.get("kp"), job.get("kd"), job.get("latency", 0))
         cfg = conds[cond]
         # SAME episode config as comprehensive_eval.run_one's "flmpc" variant

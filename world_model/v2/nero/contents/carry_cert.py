@@ -12,8 +12,8 @@ Per cell:
      Action (ASSUMED rule, user-confirmed): two arms at a_nom; else two arms slowed to a* (largest a with the torque row
      passing, capped by the spill limit); else refuse.  The one-arm utilisation is REPORTED (u_one_nom) but not acted on: the
      carry sim welds both claws, a one-arm carry is not built.
-     USER 11-02 (afternoon): the grasp is not our problem -> NO claw rows.  The claw twist cap (envelope.T_CAP, approved that morning)
-     is dropped from admission; T_cap=... / --twist-cap reproduces the old rule only.  Failures must come from how the arms carry.
+     USER 11-02 (afternoon): the grasp is not our problem -> NO claw rows.  The claw twist cap (approved that morning)
+     is removed (11-19).  Failures must come from how the arms carry.
   2. DYNAMIC rows, sampled: worlds theta drawn uniformly from the cell, each run at the admitted speed with the stored backups
      branched every 0.25 s (carry.world_trial) -> pan/cert/admit.certify(..., static=...) per segment, with the Clopper-Pearson
      bound on the dynamic failure rate.
@@ -62,7 +62,7 @@ def cells(task):
     return [(f, ) for f in TRAY_FILL_CELLS] if task.startswith("tray") else [(c, ) for c in BOX_CELLS]
 
 
-def cell_spec(task, cell):
+def cell_spec(task, cell, world=None):
     if task == "pot":
         return SC.pot_spec(*cell)
     if task.startswith("tray"):
@@ -74,7 +74,7 @@ def cell_spec(task, cell):
         h_fill = SC.CUP_BOT + hi / (SC.WATER * np.pi * SC.CUP_RIN ** 2)          # fullest fill of the cell (scenes.py geometry)
         sp.open_limits = [OB.OpenLimit("cup_spill", OB.cup_spill_limit(D, H, h_fill), "a_max = g 2 (H - h) / D, fullest fill of the cell")]
         return sp
-    sp = OB.boxed(*cell)
+    sp = OB.boxed(*cell, outer=getattr(world, "box_outer", None))
     return sp
 
 
@@ -98,13 +98,13 @@ def support_row(task, spec, contents, world, disp=None):
     """total COM over the destination support for every contents vertex (linear in pi -> exact).  disp: object displacement start -> goal [m] (default: sum of PLANS)."""
     from ...stack import tasks as TK
     td = TK.TASKS.get(task)
-    caps = json.loads(TH.CAP_FILE.read_text())["pot"]
-    tl, tr = np.asarray(caps["tcp"]["W0_liftoff"]["left"]), np.asarray(caps["tcp"]["W0_liftoff"]["right"])
-    o_ref = 0.5 * (tl + tr) - np.array([0, 0, TH.GRASP_DZ])
+    o_ref = TH.o_ref(world)                        # 11-19: the run world's object reference point (the nominal one at the nominal world)
     if td is not None and td.base:                 # table-behind task (11-09): the goal support (counter2) of the swerve scene; dest = the goal xy (MODEL: scene.place_pose_xy)
         from ..base import scene as BS
-        sup = BS.support_tops_behind(world)[td.goal_support]
-        dest = np.array([*BS.place_pose_xy(world), o_ref[2]], float)
+        from ...stack.planners import base_route as BR
+        be = BR.default_backend()
+        sup = be.supports(world)[td.goal_support]
+        dest = np.array([*be.goal(world)["goal_xy"], o_ref[2]], float)
     else:
         tops = SC.support_tops(world)
         sup = tops["shelf"] if plan_key(task) == "box" else tops["counter"]
@@ -113,12 +113,9 @@ def support_row(task, spec, contents, world, disp=None):
     if task == "pot":     # MODEL: the pot's contact is its bottom disc, radius R + t (pan/scene.py:102, cylinder geom "pan_bottom")
         r_c = SC.PS.ASSUMED["pan_radius"] + SC.PS.ASSUMED["pan_wall_t"]
         hx = hy = r_c       # bounding square of the disc; the disc test below is the binding one
-        if os.environ.get("BIMANUAL_LEGACY_POT_SQUARE") == "1":     # pre-11-09: the inscribed square (half side r / sqrt 2); refused contents from ~1 kg (checker audit 11-06, S3)
-            hx = hy = r_c / np.sqrt(2.0)
-        else:
-            disc = r_c
+        disc = r_c
     else:
-        hx, hy = (OB.TRAY["lx"] / 2, OB.TRAY["ly"] / 2) if task.startswith("tray") else (OB.BOX["lx"] / 2, OB.BOX["ly"] / 2)
+        hx, hy = (OB.TRAY["lx"] / 2, OB.TRAY["ly"] / 2) if task.startswith("tray") else ((world.box_outer[0] / 2, world.box_outer[1] / 2) if hasattr(world, "box_outer") else (OB.BOX["lx"] / 2, OB.BOX["ly"] / 2))
     x0, x1 = max(dest[0] - hx, sup["x"][0]), min(dest[0] + hx, sup["x"][1])
     y0, y1 = max(dest[1] - hy, sup["y"][0]), min(dest[1] + hy, sup["y"][1])
     worst, worst_v = np.inf, None
@@ -143,45 +140,33 @@ def refused_static(task, cell, spec, why):
                 u_nom=float("inf"), worst_nom={}, u_one_nom=float("inf"), worst_one={}, T_cap=None, rows={}, planner="closed_chain", why=why)
 
 
-def checker_impl():
-    """BIMANUAL_CHECKER: "unified" (default since 11-16: stack/checks/admit through adapters/static_admission; bit-equal to legacy on every cell of
-    box/tray2/tray4/tray6 x both planners and the *_behind specs, nero/contents/tests/test_checker_gate_k2.py) | "legacy" (the pre-11-16 static_cell).
-    Read at call time, not import time."""
-    v = os.environ.get("BIMANUAL_CHECKER", "unified").strip().lower() or "unified"
-    if v not in ("legacy", "unified"):
-        raise ValueError(f"BIMANUAL_CHECKER={v!r}: expected 'legacy' or 'unified'")
-    return v
-
-
 def TK_moves(task):
-    """True when the stack TaskDef has scripted moves (the table-behind tasks have none: their scripted path is the legacy plan_key one -> legacy)."""
+    """True when the stack TaskDef has scripted moves (the table-behind tasks have none: their scripted path is the plan_key one, certified by the envelope code below)."""
     from ...stack import tasks as TK
     td = TK.TASKS.get(task)
     return td is not None and bool(td.moves)
 
 
-def static_cell(task, cell, world, T_cap=None, spec=None, planner=None, wp=None):
-    """T_cap=None (default, user 11-02 pm): arm-side rows only.  T_cap=E.T_CAP reproduces the morning rule (claw twist row).
+def static_cell(task, cell, world, spec=None, planner=None, wp=None):
+    """Arm-side rows only (user 11-02 pm: no claw rows).
     spec: an ObjectSpec for an arbitrary contents set (11-03, probe.py: the interval a probe measured); default = the cell's.
     planner (11-05, None -> carry.resolve_planner): "scripted" = the legacy PLANS samples + continuation IK (unchanged); "closed_chain" = the samples and joint
     configurations of the PLANNED path (stack/planners/closed_chain.static_path); an unreachable goal gives a refused verdict (refused_static).
     wp (11-05): a closed_chain.WaypointPlan written by the proposer: implies planner "closed_chain"; the rows are per its segment names (the place row = its last move)."""
-    spec = cell_spec(task, cell) if spec is None else spec
+    spec = cell_spec(task, cell, world) if spec is None else spec
     planner = "closed_chain" if wp is not None else CR.resolve_planner(planner)
     caps = json.loads(TH.CAP_FILE.read_text())
-    unified = checker_impl() == "unified" and T_cap is None        # T_cap (old claw twist rule): no unified counterpart, always legacy
     if planner == "closed_chain":
         from ...stack.planners import closed_chain as CCP
         try:
-            offs, per_seg, cap = CCP.static_path(task, wp)
-            disp = CCP.goal_offset(task, wp)
+            offs, per_seg, cap = CCP.static_path(task, wp, world)
+            disp = CCP.goal_offset(task, wp, world)
         except CCP.PlanRefused as e:
             return refused_static(task, cell, spec, str(e))
-        if unified:
-            from ...adapters import static_admission as SA
-            from ...stack.checks.admit import PathSamples
-            return SA.admit_static(task, cell, world, spec, PathSamples(offs, per_seg, cap, np.asarray(disp, float)), planner, wp)
-    elif unified and TK_moves(task):
+        from ...adapters import static_admission as SA
+        from ...stack.checks.admit import PathSamples
+        return SA.admit_static(task, cell, world, spec, PathSamples(offs, per_seg, cap, np.asarray(disp, float)), planner, wp)
+    elif TK_moves(task):
         from ...adapters import payload_envelope as PE
         from ...adapters import static_admission as SA
         return SA.admit_static(task, cell, world, spec, PE.scripted_path(task), planner, wp)
@@ -192,15 +177,15 @@ def static_cell(task, cell, world, T_cap=None, spec=None, planner=None, wp=None)
     arms = E.Arms(cap)
     tl, tr = np.asarray(caps["pot"]["tcp"]["W0_liftoff"]["left"]), np.asarray(caps["pot"]["tcp"]["W0_liftoff"]["right"])
     o_ref = 0.5 * (tl + tr) - np.array([0, 0, TH.GRASP_DZ])
-    env = E.Envelope(spec, arms, o_ref, np.eye(3), ["left", "right"], grip_mass=caps["pot"]["gripper_mass"], offsets=offs, T_cap=T_cap)
+    env = E.Envelope(spec, arms, o_ref, np.eye(3), ["left", "right"], grip_mass=caps["pot"]["gripper_mass"], offsets=offs)
     cont = spec.contents
     a_open = min([ol.a_max for ol in spec.open_limits], default=np.inf)
     keys = list(offs)
     u_nom, det_nom = env.worst(cont, keys, E.A_NOM, "two_lever")
     u_one, det_one = env.worst(cont, keys, E.A_NOM, "one")          # reported only (one-arm carry not built)
-    row_name = "torque_payload" if T_cap is None else "torque_payload_twist"
+    row_name = "torque_payload"
     row_guar = (f"proof under MODEL (rigid weld ASSUMED, quasi-static, NERO MJCF arms, config.tau_limit() torque, 3 kg payload, "
-                + ("no claw rows (user 11-02)" if T_cap is None else f"claw twist {T_cap} Nm ASSUMED")
+                + "no claw rows (user 11-02)"
                 + f", admit u <= {E.U_ADMIT} MODEL, USER 11-09)")
     if u_nom <= E.U_ADMIT and E.A_NOM <= a_open:
         a_adm, action = E.A_NOM, "two arms"
@@ -230,7 +215,7 @@ def static_cell(task, cell, world, T_cap=None, spec=None, planner=None, wp=None)
     out = dict(task=task, cell=list(cell), contents_m=[cont.m_lo, cont.m_hi], action=action, a_admit=a_adm, a_open=a_open,
                u_nom=round(float(u_nom), 4), worst_nom={k: v for k, v in det_nom.items() if k in ("wp", "m", "c", "Fz", "twist")},
                u_one_nom=round(float(u_one), 4), worst_one={k: v for k, v in det_one.items() if k in ("wp", "m", "c", "worst_joint", "binding")},
-               T_cap=T_cap, rows=rows)
+               T_cap=None, rows=rows)
     if planner != "scripted":
         out["planner"] = planner
     if wp is not None:
@@ -249,7 +234,7 @@ def sample_pot_world(cell, rng):
     return SC.PotWorld(handle_len=wd["handle_len"], puck_kg=wd["hidden_mass"], puck_uw=tuple(wd["placement"]), lid_mu_scale=wd["perturb"]["lid_mu_scale"])
 
 
-def sample_world(task, cell, rng):
+def sample_world(task, cell, rng, world=None):
     if task == "pot":
         return sample_pot_world(cell, rng)
     if task.startswith("tray"):
@@ -258,8 +243,9 @@ def sample_world(task, cell, rng):
         f = rng.uniform(cell[0], cell[1], n)
         w.fills_kg = [float(x) for x in f]
         return w
-    hx = SC.BoxWorld().box_outer[0] / 2 - SC.BoxWorld().wall_t - 0.04
-    hy = SC.BoxWorld().box_outer[1] / 2 - SC.BoxWorld().wall_t - 0.06
+    b0 = SC.BoxWorld() if world is None else world                    # world: the crate whose interior the contents must lie in (drawn geometry); None = the nominal crate
+    hx = b0.box_outer[0] / 2 - b0.wall_t - 0.04
+    hy = b0.box_outer[1] / 2 - b0.wall_t - 0.06
     return SC.BoxWorld(contents_kg=float(rng.uniform(*cell)), contents_xy=(float(rng.uniform(-hx, hx)), float(rng.uniform(-hy, hy))))
 
 
@@ -287,18 +273,18 @@ def cell_seed(task, cell, i):
     return int(np.random.SeedSequence([TASK_ID[task], int(round(1000 * cell[0])), int(round(1000 * cell[1])), i]).generate_state(1)[0])
 
 
-def run(tasks, n, procs, out, fric_comp=None, weld_stiff=None, T_cap=None, only=None):
+def run(tasks, n, procs, out, fric_comp=None, weld_stiff=None, only=None):
     """only: set of cell keys "task|lo-hi" to simulate (the rest get the static rows only); None = every admitted cell."""
     import multiprocessing as mp
     from ..pan.cert import admit as AD
     out = pathlib.Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    cp = C.carry_physics()                                  # 11-03 item 6: None = the shared default (fric_comp + stiff weld; legacy pair under BIMANUAL_LEGACY_CARRY_PHYS=1)
+    cp = C.carry_physics()                                  # 11-03 item 6: None = the shared default (fric_comp + stiff weld)
     fric_comp = bool(cp["fric_comp"]) if fric_comp is None else fric_comp
     weld_stiff = (cp["weld_solref"] is not None) if weld_stiff is None else weld_stiff
     res = dict(date=time.strftime("%Y-%m-%d"), n_per_cell=n, assumptions=dict(
         grasp="ASSUMED rigid weld (user 11-01)", **GR.provenance("rigid weld"),
-        T_cap=("none: no claw rows (user 11-02 pm, arm-side rows only)" if T_cap is None else f"ASSUMED {T_cap} Nm (old 11-02 am rule)"),
+        T_cap="none: no claw rows (user 11-02 pm, arm-side rows only)",
         seeds="carry_cert.cell_seed(task, cell, i)", u_admit=f"MODEL {E.U_ADMIT} (rated motor / payload limits, USER 11-09)", a_nom=E.A_NOM,
         a_backup=CR.A_BACKUP, a_min=A_MIN, controller="carry.LeverCtl (FL-MPC + lever-split payload ff), config.tau_limit() torque box",
         claw_rows_in_sim="recorded, NOT in U (closed-chain internal stress under the weld; see carry.py doc)",
@@ -314,7 +300,7 @@ def run(tasks, n, procs, out, fric_comp=None, weld_stiff=None, T_cap=None, only=
     for task in tasks:
         world0 = world_default(task)
         for (cell,) in cells(task):
-            st = static_cell(task, cell, world0, T_cap=T_cap)
+            st = static_cell(task, cell, world0)
             key = f"{task}|{cell[0]}-{cell[1]}"
             res["cells"][key] = dict(static=st, records=[], accel=cell_accel(task, st["a_admit"]))
             print(f"static {key}: {st['action']} a={st['a_admit']} u_nom={st['u_nom']} u_one={st['u_one_nom']}", flush=True)
@@ -416,7 +402,6 @@ def main(argv=None):
                     help="joint friction compensation + integral wrapper (carry.FRIC_COMP); default = config.carry_physics()")
     ap.add_argument("--weld-stiff", action=argparse.BooleanOptionalAction, default=None,
                     help=f"weld solref {WELD_STIFF} instead of the MuJoCo default; default = config.carry_physics()")
-    ap.add_argument("--twist-cap", action="store_true", help=f"old 11-02 am rule: claw twist row at {E.T_CAP} Nm (default: arm-side only)")
     ap.add_argument("--only", default=None, help="comma list of cell keys task|lo-hi to simulate (default: every admitted cell)")
     ap.add_argument("--planner", choices=CR.PLANNERS, default=None,
                     help="plan the static rows are certified on and the sampled worlds execute (default: env BIMANUAL_PLANNER, else scripted = legacy PLANS)")
@@ -424,20 +409,19 @@ def main(argv=None):
     if a.planner is not None:
         import os
         os.environ["BIMANUAL_PLANNER"] = a.planner                  # inherited by the spawned workers
-    T_cap = E.T_CAP if a.twist_cap else None
     if a.static_only:
         for task in a.tasks.split(","):
             world0 = world_default(task)
             for (cell,) in cells(task):
-                st = static_cell(task, cell, world0, T_cap=T_cap)
-                rn = "torque_payload" if T_cap is None else "torque_payload_twist"
+                st = static_cell(task, cell, world0)
+                rn = "torque_payload"
                 print(task, cell, st["action"], st["a_admit"], "u_nom", st["u_nom"], "u_one", st["u_one_nom"], st["worst_one"].get("binding"),
                       "support", st["rows"].get("release", {}).get("support_dest", {}).get("margin_m"),
                       {s: r[rn]["u_max"] for s, r in st["rows"].items() if rn in r}, flush=True)
         return
     t0 = time.time()
     only = set(a.only.split(",")) if a.only else None
-    res = run(a.tasks.split(","), a.n, a.procs, a.out, fric_comp=a.fric_comp, weld_stiff=a.weld_stiff, T_cap=T_cap, only=only)
+    res = run(a.tasks.split(","), a.n, a.procs, a.out, fric_comp=a.fric_comp, weld_stiff=a.weld_stiff, only=only)
     print(summary(res))
     print(f"wall {time.time() - t0:.0f} s")
 

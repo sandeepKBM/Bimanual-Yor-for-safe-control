@@ -129,16 +129,17 @@ BOX = dict(lx=0.20, ly=0.30, lz=0.15, wall=0.005, mass=0.25)    # ASSUMED cardbo
 BOX_CONTENTS_KG = (0.5, 5.0)                                     # ASSUMED (user-approved 11-02): box of cans 0.5..5 kg
 
 
-def boxed(m_lo=BOX_CONTENTS_KG[0], m_hi=BOX_CONTENTS_KG[1], com=None):
+def boxed(m_lo=BOX_CONTENTS_KG[0], m_hi=BOX_CONTENTS_KG[1], com=None, outer=None):
     """com (demo_runner arm oracle_theta only, default None = unchanged): the TRUE contents COM [x, y, z] in the object frame; the COM set P is then that single point
     (an oracle: the admission it gives is for this world, not a deployable bound)."""
-    hx, hy, w = BOX["lx"] / 2 - BOX["wall"], BOX["ly"] / 2 - BOX["wall"], BOX["wall"]
-    P = prism(np.array([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]]), w, BOX["lz"] - w)
+    lx, ly, lz = (BOX["lx"], BOX["ly"], BOX["lz"]) if outer is None else (float(outer[0]), float(outer[1]), float(outer[2]))      # outer = the world's crate (scenes.BoxWorld.box_outer); None = the nominal crate
+    hx, hy, w = lx / 2 - BOX["wall"], ly / 2 - BOX["wall"], BOX["wall"]
+    P = prism(np.array([[-hx, -hy], [hx, -hy], [hx, hy], [-hx, hy]]), w, lz - w)
     c = Contents(m_lo, m_hi, P, labels=dict(
         m=f"ASSUMED {m_lo}..{m_hi} kg (user-approved 11-02)",
         P="MODEL (conservative): the contents COM lies anywhere inside the box interior (the sim block is a subset)"))
     if com is not None:
         c = Contents(m_lo, m_hi, np.asarray([list(com)], float), labels=dict(c.labels, P=f"ORACLE: the true contents COM {[round(float(v), 4) for v in com]} (one point)"))
-    return ObjectSpec("box", BOX["mass"], np.array([0.0, 0.0, BOX["lz"] / 2]), c, [],
+    return ObjectSpec("box", BOX["mass"], np.array([0.0, 0.0, lz / 2]), c, [],
                       sim_box=dict(note="scenes.BoxWorld: one free block, half (0.04, 0.06, 0.05), on the box floor"),
                       plausible=dict(note="box of cans / jars: 0.5..5 kg"))

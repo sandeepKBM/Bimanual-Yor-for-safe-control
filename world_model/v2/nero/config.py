@@ -46,7 +46,6 @@ MANUAL = dict(
 # ---- 2026-11-03: the pan/pot scenes run the NYU gripper (nut force NUT_FORCE_N below) with 1 ms physics inside each 5 ms control step.
 PHYSICS_SUBSTEPS = 5    # MODEL choice: 1 ms physics inside each 5 ms control step, torque held. Needed above 10 N (5 ms made the lid walk,
                         #    results/contact_model_2026-11-01/claw40/RESULT.txt). Control rate stays 200 Hz.
-# (companion switch, defined with tau_limit() below: BIMANUAL_LEGACY_TAU=1 = the 100 Nm FL-MPC torque box of every pre-11-03 hold/pan/democ run)
 
 
 def claw_default():
@@ -83,17 +82,15 @@ def tau_limits(preset: str | None = None) -> np.ndarray:
 # USER 11-05: "use mjcf numbers ofc that is real" -> the default limit is the MJCF actuator forcerange (= the official URDF <limit effort>,
 # written into the MJCF by the scene builders via tau_limits()): 100 Nm on every arm joint.  MODEL (the robot's own model files).
 TAU_MJCF_NM = float(TORQUE_PRESETS["urdf_effort"][0])   # MODEL: MJCF forcerange "-100 100" (assets_nero/nero_arm_nyugrip.xml)
-TAU_MIT_NM = 16.0       # ASSUMED: NERO MIT t_ff command range +-16 Nm (fw >= 1.11); the 11-03..11-05 default, now only under BIMANUAL_TAU_MIT16=1
-TAU_MIT16 = os.environ.get("BIMANUAL_TAU_MIT16") == "1"     # 1 = every 11-03..11-05 contents/pan run (16 Nm torque box and admission rows)
-LEGACY_TAU = os.environ.get("BIMANUAL_LEGACY_TAU") == "1"   # pre-11-03 runs used 100 Nm: now equal to the default (kept for old commands)
+TAU_MIT_NM = 16.0       # ASSUMED: NERO MIT t_ff command range +-16 Nm (fw >= 1.11) = TORQUE_PRESETS["mit_fw_ge_1.11"]; a documented preset value only, NOT the torque limit
 
 
 def tau_limit(preset: str | None = None) -> np.ndarray:
     """per-joint torque limit [Nm] (7,): FL-MPC torque box AND the contents admission rows (one source).  Default = the MJCF forcerange
-    (100 Nm, USER 11-05); 16 Nm under BIMANUAL_TAU_MIT16=1; an explicit `preset` name selects that TORQUE_PRESETS entry."""
+    (100 Nm, USER 11-05); an explicit `preset` name selects that TORQUE_PRESETS entry."""
     if preset is not None:
         return TORQUE_PRESETS[preset].copy()
-    return np.full(N_ARM, TAU_MIT_NM if TAU_MIT16 else TAU_MJCF_NM)
+    return np.full(N_ARM, TAU_MJCF_NM)
 
 
 # ---- servo/passive params: ALL ASSUMED (the URDF has none).  Piper-class values in yor_robot_derived: frictionloss 0.3,
@@ -137,36 +134,27 @@ def scene_path(name: str) -> "Path":
     return REPO / "scenes" / f"{name}{SCENE_SUFFIX}.mjcf"
 
 
-# ---- 2026-11-03 sim-fix list (items 5, 6, 8, 9): each behaviour change has a legacy switch that reproduces the pre-fix setup.
+# ---- 2026-11-03 sim-fix list (items 5, 6, 8, 9).
 # item 5: arm-arm contacts.  The 'nero_collision' geoms ship contype 0 / conaffinity 1, so in the contents / pan scenes (scenes._base, pan.scene.build_spec;
 # NOT adapters.compose_scene / democ.scene, which patch bits themselves) the LEFT and RIGHT arm never touched (0 collidable pairs).
-LEGACY_ARMCOL = os.environ.get("BIMANUAL_LEGACY_ARMCOL") == "1"   # 1 = no arm-arm contacts (every result before 11-03)
 ARM_ARM_BIT = 64        # MODEL: a bit unused by every other geom (checked with the collision matrix); LEFT arm contype |= it, RIGHT arm conaffinity |= it
                         #   -> exactly left<->right pairs collide; same-arm pairs and arm<->world/object pairs are unchanged.
 
 # item 6: ONE physics default for every carry entry point.
-LEGACY_CARRY_PHYS = os.environ.get("BIMANUAL_LEGACY_CARRY_PHYS") == "1"   # 1 = CarryEpisode defaults fric_comp=None, weld_solref=None (MuJoCo default 0.02 s weld)
 WELD_STIFF = (0.004, 1.0)   # ASSUMED (11-02 tilt sweep): stiff weld solref so the "rigid" grasp bends < 0.5 deg
 
 
 def carry_physics() -> dict:
-    """the carry-episode physics defaults: fric_comp=True (joint friction compensation, carry.FRIC_COMP) + weld_solref=WELD_STIFF; the legacy pair
-    (None, None) under BIMANUAL_LEGACY_CARRY_PHYS=1."""
-    if LEGACY_CARRY_PHYS:
-        return dict(fric_comp=None, weld_solref=None)
+    """the carry-episode physics defaults: fric_comp=True (joint friction compensation, carry.FRIC_COMP) + weld_solref=WELD_STIFF."""
     return dict(fric_comp=True, weld_solref=WELD_STIFF)
 
 
 # item 8: the coop controller's wrench source (joint-torque estimate vs the sim-only weld constraint wrench).
-LEGACY_COOP_SENSOR = os.environ.get("BIMANUAL_LEGACY_COOP_SENSOR") == "1"   # 1 = the sim-only constraint wrench (no real counterpart)
 COOP_TAU_NOISE_NM = 0.0         # ASSUMED: joint-torque feedback noise std [Nm] for the F_hat estimate (0 = noise-free; no NERO joint-torque noise spec published)
 COOP_TAU_NOISE_NM_LATER = 0.05  # ASSUMED placeholder for later runs (NOT used by default)
 # item 9: coop friction-compensation velocity term.
-LEGACY_COOP_FRIC = os.environ.get("BIMANUAL_LEGACY_COOP_FRIC") == "1"   # 1 = the pre-fix coop friction term
-LEGACY_COOP_FC = os.environ.get("BIMANUAL_LEGACY_COOP_FC") == "1"       # 1 = keep the friction wrapper's joint kp/ki under ctl=coopimp (pre-11-03; USER 11-03 dropped them)
-LEGACY_COOP_SQUEEZE = os.environ.get("BIMANUAL_LEGACY_COOP_SQUEEZE") == "1"   # 1 = the old 5 N ASSUMED coopimp squeeze target (USER 11-03: 0 N)
 
 
 def coop_f_sq():
-    """coopimp squeeze target [N]: 0 (USER 11-03) or the old 5 N ASSUMED under BIMANUAL_LEGACY_COOP_SQUEEZE=1."""
-    return 5.0 if LEGACY_COOP_SQUEEZE else 0.0
+    """coopimp squeeze target [N]: 0 (USER 11-03)."""
+    return 0.0

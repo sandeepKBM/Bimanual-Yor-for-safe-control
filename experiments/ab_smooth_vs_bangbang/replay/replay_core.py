@@ -453,7 +453,7 @@ class Recorder:
 
 # --------------------------------------------------------------------------- replay
 CLASS_MAP = {
-    "FLMPC": ("mpc_fl", "FLMPC"),
+    "FLMPC": ("world_model.v2.flmpc.mpc_fl", "FLMPC"),
     "ValueFLMPC": ("flmpc_value", "ValueFLMPC"),
     "RTFLMPC": ("rt_flmpc", "RTFLMPC"),
 }

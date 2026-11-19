@@ -40,7 +40,7 @@ def base_task(task):
 def _static(task, c_lo, c_hi, w, wp, com=None):
     """com (demo_runner oracle_theta, default None = unchanged): the true contents COM point [x, y, z] (object frame) -> the COM set of the rows is that point."""
     from world_model.v2.nero.contents import probe_select as PS
-    return CC.static_cell(task, PS.round_out(c_lo, c_hi), w, spec=P.interval_spec(base_task(task), c_lo, c_hi, com=com), wp=wp)
+    return CC.static_cell(task, PS.round_out(c_lo, c_hi), w, spec=P.interval_spec(base_task(task), c_lo, c_hi, com=com, world=w), wp=wp)
 
 
 @functools.lru_cache(maxsize=None)
@@ -84,6 +84,18 @@ def _record_extras(rec, ep):
         rec["base"]["seg_acc_peak"] = [b.get("seg_acc_peak") for b in getattr(ep, "base_log", [])]
 
 
+def _job_error(task, i, seed, e, ep=None):
+    """a planner refusal (closed_chain.PlanRefused: the plan or its route fails the checks) is a REFUSAL record (refused_by "planner", with the reason), not an error.  The refusal comes from the
+    plan build (plan_for), which can run after the probe phase but before the carry / base route start: no plan step was executed (sim; arms at the hold pose, base at its start).  Anything else: outcome "error"."""
+    from world_model.v2.stack.planners import closed_chain as CCP
+    import traceback
+    if isinstance(e, CCP.PlanRefused):
+        steps = getattr(ep, "k", 0) if ep is not None else 0
+        return dict(task=task, i=i, seed=seed, outcome="refused_planner", refused_by="planner", reason=str(e), refusal_reason=e.info.get("reason"),
+                    robot="plan refused at plan build, before any plan step: no motion executed" if not steps else f"plan refused after {steps} control steps (the probe phase ran at the hold pose; the carry and the base route did not start)")
+    return dict(task=task, i=i, seed=seed, outcome="error", error=repr(e), tb=traceback.format_exc()[-1200:])
+
+
 def behind_job(args, method=None, adaptive=True):
     """args = (task, i, eps_lo, eps_free, plan).  task = tray6_behind | box_behind.  plan: dict(wp = the compiled WaypointPlan (any level), plan_dict = the proposer's accepted
     plan (compile_plan recompiles it at the world's level), fallback, belief, outside_b, plan_id).  -> record dict (never raises)."""
@@ -124,12 +136,10 @@ def behind_job(args, method=None, adaptive=True):
             decision = dict(action=st["action"], a_admit=st["a_admit"], u_nom=st["u_nom"], contents=[c_lo, c_hi], refused_by=None)
             if decision["a_admit"] is None:
                 decision["refused_by"] = "static"
-            if plan.get("belief"):                           # Rule 2 (as probe._e2e_job): the probe set inside the proposer's belief B?
-                rec["probe_in_B"] = PC.probe_in_belief(bt, plan["belief"], c_lo, c_hi)
-                if not rec["probe_in_B"]["inside"] and plan.get("outside_b", "refuse") == "refuse" and decision["a_admit"] is not None:
-                    decision = dict(decision, action="refuse (probe set outside B)", a_admit=None, why_B=rec["probe_in_B"], refused_by="outside_B")
+            if plan.get("belief"):                           # v1 Rule 2 removed with the v1 schema
+                raise ValueError("v1 plan with a belief B: the v1 proposer schema is retired (USER 11-19); send a schema-v2 plan")
             if decision["a_admit"] is not None:              # base level: highest of L1..L3 with every base row passing on Theta
-                lvl, rows = BE.pick_level(task, P.interval_spec(bt, c_lo, c_hi), LEVELS, SOURCE, wp=wp0)
+                lvl, rows = BE.pick_level(task, P.interval_spec(bt, c_lo, c_hi, world=w), LEVELS, SOURCE, wp=wp0, world=w)
                 rec.update(base_level=lvl, base_rows=_rows_json(rows))
                 if lvl is None:
                     decision = dict(decision, action="refuse (base level)", a_admit=None, refused_by="base_level",
@@ -181,8 +191,7 @@ def behind_job(args, method=None, adaptive=True):
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec
     except Exception as e:
-        import traceback
-        return dict(task=task, i=i, seed=seed, outcome="error", error=repr(e), tb=traceback.format_exc()[-1200:])
+        return _job_error(task, i, seed, e, ep=locals().get("ep"))
 
 
 def true_com(ep):
@@ -210,8 +219,8 @@ def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True,
         ctx = PS.Ctx(task=task, pt=bt, i=i, seed=seed, ep=ep, world=w, plan=plan, eps_lo=eps_lo, eps_free=eps_free,
                      static=lambda lo, hi, wp: _static(task, lo, hi, w, wp, com=com), cmax=lambda wp: c_admit_max(task, wp),
                      check=lambda pl: PC.compile_plan(pl, task, level="L1"), method=method, adaptive=adaptive, behind=True,
-                     level=lambda lo, hi: BE.pick_level(task, P.interval_spec(bt, lo, hi, com=com), LEVELS, SOURCE),
-                     level_wp=lambda lo, hi, wp_: BE.pick_level(task, P.interval_spec(bt, lo, hi, com=com), LEVELS, SOURCE, wp=wp_),
+                     level=lambda lo, hi: BE.pick_level(task, P.interval_spec(bt, lo, hi, com=com, world=w), LEVELS, SOURCE, world=w),
+                     level_wp=lambda lo, hi, wp_: BE.pick_level(task, P.interval_spec(bt, lo, hi, com=com, world=w), LEVELS, SOURCE, wp=wp_, world=w),
                      at_level=lambda pd, lvl: PC.compile_plan(pd, task, build=False, level=lvl).wp, rows_json=_rows_json, make_skills=make_skills,
                      **(ctx_extra or {}))
         rec_extra = dict(oracle_com=list(com)) if com is not None else {}
@@ -232,5 +241,4 @@ def v2_job(task, i, seed, w, eps_lo, eps_free, plan, method=None, adaptive=True,
         rec["wall_s"] = round(time.time() - t0, 1)
         return rec
     except Exception as e:
-        import traceback
-        return dict(task=task, i=i, seed=seed, outcome="error", error=repr(e), tb=traceback.format_exc()[-1200:])
+        return _job_error(task, i, seed, e, ep=locals().get("ep"))

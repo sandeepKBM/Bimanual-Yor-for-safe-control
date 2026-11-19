@@ -58,8 +58,7 @@ def _empty():
     return box(1.0, 2.0).intersect(box(3.0, 4.0)) if hasattr(TH.ThetaSet, "intersect") else box(2.0, 1.0)
 
 
-def test_empty_theta_new_fails_closed(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_COVER_EMPTY_OK", raising=False)
+def test_empty_theta_new_fails_closed():
     adm = _adm()
     e = _empty()
     assert e.is_empty()
@@ -67,12 +66,9 @@ def test_empty_theta_new_fails_closed(monkeypatch):
         d = COV.cover(e, adm, t)
         assert d.action == "fallback" and d.recovery is None and d.certified is False, d
     assert COV.cover(None, adm, 0.3).action == "fallback"
-    monkeypatch.setenv("BIMANUAL_LEGACY_COVER_EMPTY_OK", "1")
-    assert COV.cover(e, adm, 0.6).action == "continue"                 # the old fail-open behaviour, kept only behind the flag
 
 
-def test_field_mismatch_fails_closed(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_COVER_EMPTY_OK", raising=False)
+def test_field_mismatch_fails_closed():
     d = COV.cover(TH.ThetaSet.box(other=(0.0, 1.0)), _adm(), 0.6)
     assert d.action == "fallback" and d.recovery is None and d.certified is False and "field mismatch" in d.why
 

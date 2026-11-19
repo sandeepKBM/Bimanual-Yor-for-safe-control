@@ -36,7 +36,11 @@ def goal_for(task: str, world=None, plan=None) -> Goal:
     `plan` is accepted for the planner interface and not used: the goal is the TASK's, a plan does not change it."""
     t = TK.task(task)
     ref: dict = {}
-    if t.goal_dxy is not None:
+    if t.base:                                  # table-behind: the goal xy is the world's (geometry backend), not start + a fixed offset
+        import importlib
+        gx, gy = importlib.import_module("world_model.v2.stack.planners.base_route").default_backend().goal(world)["goal_xy"]      # lazy string import (the stack core imports no planner / adapter)
+        ref.update(gx=float(gx), gy=float(gy))
+    elif t.goal_dxy is not None:
         gx, gy = t.goal_dxy
         if t.goal_frame == "world":
             gx, gy = world.obj_xy[0] + gx, world.obj_xy[1] + gy

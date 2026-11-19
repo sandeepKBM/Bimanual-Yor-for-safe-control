@@ -1,5 +1,5 @@
 """Owner gate (11-17): the Numba GJK (nero/gjk_numba.py, default) = the distance between two convex hulls, checked against an INDEPENDENT
-minimiser (SLSQP over the two simplices, tight tolerance) and against the legacy scipy-nnls path (BIMANUAL_LEGACY_GJK_SCIPY=1).  Pure, no physics.
+minimiser (SLSQP over the two simplices, tight tolerance) and against a scipy-nnls Gilbert implementation kept here as a test oracle.  Pure, no physics.
 PYTHONPATH=. python -m pytest -q world_model/v2/nero/tests/test_gjk_numba_gate.py"""
 import numpy as np
 import pytest
@@ -23,6 +23,29 @@ def _box(rng, c):
 
 def _cloud(rng, c):
     return rng.normal(size=(int(rng.integers(4, 30)), 3)) * rng.uniform(0.01, 0.1) + c
+
+
+def _scipy_oracle(Wa, Wb, tol=1e-10, maxit=60):
+    """Gilbert distance between the convex hulls of two point sets (0.0 when they touch / overlap)."""
+    from scipy.optimize import nnls
+    sup = lambda dr: Wa[np.argmax(Wa @ dr)] - Wb[np.argmin(Wb @ dr)]
+    v = Wa[0] - Wb[0]
+    S = [v]
+    for _ in range(maxit):
+        nv = float(v @ v)
+        if nv < 1e-12:
+            return 0.0
+        w = sup(-v)
+        if nv - float(v @ w) < tol + 1e-9 * nv:
+            break
+        S.append(w)
+        P = np.array(S)
+        M = 1e3
+        lam, _ = nnls(np.vstack([P.T, M * np.ones((1, len(P)))]), np.array([0.0, 0.0, 0.0, M]))
+        keep = lam > 1e-12
+        S = [S[i] for i in range(len(S)) if keep[i]]
+        v = lam[keep] @ P[keep]
+    return float(np.linalg.norm(v))
 
 
 def _exact(A, B):
@@ -71,18 +94,13 @@ def test_numba_matches_an_independent_minimiser():
     assert worst < 1e-7, worst
 
 
-def test_numba_vs_legacy_scipy_same_verdicts():
+def test_numba_vs_scipy_oracle_same_verdicts():
     for A, B in _pairs(400, 20261117):
         dn = CL._gjk(A, B)
-        do = CL._gjk_scipy(A, B)
+        do = _scipy_oracle(A, B)
         assert (dn == 0.0) == (do == 0.0), (dn, do)
         for dmin in (2e-5, 0.005, 0.01, 0.02):
             assert (dn >= dmin) == (do >= dmin) or abs(dn - dmin) < 1e-6, (dmin, dn, do)
         if do < CL._DMAX:
-            assert abs(dn - do) <= 1e-6, (dn, do)                        # legacy carries the nnls penalty bias (agent: <= ~1e-6)
+            assert abs(dn - do) <= 1e-6, (dn, do)                        # the oracle carries the nnls penalty bias (agent: <= ~1e-6)
 
-
-def test_legacy_flag_selects_scipy(monkeypatch):
-    A, B = _pairs(1, 5)[0]
-    monkeypatch.setattr(CL, "_LEGACY_SCIPY", True)
-    assert CL._gjk(A, B) == CL._gjk_scipy(A, B)

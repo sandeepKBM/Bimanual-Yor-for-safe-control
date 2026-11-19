@@ -100,18 +100,6 @@ def test_controller_split_balances_and_is_no_better_than_lp(setup):
     assert np.isclose(det["Fz"]["left"] + det["Fz"]["right"], F[2], atol=1e-3)
 
 
-def test_twist_polytope_inside_ball_and_tight_on_axes():
-    A, b = E.TWIST_A, E.TWIST_B
-    rng = np.random.default_rng(1)
-    for _ in range(2000):                                           # every point of the polytope is inside the unit ball
-        x = rng.normal(size=3)
-        x /= np.linalg.norm(x)
-        s = np.min(b / np.maximum(A @ x, 1e-12))                    # largest scale with A (s x) <= b
-        assert s <= 1.0 + 1e-9
-    for ax in np.eye(3):                                            # full capacity along each axis
-        assert np.all(A @ ax <= b + 1e-9)
-
-
 def test_lever_split_balances_and_lp_is_no_worse(setup):
     _, arms, env, spec = setup
     pl, pr = arms.terms[("W0_liftoff", "left")]["p"], arms.terms[("W0_liftoff", "right")]["p"]
@@ -126,7 +114,7 @@ def test_lever_split_balances_and_lp_is_no_worse(setup):
     u_lp, _ = env.u("W0_liftoff", pi, (0.2, -0.1, 0.3), "two")       # no twist row: the LP is optimal over ALL splits
     for mode in ("two_lever", "two_share"):
         assert u_lp <= env.u("W0_liftoff", pi, (0.2, -0.1, 0.3), mode)[0] + 1e-9
-    env2 = E.Envelope(spec, arms, env.o0, env.R0, ["left", "right"], grip_mass=0.5, T_cap=E.T_CAP)
+    env2 = E.Envelope(spec, arms, env.o0, env.R0, ["left", "right"], grip_mass=0.5)
     u_lv, det = env2.u("W0_liftoff", pi, (0.0, 0.0, 0.0), "two_lever")
     u_sh, det_sh = env2.u("W0_liftoff", pi, (0.0, 0.0, 0.0), "two_share")
     assert max(det["twist"].values()) < max(det_sh["twist"].values())  # the lever split commands less claw twist

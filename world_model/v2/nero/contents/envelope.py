@@ -19,12 +19,6 @@ Limits (labels):
                                arm is torque-commanded (our controller).  Not a motor rating (none published).  URDF 100 Nm = placeholder.
     F_cap    (3.0 kg - gripper mass) g per arm, vertical   MEASURED-spec: NERO user manual payload 3 kg ("controlled test environment").
     a_nom    0.5 m/s^2 box per axis   ASSUMED (cert/model_check.A_MAX)
-    T_cap    1.30 Nm per claw, |T| (2-norm, isotropic)   ASSUMED (user-approved 11-02): the MEASURED 10-28 sim fit of claw pitch
-             capacity vs squeeze (vizcoast/certify.CAPACITY_PTS, pan handle, 2.5..10 N, one run each) extrapolated linearly to 40 N.
-             The weld hides this limit, so without it one arm "carries" a pot by one side handle.  Opt-in (T_cap=None = no row).
-             DROPPED 11-02 pm (USER: "make grasp something we do not care about ... arm joint angles causing issues"): admission
-             uses arm-side rows only (tau_lim, F_cap); T_CAP is kept only to reproduce the 11-02 am runs.
-             In the LP the ball is replaced by an inner polytope (hull of 26 unit directions; conservative: u* can only rise).
     u_admit  1.0: admit only when the MODEL utilisation <= 1.0 = the rated motor and payload limits   MODEL (USER 11-09: "the limit is motor and physical limits,
              that is the only one that matters"; no extra margin).  Was 0.9 ASSUMED (user-approved 11-02: margin for the controller's feedback torque
              above the model; 11-01 smoke: sim 0.548 vs model 0.507 at the true contents, +8%): with 1.0 that feedback excess is NOT covered by a margin.
@@ -47,10 +41,9 @@ from ..democ import kin as K
 from . import objects as OB
 
 G_VEC = np.array([0.0, 0.0, -OB.G])
-TAU_LIM = C.tau_limit()                           # config.tau_limit(): MJCF 100 Nm (USER 11-05); BIMANUAL_TAU_MIT16=1 -> 16 Nm
+TAU_LIM = C.tau_limit()                           # config.tau_limit(): MJCF 100 Nm (USER 11-05)
 PAYLOAD_KG = C.MANUAL["payload_kg"]                # 3.0 kg, NERO manual
 A_NOM = 0.5                                        # m/s^2, ASSUMED
-T_CAP = 1.30                                       # Nm per claw, ASSUMED, DROPPED 11-02 pm (old-rule reproduction only; module doc)
 U_ADMIT = 1.0                                      # MODEL: the rated limits themselves (joint torque config.tau_limit(); per-arm payload 3 kg MEASURED-spec minus gripper); USER 11-09: no extra margin (was 0.9 ASSUMED, USER 11-02)
 # waypoints: offsets of the object (and both TCPs) from the grasp pose [m]  (ASSUMED plan)
 # carry is TOWARD the robot (-x): +x 10 cm is out of the right arm's reach at the pot grasp (IK error 105 mm, 11-01 probe)
@@ -126,21 +119,6 @@ class Arms:
         m.body_gravcomp[:] = gc
 
 
-def _twist_polytope():
-    """H-rep (A, b) of an INNER polytope of the unit ball: hull of the 26 directions {-1,0,1}^3 normalised (all vertices on the
-    sphere, so the hull lies inside the ball: conservative).  |T| <= cap is replaced by A T <= b * cap."""
-    from scipy.spatial import ConvexHull
-    P = np.array([[i, j, k] for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1) if (i, j, k) != (0, 0, 0)], float)
-    P /= np.linalg.norm(P, axis=1, keepdims=True)
-    h = ConvexHull(P)
-    A, b = h.equations[:, :3], -h.equations[:, 3]
-    _, idx = np.unique(np.round(np.c_[A, b], 9), axis=0, return_index=True)
-    return A[idx], b[idx]
-
-
-TWIST_A, TWIST_B = _twist_polytope()
-
-
 def lever_split(Mtot, acc, S, o, pL, pR):
     """the LEVER split (contents/carry.LeverCtl commands it).  Mtot = total mass, acc = a - g, S = Mtot (c - o) the first moment about
     o (world axes).  Each claw carries the load by the lever rule along the grasp line e = pL - pR:
@@ -164,10 +142,8 @@ class Envelope:
     """u*(pi, a) per waypoint and mode for one object.  pi = [m, m cx, m cy, m cz] with c in the WORLD-aligned object frame at o."""
 
     def __init__(self, spec: OB.ObjectSpec, arms: Arms, o0, R0, sides, tau_lim=TAU_LIM, payload_kg=PAYLOAD_KG, grip_mass=0.0,
-                 offsets=None, T_cap=None):
-        """offsets: {key: object offset from o0 [m]} for the keys of arms.terms (default WAYPOINTS).
-        T_cap: per-claw twist capacity [Nm] (None = no twist row, the 11-01 runs)."""
-        self.T_cap = T_cap
+                 offsets=None):
+        """offsets: {key: object offset from o0 [m]} for the keys of arms.terms (default WAYPOINTS)."""
         self.spec, self.arms, self.sides = spec, arms, list(sides)
         self.offsets = offsets if offsets is not None else WAYPOINTS
         self.o0, self.R0 = np.asarray(o0, float), np.asarray(R0, float)
@@ -210,8 +186,6 @@ class Envelope:
                 taus[s] = b + t["J"].T @ np.concatenate([Fi, Ti])
                 fz[s], tw[s] = float(Fi[2]), float(np.linalg.norm(Ti))
             r = max(max(float(np.max(np.abs(v) / self.tau_lim)) for v in taus.values()), max(abs(v) for v in fz.values()) / self.F_cap)
-            if self.T_cap:
-                r = max(r, max(tw.values()) / self.T_cap)
             return float(r), dict(tau={s: v.round(3).tolist() for s, v in taus.items()}, Fz={s: round(v, 3) for s, v in fz.items()},
                                   twist={s: round(v, 3) for s, v in tw.items()})
         if mode == "two_share":
@@ -222,8 +196,6 @@ class Envelope:
                 fz[s] = w[2]
                 tw[s] = float(np.linalg.norm(w[3:]))
             r = max(max(float(np.max(np.abs(v) / self.tau_lim)) for v in taus.values()), max(abs(v) for v in fz.values()) / self.F_cap)
-            if self.T_cap:
-                r = max(r, max(tw.values()) / self.T_cap)
             return float(r), dict(tau={s: v.round(3).tolist() for s, v in taus.items()}, Fz={s: round(float(v), 3) for s, v in fz.items()},
                                   twist={s: round(v, 3) for s, v in tw.items()})
         if mode == "one" or len(sides) == 1:
@@ -233,10 +205,9 @@ class Envelope:
             r_tau = np.abs(tau) / self.tau_lim
             r_pay = abs(w[2]) / self.F_cap
             tw = float(np.linalg.norm(w[3:]))
-            r_tw = tw / self.T_cap if self.T_cap else 0.0
-            return float(max(r_tau.max(), r_pay, r_tw)), dict(tau=tau.round(3).tolist(), Fz=round(float(w[2]), 3), twist=round(tw, 3),
+            return float(max(r_tau.max(), r_pay)), dict(tau=tau.round(3).tolist(), Fz=round(float(w[2]), 3), twist=round(tw, 3),
                                                                worst_joint=int(np.argmax(r_tau)) + 1,
-                                                               binding=["torque", "payload", "twist"][int(np.argmax([r_tau.max(), r_pay, r_tw]))])
+                                                               binding=["torque", "payload"][int(np.argmax([r_tau.max(), r_pay]))])
         # LP over x = [w_L (6), w_R (6), t]; minimise t
         nx = 13
         Aeq = np.zeros((6, nx))
@@ -262,13 +233,6 @@ class Envelope:
                 r[12] = -self.F_cap
                 Aub.append(r)
                 bub.append(0.0)
-            if self.T_cap:                              # inner polytope of the twist ball (conservative: u* can only rise)
-                for af, bf in zip(TWIST_A, TWIST_B):
-                    r = np.zeros(nx)
-                    r[6 * k + 3:6 * k + 6] = af
-                    r[12] = -bf * self.T_cap
-                    Aub.append(r)
-                    bub.append(0.0)
         c = np.zeros(nx)
         c[12] = 1.0
         res = linprog(c, A_ub=np.array(Aub), b_ub=np.array(bub), A_eq=Aeq, b_eq=beq,

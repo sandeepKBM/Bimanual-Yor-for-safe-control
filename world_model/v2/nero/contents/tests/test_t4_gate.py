@@ -10,7 +10,7 @@ case is forced; the mock proposer answers the T4 re-ask (mock.t4_reply), wrapped
     (d) the same signature 3 times -> "t4_repeat", refused, Rule 1 called exactly 3 times
     (e) no truth (true contents mass, seed) in any T4 prompt
     (f) every family name is tagged (no UNTAGGED); an unknown name is UNTAGGED
-    (g) BIMANUAL_LEGACY_NO_T4=1 -> Rule 1 never called, no T4 event
+    (g) a task not in RULE1_TASKS -> refused as Rule 1 MISSING, Rule 1 never called
     (h) a Rule 1 crash fails CLOSED (owner 11-16): refused_by "rule1", reask_end "rule1_error"
 """
 import copy
@@ -35,8 +35,6 @@ MISSING_ROW = dict(name="stored_backup:motion@t=0.49/stop_back[place]", ok=False
 
 @pytest.fixture(autouse=True)
 def _env(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_PROPOSER_V1", raising=False)
-    monkeypatch.delenv("BIMANUAL_LEGACY_NO_T4", raising=False)
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
     monkeypatch.setattr(P, "PROBE_METHOD", "poslift")
 
@@ -198,21 +196,9 @@ def test_d_repeat_guard_stops_after_three(tmp_path, prompts):
     assert v["attempts"][-1]["decision"]["action"] == PS.T4_NO_PLAN_ACTION
 
 
-def test_g_legacy_flag_skips_rule1(tmp_path, monkeypatch, prompts):
-    """BIMANUAL_LEGACY_NO_T4=1 + BIMANUAL_LEGACY_RULE1_SKIP=1 = the pre-T4 loop: Rule 1 is skipped in silence."""
-    monkeypatch.setenv("BIMANUAL_LEGACY_NO_T4", "1")
-    monkeypatch.setenv("BIMANUAL_LEGACY_RULE1_SKIP", "1")
-    stub = Stub(raise_on_call=True)
-    r = run(tmp_path, stub)
-    v = r["v2"]
-    assert stub.calls == [] and "T4" not in v["t_counts"] and prompts == []
-    assert "rule1" not in v["attempts"][-1]
-
-
-def test_g2_no_t4_without_skip_fails_closed(tmp_path, monkeypatch, prompts):
-    """USER 11-17 fail closed: BIMANUAL_LEGACY_NO_T4=1 alone refuses as Rule 1 MISSING (never a silent admission); Rule 1 is not called."""
-    monkeypatch.setenv("BIMANUAL_LEGACY_NO_T4", "1")
-    monkeypatch.delenv("BIMANUAL_LEGACY_RULE1_SKIP", raising=False)
+def test_g2_task_without_rule1_fails_closed(tmp_path, monkeypatch, prompts):
+    """USER 11-17 fail closed: a task not in RULE1_TASKS refuses as Rule 1 MISSING (never a silent admission); Rule 1 is not called."""
+    monkeypatch.setattr(PS, "RULE1_TASKS", ())
     stub = Stub(raise_on_call=True)
     r = run(tmp_path, stub)
     v = r["v2"]

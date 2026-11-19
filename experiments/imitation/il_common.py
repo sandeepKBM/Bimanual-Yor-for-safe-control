@@ -57,7 +57,7 @@ for _p in (str(REPO_ROOT), str(REPO_ROOT / "scripts"),
 
 import make_cup_collect_safety_demo as demo  # noqa: E402  (READ-ONLY import; patched in-process only)
 import sim_common as sc  # noqa: E402
-import mpc_fl  # noqa: E402
+from world_model.v2.flmpc import mpc_fl  # noqa: E402
 import scene_setup  # noqa: E402
 
 cct = demo.cct

@@ -65,10 +65,10 @@ def bad_contacts(m, d, ag, obj=None):
     return sorted(out)
 
 
-def make_ep(world, base="swerve", second_table=True, strict_claw=True):
+def make_ep(world, base="swerve", second_table=True, strict_claw=True, hold_q=None):
     """strict_claw=True (default since 11-09): the per-claw payload row |Fz| > (3 kg - gripper) g is in U, as in same_worlds (both methods)."""
     with BS.use_swerve_scene(second_table=second_table, base=base):
-        ep = CA.CarryEpisode(world, strict_claw=strict_claw)
+        ep = CA.CarryEpisode(world, strict_claw=strict_claw, hold_q=hold_q)
     ep.set_belief(float(ep.truth0["contents_mass"]))          # the payload feed-forward uses the TRUE contents mass (smoke of the base, not of the belief)
     return ep
 
@@ -428,15 +428,18 @@ def task_world(task, seed=None):
     raise ValueError(task)
 
 
-def behind_world(task, i):
-    """THE world list of the table-behind tasks, for BOTH methods (same_worlds ours + theirs): (seed, world) of world i of `task` (tray6_behind | box_behind) =
-    probe._seed("e2e", base task, i) and task_world(base task, seed) (full prior box; box_behind: shelf=False)."""
+def behind_world(task, i, nominal=False):
+    """THE world list of the table-behind tasks, for BOTH methods (same_worlds ours + theirs): (seed, world) of world i of `task` (tray6_behind | box_behind | box_bookcase) =
+    probe._seed("e2e", base task, i) and task_world(base task, seed) (full prior box; box_behind: shelf=False), with the scene GEOMETRY drawn from
+    geom_prior.GEOM_PRIOR (own rng: the contents draw is the same as nominal).  nominal=True = the fixed scene (test fixture): the geometry fields at their defaults."""
     from dataclasses import replace
     from ...stack import tasks as TK
+    from . import geom_prior as GP
     bt = TK.fixed_task(task)
     seed = PR._seed("e2e", bt, i)
     w = task_world(bt, seed)
-    return seed, (replace(w, **dict(TK.task(task).world_kw)) if task in TK.TASKS else w)
+    w = replace(w, **dict(TK.task(task).world_kw)) if task in TK.TASKS else w
+    return seed, (w if nominal else GP.apply(w, GP.draw(task, i)))
 
 
 def heaviest_seed(n=40, task="tray6"):

@@ -4,8 +4,7 @@ PYTHONPATH=. python -m pytest -q world_model/v2/stack/tests/test_remaining_route
 Checks stack/planners/base_route.remaining_route:
   - the remaining turn is the SHORTEST rotation; an exact +-180 takes the planned turn's sign;
   - a landing within MIN_LINE_M / MIN_TURN_DEG of the segment end (before or past it) counts as arrived;
-  - the returned route ends at the planned end pose route_end(p0, route) (final correction), also with sideways / yaw drift;
-  - BIMANUAL_LEGACY_REMAINING_ROUTE=1 restores the first version (no final correction)."""
+  - the returned route ends at the planned end pose route_end(p0, route) (final correction), also with sideways / yaw drift."""
 import math
 
 import numpy as np
@@ -22,11 +21,6 @@ def _end_err(p_land, rem, p_end):
     dxy = math.hypot(e[0] - p_end[0], e[1] - p_end[1])
     dyaw = abs((e[2] - p_end[2] + math.pi) % (2 * math.pi) - math.pi)
     return dxy, dyaw
-
-
-@pytest.fixture(autouse=True)
-def _new(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_REMAINING_ROUTE", raising=False)
 
 
 def test_turn_180_from_rest_takes_the_planned_sign():
@@ -75,12 +69,3 @@ def test_random_landings_end_at_the_planned_pose():
 
 def test_after_last_segment_returns_empty():
     assert BR.remaining_route(P0, ROUTE, len(ROUTE), BR.route_end(P0, ROUTE)) == ()
-
-
-def test_legacy_flag_has_no_final_correction(monkeypatch):
-    route = (("line", 1.0), ("line", 0.3))
-    p_land = (0.5, 0.02, 0.0)                                   # 2 cm sideways
-    new = BR.remaining_route(P0, route, 0, p_land)
-    monkeypatch.setenv("BIMANUAL_LEGACY_REMAINING_ROUTE", "1")
-    old = BR.remaining_route(P0, route, 0, p_land)
-    assert old == (("line", pytest.approx(0.5)), ("line", 0.3)) and len(new) > len(old)

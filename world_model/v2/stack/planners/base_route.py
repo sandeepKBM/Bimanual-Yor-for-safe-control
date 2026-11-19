@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import importlib
 import math
-import os
 
 import numpy as np
 
@@ -200,16 +199,11 @@ def _wrap_pi(a, tie_sign=1.0):
 def _finish_correction(p_from, p_end, tie_sign=1.0):
     """PURE (11-17).  The pieces that bring the base from p_from = (x, y, yaw) to the planned end pose p_end.  USER 11-17 "swerve shift": the forward / back error is a ("line", fwd), the
     sideways error (perpendicular to p_from's heading) a holonomic ("shift", lat) (yaw held, +lat = the base's own left), then the yaw turn (SHORTEST rotation; +-180 takes tie_sign).  No turn-in-place
-    for the sideways error.  Pieces below MIN_LINE_M (line, shift) / MIN_TURN_DEG (turn) are dropped.  BIMANUAL_LEGACY_TURN_SHIFT=1: a sideways error > MIN_LINE_M -> turn-line-turn (continuation_route)."""
+    for the sideways error.  Pieces below MIN_LINE_M (line, shift) / MIN_TURN_DEG (turn) are dropped.."""
     x, y, yaw = (float(a) for a in p_from)
     ex, ey = float(p_end[0]) - x, float(p_end[1]) - y
     fwd = ex * math.cos(yaw) + ey * math.sin(yaw)
     lat = -ex * math.sin(yaw) + ey * math.cos(yaw)
-    if abs(lat) > MIN_LINE_M and os.environ.get("BIMANUAL_LEGACY_TURN_SHIFT") == "1":
-        try:
-            return tuple(continuation_route(p_from, p_end))
-        except ValueError:
-            pass
     out = []
     if abs(fwd) >= MIN_LINE_M:
         out.append(("line", float(fwd)))
@@ -227,14 +221,11 @@ def remaining_route(p0, route, i_seg, p_land):
       line   signed distance from p_land to the segment's planned end pose, projected on the landed heading (negative = drive back: the stop overshot the end by more than MIN_LINE_M)
       turn   the SHORTEST rotation (USER 11-17) from the landed yaw to the segment's planned end yaw, in degrees; exactly +-180 takes the planned turn's sign
       A landing within MIN_LINE_M (line) / MIN_TURN_DEG (turn) of the segment end, before or PAST it, counts as arrived (the piece is dropped: no reverse drive).
-      final correction  (_finish_correction) from the pose the returned route reaches to route_end(p0, route): line + shift (sideways, holonomic, USER 11-17) + shortest turn; BIMANUAL_LEGACY_TURN_SHIFT=1 = turn-line-turn for a sideways error.
-    BIMANUAL_LEGACY_REMAINING_ROUTE=1: the 11-17 first version (wrap to [-pi, pi), no final correction).  i_seg >= len(route) (the stop came after the last segment) -> ()."""
-    import os
+      final correction  (_finish_correction) from the pose the returned route reaches to route_end(p0, route): line + shift (sideways, holonomic, USER 11-17) + shortest turn.
+    i_seg >= len(route) (the stop came after the last segment) -> ()."""
     route = normalize_route(route)
     if i_seg >= len(route):
         return ()
-    legacy = os.environ.get("BIMANUAL_LEGACY_REMAINING_ROUTE") == "1"
-    wrap = lambda a: (a + math.pi) % (2 * math.pi) - math.pi
     xe, ye, yawe = route_end(p0, route[:i_seg + 1])
     x, y, yaw = (float(a) for a in p_land)
     k, val = route[i_seg]
@@ -245,12 +236,10 @@ def remaining_route(p0, route, i_seg, p_land):
         if abs(d) >= MIN_LINE_M:
             out.append((k, float(d)))
     else:
-        t = math.degrees(wrap(yawe - yaw) if legacy else _wrap_pi(yawe - yaw, sign))
+        t = math.degrees(_wrap_pi(yawe - yaw, sign))
         if abs(t) >= MIN_TURN_DEG:
             out.append(("turn", float(t)))
     res = tuple(out) + tuple(route[i_seg + 1:])
-    if legacy:
-        return res
     p_end = route_end(p0, route)
     tie = 1.0
     for kk, vv in reversed(route):
@@ -276,8 +265,95 @@ def check_continuation(world, geo, prev_name, p_now, route, backend=None, margin
 
 
 # ---- default plan -------------------------------------------------------------------------------------------------------------------
-def default_route(task_def):
-    """the TaskDef's first named route (R1) as a normalized route."""
+ROUTE_EPS_M = 1e-6          # m: a computed route piece shorter than this is dropped (float noise only; NOT the continuation threshold MIN_LINE_M: a dropped piece is an end-pose error)
+ROUTE_EPS_DEG = 1e-4        # deg: same for a computed turn
+
+
+def _wrap180(a):
+    t = (float(a) + math.pi) % (2 * math.pi) - math.pi
+    return math.pi if abs(abs(t) - math.pi) < 1e-6 else t          # +-pi (within 1e-6 rad) -> +pi (the nominal route's "turn 180")
+
+
+def _lines(dist):
+    """signed distance -> greedy chunks of MAX_LINE_M (the remainder last): 1.25 -> (1.0, 0.25)."""
+    sg, d, out = (1.0 if dist >= 0 else -1.0), abs(dist), []
+    while d > ROUTE_EPS_M:
+        c = min(d, MAX_LINE_M)
+        out.append(("line", sg * c))
+        d -= c
+    return out
+
+
+def _retreat_form(p0, p_end, retreat_m):
+    x, y, yaw = (float(a) for a in p0)
+    ax, ay = x - retreat_m * math.cos(yaw), y - retreat_m * math.sin(yaw)
+    dx, dy = float(p_end[0]) - ax, float(p_end[1]) - ay
+    r = [("line", -float(retreat_m))]
+    t1 = math.degrees(_wrap180(math.atan2(dy, dx) - yaw))
+    yawa = yaw
+    if abs(t1) >= ROUTE_EPS_DEG:
+        r.append(("turn", t1))
+        yawa = yaw + math.radians(t1)
+    r += _lines(math.hypot(dx, dy))
+    t2 = math.degrees(_wrap180(float(p_end[2]) - yawa))
+    if abs(t2) >= ROUTE_EPS_DEG:
+        r.append(("turn", t2))
+    return tuple((k, round(float(v), 9)) for k, v in r), math.hypot(dx, dy)      # rounded to 1e-9 (m / deg): float noise must not change the nominal route
+
+
+def route_forms(p0, p_end, retreat_m):
+    """PURE.  Candidate routes (line / turn only) from p0 = (x, y, yaw) to p_end, in order: [(form, route)].
+      "retreat"       line -retreat_m (the scene's ASSUMED retreat), turn toward the target (forward drive), lines (greedy chunks of MAX_LINE_M), turn to the end yaw.
+                      Nominal world: line -0.5, turn 180, line 1.0, line 0.25.
+      "retreat_long"  the same with the retreat lengthened (ASSUMED planner choice, <= MAX_LINE_M) until the drive after the turn fits ONE line: keeps the route at 4 segments
+                      when the end-pose yaw / lateral correction needs a final turn.
+    Pieces below ROUTE_EPS_M / ROUTE_EPS_DEG (float noise) are dropped.  Candidates are NOT range-checked here (check_ranges)."""
+    out = []
+    r, d = _retreat_form(p0, p_end, retreat_m)
+    out.append(("retreat", r))
+    rl = float(retreat_m)
+    for _ in range(8):
+        if d <= MAX_LINE_M - 0.01:
+            break
+        rl = min(MAX_LINE_M, rl + (d - (MAX_LINE_M - 0.01)))
+        r, d = _retreat_form(p0, p_end, rl)
+    if rl > retreat_m + 1e-9:
+        out.append(("retreat_long", r))
+    return out
+
+
+def default_route_form(task_def, world=None, backend=None, off_xy=(0.0, 0.0), obj_dz=0.0, skip=()):
+    """-> (form, route, info).  world None: the TaskDef's route R1 (nominal world only; form "taskdef").  With a world: the route is computed from the backend geometry
+    (be.start_pose, be.goal, be.required_end_pose): the first candidate of route_forms that is inside the ASSUMED ranges (MAX_SEGMENTS ...) and whose retreat + turn sweep clear (a cheap pre-filter; the WHOLE route is checked by closed_chain.PlanInputs through `check` and a failing form is passed back in `skip`); none -> PlanRefused (fail closed), the reason names each form.  obj_dz = the lift height the object has during the route (for the sweep)."""
+    if world is None:
+        return "taskdef", default_route(task_def), {}
+    be = backend or default_backend()
+    p0 = be.start_pose(world)
+    pe = be.required_end_pose(world, off_xy)
+    g = be.goal(world)
+    clr = float(getattr(be, "CLEARANCE_MIN", 0.005))
+    why = []
+    for form, route in route_forms(p0, pe, g["retreat_m"]):
+        if form in skip:                                 # a form the caller found to fail the WHOLE-route check (closed_chain.PlanInputs: base_route.check on the planned geometry)
+            why.append(f"{form}: refused by the whole-route check")
+            continue
+        errs = check_ranges(route)
+        if errs:
+            why.append(f"{form}: {'; '.join(errs)}")
+            continue
+        r = be.sweep(world, route_poses(p0, route[:2]), obj_off=(float(off_xy[0]), float(off_xy[1]), float(obj_dz)), clearance_min=clr)      # the retreat + the turn (the part that differs between forms)
+        if r["min_dist"] < clr:
+            why.append(f"{form}: the retreat / turn sweeps {r['min_dist'] * 1e3:.1f} mm from {r['worst']['pair']} (need >= {clr * 1e3:.1f} mm)")
+            continue
+        return form, route, dict(start_pose=[float(a) for a in p0], required_end_pose=[float(a) for a in pe])
+    _refuse("no base route of <= %d segments reaches the required end pose (%.3f, %.3f, %.1f deg) from the start pose: %s"
+            % (MAX_SEGMENTS, pe[0], pe[1], math.degrees(pe[2]), " | ".join(why)), reason="base_route_form")
+
+
+def default_route(task_def, world=None, backend=None, off_xy=(0.0, 0.0), obj_dz=0.0, skip=()):
+    """the default base route.  world None: the TaskDef's first named route (R1, nominal world).  With a world: computed from the geometry (default_route_form)."""
+    if world is not None:
+        return default_route_form(task_def, world, backend, off_xy, obj_dz, skip)[1]
     if not task_def.routes:
         raise ValueError(f"{task_def.name}: no route in TaskDef.routes")
     return normalize_route(task_def.routes[0][1])
@@ -317,7 +393,11 @@ def check(world, task, wp, geo, clear_m, backend=None, margin_m=TRACK_MARGIN_M):
     clr = float(getattr(be, "CLEARANCE_MIN", 0.005))
     r = be.sweep(world, poses, q_hold=q_hold, obj_off=tuple(float(x) for x in off), clearance_min=clr + margin_m)
     end = route_end(p0, route)
-    info = dict(route=[list(s) for s in route], level=level, start_pose=[float(a) for a in p0], end_pose=[float(a) for a in end], n_poses=len(poses),
+    req = tuple(be.required_end_pose(world)) if hasattr(be, "required_end_pose") else None
+    info = dict(end_pose_required=None if req is None else [float(a) for a in req],
+                end_pose_error_m=None if req is None else float(math.hypot(end[0] - req[0], end[1] - req[1])),
+                end_pose_error_deg=None if req is None else float(math.degrees(_wrap_pi(end[2] - req[2]))),
+                route=[list(s) for s in route], level=level, start_pose=[float(a) for a in p0], end_pose=[float(a) for a in end], n_poses=len(poses),
                 sweep_min_dist_m=float(r["min_dist"]), sweep_worst=r["worst"], sweep_by_segment=r["by_segment"], clearance_min_m=clr, tracking_margin_m=float(margin_m),
                 tracking_margin_tag="no MEASURED base path-tracking error wired: 0 (ASSUMED)", z_under_counter2_m=float(z_under2),
                 table2_margin_min=float(min(geo.margin[s][i_hold:].min() for s in geo.margin)),
@@ -327,7 +407,6 @@ def check(world, task, wp, geo, clear_m, backend=None, margin_m=TRACK_MARGIN_M):
         w = r["worst"]
         k, v = route[w["seg"]]
         _refuse(f"base_move segment {w['seg']} ({k} {v:g}{' m' if k == 'line' else ' deg'}) collides: {w['group']} geom {w['pair'][0]} vs world geom {w['pair'][1]} at "
-                f"{r['min_dist'] * 1e3:.1f} mm (need >= {(clr + margin_m) * 1e3:.1f} mm)"
-                + (f" with the base at x {w['pose'][0]:.3f}, y {w['pose'][1]:.3f}, yaw {math.degrees(w['pose'][2]):.0f} deg" if os.environ.get("BIMANUAL_LEGACY_REFUSAL_POSE") == "1" else ""),
+                f"{r['min_dist'] * 1e3:.1f} mm (need >= {(clr + margin_m) * 1e3:.1f} mm)",
                 reason="base_sweep", segment=int(w["seg"]), pair=list(w["pair"]), dist_m=float(r["min_dist"]), pose=list(w["pose"]), info=info)
     return info

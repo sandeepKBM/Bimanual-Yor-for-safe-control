@@ -25,19 +25,10 @@ def test_continuation_route_pure():
     assert np.allclose(end[:2], (0.2, 0.4), atol=1e-9) and abs(math.remainder(end[2] + 2.0, 2 * math.pi)) < 1e-9
 
 
-def test_flag_off_base_segment_has_no_backup(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_BASE_BACKUP", raising=False)
-    monkeypatch.setenv("BIMANUAL_LEGACY_NO_BASE_BACKUP", "1")           # 11-17: the base segment has a stored backup by default; the legacy flag restores None
+def test_base_segment_has_a_stored_backup():
     inp = CCP._nominal_inputs("tray6_behind")
     pl = CCP.ClosedChainPlanner().plan(None, CCP.SkillCall("plan", {"task": "tray6_behind", "a_plan": 0.5}), inputs=inp)
-    base_off = pl.segments[1].meta["backup_phases"]
-    others_off = [s.meta["backup_phases"] for s in pl.segments if s.meta.get("base_ref") is None]
-    assert base_off is None
-    monkeypatch.setenv("BIMANUAL_BASE_BACKUP", "1")
-    pl2 = CCP.ClosedChainPlanner().plan(None, CCP.SkillCall("plan", {"task": "tray6_behind", "a_plan": 0.5}), inputs=inp)
-    assert pl2.segments[1].meta["backup_phases"] == [("base_stop", CCP.BASE_STOP_MAX_S), ("hold", 0.5)]
-    assert [s.meta["backup_phases"] for s in pl2.segments if s.meta.get("base_ref") is None] == others_off      # nothing else changes
-    assert [s.meta["phases"] for s in pl.segments] == [s.meta["phases"] for s in pl2.segments]
+    assert pl.segments[1].meta["backup_phases"] == [("base_stop", CCP.BASE_STOP_MAX_S), ("hold", 0.5)]
 
 
 def _ep():

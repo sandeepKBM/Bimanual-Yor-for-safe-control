@@ -2,7 +2,7 @@
 
 SCHEMA v2 (11-09, probe-selection build spec; default): the reply is {phenomena, probes, steps, recoveries, fallback} -- the model NAMES the hidden-contents phenomena
 (skills/catalog.py PH1..PH8 or "NEW") with a handle each ({"measure": skill id} | {"unmeasurable": reason}) and lists the probes to run, in order; it states NO number about the contents
-(no belief, no covers; 11-08: the skills supply the numbers).  The v1 format below (belief + covers) is replayable with BIMANUAL_LEGACY_PROPOSER_V1=1.
+(no belief, no covers; 11-08: the skills supply the numbers). 
 
 USER 11-05: "The plan to be done when running should be authored by the codex gpt ones, not us."  The model writes, per task:
   belief      B = {param: [lo, hi]} over the task's hidden parameters (PARAMS[task])
@@ -37,22 +37,15 @@ from __future__ import annotations
 
 import json
 import math
-import os
 from dataclasses import dataclass, field
 
 from world_model.v2.stack.types import SkillCall
 
-V1_KEYS = ("belief", "steps", "recoveries", "fallback")                       # the 11-05..11-09 reply
 V2_KEYS = ("phenomena", "probes", "steps", "recoveries", "fallback")           # schema v2 (11-09): the model names phenomena and probes, no number about the contents
 
 
-def legacy_v1():
-    """BIMANUAL_LEGACY_PROPOSER_V1=1: the 11-05..11-09 format (belief + covers) -- prompts, validator and mock replies -- so the old response caches still replay."""
-    return os.environ.get("BIMANUAL_LEGACY_PROPOSER_V1") == "1"
-
-
 def reply_keys():
-    return V1_KEYS if legacy_v1() else V2_KEYS
+    return V2_KEYS
 
 
 def reply_of(plan):
@@ -89,11 +82,6 @@ def step_skills(task=None):
     return {**STEP_SKILLS, **BASE_STEP_SKILLS} if task in BASE_TASKS else dict(STEP_SKILLS)
 
 
-def legacy_route_vocab():
-    """BIMANUAL_LEGACY_ROUTE_VOCAB=1: the 11-09..11-16 route description (keys line_m / turn_deg; the validator wants "line" / "turn") -- old prompts replay byte-identical."""
-    return os.environ.get("BIMANUAL_LEGACY_ROUTE_VOCAB") == "1"
-
-
 def _route_vocab():
     """the real route format (USER 11-17: the prompt said line_m/turn_deg, the validator demands one key line | turn).  Descriptive strings only, no example route.
     Ranges = BASE_STEP_SKILLS' ASSUMED outer ranges (BASE_TAG)."""
@@ -110,8 +98,7 @@ def vocabulary(supports=None, base=False):
     tags = dict(ranges=RANGE_TAG)
     if base:
         steps.update({k: {n: dict(r) for n, r in a.items()} for k, a in BASE_STEP_SKILLS.items()})
-        if not legacy_route_vocab():
-            steps["base_move"] = {"route": _route_vocab()}
+        steps["base_move"] = {"route": _route_vocab()}
         tags["base_move"] = BASE_TAG
     return dict(steps=steps, recoveries=list(RECOVERY_SKILLS), tags=tags)
 
@@ -266,29 +253,8 @@ def _keys(d, required, optional, what, errs):
 
 def validate(d, task, supports=("counter", "shelf")):
     """strict validation of the parsed reply `d` for `task` -> TaskPlan, or raises PlanRejected('schema') listing EVERY problem found.  supports = the support names
-    of the scene (place(support) must name one).  Schema v2 (phenomena / probes, no belief) unless BIMANUAL_LEGACY_PROPOSER_V1=1 (the 11-05..11-09 format)."""
-    return validate_v1(d, task, supports) if legacy_v1() else validate_v2(d, task, supports)
-
-
-def validate_v1(d, task, supports=("counter", "shelf")):
-    """the 11-05..11-09 format: belief + steps + recoveries (with optional covers) + fallback."""
-    if task not in TASKS:
-        raise PlanRejected("schema", f"unknown task {task!r}")
-    errs = []
-    if not _keys(d, V1_KEYS, (), "reply", errs):
-        raise PlanRejected("schema", errs)
-    # belief
-    P = params(task)
-    belief = {}
-    if _keys(d["belief"], tuple(P), (), "belief", errs):
-        for k, spec in P.items():
-            iv = _interval(d["belief"][k], *spec["range"], f"belief.{k}", errs)
-            if iv is not None:
-                belief[k] = iv
-    steps, fbl = _plan_parts(d, task, supports, belief, True, errs)
-    if errs:
-        raise PlanRejected("schema", errs)
-    return TaskPlan(task, belief, steps, [r for r in fbl if r is not None])
+    of the scene (place(support) must name one).  Schema v2 (phenomena / probes, no belief)."""
+    return validate_v2(d, task, supports)
 
 
 def validate_v2(d, task, supports=("counter", "shelf")):
@@ -556,6 +522,6 @@ def _canon_plan(d):
 
 def plan_id(plan_dict):
     import hashlib
-    body = plan_dict if os.environ.get("BIMANUAL_LEGACY_PLAN_ID") == "1" else _canon_plan(plan_dict)
+    body = _canon_plan(plan_dict)
     return hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()[:12]
 

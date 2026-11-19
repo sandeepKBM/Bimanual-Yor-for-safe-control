@@ -6,7 +6,7 @@ Checks, independent of the agent's own scripts:
      (brute force, random + boundary draws);
   2. displacement_bound >= |R u - u| over the same set;
   3. a zero cover gives the untilted value (n.u) exactly;
-  4. collision_rows without a tilt measurement is MISSING (fail closed); BIMANUAL_LEGACY_UNTILTED_COLLISION=1 restores the untilted row;
+  4. collision_rows without a tilt measurement is MISSING (fail closed);
   5. TiltSpec: a piece no episode reached, or an unknown piece, raises TiltMissing (never a zero cover)."""
 import math
 
@@ -68,15 +68,11 @@ def test_zero_cover_is_untilted():
     assert np.all(RCOL.displacement_bound(U, 0.0, 0.0) == 0.0)
 
 
-def test_no_measurement_is_missing_and_legacy_restores(monkeypatch):
+def test_no_measurement_is_missing():
     from world_model.v2.stack.planners import closed_chain as CCP
     plan = CCP.plan_for(CCP._nominal_inputs("box", None), 0.5)
-    monkeypatch.delenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", raising=False)
     r = RCOL.collision_rows(plan)
     assert not r.ok and r.guarantee == "missing", (r.ok, r.guarantee, r.why)
-    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")
-    r0 = RCOL.collision_rows(plan)
-    assert r0.guarantee != "missing", r0.why
 
 
 def test_tiltspec_never_defaults_to_zero():

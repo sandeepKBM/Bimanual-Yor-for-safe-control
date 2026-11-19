@@ -15,7 +15,7 @@ def test_n_cups_parses_behind_keys_and_keeps_old_values():
 
 
 def test_methods_registered_and_poslift_default():
-    assert {"poslift", "ladder", "poslift_ff", "claw_guard"} <= set(PR.METHODS)
+    assert {"poslift", "poslift_ff", "claw_guard"} == set(PR.METHODS)   # ladder: programmatic only (PR._PROGRAMMATIC)
     assert PR.default_calib("poslift") == str(PR.POSLIFT_CALIB)
     for m in ("poslift_ff", "claw_guard"):
         a = PR.method_assumptions(m)
@@ -42,7 +42,7 @@ class _Ep:
 
 def _ff(monkeypatch, reads, M_lo=2.2, M_hi=5.25, eps_lo=0.08, eps_free=0.03, nb=0.08):
     """a PosLiftFFProbe whose rung() returns scripted reads; u(L) = L / 3 (synthetic static row: L_admit = 3 kg)."""
-    monkeypatch.setattr(PR, "rung_torque_u", lambda task, L: L / 3.0)
+    monkeypatch.setattr(PR, "rung_torque_u", lambda task, L, world=None: L / 3.0)
     pr = object.__new__(PR.PosLiftFFProbe)
     pr.ep, pr.task = _Ep(), "box"
     pr.eps_lo, pr.eps_free, pr.M_lo, pr.M_hi, pr.m_ff = eps_lo, eps_free, M_lo, M_hi, M_lo
@@ -114,8 +114,8 @@ def test_claw_helpers():
 
 
 def test_claw_guard_admissible_and_headroom_on_synthetic_reads(monkeypatch):
-    monkeypatch.setattr(PR, "rung_tau_u", lambda task, L: 0.1)
-    monkeypatch.setattr(PR, "l_tau_admit_max", lambda task: 30.0)
+    monkeypatch.setattr(PR, "rung_tau_u", lambda task, L, world=None: 0.1)
+    monkeypatch.setattr(PR, "l_tau_admit_max", lambda task, world=None: 30.0)
     pr = object.__new__(PR.ClawGuardProbe)
     pr.task, pr.eps_lo, pr.eps_claw, pr.cap_kg, pr.M_lo = "box", 0.08, 0.08, 2.55, 3.4
     pr._last_sides = dict(L=dict(left=1.7, right=1.75), nb=dict(left=0.04, right=0.04), truth=dict(left=0, right=0))

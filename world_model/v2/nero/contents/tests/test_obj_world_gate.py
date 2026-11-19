@@ -1,12 +1,12 @@
 """K5a gate (owner-written, 11-16): object-world clearance in U (USER 11-16 D9, 5 mm ASSUMED).  SIMULATION ONLY.
 
   _box_sat         a lower bound on the true box-box distance (never above it), exact for axis-aligned face-face, negative when overlapping
-  flag off         BIMANUAL_U_OBJ_CONTACT=0 -> no new track key, no new physics flag (pre-11-16 records unchanged)
+  default record   the obj_world track key and the physics flag are always present (the row is always in U since 11-19)
   nominal carries  box (light cell) and tray4 never raise obj_world on the planned path.  11-18: the heavy box cell (2.5-3.0 kg) was dropped from this
                    list: its nominal carry pitches the box and comes 4.8 mm from the shelf (current_state finding 8, a real near-miss, not a test bug)
-  tilt row         11-18: on that heavy cell the untilted collision row admits the closed_chain default plan, the tilt-aware row (MEASURED tilt) refutes it
+  tilt row         11-18: on that heavy cell the tilt-aware row (MEASURED tilt) refutes the closed_chain default plan
   geometry         load 2 mm beside the shelf side -> U; 20 mm beside -> not U; 3 mm above the shelf top (support approach) -> not U
-  U table          tasks._u_carry lists obj_world_clear_m as a lower bound 0.005 m when the flag is on
+  U table          tasks._u_carry lists obj_world_clear_m as a lower bound 0.005 m
 """
 from __future__ import annotations
 
@@ -67,14 +67,7 @@ def _episode(task, cell, seed=1):
     return CR.CarryEpisode(w, a_plan=E.A_NOM, m_hat=0.0, fric_comp=True, weld_solref=CC.WELD_STIFF)
 
 
-def test_flag_off_keeps_old_records(monkeypatch):
-    monkeypatch.setenv("BIMANUAL_U_OBJ_CONTACT", "0")
-    ep = _episode("box", CC.cells("box")[0][0])
-    assert ep.u_obj is False
-    ep.reset_track()
-    assert "obj_world_clear_min" not in ep.track
-    assert ep.physics_flags().get("u_obj_world") is None
-    monkeypatch.setenv("BIMANUAL_U_OBJ_CONTACT", "1")
+def test_default_record_has_obj_world_key():
     ep2 = _episode("box", CC.cells("box")[0][0])
     ep2.reset_track()
     assert ep2.u_obj is True and ep2.track["obj_world_clear_min"] == float("inf")
@@ -82,8 +75,7 @@ def test_flag_off_keeps_old_records(monkeypatch):
 
 
 @pytest.mark.parametrize("task,ci", [("box", 0), ("tray4", 0)])        # ("box", 4) removed 11-18: finding 8, see test_heavy_box_near_miss_refuted_by_tilt_row
-def test_nominal_carry_never_obj_world(monkeypatch, task, ci):
-    monkeypatch.setenv("BIMANUAL_U_OBJ_CONTACT", "1")
+def test_nominal_carry_never_obj_world(task, ci):
     ep = _episode(task, CC.cells(task)[ci][0])
     ep.run_phases([("hold", 0.4)])
     mins = []
@@ -119,8 +111,7 @@ def _shift_load(ep, delta):
     mujoco.mj_forward(m, d)
 
 
-def test_geometry_beside_and_above_shelf(monkeypatch):
-    monkeypatch.setenv("BIMANUAL_U_OBJ_CONTACT", "1")
+def test_geometry_beside_and_above_shelf():
     ep = _episode("box", CC.cells("box")[0][0])
     m, d = ep.m, ep.d
     mujoco.mj_forward(m, d)
@@ -162,8 +153,6 @@ def test_geometry_beside_and_above_shelf(monkeypatch):
 
 def test_u_table_has_obj_world_row():
     from world_model.v2.stack import tasks as TK
-    if not TK._u_obj_world_on():
-        pytest.skip("BIMANUAL_U_OBJ_CONTACT=0 in this process")
     names = [n for n, _ in TK.task("box").U]
     assert "obj_world_clear_m" in names
     b = dict(TK.task("box").U)["obj_world_clear_m"]
@@ -172,8 +161,7 @@ def test_u_table_has_obj_world_row():
 
 @pytest.mark.slow
 def test_heavy_box_near_miss_refuted_by_tilt_row(tmp_path, monkeypatch):
-    """11-18 (finding 8, USER 11-17 "Checker uses measured tilt"): box 2.5-3.0 kg, a = 0.5, closed_chain default plan.  The untilted row admits it (proof,
-    owner run: margin +2.1 mm); with the per-plan tilt MEASURED (n = 20 ASSUMED, sim only) the row refutes it on obj_world (owner run 11-18: lift, shelf|box_lid,
+    """11-18 (finding 8, USER 11-17 "Checker uses measured tilt"): box 2.5-3.0 kg, a = 0.5, closed_chain default plan.  (An untilted row admitted it, owner run 11-18, margin +2.1 mm; that row is removed.)  With the per-plan tilt MEASURED (n = 20 ASSUMED, sim only) the row refutes it on obj_world (owner run 11-18: lift, shelf|box_lid,
     -5.4 mm at t = 0.365 s).  Sampled guarantee (the tilt cover is a max over n)."""
     from world_model.v2.adapters import collision_rows as RCOL
     from world_model.v2.stack.planners import closed_chain as CCP
@@ -183,9 +171,5 @@ def test_heavy_box_near_miss_refuted_by_tilt_row(tmp_path, monkeypatch):
     plan = CCP.plan_for(CCP._nominal_inputs("box"), a)
     tab, info = TM.measure_plan("box", None, cell, a, n=20, procs=8, out_dir=tmp_path / "tilt", plan_id="box_heavy_gate")
     spec = RCOL.tilt_from_table(tab, TM.cell_key("box", cell), a, source=info["table_path"])
-    monkeypatch.delenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", raising=False)
     r = RCOL.collision_rows(plan, tilt=spec)
     assert not r.ok and r.guarantee == "refuted" and "obj_world" in (r.why or ""), (r.ok, r.guarantee, r.why)
-    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")
-    r0 = RCOL.collision_rows(plan)
-    assert r0.ok and r0.guarantee == "proof", (r0.ok, r0.guarantee, r0.why)

@@ -1,13 +1,13 @@
 """nero/contents/thresholds.py -- action thresholds v2 (11-02): claw twist cap + admission margin + heavier loads.  SIMULATION ONLY.
 
 User-approved 11-02 (relayed: "approved for those go"):
-  * claw twist cap T_cap = 1.30 Nm per claw (ASSUMED, envelope.T_CAP) so "one arm or two" is a real decision under the weld;
+  * claw twist cap T_cap = 1.30 Nm per claw (ASSUMED; REMOVED 11-19 with envelope.T_CAP, no claw rows since 11-02 pm);
   * admission margin: admit only when the MODEL utilisation <= envelope.U_ADMIT (1.0 MODEL since USER 11-09; was 0.9 ASSUMED);
   * heavier loads: coffee tray with 2 / 4 / 6 mugs (hidden fill 0..250 ml each + hidden placement), box of cans 0.5..5 kg onto a
     shelf (objects.boxed, scenes.BoxWorld);
   * a_nom 0.5 m/s^2, mug 300 g / 250 ml / >= 1 cm freeboard, action order one arm -> two arms -> slow -> set down -> refuse, and
     the waypoints below (ASSUMED, confirmed by the user).
-Each task is run per setting on the same contents sets: "v1" = the 11-01 rules (no twist row, u <= 1), "v2" = the rules above,
+Each task is run per setting on the same contents sets: "v1" = the 11-01 rules (no twist row, u <= 1), "v2" (twist rule) removed 11-19,
 "v3" = CURRENT (USER 11-02 pm: the grasp is not our problem -> twist cap dropped; arm-side rows at u <= 0.9).
 
 Tray and box use the pot's grasp points (scenes.py places the tabs there): q at W0 = the pot capture (results/contents_envelope_
@@ -36,10 +36,24 @@ GRASP_DZ = 0.0355                                   # MODEL (scenes.py): grasp p
 # ASSUMED plans (user-confirmed 11-02), offsets of the object from its start pose [m], in order (continuation IK follows them)
 TRAY_WPS = {"W0_liftoff": (0, 0, 0), "T1_lift5cm": (0, 0, 0.05), "T2_carry10cm": (-0.10, 0, 0.05), "T3_place": (-0.10, 0, 0.0)}
 BOX_WPS = {"W0_liftoff": (0, 0, 0), "B1_lift18cm": (0, 0, 0.18), "B2_over_shelf": (-0.20, 0, 0.18), "B3_on_shelf": (-0.20, 0, 0.15)}
-SETTINGS = {"v1": dict(T_cap=None, limit=1.0), "v2": dict(T_cap=E.T_CAP, limit=E.U_ADMIT),
+SETTINGS = {"v1": dict(limit=1.0),
             # v3 (USER 11-02 pm, CURRENT): grasp is not our problem -> no claw twist row; arm-side rows (16 Nm joints, 3 kg arm
-            # payload) at the u <= 0.9 margin.  v1/v2 kept for the side-by-side only.
-            "v3": dict(T_cap=None, limit=E.U_ADMIT)}
+            # payload) at the u <= 0.9 margin.  v1 kept for the side-by-side only (v2, the claw twist rule, removed 11-19).
+            "v3": dict(limit=E.U_ADMIT)}
+
+
+def o_ref(world=None):
+    """object reference point [m] at the start: the captured nominal one (midpoint of the two captured claw TCPs minus GRASP_DZ), moved by the world's object xy / counter
+    height relative to the nominal scene (MODEL: with the claws on the tabs, the tab TCPs are symmetric about the object centre, so o_ref follows the object; 0 shift at the
+    nominal world, so the nominal value is unchanged).  PotWorld: the nominal one (pot tasks are out of scope)."""
+    from . import scenes as SC
+    caps = json.loads(CAP_FILE.read_text())["pot"]
+    tl, tr = np.asarray(caps["tcp"]["W0_liftoff"]["left"]), np.asarray(caps["tcp"]["W0_liftoff"]["right"])
+    o = 0.5 * (tl + tr) - np.array([0, 0, GRASP_DZ])
+    if world is not None and not isinstance(world, SC.PotWorld):
+        w0 = SC.Common()
+        o = o + np.array([world.obj_xy[0] - w0.obj_xy[0], world.obj_xy[1] - w0.obj_xy[1], world.counter_top - w0.counter_top])
+    return o
 
 
 def capture_path(cap_pot, wps):
@@ -91,7 +105,7 @@ def _job(args):
     spec, cap = t["spec"], t["cap"]
     arms = E.Arms(cap)
     env = E.Envelope(spec, arms, t["o0"], t["R0"], cap["sides"], grip_mass=cap["gripper_mass"],
-                     offsets={k: v for k, v in t["wps"].items()}, T_cap=st["T_cap"])
+                     offsets={k: v for k, v in t["wps"].items()})
     lim = st["limit"]
     cont = spec.contents
     full = cont.scaled(cont.m_lo)
@@ -148,9 +162,8 @@ def run(out_dir=RESULTS, procs=8):
     T = tasks(caps)
     res = dict(date="2026-11-02", assumptions=dict(
         grasp="ASSUMED rigid weld once closed (user 11-01)",
-        T_cap=f"v2 only: ASSUMED {E.T_CAP} Nm per claw (2-norm; LP uses the inscribed box) = vizcoast claw_capacity fit extrapolated "
-              f"to 40 N.  v1 and v3 (current): no claw rows",
-        u_admit=f"v2, v3: admit at MODEL u <= {E.U_ADMIT} (rated limits, USER 11-09; was 0.9 ASSUMED)",
+        T_cap="none: no claw rows (the v2 twist rule was removed 11-19)",
+        u_admit=f"v3: admit at MODEL u <= {E.U_ADMIT} (rated limits, USER 11-09; was 0.9 ASSUMED)",
         tau_lim=f"{float(C.tau_limit()[0])} Nm (config.tau_limit; MJCF by default, USER 11-05)",
         payload=f"MEASURED-spec {E.PAYLOAD_KG} kg (NERO manual) minus gripper 0.5 kg (MJCF), vertical",
         a_nom=f"ASSUMED {E.A_NOM} m/s^2 per axis", quasi_static="ASSUMED (Coriolis dropped, object level, translation only)",

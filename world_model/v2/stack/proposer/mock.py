@@ -5,8 +5,7 @@ spec "mock:<kind>":
                  shelf) written as a proposer reply, belief = the task's sanity ranges (wide), recovery = set_down on every motion step, fallback = let_go
   malformed      prose around a broken JSON object
   unknown_skill  the fixture plan with one step "teleport"
-  narrow         the fixture plan with a narrow belief on the probed parameter (to test Rule 2: probe set outside B)
-  Schema v2 variants (11-09; the default format -- BIMANUAL_LEGACY_PROPOSER_V1=1 gives the v1 replies above):
+  Schema v2 variants (11-09):
   omit_ph1       the fixture plan that does not name PH1 and runs no probe (PH1 sits on its fallback)
   wrong_skill    the fixture plan that claims `weigh` measures PH2 (a skill that does not measure it)
   new_phenomenon the fixture plan plus a phenomenon "NEW" (named, unmeasurable)
@@ -16,8 +15,7 @@ spec "mock:<kind>":
 A T4 re-ask ("RULE 2 RE-ASK (T4)", Rule 1 refusal, 11-16) is answered DETERMINISTICALLY from the request text: the previous plan (the "YOUR PREVIOUS PLAN (JSON)" block) with (a) the first
 recovery of every refused step (step_index of "RULE 1 REFUSALS YOU CAN FIX") moved to the next skill of hold -> retrace -> set_down -> hold, and (b) when a refused row's knobs name the
 placement, the "move" step's dx shifted by +0.01 m.  Not a model: it exercises the loop offline; the same request gives the same reply, a new request (a changed plan) a changed one.
-fixture / narrow follow the format of the mode (narrow is always the v1 belief reply).
-A v1 re-ask prompt ("NEW MEASUREMENT") is answered with the fixture plan whose belief is the sanity ranges; a v2 Rule 2 re-ask ("RULE 2 RE-ASK") with the fixture v2 plan.
+A Rule 2 re-ask ("RULE 2 RE-ASK") is answered with the fixture plan.
 """
 from __future__ import annotations
 
@@ -27,7 +25,7 @@ import re
 from world_model.v2.house.lang.backend import Backend
 from world_model.v2.stack.proposer import schema as S
 
-KINDS = ("fixture", "malformed", "unknown_skill", "narrow", "omit_ph1", "wrong_skill", "new_phenomenon", "numeric", "t2_reask")
+KINDS = ("fixture", "malformed", "unknown_skill", "omit_ph1", "wrong_skill", "new_phenomenon", "numeric", "t2_reask")
 
 
 def _motion(task):
@@ -111,24 +109,23 @@ def t4_reply(task, text):
     return d
 
 
-def fixture_plan(task, narrow=False):
-    """the fixture plan as the reply dict, in the format of the mode: schema v2 (default) or, under BIMANUAL_LEGACY_PROPOSER_V1=1 or narrow=True, the v1 plan
-    (belief = the task's sanity ranges).  Same motion shapes as carry.PLANS (ASSUMED, user-confirmed 11-02)."""
-    if not narrow and not S.legacy_v1():
-        return fixture_plan_v2(task)
-    return fixture_plan_v1(task, narrow)
+def fixture_plan(task):
+    """the fixture plan as the reply dict (schema v2).  Same motion shapes as carry.PLANS (ASSUMED, user-confirmed 11-02)."""
+    return fixture_plan_v2(task)
 
 
-def fixture_plan_v1(task, narrow=False):
-    """the 11-05..11-09 reply: belief + steps + recoveries + fallback."""
-    P = S.params(task)
-    belief = {k: [round(float(v["range"][0]), 4), round(float(v["range"][1]), 4)] for k, v in P.items()}
-    if narrow:
-        k = next(k for k, v in P.items() if v["probed"])
-        lo, hi = belief[k]
-        belief[k] = [lo, lo + 0.1 * (hi - lo)]
-    steps, rec = _motion(task)
-    return dict(belief=belief, steps=steps, recoveries=rec, fallback=[dict(skill="let_go", args={})])
+# --- geometry mode (BIMANUAL_GEOM_PROBE=1, 11-19): deterministic reply to the geometry first prompt: wide priors (ASSUMED, mock) + a measure_box request per entity.
+GEO_MARK = "GEOMETRY SCHEMA:"
+
+
+def geo_reply(task):
+    """the mock's geometry reply: crate / counter / bookcase boards with WIDE priors, no 2D boxes, one measure_box request each.  Not a model."""
+    wide = {"cx": [-3.0, 3.0], "cy": [-3.0, 3.0], "cz": [0.0, 2.0], "sx": [0.05, 2.0], "sy": [0.05, 2.0], "sz": [0.01, 2.0], "yaw": [-1.6, 1.6]}
+    why = {k: "mock: wide guess" for k in wide}
+    ents = [("crate", "object", ["carried"]), ("counter", "support", []), ("bookcase_lower_floor", "support", ["goal_support"]),
+            ("bookcase_mid_board", "obstacle", []), ("bookcase_top_board", "obstacle", [])]
+    return dict(entities=[dict(name=n, kind=k, roles=r, priors=dict(wide), why=dict(why), boxes={}) for n, k, r in ents],
+                probes=[dict(probe="measure_box", entity=n) for n, _, _ in ents], why="mock geometry reply")
 
 
 class MockProposer(Backend):
@@ -144,7 +141,9 @@ class MockProposer(Backend):
         self.calls += 1
         m = re.search(r"TASK_ID: (\w+)", text)
         task = m.group(1)
-        if T4_MARK in text and not S.legacy_v1():
+        if GEO_MARK in text:
+            reply = json.dumps(geo_reply(task))
+        elif T4_MARK in text:
             reply = json.dumps(t4_reply(task, text))
         elif "NEW MEASUREMENT" in text or "RULE 2 RE-ASK" in text:
             reply = json.dumps(fixture_plan(task))
@@ -159,5 +158,5 @@ class MockProposer(Backend):
             d["steps"][1] = dict(skill="teleport", args=dict(x=0.0), why="faster")
             reply = json.dumps(d)
         else:
-            reply = json.dumps(fixture_plan(task, narrow=(self.kind == "narrow")))
+            reply = json.dumps(fixture_plan(task))
         return dict(texts=[reply] * n, seconds=0.0, wall_s=0.0, cached=False, backend=self.name)

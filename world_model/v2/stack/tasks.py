@@ -18,7 +18,6 @@ Where the numbers come from (checked by world_model/v2/adapters/tests/test_tasks
 from __future__ import annotations
 
 import math
-import os
 from dataclasses import dataclass, field, replace
 
 from world_model.v2.stack.types import Bound
@@ -116,11 +115,6 @@ _CARRY = "nero/contents/carry.py"
 _PAN = "nero/pan/segments.py"
 
 
-def _u_obj_world_on():
-    """USER 11-16 D9: the object-world clearance row is in U unless BIMANUAL_U_OBJ_CONTACT=0 (same flag as nero/contents/carry.py::obj_world_u_enabled)."""
-    return os.environ.get("BIMANUAL_U_OBJ_CONTACT", "1") != "0"
-
-
 def _u_carry(cups: bool, lid: bool):
     u = [("tau_ratio", ub(1.0 - 1e-6, "MODEL", f"{_CARRY} _check: tau_sat when ratio >= 1 - 1e-6 (strict); ratio = |tau| / config.tau_limit() = MJCF forcerange (USER 11-05)", "ratio", strict=True)),
          ("obj_tilt_deg", ub(10.0, _ASM, f"{_CARRY} U_TILT_OBJ", "deg")),
@@ -134,8 +128,7 @@ def _u_carry(cups: bool, lid: bool):
               ("lid_tilt_deg", ub(10.0, _ASM, f"{_CARRY} LID_TILT_DEG (= U_TILT_OBJ)", "deg")),
               ("lid_slide_m", ub(0.005, _ASM, f"{_CARRY} LID_SLIDE_M", "m"))]
     u.append(("collision_flag", ub(0.0, "MODEL", f"{_CARRY} _check: robot geom penetration > 1 mm other than the grasp (flag 0/1)", "flag")))
-    if _u_obj_world_on():
-        u.append(("obj_world_clear_m", lb(0.005, _ASM, f"USER 11-16 D9: {_CARRY} U_OBJ_CLEAR_M; min distance load-geom to world-geom over pairs not resting on a support top (SUPPORT_APPROACH_DEG)", "m")))
+    u.append(("obj_world_clear_m", lb(0.005, _ASM, f"USER 11-16 D9: {_CARRY} U_OBJ_CLEAR_M; min distance load-geom to world-geom over pairs not resting on a support top (SUPPORT_APPROACH_DEG)", "m")))
     return tuple(u)
 
 
@@ -295,7 +288,7 @@ TASKS: dict[str, TaskDef] = {t.name: t for t in (
 # ---- table-behind tasks (USER 11-09: the base moves the object to the table BEHIND the robot; box added 11-09 "go, recommendations accepted")
 # Scene: nero/base/scene.py (swerve base; counter2 = the 180-deg mirror of the counter about the mid-point of route R1 -> SAME height).
 # goal_dxy = scene.place_pose_xy(world) - world.obj_xy (MODEL; adapters/tests/test_tasks_match_nero.py recomputes it from the scene).
-_BEHIND_DXY = (-1.76, 0.0209)
+_BEHIND_DXY = (-1.76, 0.0209)      # NOMINAL world only (documentation / tests): readers take the world's goal from the geometry backend (adapters/base_sweep.goal); no stack reader uses it
 _R1 = ("R1", (("line", -0.50), ("turn", 180.0), ("line", 0.50)))      # ASSUMED (nero/base/scene.py RETREAT_M / ADVANCE_M, smoke route)
 _BEHIND_NOTE = "table-behind (docs/status/table_behind_design_2026-11-09.md); moves = none: the base route carries it, plans come from the planner"
 
@@ -318,7 +311,7 @@ TASKS.update({t.name: t for t in (
 #   = (-2*(0.38 + 0.875) - BC_INSERT_M, 2*(c_y - obj_y)) with c_y the base rotation-centre y; recomputed in adapters/tests/test_tasks_match_nero.py.
 _BOOKCASE_ROUTE = ("RB", (("line", -0.50), ("turn", 180.0), ("line", 1.0), ("line", 0.25)))      # ASSUMED (nero/base/scene.py BC_RETREAT_M / BC_ADVANCE_M)
 _BOOKCASE_INSERT_M = 0.05     # ASSUMED m, = nero/base/scene.py BC_INSERT_M (the arms reach 0.05 m, not the USER range 0.10-0.20: see there)
-_BOOKCASE_DXY = (-2.56, 0.0209)                                                                   # MODEL (see above), BC_INSERT_M = 0.05 ASSUMED
+_BOOKCASE_DXY = (-2.56, 0.0209)                                                                   # MODEL, NOMINAL world only (see above); readers use adapters/base_sweep.goal(world)
 
 
 TASKS["box_bookcase"] = replace(TASKS["box_behind"], name="box_bookcase", routes=(_BOOKCASE_ROUTE,), goal_support="bookcase_l1", goal_dxy=_BOOKCASE_DXY,

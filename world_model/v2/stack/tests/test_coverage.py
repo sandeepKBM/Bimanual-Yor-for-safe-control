@@ -37,7 +37,6 @@ def run_weigh(lo=1.0, hi=2.0):
 
 @pytest.fixture(autouse=True)
 def _v2(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_PROPOSER_V1", raising=False)
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
 
 
@@ -111,15 +110,9 @@ def test_reask_prompt_v2_has_evidence_and_no_truth():
               worst=dict(m=5.0, c=[0.02, 0.0, 0.1], wp="p3"), action="refuse")
     txt = PR.reask_prompt("box", plan, ev)
     assert PR.REASK_MARK in txt and "(T2)" in txt and "torque_payload[s0_lift]" in txt and "1.6" in txt
-    # USER 11-17 (no clues): no worst vertex / belief corner (contents COM c, mass corner m) goes to the proposer; BIMANUAL_LEGACY_REASK_WORST=1 restores it
+    # USER 11-17 (no clues): no worst vertex / belief corner (contents COM c, mass corner m) goes to the proposer
     evi = txt[txt.index(PR.REASK_MARK):]                                                # the evidence section (scene facts above it hold 0.02 / 5.0 legitimately)
     assert "WORST VERTEX" not in evi and "0.02" not in evi and "5.0" not in evi and '"worst"' not in evi
-    import os
-    os.environ["BIMANUAL_LEGACY_REASK_WORST"] = "1"
-    try:
-        assert "WORST VERTEX" in PR.reask_prompt("box", plan, ev)
-    finally:
-        os.environ.pop("BIMANUAL_LEGACY_REASK_WORST")
     assert "YOUR PREVIOUS PLAN" in txt and "phenomena" in txt and "belief" not in txt.split("YOUR PREVIOUS PLAN")[1].split("RULE 2")[0]
     for w in ("seed", "theta_world", "M_true", "truth"):
         assert w not in txt
@@ -148,12 +141,6 @@ def test_reask_v2_with_mock_and_rejection_loop(tmp_path):
     assert "RULE 2 RE-ASK" in txt and "REJECTED PLAN 1" in txt                          # the evidence stays in the request after a rejection
     with pytest.raises(PP.ProposerCacheMiss):
         PP.reask_rule2_until_accepted("box", plan, ev, check, backend_spec="codex:gpt-5.6-sol:high", cache_dir=tmp_path / "nocache", offline=True)
-
-
-def test_probe_in_belief_retired_from_the_v2_path():
-    from world_model.v2.stack.proposer import compile as PC
-    with pytest.raises(RuntimeError, match="retired"):
-        PC.probe_in_belief("box", {}, 1.0, 2.0)
 
 
 def test_mock_t2_reask_kind_registered():

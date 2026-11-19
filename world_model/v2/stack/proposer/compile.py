@@ -24,7 +24,6 @@ and whether a recovery's claimed `covers` holds.
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -35,7 +34,6 @@ from world_model.v2.stack.proposer import prompt as PR
 from world_model.v2.stack.proposer import schema as S
 
 MIN_CLEAR_M = 0.02          # ASSUMED [m]: height of the object underside above its start support for any horizontal motion (the planner's own shelf clearance CLEAR_M is separate)
-REACH_REASONS = ("no in-limit solution at the sample", "disconnected", "unreachable")   # planner refusals that get the arm-reach line (USER 11-16 option b)
 MIN_MOVE_M = 0.005          # ASSUMED [m]: shortest motion (a shorter one is degenerate for the timing)
 Z_EPS = 1e-6
 ASSUMPTIONS = dict(MIN_CLEAR_M=dict(tag="ASSUMED", value=MIN_CLEAR_M, src="compile.py: horizontal motion clearance above the start support"),
@@ -75,6 +73,22 @@ class CompiledPlan:
         return cls(d["task"], wp, d["steps"], tuple(d["fallback"]), d["belief"], d["goal"], d.get("plan_id", ""), d.get("planner", {}), d.get("assumptions", {}))
 
 
+def _over(s, cx, cy):
+    """is (cx, cy) over the support top `s`?  A support with yaw_deg (in the spec: x / y = the AABB of the oriented rectangle) is tested as the oriented rectangle (centre = AABB centre,
+    half extents solved from the AABB half extents and the yaw); a support without yaw: the axis-aligned x / y extents (identical numbers at yaw 0)."""
+    yw = np.radians(float(s.get("yaw_deg", 0.0)))
+    if abs(yw) > 0.0:
+        c = np.cos(yw)**2 - np.sin(yw)**2
+        if abs(c) > 1e-6:
+            ex, ey = (s["x"][1] - s["x"][0]) / 2, (s["y"][1] - s["y"][0]) / 2
+            ca, sa = abs(np.cos(yw)), abs(np.sin(yw))
+            hx, hy = (ca * ex - sa * ey) / c, (ca * ey - sa * ex) / c
+            dx, dy = cx - (s["x"][0] + s["x"][1]) / 2, cy - (s["y"][0] + s["y"][1]) / 2
+            u, v = np.cos(yw) * dx + np.sin(yw) * dy, -np.sin(yw) * dx + np.cos(yw) * dy
+            return bool(abs(u) <= hx and abs(v) <= hy)
+    return bool(s["x"][0] <= cx <= s["x"][1] and s["y"][0] <= cy <= s["y"][1])
+
+
 def _reject(reasons):
     raise S.PlanRejected("compile", reasons)
 
@@ -112,7 +126,7 @@ def compile_plan(plan, task, world=None, build=True, level=None):
             d = np.array([0.0, 0.0, top - (t0 + pos[2])])
             cx, cy = sx + pos[0], sy + pos[1]
             s = sup[a["support"]]
-            if not (s["x"][0] <= cx <= s["x"][1] and s["y"][0] <= cy <= s["y"][1]):
+            if not _over(s, cx, cy):
                 errs.append(f"step {i} place({a['support']}): the object centre ({cx:.3f}, {cy:.3f}) is not over the support (x {s['x']}, y {s['y']})")
             if d[2] > -MIN_MOVE_M:
                 errs.append(f"step {i} place({a['support']}): the object underside is at {t0 + pos[2]:.3f} m, the support top at {top:.3f} m; nothing to lower (needs >= {MIN_MOVE_M} m)")
@@ -193,7 +207,7 @@ def _compile_behind(tp, task, world, build, level, pid, spec):
             dw = np.array([0.0, 0.0, top - (t0 + pos[2])])
             cx, cy = wxy()
             s_ = sup[a["support"]]
-            if not (s_["x"][0] <= cx <= s_["x"][1] and s_["y"][0] <= cy <= s_["y"][1]):
+            if not _over(s_, cx, cy):
                 errs.append(f"step {i} place({a['support']}): the object centre ({cx:.3f}, {cy:.3f}) is not over the support (x {s_['x']}, y {s_['y']})"
                             + ("" if bases else "; the plan has no base_move: the goal is behind the robot"))
             if dw[2] > -MIN_MOVE_M:
@@ -248,14 +262,7 @@ def build_geometry(cp, world=None):
     try:
         g = CCP.geometry_for(inp)
     except CCP.PlanRefused as e:
-        extra = []
-        if e.info.get("reason") in REACH_REASONS and os.environ.get("BIMANUAL_LEGACY_REACH_TEXT", "0") == "1" and os.environ.get("BIMANUAL_LEGACY_NO_REACH_TEXT", "0") != "1":   # USER 11-17: the arm-reach line is a clue, OFF by default; BIMANUAL_LEGACY_REACH_TEXT=1 restores the 11-16 option b text (NO_REACH_TEXT=1 still wins: off)
-            z = float((e.info.get("offset") or [0.0, 0.0, 0.0])[2])
-            try:
-                extra = [CCP.reach_text(inp, z)]
-            except Exception as ex:                      # the reach line is information only: never turn a refusal into a crash
-                extra = [f"arm reach: not computed ({type(ex).__name__})"]
-        raise S.PlanRejected("planner", [str(e), f"reason={e.info.get('reason')}"] + ([f"arm={e.info['arm']}"] if "arm" in e.info else []) + extra) from e
+        raise S.PlanRejected("planner", [str(e), f"reason={e.info.get('reason')}"] + ([f"arm={e.info['arm']}"] if "arm" in e.info else [])) from e
     cp.planner = dict(dy=g.info["dy"], z_c=g.info["z_c"], goal_xy=g.info["goal_xy"], margin_min=g.info["margin_min"], n_samples=g.info["n_samples"], key=inp.key())
     if "base" in g.info:
         cp.planner["base"] = g.info["base"]
@@ -264,10 +271,10 @@ def build_geometry(cp, world=None):
 
 def _inputs(task, world):
     from world_model.v2.nero.contents import envelope as E, scenes as SC
-    cap = json.loads(E.CAP_FILE.read_text())["pot"]
+    hq = CCP._hold_or_refuse(world)                    # 11-19: claws on the run world's tabs
     if CCP.is_base_task(task):
-        return (CCP._BASE_BACKEND or BR.default_backend()).compose(world), world, {s: cap["q"]["W0_liftoff"][s] for s in CCP.SIDES}, task
-    return SC.compose(world), world, {s: cap["q"]["W0_liftoff"][s] for s in CCP.SIDES}, task
+        return (CCP._BASE_BACKEND or BR.default_backend()).compose(world), world, hq, task
+    return SC.compose(world), world, hq, task
 
 
 # ---- the fallback -------------------------------------------------------------------------------------------------------------------
@@ -285,26 +292,3 @@ def fallback_phases(kinds, ep):
 
 
 # ---- Rule 2: is the probe set inside B? -------------------------------------------------------------------------------------------------
-def probe_in_belief(task, belief, c_lo, c_hi, tol=1e-9):
-    """c_lo..c_hi = the probe's interval on the total contents mass [kg] (probe.py).  Only the probed belief parameter is checked (the others are not measured:
-    listed in `not_probed`).  -> dict(param, probe=[lo, hi], B=[lo, hi], prior, B_eff, covers_prior, inside, not_probed).
-
-    11-07 fix (clarity report 11-06 (f)1): B must lie inside the prior box Theta_0 (sets rule; bounds rule 4).  The model states B without
-    seeing Theta_0 (prompt.py), and the schema checks B only against a wide sanity range, so the replies so far had B covering all of
-    Theta_0.  The reply is never repaired: B is kept as written and the check uses B_eff = B intersected with Theta_0 (the prior box of the
-    probed parameter, ASSUMED: probe.prior_contents minus the probe offset).  covers_prior = B_eff is all of Theta_0: then no sound probe set
-    can fall outside B and Rule 2 cannot trigger; reports must say so instead of counting `inside`.  B disjoint from Theta_0 -> inside False."""
-    if not S.legacy_v1():
-        raise RuntimeError("probe_in_belief is the v1 Rule 2 (numeric belief); retired from the schema-v2 path (11-09): see nero/contents/probe_select.py (T1/T2/T3). "
-                           "BIMANUAL_LEGACY_PROPOSER_V1=1 keeps it.")
-    from world_model.v2.nero.contents import probe as PR
-    name, off = S.probe_offset(task)
-    lo, hi = float(c_lo) - off, float(c_hi) - off
-    b = [float(x) for x in belief[name]]
-    p0, p1 = (float(x) - off for x in PR.prior_contents(task))
-    e0, e1 = max(b[0], p0), min(b[1], p1)
-    disjoint = e0 > e1 + tol
-    covers = (not disjoint) and e0 <= p0 + tol and e1 >= p1 - tol
-    inside = (not disjoint) and lo >= e0 - tol and hi <= e1 + tol
-    return dict(param=name, probe=[lo, hi], B=b, prior=[p0, p1], B_eff=None if disjoint else [e0, e1], covers_prior=bool(covers),
-                inside=bool(inside), not_probed=[k for k in belief if k != name])

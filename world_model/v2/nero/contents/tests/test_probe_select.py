@@ -19,7 +19,6 @@ EPS = (0.0766, 0.0316)               # eps_lo, eps_free: the poslift CALIB's EPS
 
 @pytest.fixture(autouse=True)
 def _env(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_PROPOSER_V1", raising=False)
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
     monkeypatch.setattr(P, "PROBE_METHOD", "poslift")
 
@@ -174,8 +173,10 @@ def test_any_U_includes_the_pre_hold_violation(tmp_path, monkeypatch):
     # 11-17: the planned-path rows (incl. the per-plan tilt measurement) also call CR.run_segments, which is faked above for the carry only;
     # they are not the subject of this test, so they are stubbed to pass (planned_path_rows has its own gates)
     monkeypatch.setattr(PS, "planned_path_rows", lambda *a, **k: [PS._row_dict("planned_path", True, 0.0, "sampled", "stubbed in this test")])
-    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")          # the stubbed path rows give no tilt measurement: Rule 1 / Rule 4 use the untilted row (not this test's subject)
-    r = PS.fixed_job(("box", 1, *EPS, plan), method="poslift", make_skills=lambda w: {"weigh": Light(w)})
+    # the stubbed path rows give no tilt measurement, so the real Rule 1 refuses (MISSING); Rule 1 is not this test's subject: stub it as admitting every step
+    ok = lambda i, sg: dict(step=i, seg=sg, admitted=True, program="stored_backup", per_program={}, rows=[])
+    r = PS.fixed_job(("box", 1, *EPS, plan), method="poslift", make_skills=lambda w: {"weigh": Light(w)},
+                     rule1=lambda task, cell, wp, a: [ok(0, "lift"), ok(1, "carry"), ok(2, "place")])
     assert "error" not in r, r.get("tb")
     assert "carry" in r and r["carry"]["pre_hold_viol"] == inj and r["probe_viol"] is None
     assert r["any_U"] is True and r["result"]["unsafe"] is True and r["recovery"] == {} and r["recovery_bad"] is False

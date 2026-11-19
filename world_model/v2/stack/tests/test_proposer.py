@@ -20,14 +20,9 @@ TASKS = ("box", "tray6", "pot")
 
 
 @pytest.fixture(autouse=True)
-def _no_network(monkeypatch, request):
-    """every test is offline.  Tests whose name contains "_v2" run the schema-v2 format (the default); all others run the 11-05..11-09 format (BIMANUAL_LEGACY_PROPOSER_V1=1),
-    which stays replayable for the old response caches."""
+def _no_network(monkeypatch):
+    """every test is offline."""
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
-    if "_v2" in request.node.name:
-        monkeypatch.delenv("BIMANUAL_LEGACY_PROPOSER_V1", raising=False)
-    else:
-        monkeypatch.setenv("BIMANUAL_LEGACY_PROPOSER_V1", "1")
 
 
 def sup(task):
@@ -40,7 +35,6 @@ def test_fixture_reply_validates(task):
     tp = S.validate(MK.fixture_plan(task), task, sup(task))
     assert [s.call.skill for s in tp.steps] == ["lift", "move", "place", "release"]
     assert all(s.recoveries for s in tp.steps[:3]) and tp.steps[3].recoveries == []
-    assert set(tp.belief) == set(S.params(task))
 
 
 def bad(task, mut):
@@ -64,11 +58,6 @@ def test_validator_rejects_every_class_of_bad_reply():
     assert any("unknown recovery skill" in r for r in bad("box", lambda d: d["recoveries"]["0"].__setitem__(0, dict(skill="dance", args={}))).reasons)
     assert any("no arguments" in r for r in bad("box", lambda d: d["recoveries"]["0"].__setitem__(0, dict(skill="hold", args=dict(t=1)))).reasons)
     assert any("must be the index of a motion step" in r for r in bad("box", lambda d: d["recoveries"].update({"3": [dict(skill="hold", args={})]})).reasons)
-    assert any("sanity range" in r for r in bad("box", lambda d: d["belief"].update(contents_kg=[0, 99])).reasons)
-    assert any("lo 5" in r for r in bad("box", lambda d: d["belief"].update(contents_kg=[5, 1])).reasons)
-    assert any("missing keys" in r for r in bad("box", lambda d: d["belief"].pop("contents_x")).reasons)
-    assert any("not a (valid) belief parameter" in r for r in bad("box", lambda d: d["recoveries"]["0"][0].update(covers=dict(mass=[1, 2]))).reasons)
-    assert any("outside the sanity range" in r for r in bad("box", lambda d: d["recoveries"]["0"][0].update(covers=dict(contents_kg=[0, 25]))).reasons)
     assert any("1..3 recovery" in r for r in bad("box", lambda d: d.update(fallback=[])).reasons)
 
 
@@ -135,40 +124,6 @@ def test_bad_replies_are_plan_rejected_not_repaired(tmp_path):
     assert rec["reasons"] == p["reasons"]
 
 
-def test_reask_names_the_uncovered_part(tmp_path):
-    plan, _ = PP.propose("box", backend_spec="mock:narrow", cache_dir=tmp_path / "c")
-    b = plan["belief"]["contents_kg"]
-    probe = dict(contents_kg=[b[1] + 1.0, b[1] + 2.0])
-    new, rec = PP.reask("box", plan, probe, backend_spec="mock:narrow", cache_dir=tmp_path / "c")
-    assert new["status"] == "ok" and rec["kind"] == "reask" and rec["probe_set"] == probe
-    assert rec["uncovered"] == {"contents_kg": [[probe["contents_kg"][0], probe["contents_kg"][1]]]} and rec["previous_plan_id"] == plan["plan_id"]
-    txt = json.load(open(rec["raw_reply_path"]))["request"]["text"]
-    assert "NEW MEASUREMENT" in txt and str(probe["contents_kg"][0]) in txt
-    with pytest.raises(ValueError):
-        PP.reask("box", dict(status="plan_rejected"), probe, backend_spec="mock:narrow", cache_dir=tmp_path / "c")
-
-
-def test_probe_in_belief():
-    r = PC.probe_in_belief("box", dict(contents_kg=[1.0, 3.0], contents_x=[-0.05, 0.05], contents_y=[-0.08, 0.08]), 1.2, 2.9)
-    assert r["inside"] and r["param"] == "contents_kg" and set(r["not_probed"]) == {"contents_x", "contents_y"}
-    assert not PC.probe_in_belief("box", dict(contents_kg=[1.0, 3.0], contents_x=[0, 0], contents_y=[0, 0]), 0.5, 2.9)["inside"]
-    t = PC.probe_in_belief("tray6", dict(fill_total_kg=[0.0, 0.5]), 6 * 0.30 + 0.1, 6 * 0.30 + 0.4)             # tray: mugs' own mass subtracted
-    assert t["inside"] and abs(t["probe"][0] - 0.1) < 1e-9
-
-
-def test_probe_in_belief_uses_b_within_prior():
-    """11-07 (clarity report (f)1): B is intersected with the prior box; a B covering the prior is flagged (Rule 2 cannot trigger)."""
-    xy = dict(contents_x=[0, 0], contents_y=[0, 0])
-    wide = PC.probe_in_belief("box", dict(contents_kg=[0.0, 20.0], **xy), 1.2, 2.9)              # the sanity range the 11-05 replies used
-    assert wide["inside"] and wide["covers_prior"] and wide["prior"] == [0.5, 5.0] and wide["B_eff"] == [0.5, 5.0]
-    part = PC.probe_in_belief("box", dict(contents_kg=[0.0, 3.0], **xy), 0.6, 2.9)                # clipped below: B_eff = [0.5, 3]
-    assert part["inside"] and not part["covers_prior"] and part["B_eff"] == [0.5, 3.0] and part["B"] == [0.0, 3.0]
-    assert not PC.probe_in_belief("box", dict(contents_kg=[0.0, 3.0], **xy), 0.6, 3.5)["inside"]
-    far = PC.probe_in_belief("box", dict(contents_kg=[6.0, 8.0], **xy), 1.2, 2.9)                 # B disjoint from the prior
-    assert far["B_eff"] is None and not far["inside"] and not far["covers_prior"]
-
-
-# ------------------------------------------------------------------------------------------------------------------ compile -> closed-chain plan
 @pytest.fixture(scope="module", params=TASKS)
 def compiled(request):
     task = request.param
@@ -254,7 +209,6 @@ def bad2(task, mut, plan=None):
 
 @pytest.mark.parametrize("task", ALL_V2)
 def test_v2_fixture_validates(task):
-    assert not S.legacy_v1()
     d = MK.fixture_plan(task)
     assert set(d) == set(S.V2_KEYS) and "belief" not in d
     tp = S.validate(d, task, sup2(task))
@@ -307,7 +261,7 @@ def test_v2_new_phenomenon_is_accepted_and_recorded():
     assert S.validate(d, "box", sup2("box")).phenomena[0]["handle"] == dict(unmeasurable="I do not trust it")
 
 
-@pytest.mark.parametrize("kind,frag", [("wrong_skill", "does not measure 'PH2'"), ("numeric", "belief: not part of this format"), ("narrow", "belief: not part of this format")])
+@pytest.mark.parametrize("kind,frag", [("wrong_skill", "does not measure 'PH2'"), ("numeric", "belief: not part of this format")])
 def test_v2_mock_variants_through_propose(tmp_path, kind, frag):
     p, rec = PP.propose("box", backend_spec=f"mock:{kind}", cache_dir=tmp_path / kind)
     assert p["status"] == "plan_rejected" and p["stage"] == "schema" and any(frag in r for r in p["reasons"]) and rec["status"] == "plan_rejected"
@@ -339,9 +293,9 @@ def test_v2_prompt_has_no_contents_prior_no_sanity_range_no_truth():
     assert "0.5, 5.0" not in t and "(0.0, 20.0)" not in t and "20.0" not in PR.user_prompt("box")
 
 
-def test_v2_behind_prompt_keeps_base_move_and_scene_facts(monkeypatch):
+def test_v2_behind_prompt_keeps_base_move_and_scene_facts():
     """USER 11-17 "codex should make plans, not your clues": the behind prompts are goal-only (no known-good route, no turning hint); the route
-    vocabulary states the real format (line / turn).  BIMANUAL_LEGACY_BEHIND_HINTS=1 + BIMANUAL_LEGACY_ROUTE_VOCAB=1 give the 11-09..11-16 text back."""
+    vocabulary states the real format (line / turn)."""
     for task in BEHIND:
         txt = PR.user_prompt(task)
         f = PR.scene_facts(task)
@@ -349,13 +303,6 @@ def test_v2_behind_prompt_keeps_base_move_and_scene_facts(monkeypatch):
         assert "base_move" in v and '\\"line\\"' in v and '\\"turn\\"' in v and "line_m" not in v and f["phenomena"]
         assert "Known-good" not in txt and "Turning in place" not in txt and "routes_known_good" not in json.dumps(f["task"]["base"])
     assert "base_move" not in json.dumps(PR.scene_facts("tray6")["vocabulary"])
-    monkeypatch.setenv("BIMANUAL_LEGACY_BEHIND_HINTS", "1")
-    monkeypatch.setenv("BIMANUAL_LEGACY_ROUTE_VOCAB", "1")
-    for task in BEHIND:
-        txt = PR.user_prompt(task)
-        f = PR.scene_facts(task)
-        assert "Known-good route R1" in txt and "Turning in place at the pick pose hits counter 1" in txt
-        assert "R1" in json.dumps(f["task"]["base"]["routes_known_good"]) and "line_m" in json.dumps(f["vocabulary"])
 
 
 def test_v2_reask_prompt_is_built_and_rejection_prompt_uses_v2_keys(tmp_path):
@@ -369,9 +316,3 @@ def test_v2_compile_accepts_a_v2_plan_dict():
     plan = dict(MK.fixture_plan("tray6"), status="ok", task="tray6")
     cp = PC.compile_plan(plan, "tray6", build=False)
     assert cp.names == ["s0_lift", "s1_move", "s2_place"] and cp.belief == {}
-
-
-def test_v1_replay_switch_still_gives_the_old_format():                       # runs under BIMANUAL_LEGACY_PROPOSER_V1=1 (no "_v2" in the name)
-    assert S.legacy_v1() and set(MK.fixture_plan("box")) == set(S.V1_KEYS)
-    assert '"belief"' in PR.SYSTEM and "sanity_range" in json.dumps(PR.scene_facts("box")) and "hidden_parameters" in PR.scene_facts("box")
-    assert "belief" not in json.dumps(PR.scene_facts("box")["vocabulary"])

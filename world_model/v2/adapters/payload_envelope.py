@@ -21,19 +21,22 @@ def caps():
     return json.loads(TH.CAP_FILE.read_text())
 
 
-def o_ref():
-    tl, tr = np.asarray(caps()["pot"]["tcp"]["W0_liftoff"]["left"]), np.asarray(caps()["pot"]["tcp"]["W0_liftoff"]["right"])
-    return 0.5 * (tl + tr) - np.array([0, 0, TH.GRASP_DZ])
+def o_ref(world=None):
+    """the object reference point of the RUN world (thresholds.o_ref); None = the nominal scene."""
+    return TH.o_ref(world)
 
 
 class EnvelopeBackend:
     """stack.checks.admit.Backend: Envelope of a spec on captured arm configurations."""
 
+    def __init__(self, world=None):
+        self.world = world
+
     def o_ref(self):
-        return o_ref()
+        return o_ref(self.world)
 
     def make_envelope(self, spec, cap, offs):
-        return E.Envelope(spec, E.Arms(cap), o_ref(), np.eye(3), ["left", "right"], grip_mass=caps()["pot"]["gripper_mass"], offsets=offs)
+        return E.Envelope(spec, E.Arms(cap), o_ref(self.world), np.eye(3), ["left", "right"], grip_mass=caps()["pot"]["gripper_mass"], offsets=offs)
 
     def support_extent(self, world, name):
         top = SC.support_tops(world)[name]

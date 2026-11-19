@@ -45,7 +45,7 @@ def test_weld_solref_option_and_coop_split_zero_error():
     ep = CR.CarryEpisode(w, weld_solref=(0.004, 1.0))
     for s in CR.SIDES:
         assert np.allclose(ep.m.eq_solref[ep.weld_id[s]], (0.004, 1.0))
-    from world_model.v2.nero import config as C            # default = config.carry_physics() (11-03 item 6: stiff weld; MuJoCo 0.02 s only under LEGACY_CARRY_PHYS)
+    from world_model.v2.nero import config as C            # default = config.carry_physics() (11-03 item 6: stiff weld)
     default = C.carry_physics()["weld_solref"] or (0.02, 1.0)
     assert np.allclose(CR.CarryEpisode(w).m.eq_solref[ep.weld_id["left"]], default)
     u, e_int, dq = ep._coop_split(0.0)                      # arms exactly at the commanded start pose

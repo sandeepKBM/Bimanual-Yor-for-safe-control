@@ -1,7 +1,6 @@
 """nero/contents/probe_select.py -- OUR per-world run on schema v2: the LLM's probes -> coverage -> Rule 1 -> Rule 2 re-ask -> carry.  SIMULATION ONLY.   (11-09, probe-selection build step 6)
 
-Called by probe._e2e_job (fixed base) and behind_job.behind_job (table behind) when the proposer plan is schema v2 (plan["plan_dict"] has "phenomena"); the v1 plans (numeric belief,
-BIMANUAL_LEGACY_PROPOSER_V1=1) and the plan-less default job keep their own code unchanged.
+Called by probe._e2e_job (fixed base) and behind_job.behind_job (table behind) when the proposer plan is schema v2 (plan["plan_dict"] has "phenomena"); the plan-less default job keeps its own code unchanged.
 
 One world, one episode (the carry continues in the episode the probe ran in).  Attempt loop (NO cap on re-asks, ruling 11-09; every attempt is recorded):
   1 PROBES    stack.probing.run_probes on Theta_t with the probes THIS plan lists that have not run yet (N2: only the LLM's selection runs; an omitted skill's phenomenon sits on its
@@ -15,16 +14,16 @@ One world, one episode (the carry continues in the episode the probe ran in).  A
               refuses (a lower-bound-only weigh ends here too) -> re-ask with the readings, the probes the checker skipped, the failing rows and the worst vertex.
               The re-ask (propose.reask_rule2_until_accepted) returns a plan that is validated + compiled (planner build; table behind at L1, the per-world level at step 4); then 1-4 again.
               FIXED POINT: a re-asked plan whose id was already tried cannot change the (deterministic) verdict: the loop stops there ("reask_fixed_point"), counted.  Not a cap.
-    T4 (11-16, USER-approved; env BIMANUAL_LEGACY_NO_T4=1 = off, byte-identical to before): the static admission admits -> Rule 1 (adapters/rule1_contents.run_cell: per step, ONE recovery viable for
+    T4 (11-16, USER-approved): the static admission admits -> Rule 1 (adapters/rule1_contents.run_cell: per step, ONE recovery viable for
               every theta from every branch point; n_sampled = 0, closed_chain, the plan's wp and a_admit).  A refused step's failing rows are tagged by stack/checks/fixability.  Any FIXABLE /
               FIXABLE_GEOMETRY row -> re-ask (trigger "T4", evidence rule1_refusals + fixed_constraints); only NOT_FIXABLE rows -> refuse (refused_by "rule1", no re-ask).  The same failing-FIXABLE
               signature on MAX_SAME_T4_SIGNATURE (3, ASSUMED, USER 11-16) consecutive T4 attempts -> stop ("t4_repeat") and refuse.  A T4 loop that ends without a plan Rule 1 admits refuses.
-    11-17 (USER "gate on all, fail closed"; env BIMANUAL_LEGACY_NO_PATH_ROWS=1 / BIMANUAL_LEGACY_RULE1_SKIP=1 = the old behaviour):
+    11-17 (USER "gate on all, fail closed"):
       PLANNED-PATH ROWS  after the static admission and the base level pick, every run evaluates the closed_chain plan at a_admit: motion rows (joint_pos with margin carry.PATH_MARGIN_MIN
               0.05 rad ASSUMED, joint_speed, reach, closed_chain), the swept collision row (arm_arm, arm_world, obj_world must ALL be present, else MISSING) and the tilt row (MEASURED for THIS
               plan at admission, tilt_measure.measure_plan: n = 20 ASSUMED worlds from the belief cell, base move included, fresh every run, table + seeds in the row; n_over / n_stopped / n_errors > 0 refuse).  Any ok=False or MISSING -> decision "refuse (planned path)"
               (refused_by "path_rows"), trigger T2-like (re-ask with the failing row names).  All rows are in att["path_rows"].
-      RULE 1 MISSING     a task not in RULE1_TASKS (or BIMANUAL_LEGACY_NO_T4=1) is refused: rule1 = dict(guarantee="missing", why=...), decision "refuse (Rule 1 missing)" (no silent skip).
+      RULE 1 MISSING     a task not in RULE1_TASKS is refused: rule1 = dict(guarantee="missing", why=...), decision "refuse (Rule 1 missing)" (no silent skip).
       Rule 1 crash (run_rule1 or the failure tagging) = "refuse (Rule 1 error)", the error recorded.  The admitted base level is handed to rule1_contents.run_cell(level=).
       REQUEST BUDGET     ONE stack.proposer.propose.RequestBudget per run (plan["proposer"]["budget"], made by same_worlds._proposer_plans) charges the Phase A asks and every Rule 2 / T4 re-ask;
               "request_cap" ends the loop with no carry.
@@ -38,7 +37,6 @@ from __future__ import annotations
 import dataclasses
 import json
 import math
-import os
 import pathlib
 import tempfile
 import time
@@ -132,22 +130,8 @@ def failing_rows(st):
     return clean(out)
 
 
-def legacy_no_t4():
-    return os.environ.get("BIMANUAL_LEGACY_NO_T4") == "1"
-
-
-def legacy_no_path_rows():
-    return os.environ.get("BIMANUAL_LEGACY_NO_PATH_ROWS") == "1"
-
-
-def legacy_rule1_skip():
-    return os.environ.get("BIMANUAL_LEGACY_RULE1_SKIP") == "1"
-
-
 def round_out(lo, hi, nd=4):
-    """Theta rounded OUTWARD (floor for lo, ceil for hi at nd decimals): the set may only grow (11-17).  BIMANUAL_LEGACY_ROUND_NEAREST=1 = round() as before."""
-    if os.environ.get("BIMANUAL_LEGACY_ROUND_NEAREST") == "1":
-        return round(lo, nd), round(hi, nd)
+    """Theta rounded OUTWARD (floor for lo, ceil for hi at nd decimals): the set may only grow (11-17)."""
     f = 10.0 ** nd
     def snap(x):
         n = float(x) * f
@@ -171,7 +155,7 @@ def _from_row(r):
 TILT_N = 20            # ASSUMED (11-17): worlds per per-plan tilt measurement (tilt_measure.N_PLAN_DEFAULT)
 
 
-def planned_path_rows(task, wp, a, theta, level=None, plan_id="", tilt_dir=None, procs=1, n=None, strict_claw=False, out=None):
+def planned_path_rows(task, wp, a, theta, level=None, plan_id="", tilt_dir=None, procs=1, n=None, strict_claw=False, out=None, world=None):
     """USER 11-17: the rows of the NOMINAL planned closed_chain path (plan_for(inputs(task, wp), a)): motion (joint_pos margin PATH_MARGIN_MIN, joint_speed, reach, closed_chain), the swept
     collision row (arm_arm, arm_world, obj_world: every class present on every piece, else MISSING), the tilt row (measured table, default plan only, else MISSING).
     The tilt row is MEASURED for this plan at admission time (tilt_measure.measure_plan; n = TILT_N 20 ASSUMED; worlds i.i.d. from the belief cell; base move included).
@@ -183,7 +167,7 @@ def planned_path_rows(task, wp, a, theta, level=None, plan_id="", tilt_dir=None,
     from world_model.v2.stack.planners import closed_chain as CCP
     rows = []
     try:
-        plan = CCP.plan_for(CCP._nominal_inputs(task, wp), float(a))
+        plan = CCP.plan_for(CCP._nominal_inputs(task, wp) if world is None else CCP.inputs_for_world(task, world, wp), float(a))      # world: the run world (geometry)
     except Exception as ex:                                              # PlanRefused or anything else: no plan = no rows = MISSING (never an admission)
         return [_row_dict("planned_path", False, None, "missing", f"closed_chain plan at a = {a} not built: {ex!r}"[:500])]
     try:
@@ -241,19 +225,14 @@ def path_rows_failing(rows):
 CERT_MISMATCH_ACTION = "refuse (cert mismatch)"      # 11-17: the Rule 1 certificate does not match the plan / episode the carry would run
 
 
-def legacy_no_runtime_rules():
-    """BIMANUAL_LEGACY_NO_RUNTIME_RULES=1 (11-17): no certificates / Rule 4 hook reach the carry (the planner's stored backups, as before); Rule 1 then runs with fallback=False."""
-    return os.environ.get("BIMANUAL_LEGACY_NO_RUNTIME_RULES") == "1"
-
-
 def run_rule1(c, lo, hi, wp, a, level=None, tilt=None):
-    """Rule 1 per step on the admitted plan (rule1_contents.run_cell, n_sampled = 0, closed_chain; 11-17: fallback=True = the wide Rule 3 table needs Theta_0, unless BIMANUAL_LEGACY_NO_RUNTIME_RULES=1) -> the step records.  level = the admitted base level (behind tasks)."""
+    """Rule 1 per step on the admitted plan (rule1_contents.run_cell, n_sampled = 0, closed_chain; 11-17: fallback=True = the wide Rule 3 table needs Theta_0, -> the step records.  level = the admitted base level (behind tasks)."""
     if c.rule1 is not None:
         return c.rule1(c.task, (lo, hi), wp, a)
     from world_model.v2.adapters import rule1_contents as R1
     kw = {} if level is None else dict(level=level)
     with tempfile.TemporaryDirectory(prefix="t4_rule1_") as td:
-        return R1.run_cell(c.task, (lo, hi), pathlib.Path(td), n_sampled=0, planner="closed_chain", fallback=not legacy_no_runtime_rules(), wp=wp, a=a, tilt=tilt, **kw)
+        return R1.run_cell(c.task, (lo, hi), pathlib.Path(td), n_sampled=0, planner="closed_chain", fallback=True, wp=wp, a=a, tilt=tilt, world=c.world, **kw)
 
 
 def rule1_failures(recs):
@@ -396,13 +375,13 @@ def run_world(c: Ctx):
                         wp_run = c.at_level(cur_pd, lvl)
                     except S.PlanRejected as ex:
                         decision = dict(decision, action="refuse (compile at level)", a_admit=None, refused_by="compile", why_compile=[ex.stage, list(ex.reasons)])
-            if decision["a_admit"] is not None and not legacy_no_path_rows():       # USER 11-17: the planned-path rows of the NOMINAL plan at a_admit (after the static admission and the base level pick)
+            if decision["a_admit"] is not None:       # USER 11-17: the planned-path rows of the NOMINAL plan at a_admit (after the static admission and the base level pick)
                 wp_path = wp_run if c.behind else cur_wp
                 try:
                     prows = (c.path_rows(c.task, wp_path, decision["a_admit"], (c_lo, c_hi)) if c.path_rows is not None else
                              planned_path_rows(c.task, wp_path, decision["a_admit"], (c_lo, c_hi), level=decision.get("base_level"), plan_id=str(cur_pd.get("plan_id") or ""),
                                                tilt_dir=cfg.get("tilt_dir"), procs=int(cfg.get("tilt_procs") or 1), n=cfg.get("tilt_n"),
-                                               strict_claw=bool(getattr(ep, "strict_claw", False)), out=path_out))       # 11-17: the tilt measurement uses the run's own strict_claw
+                                               strict_claw=bool(getattr(ep, "strict_claw", False)), out=path_out, world=c.world))       # 11-17: the tilt measurement uses the run's own strict_claw
                 except Exception as ex:                                              # a crashed row is MISSING, never an admission
                     prows = [_row_dict("planned_path", False, None, "missing", f"path rows crashed: {ex!r}"[:500])]
                 att["path_rows"] = clean(prows)
@@ -415,10 +394,8 @@ def run_world(c: Ctx):
             trigger = "T1"
         elif decision["a_admit"] is None:
             trigger = "T2"
-        elif (legacy_no_t4() or c.task not in RULE1_TASKS) and legacy_rule1_skip():
-            break                                                           # BIMANUAL_LEGACY_RULE1_SKIP=1: the old silent skip (no Rule 1 for this task)
-        elif legacy_no_t4() or c.task not in RULE1_TASKS:                   # USER 11-17: no Rule 1 for this task = refused as MISSING, never a silent admission
-            att["rule1"] = dict(guarantee="missing", why="Rule 1 not built for this task" if c.task not in RULE1_TASKS else "Rule 1 (T4) switched off (BIMANUAL_LEGACY_NO_T4=1)")
+        elif c.task not in RULE1_TASKS:                   # USER 11-17: no Rule 1 for this task = refused as MISSING, never a silent admission
+            att["rule1"] = dict(guarantee="missing", why="Rule 1 not built for this task")
             decision, end_reason = dict(decision, action=RULE1_MISSING_ACTION, a_admit=None, refused_by="rule1"), "rule1_missing"
             att["decision"] = clean(decision)
             t_events.append(dict(kind="T4", attempt=k, missing=True, reasked=False))
@@ -536,7 +513,7 @@ def run_world(c: Ctx):
             c.on_phase("nominal")
         certs = handles = None
         cert_refusal, carry = None, None
-        if r1_final is not None and not legacy_no_runtime_rules():
+        if r1_final is not None:
             # 11-17: Rule 1 must have run on exactly the (wp, a) the episode carries; any difference refuses (never carries)
             wp_now = wp_run if c.behind else cur_wp
             if r1_final["wp"] is not wp_now and r1_final["wp"] != wp_now:
@@ -546,7 +523,7 @@ def run_world(c: Ctx):
             else:
                 from . import runtime_rules as RR
                 certs = RR.certs_from_rule1(r1_final["recs"])
-                handles = dict(rule4=RR.rule4_hook(task, wp_now, float(r1_final["a"]), tilt=r1_final.get("tilt")))       # 11-17: the plan's own tilt measurement (None -> Rule 4 refuses, MISSING)
+                handles = dict(rule4=RR.rule4_hook(task, wp_now, float(r1_final["a"]), tilt=r1_final.get("tilt"), world=c.world))       # 11-17: the plan's own tilt measurement (None -> Rule 4 refuses, MISSING)
                 ep.read_seed = int(np.random.SeedSequence([44, int(P.CC.TASK_ID.get(task, 0)), int(c.i)]).generate_state(1)[0])               # deterministic per world (the noise stream of the in-carry claw-load reads)
         if cert_refusal is None:
             carry = CR.run_segments(ep, dict(segments=[]), branch_backups=True, certs=certs, handles=handles)

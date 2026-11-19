@@ -21,7 +21,7 @@ r_g = max |hull vertex| in the geom frame (clearance._hull_pts) or geom_rbound i
 with dm_p = min(d_p(k), d_p(k+1)) and dm = min_p dm_p, only pairs with dm_p <= dm + s_max * dt can have a lower swept bound below dm's pair (s_max = max_p s_p), so v_k = max s_p over those.
 A pair that is allowed (obj_world support approach) at a sample counts as the cap distance at that sample; the allowance is evaluated at the samples only (not between them).
 
-LOAD TILT (USER 11-17 "Checker uses measured tilt"; default ON, BIMANUAL_LEGACY_UNTILTED_COLLISION=1 = the untilted row exactly as before).  Only obj_world changes.
+LOAD TILT (USER 11-17 "Checker uses measured tilt"; default ON).  Only obj_world changes.
   Cover set at a sample (MODEL, rigid load: every carried body turns with the object): nominal load pose L, rotated about the pivot c by R = R_swing R_twist with R_swing about
   ANY horizontal axis by an angle <= sw and R_twist about world z by <= tw, then translated by any |t| <= de.  c = the nominal position of the object-fixed point pivot_obj
   (the claw midpoint at k = 0 of the measurement episodes, object frame).  sw / tw / de come from the per-plan MEASUREMENT (tilt_measure.measure_plan -> RotTrack: per piece,
@@ -47,7 +47,6 @@ from __future__ import annotations
 
 import dataclasses
 import math
-import os
 
 import numpy as np
 import mujoco
@@ -61,11 +60,6 @@ CLASSES = K.CLASSES
 
 
 # ---- load tilt cover (USER 11-17)
-def legacy_untilted():
-    """BIMANUAL_LEGACY_UNTILTED_COLLISION=1: the obj_world row at the planned (untilted) load pose, exactly as before 11-17."""
-    return os.environ.get("BIMANUAL_LEGACY_UNTILTED_COLLISION", "0") == "1"
-
-
 class TiltMissing(Exception):
     """no usable per-plan tilt measurement: the row is MISSING."""
 
@@ -163,10 +157,10 @@ class _Scene:
     """one plan's model + data and the pair lists of the three classes."""
 
     def __init__(self, plan, tilt=None):
-        """tilt: a TiltSpec (the per-plan measurement) or None.  With a TiltSpec (and not legacy_untilted()), set_state(..., tilt=(sw, tw, de)) makes obj_world the cover-set bound."""
+        """tilt: a TiltSpec (the per-plan measurement) or None.  With a TiltSpec, set_state(..., tilt=(sw, tw, de)) makes obj_world the cover-set bound."""
         from world_model.v2.nero.contents import carry
         self.carry = carry
-        self.tilt, self.cur = (None if legacy_untilted() else tilt), None
+        self.tilt, self.cur = tilt, None
         self.plan, self.inp = plan, plan.inp
         m = self.m = self.inp.m
         self.d = mujoco.MjData(m)
@@ -516,12 +510,11 @@ def tilt_assumptions(sc, scope):
 def collision_rows(plan, world=None, pieces=None, classes=None, tilt=None):
     """plan: closed_chain.ClosedChainPlan (world is unused: the plan's own model / world; kept for the registry signature).  -> ONE Row ('collision'); the worst piece binds
     and is named in row.worst['piece']; row.worst['by_class'] gives margin / worst case per class for that piece's worst class and 'pieces' the margin per piece.
-    tilt (USER 11-17): the per-plan TiltSpec (tilt_from_table on tilt_measure.measure_plan's table).  Default ON: no TiltSpec / an incomplete one = a MISSING row.
-    BIMANUAL_LEGACY_UNTILTED_COLLISION=1: tilt is ignored, the untilted row as before."""
+    tilt (USER 11-17): the per-plan TiltSpec (tilt_from_table on tilt_measure.measure_plan's table).  Default ON: no TiltSpec / an incomplete one = a MISSING row."""
     from world_model.v2.stack.checks.row import missing
-    if not legacy_untilted() and tilt is None:
+    if tilt is None:
         return missing("collision", "no per-plan load tilt measurement passed (collision_rows(plan, tilt=tilt_from_table(...))): the load-vs-world row cannot cover the tilt "
-                                    "(USER 11-17); BIMANUAL_LEGACY_UNTILTED_COLLISION=1 = the untilted row")
+                                    "(USER 11-17)")
     try:
         sc = _Scene(plan, tilt=tilt)
         for sg in (list(pieces) if pieces else list(plan.pieces)):
@@ -571,11 +564,6 @@ def dense_min_distance(plan, sg, cls, k, upsample=20, scene=None):
 
 # ---- adaptive refinement of the swept row (USER 11-17 "Both", part 1)
 SWEPT_MAX_DEPTH = 4      # ASSUMED (USER to confirm): an interval is halved at most this many times -> minimum step = interval / 2**4 = 0.625 mm of a 1 cm geometry interval (allowance / 16)
-
-
-def swept_coarse():
-    import os
-    return os.environ.get("BIMANUAL_LEGACY_SWEPT_COARSE", "0") == "1"
 
 
 def _class_lb(sc, c, Da, Db, X2, R2, h):

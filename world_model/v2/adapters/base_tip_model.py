@@ -61,7 +61,7 @@ def _build(task: str, world):
     ob = m.body("obj").id
     Ro = R0.T @ d.xmat[ob].reshape(3, 3)
     po = toB(d.site_xpos[m.site("obj_ref").id])
-    spec = CS.spec_from_cell(task, *TK.prior_box(task))
+    spec = CS.spec_from_cell(task, *TK.prior_box(task), world=w)      # contents from the PRIOR box; the empty object / crate size from the world
     ms.append(float(spec.empty_mass))
     ps.append(Ro @ np.asarray(spec.empty_com, float) + po)
     labels = dict(mass_model=f"MODEL: {len(bodies)} robot bodies of the base tree at the hold pose (scene of task {task}) + the empty object from the "

@@ -9,13 +9,11 @@ One JSONL line per (world, branch point):
                 + a series of (t, |Fz|) from 0.25 s before the first flag to 0.5 s after it (every control step)
   obj           object z above the goal support top at weld-off and whether it touches a support geom then
   first_U       kind and time of the first U flag of the rollout; viol_all = every kind (count + first)
-    python -m world_model.v2.nero.contents.diag_place_backup --run-dir DIR --worlds box_behind:2,3,11,15,18,19 --out OUT.jsonl [--legacy|--new] [--seg s2_place] [--max-branches N]
---legacy sets BIMANUAL_LEGACY_BEHIND_BACKUP=1 (today's backup), --new (default) the F1 backup."""
+    python -m world_model.v2.nero.contents.diag_place_backup --run-dir DIR --worlds box_behind:2,3,11,15,18,19 --out OUT.jsonl [--seg s2_place] [--max-branches N]"""
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import pathlib
 import sys
 import types
@@ -127,8 +125,7 @@ def run_world(run_dir, task, i, seg, out_f, max_branches=None, plans=None):
         ep.backup_runner = limited
     # v2_job swallows nothing here: it returns a record (never raises); the runner fills `sink`
     r = BJ.v2_job(task, i, seed, w, float(cfg["eps_lo"]), float(cfg["eps_free"]), plan, cfg.get("probe_method"), True, hooks=hooks)
-    summ = dict(world=f"{task}:{i}", outcome=r.get("outcome"), error=r.get("error"), tb=r.get("tb"), first_U_nominal=r.get("first_U"), n_branches_logged=len(sink),
-                legacy=os.environ.get("BIMANUAL_LEGACY_BEHIND_BACKUP") == "1")
+    summ = dict(world=f"{task}:{i}", outcome=r.get("outcome"), error=r.get("error"), tb=r.get("tb"), first_U_nominal=r.get("first_U"), n_branches_logged=len(sink))
     segs = (r.get("carry") or {}).get("segments", [])
     summ["family"] = {s["seg"]: s["family"] for s in segs}
     return summ, sink
@@ -147,16 +144,9 @@ def main(argv=None):
     ap.add_argument("--run-dir", required=True)
     ap.add_argument("--worlds", required=True, help="task:i,i,...[;task:i,...]  e.g. box_behind:2,3,11,15,18,19")
     ap.add_argument("--out", required=True)
-    g = ap.add_mutually_exclusive_group()
-    g.add_argument("--legacy", action="store_true", help="BIMANUAL_LEGACY_BEHIND_BACKUP=1 (the 11-09 backup)")
-    g.add_argument("--new", action="store_true", help="the F1 backup (default)")
     ap.add_argument("--seg", default="s2_place")
     ap.add_argument("--max-branches", type=int, default=None)
     a = ap.parse_args(argv)
-    if a.legacy:
-        os.environ["BIMANUAL_LEGACY_BEHIND_BACKUP"] = "1"
-    else:
-        os.environ.pop("BIMANUAL_LEGACY_BEHIND_BACKUP", None)
     todo = []
     for part in a.worlds.split(";"):
         t, ids = part.split(":")
@@ -172,7 +162,7 @@ def main(argv=None):
                 f.write(json.dumps(dict(kind="branch", **rec), default=float) + "\n")
             f.write(json.dumps(dict(kind="world", **summ), default=float) + "\n")
             f.flush()
-            print(f"{t}:{i} legacy={summ['legacy']} outcome={summ['outcome']} err={summ['error']} branches={len(sink)}", flush=True)
+            print(f"{t}:{i} outcome={summ['outcome']} err={summ['error']} branches={len(sink)}", flush=True)
 
 
 if __name__ == "__main__":

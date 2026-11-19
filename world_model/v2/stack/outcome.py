@@ -7,13 +7,12 @@ USER 11-09 (R1): success = AgentChord's own rule, for every method: finished AND
   safe_success  success AND not unsafe
 A refusal is not a success.  Any ingredient that is UNKNOWN (finished / unsafe / pre_hold_unsafe None, or a missing goal Row) gives None unless something else already
 failed (then False).  Unknown is never read as True or False.
-load_legacy(record) READS old result dicts (ours probe e2e records, theirs execute records, pan cert / runtime records); it never writes them.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-from world_model.v2.stack.checks.row import Row, missing
+from world_model.v2.stack.checks.row import Row
 
 
 @dataclass
@@ -52,66 +51,11 @@ def classify(finished, goal: Row, unsafe, pre_hold_unsafe, in_R: Row, refused=Fa
     return Outcome(_b(finished), goal, u_any, _b(pre_hold_unsafe), in_R, bool(refused), reason, success, ss)
 
 
-def _flag_row(name, ok, why=""):
-    return Row(name, bool(ok), guarantee="runtime", why=why)
-
-
-def _legacy_goal(rec: dict) -> Row:
-    """goal Row of an old theirs record: the measured quantities against the task's goal terms (tasks.py)."""
-    from world_model.v2.stack import goal as GL, tasks as TK
-    gc = rec["goal"]
-    t = TK.task(rec["task"]) if rec.get("task") in TK.TASKS else TK.task("box")
-    g = GL.Goal(t.name, tuple(GL.GoalTerm(q, b) for q, b in t.goal_terms))
-    now = dict(xy_err=gc["xy_err"], z_err=gc["z_err"], obj_tilt_deg=gc.get("tilt_deg", 0.0), cup_tilt_deg=gc.get("mug_tilt_deg", 0.0))
-    return GL.check_goal(g, GL.StepState(0.0, now, now))
-
-
-def load_legacy(rec: dict) -> Outcome:
-    """old result dict -> Outcome.  Recognised shapes:
-      theirs  (agentchord execute.run_world): 'goal' {xy_err, z_err, ...}, 'end_in_R', 'R_fail', 'pre_hold_viol', 'track'.viol, 'outcome' 'completed'.
-              The goal row is re-evaluated with the task's CURRENT goal terms (AgentChord's rule, USER 11-09: xy <= 0.05, z <= 0.02, tilts < 45 deg) from the
-              record's xy_err / z_err / tilt_deg / mug_tilt_deg -- NOT the record's own ac_success / success_ours.  A record with no `track` has unsafe unknown.
-      ours    (probe e2e): 'outcome' carried | carry_failed | refused*, 'carry' {end_in_R, segments[].nominal.viol, pre_hold_viol}; no goal in the record -> goal
-              missing.  pre_hold_viol is written by nero/contents/probe.py (a U entry during the load-transfer hold, carry_cert.py:331); an absent key = unknown.
-      pan     (cert / runtime): 'segments' with 'nominal' {viol, success, status}; goal = the last segment's success flag.  Pre-hold is not recorded
-              (unknown); a segment with no `status` has unknown finish."""
-    if "pre_hold_viol" in rec and isinstance(rec.get("goal"), dict) and "xy_err" in rec["goal"]:      # theirs (old shape: goal = the raw measured dict)
-        goal = _legacy_goal(rec)
-        trk = rec.get("track")
-        unsafe = None if trk is None else (trk.get("viol") is not None)
-        rr = rec.get("end_in_R")
-        in_R = _flag_row("R", rr, ",".join(rec.get("R_fail") or [])) if rr is not None else missing("R", "record has no end_in_R")
-        fin = None if rec.get("outcome") is None else rec.get("outcome") == "completed"
-        return classify(fin, goal, unsafe, rec.get("pre_hold_viol") is not None, in_R,
-                        refused=str(rec.get("outcome", "")).startswith("plan_rejected"), reason=str(rec.get("reason") or ""))
-    if "segments" in rec and "outcome" not in rec and not rec.get("carry"):          # pan
-        segs = rec["segments"]
-        unsafe = any((s.get("nominal") or {}).get("viol") for s in segs)
-        sts = [(s.get("nominal") or {}).get("status") for s in segs]
-        if not segs:
-            done = None
-        elif any(x is not None and x != "done" for x in sts):
-            done = False
-        else:
-            done = None if any(x is None for x in sts) else True                    # a missing status is unknown, never "done"
-        last = (segs[-1].get("nominal") or {}) if segs else {}
-        goal = _flag_row("goal", last.get("success"), "last segment success flag") if last.get("success") is not None else missing("goal", "no success flag")
-        return classify(done, goal, unsafe, None, missing("R", "pan records carry the backup's R per branch, not an end R"), refused=bool(rec.get("refused")))
-    oc = rec.get("outcome")                                                           # ours
-    carry = rec.get("carry") or {}
-    unsafe = any((s.get("nominal") or {}).get("viol") for s in carry.get("segments", []))
-    er = carry.get("end_in_R")
-    rr = er[0] if isinstance(er, (list, tuple)) else er
-    in_R = _flag_row("R", rr) if rr is not None else missing("R", "record has no end_in_R")
-    pre = (carry.get("pre_hold_viol") is not None) if "pre_hold_viol" in carry else None
-    oc_s = str(oc or "")
-    fin = None if oc is None else oc in ("carried", "carry_failed")
-    return classify(fin, missing("goal", "ours e2e records have no goal check"), unsafe if carry else None, pre, in_R, refused=oc_s.startswith(("refused", "plan_rejected")), reason=oc_s)
-
-
 def result_of(rec: dict) -> dict:
-    """the flat outcome record of a result record: rec['result'] when the record carries one, else read it from the old keys (load_legacy)."""
-    return rec["result"] if isinstance(rec.get("result"), dict) else load_legacy(rec).record()
+    """the flat outcome record of a result record: rec['result'].  A record without a "result" dict is refused (records of the pre-11-09 shapes are no longer read)."""
+    if not isinstance(rec.get("result"), dict):
+        raise ValueError("result record has no 'result' outcome dict (old record shape; the legacy loader was removed 11-19): re-run to get a current record")
+    return rec["result"]
 
 
 def tally(recs) -> dict:

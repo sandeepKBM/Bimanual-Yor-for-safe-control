@@ -36,7 +36,7 @@ def main(argv=None):
     import mujoco
     import cup_collect_task_utils as cct
     import sim_common as sc
-    import mpc_fl
+    from world_model.v2.flmpc import mpc_fl
     import flmpc_value as fv
 
     rt = None

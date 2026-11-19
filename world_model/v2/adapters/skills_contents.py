@@ -28,11 +28,11 @@ FIELD = "contents_mass_kg"
 class _Rest:
     """payload.Rest backend: u at the rest pose carrying contents mass c (COM anywhere in the interior) = probe.rung_torque_u (MODEL)."""
 
-    def __init__(self, task):
-        self.task, self.e = task, P.empty_mass(task)
+    def __init__(self, task, world=None):
+        self.task, self.e, self.world = task, P.empty_mass(task), world        # world = the run world (11-19: the hold pose follows the drawn crate)
 
     def u(self, c):
-        return P.rung_torque_u(self.task, self.e + float(c))
+        return P.rung_torque_u(self.task, self.e + float(c), world=self.world)
 
 
 class Weigh:
@@ -50,7 +50,7 @@ class Weigh:
 
     def limit_rows(self, theta_t):
         lo = float(theta_t[FIELD][0])
-        return [PRG.rung_row(_Rest(self.task), self.e, self.e + lo, self.e + lo)]
+        return [PRG.rung_row(_Rest(self.task, getattr(self.ep, "world", None)), self.e, self.e + lo, self.e + lo)]
 
     def run(self, theta_t):
         cur = theta_t[FIELD]

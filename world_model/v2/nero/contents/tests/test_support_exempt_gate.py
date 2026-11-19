@@ -3,7 +3,7 @@ support) are skipped by the obj_world U row; every other world geom still counts
 PYTHONPATH=. python -m pytest -q world_model/v2/nero/contents/tests/test_support_exempt_gate.py
 
 Checks: latched only at the LAST weld-off (from contacts); cleared on re-grasp; saved / restored with the snapshot; pairs with other world geoms
-are still evaluated; BIMANUAL_LEGACY_NO_SUPPORT_EXEMPT=1 never latches."""
+are still evaluated."""
 import numpy as np
 import pytest
 
@@ -11,12 +11,8 @@ from world_model.v2.nero.contents import carry as CR
 from world_model.v2.nero.contents import carry_cert as CC
 
 
-def _ep(monkeypatch, legacy=False):
+def _ep(monkeypatch):
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
-    if legacy:
-        monkeypatch.setenv("BIMANUAL_LEGACY_NO_SUPPORT_EXEMPT", "1")
-    else:
-        monkeypatch.delenv("BIMANUAL_LEGACY_NO_SUPPORT_EXEMPT", raising=False)
     w = CC.sample_world("box", (0.5, 1.0), np.random.default_rng(1117050000))
     ep = CR.CarryEpisode(w, a_plan=0.5)
     ep.set_belief(0.75, a_plan=0.5)
@@ -73,9 +69,3 @@ def test_other_world_geoms_still_checked(monkeypatch):
     world = set(int(w) for w in ep._ow_w) - sup
     assert set(seen) == world, (sorted(world - set(seen)))
 
-
-def test_legacy_never_latches(monkeypatch):
-    ep = _ep(monkeypatch, legacy=True)
-    for s in CR.SIDES:
-        ep.weld(s, False)
-    assert ep._ow_support == frozenset() and getattr(ep, "support_exempt", None) is None

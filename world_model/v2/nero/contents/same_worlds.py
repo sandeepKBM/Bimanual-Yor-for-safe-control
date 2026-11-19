@@ -24,7 +24,7 @@ weld constraint wrench, unfiltered, every control step; no twist row).  Set in e
   Schema v2 (11-09, default; probe-selection build spec): the proposer reply names PHENOMENA (catalog PH1..PH8 or NEW) with a handle each and the PROBES to run; no number about the
                         contents.  Ours then runs per world nero/contents/probe_select.run_world: the LLM's probes -> coverage (checker's own PHI list) -> Rule 1 -> Rule 2 re-ask
                         (T1 / T2 / T3, no cap on re-asks, plan["proposer"] carries spec / cache / offline into the workers) -> carry.  The records hold phenomena, handles, probes run /
-                        skipped, the coverage row, re-asks (count + reasons), T-events, the proposer record and the out-of-scope note (PH4 / PH5 / PH6).  BIMANUAL_LEGACY_PROPOSER_V1=1 replays v1.
+                        skipped, the coverage row, re-asks (count + reasons), T-events, the proposer record and the out-of-scope note (PH4 / PH5 / PH6).
                         --plan-source fixture: fixed base = the fixed hand plan, no proposer (unchanged); table behind = the mock proposer's fixture plan (v2).
   --theirs agentchord   THEIRS = AgentChord's cached compiled graph via agentchord_probe.nero.execute.same_world_trial(task, i, plan_dir) (--agentchord-plan DIR);
                         default "ungated" = baseline_ungated._trial (the fixed plan, no checks).  THEIRS never runs the proposer plan.
@@ -40,7 +40,7 @@ import time
 
 from world_model.v2.stack import outcome as OC, tasks as TK, u_groups as UG
 
-CALIB = None          # default: probe.default_calib() = the CALIB of the active probe method (poslift: repo copy; ladder: the 11-03 file)
+CALIB = None          # default: probe.default_calib() = the CALIB of the active probe method (claw_guard: the repo copy)
 
 
 def _init_worker():
@@ -329,7 +329,7 @@ def main(argv=None):
     ap.add_argument("--n", type=int, default=20)
     ap.add_argument("--procs", type=int, default=4)
     ap.add_argument("--calib", default=CALIB, help="default: the CALIB of the active probe method")
-    ap.add_argument("--probe-method", choices=("poslift", "ladder", "poslift_ff", "claw_guard"), default=None, help="default: env BIMANUAL_PROBE, else claw_guard (USER 11-13)")
+    ap.add_argument("--probe-method", choices=("poslift", "poslift_ff", "claw_guard"), default=None, help="default: env BIMANUAL_PROBE, else claw_guard (USER 11-13)")
     ap.add_argument("--planner", choices=("scripted", "closed_chain"), default=None,
                     help="plan BOTH methods execute and are admitted on (carry.resolve_planner; default = env BIMANUAL_PLANNER, else scripted = the legacy PLANS)")
     ap.add_argument("--plan-source", choices=("fixture", "codex"), default="fixture",
@@ -386,9 +386,8 @@ def main(argv=None):
         plans = _proposer_plans(tasks, a, out)
         for t in tasks:
             ex[t]["ours"] = plans[t]
-        from world_model.v2.stack.proposer import schema as PS0
         from world_model.v2.stack.skills import catalog as CAT0
-        cfg.update(plan_source="codex", plan_spec=a.plan_spec, plan_cache=a.plan_cache, plan_images=a.plan_images, plan_image_world=a.plan_image_world, offline=a.offline, outside_b=a.outside_b, proposer_schema="v1" if PS0.legacy_v1() else "v2",
+        cfg.update(plan_source="codex", plan_spec=a.plan_spec, plan_cache=a.plan_cache, plan_images=a.plan_images, plan_image_world=a.plan_image_world, offline=a.offline, outside_b=a.outside_b, proposer_schema="v2",
                    reask_limit=a.reask_limit, rule2="T1/T2/T3, no cap on re-asks (ruling 11-09); fixed-point stop", out_of_scope=CAT0.OUT_OF_SCOPE_NOTE,
                    plans={t: dict(status=plans[t]["plan_record"]["status"], plan_id=plans[t].get("plan_id"), rejected=plans[t].get("rejected")) for t in tasks})
     for t in tasks:

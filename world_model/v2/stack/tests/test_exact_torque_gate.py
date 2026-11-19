@@ -1,6 +1,5 @@
 """K10 gate (owner-written, 11-16): exact inverse-dynamics torque row (adapters/exact_torque.py, OPT-IN, not in admission).  SIMULATION ONLY.
 
-  legacy equality   with qd = qdd = 0, no rotation, the row equals the legacy quasi-static Envelope at a = 0 on the same samples
   vertex = exact    (no rotation) the box row equals the max over its vertices evaluated one point at a time
   soundness         random contents (m in [m_lo, m_hi], COM a random point of hull(P)) never exceed the box row
 """
@@ -30,16 +29,6 @@ def setup():
 
 def _point(spec, m, c):
     return dataclasses.replace(spec, contents=Contents(m, m, np.asarray([c], float), spec.contents.labels))
-
-
-@pytest.mark.parametrize("task", TASKS)
-def test_legacy_equivalent_equals_envelope_at_rest(setup, task):
-    from world_model.v2.adapters import exact_torque as X
-    plan, spec = setup[task]
-    sg = list(plan.pieces)[0]
-    r0 = X.legacy_equivalent(plan, spec, pieces=[sg])
-    ul0, _ = X.legacy_reference(plan, spec, a=0.0, stride=1, pieces=[sg])
-    assert r0.worst["u_max"] == pytest.approx(ul0, rel=1e-9, abs=1e-12), (task, r0.worst["u_max"], ul0)
 
 
 @pytest.mark.parametrize("task", TASKS)

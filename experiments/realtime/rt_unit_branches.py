@@ -20,7 +20,7 @@ for p in (_REPO, os.path.join(_REPO, "scripts"), _HERE):
     if p not in sys.path:
         sys.path.insert(0, p)
 import cup_collect_task_utils as cct  # noqa: E402
-import mpc_fl  # noqa: E402
+from world_model.v2.flmpc import mpc_fl  # noqa: E402
 import rt_flmpc  # noqa: E402
 import rt_kernels as K  # noqa: E402
 import sim_common as sc  # noqa: E402

@@ -59,7 +59,7 @@ for _p in (str(_REPO_ROOT), str(_REPO_ROOT / "scripts"),
         sys.path.insert(0, _p)
 
 import sim_common as sc  # noqa: E402
-import mpc_fl  # noqa: E402
+from world_model.v2.flmpc import mpc_fl  # noqa: E402
 from scripts.cup_collect_task_utils import load_yor_cup_collect_model  # noqa: E402
 from scripts import cup_task_utils as ct  # noqa: E402
 from teleop import bimanual_teleop as bt  # noqa: E402

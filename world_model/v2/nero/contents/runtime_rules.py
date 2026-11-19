@@ -6,7 +6,7 @@ stack/executor.py may import no adapters and no new nero.contents module, so wha
                                   OFFLINE mock target proposer (rule4_contents.MockTargetProposer; no VLM / LLM / network is ever called) on a CarryState at that branch time
   theta_new_from_read(...)        Theta_0 ∩ {theta : h(theta) in [y - nu, y + nu]} (D1) = what a contradicting reading leaves
 
-Wiring (probe_select / behind_job; BIMANUAL_LEGACY_NO_RUNTIME_RULES=1 = off):
+Wiring (probe_select / behind_job):
     r1 = run_cell(..., fallback=True)                         # the wide table needs Theta_0
     certs = RR.certs_from_rule1(r1); handles = dict(rule4=RR.rule4_hook(task, wp, a, tilt=<the plan's TiltSpec from planned_path_rows>))
     CR.run_segments(ep, rec, branch_backups=True, certs=certs, handles=handles)
@@ -32,18 +32,16 @@ def theta_new_from_read(y: float, nb: float, spec: TH.ReadingSpec, theta_t: TH.T
     return TH.theta_from_reading(spec, theta_0, float(y), theta_t=theta_t)
 
 
-def rule4_hook(task: str, wp=None, a: "float | None" = None, planner: str = "closed_chain", allow_set_down: bool = True, tilt=None):
+def rule4_hook(task: str, wp=None, a: "float | None" = None, planner: str = "closed_chain", allow_set_down: bool = True, tilt=None, world=None):
     """the Rule 4 callable for stack/executor.py.  Offline mock target proposer only.  The sim is paused while this computes (latency 0 in sim time, ASSUMED; wall_s recorded).
     tilt (11-17): the per-plan load tilt measurement (collision_rows.TiltSpec) of the plan being run; it is set on the Rule 1 context EXPLICITLY at every call (the cached Ctx is
-    shared).  None (and not BIMANUAL_LEGACY_UNTILTED_COLLISION=1) = Rule 4 refuses: MISSING, no target is checked."""
-    from world_model.v2.adapters import collision_rows as RCOL
-
+    shared).  None = Rule 4 refuses: MISSING, no target is checked."""
     def hook(seg, t_branch, theta_new, rest_at=None):
         t0 = time.time()
-        if tilt is None and not RCOL.legacy_untilted():
+        if tilt is None:
             return dict(accepted=False, record=None, target=None, wall_s=round(time.time() - t0, 3), n_rounds=0, missing=True,
                         why="MISSING: no per-plan load tilt measurement for the Rule 4 collision rows (rule4_hook(tilt=))")
-        ctx = RC.get_ctx(task, planner, wp)
+        ctx = RC.get_ctx(task, planner, wp, world)      # world: the run world (geometry)
         ctx.tilt = tilt
         model = ctx.model(float(a if a is not None else RC.AD.A_NOM))
         st = R4C.CarryState(ctx, model, seg, float(t_branch), rest_at)

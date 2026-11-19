@@ -31,7 +31,7 @@ for _try in range(20):
         print("import failed, retrying:", repr(e), flush=True)
         time.sleep(15)
 import sim_common as sc  # noqa: E402
-import mpc_fl  # noqa: E402
+from world_model.v2.flmpc import mpc_fl  # noqa: E402
 
 REC: dict = {}
 STATE = {"fl_feasible": True, "fl_relaxed": False, "fl_calls": 0}

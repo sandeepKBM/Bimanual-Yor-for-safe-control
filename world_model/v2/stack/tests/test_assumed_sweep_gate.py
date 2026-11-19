@@ -17,6 +17,8 @@ import sys
 
 import pytest
 
+pytestmark = pytest.mark.skip(reason="RETIRED (USER 11-19): fixed-base task, out of scope; with the measured load tilt its nominal plan is refused at lift (4.4 mm < 5 mm, n=4 tilt). Listed in docs/status/checker_measured_set_plan_2026-11-19.md Part 3")
+
 ROOT = pathlib.Path(__file__).resolve().parents[4]
 PY = sys.executable
 CASES = {"PATH_MARGIN_MIN": "0.05,0.0", "EPS_CC_POS": "0.002,0.005", "CLEARANCE_MIN": "0.005,0.0", "U_OBJ_CLEAR_M": "0.005,0.0"}
@@ -25,9 +27,7 @@ NO_MOVE = {"CLEARANCE_MIN"}   # arm classes only; the box collision row binds on
 
 @pytest.fixture(scope="module")
 def runs(tmp_path_factory):
-    # BIMANUAL_LEGACY_UNTILTED_COLLISION=1 (11-18): the static level runs z3_oracle_contents, which gets no per-plan tilt measurement (current_state
-    # finding 10), so the default tilt-aware collision row is MISSING (no margin).  This gate is about knob patching, not the load tilt.
-    env = dict(os.environ, BIMANUAL_LEGACY_UNTILTED_COLLISION="1", BIMANUAL_PLANNER="closed_chain", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1", NUMBA_NUM_THREADS="1",
+    env = dict(os.environ, BIMANUAL_PLANNER="closed_chain", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1", NUMBA_NUM_THREADS="1",
                PYTHONPATH=f"{ROOT}:{ROOT}/experiments/ab_smooth_vs_bangbang:{ROOT}/experiments/realtime")
     procs, outs = {}, {}
     for knob, vals in CASES.items():

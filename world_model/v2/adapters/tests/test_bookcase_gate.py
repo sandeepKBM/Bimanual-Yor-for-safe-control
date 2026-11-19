@@ -9,7 +9,7 @@ Checked here:
   3b. 11-17 tilt-aware row (USER): the load tilt is MEASURED for the default plan (tilt_measure.measure_plan, n = 20 ASSUMED, cell 1.0-1.5, a = 0.5) and the
      collision row and Rule 1 use it (sampled).  Owner check 11-18: collision ok (sampled); Rule 1 admits all four steps.
   4. Rule 1 admits lift, insert and place; base_move is checked by the base-stop rows (11-17: program base_stop_finish, MEASURED per-level stop card):
-     admitted, or refused by named base_stop.* rows -- never the old "no recovery" MISSING.  BIMANUAL_LEGACY_NO_BASE_BACKUP-era behaviour is not tested here.
+     admitted, or refused by named base_stop.* rows -- never the old "no recovery" MISSING.
 """
 import numpy as np
 import pytest
@@ -75,9 +75,8 @@ def tilt(wp, tmp_path_factory):
     return RCOL.tilt_from_table(tab, TM.cell_key(TASK, (1.0, 1.5)), 0.5, source=info["table_path"])
 
 
-def test_plan_builds_and_clears_the_bookcase(plan, tilt, monkeypatch):
+def test_plan_builds_and_clears_the_bookcase(plan, tilt):
     from world_model.v2.adapters import collision_rows as CR_
-    monkeypatch.delenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", raising=False)
     rows = CR_.collision_rows(plan, tilt=tilt)
     rows = rows if isinstance(rows, (list, tuple)) else [rows]
     assert all(r.ok for r in rows), [(r.name, r.why) for r in rows if not r.ok]
@@ -97,9 +96,8 @@ def test_plan_builds_and_clears_the_bookcase(plan, tilt, monkeypatch):
 
 
 @pytest.mark.slow
-def test_rule1_admits_the_arm_steps_and_flags_the_base_step(tmp_path, wp, tilt, monkeypatch):
+def test_rule1_admits_the_arm_steps_and_flags_the_base_step(tmp_path, wp, tilt):
     from world_model.v2.adapters import rule1_contents as RC
-    monkeypatch.delenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", raising=False)
     recs = {r["seg"]: r for r in RC.run_cell(TASK, (1.0, 1.5), tmp_path, n_sampled=0, planner="closed_chain", fallback=False, wp=wp, a=0.5, tilt=tilt)}
     for seg in ("s0_lift", "s1_insert", "s2_place"):
         assert recs[seg]["admitted"], (seg, recs[seg].get("refusal"))

@@ -59,17 +59,10 @@ def _drive_arms_together(steps=1500):
     return dmin, n_con, float(d.site_xpos[site["left"]][1] - d.site_xpos[site["right"]][1]), float(p["left"][1] - p["right"][1])
 
 
-@pytest.mark.skipif(C.LEGACY_ARMCOL, reason="BIMANUAL_LEGACY_ARMCOL=1: no arm-arm contacts by design")
 def test_arm_arm_contacts_exist_and_arms_do_not_pass_through():
     dmin, n_con, gap_end, gap0 = _drive_arms_together()
     assert n_con > 0                                   # left and right arm geoms DO touch when driven into each other
     assert dmin > -0.01                                # worst penetration over the run (measured -8.5 mm, NYU, arms-only contacts, 16 Nm PD drive; was -3.6 mm agx): soft-contact margin
-
-
-@pytest.mark.skipif(not C.LEGACY_ARMCOL, reason="legacy only")
-def test_legacy_armcol_has_no_arm_arm_contacts():
-    dmin, n_con, _, _ = _drive_arms_together()
-    assert n_con == 0
 
 
 def test_arm_arm_does_not_add_other_pairs():
@@ -80,9 +73,9 @@ def test_arm_arm_does_not_add_other_pairs():
     assert arm
     for g in arm:
         if LEFT(m, g):
-            assert ct[g] == (0 if C.LEGACY_ARMCOL else C.ARM_ARM_BIT) and ca[g] == 1
+            assert ct[g] == C.ARM_ARM_BIT and ca[g] == 1
         else:
-            assert ct[g] == 0 and ca[g] == (1 if C.LEGACY_ARMCOL else 1 | C.ARM_ARM_BIT)
+            assert ct[g] == 0 and ca[g] == (1 | C.ARM_ARM_BIT)
     for g in range(m.ngeom):                           # no other geom carries the bit
         if g not in arm:
             assert not (ct[g] & C.ARM_ARM_BIT or ca[g] & C.ARM_ARM_BIT)
@@ -99,16 +92,13 @@ def test_carry_physics_default_is_shared_by_carry_episode():
     assert np.allclose(ep.m.eq_solref[ep.weld_id["left"]], exp)
     ep0 = CR.CarryEpisode(w, fric_comp=None, weld_solref=None)           # explicit None is honoured (old behaviour)
     assert ep0.fc is None and ep0.weld_solref is None
-    assert ep.physics_flags()["legacy_carry_phys"] == C.LEGACY_CARRY_PHYS
+    assert ep.physics_flags()["arm_arm_collide"] is True
 
 
-def test_carry_physics_legacy_pair():
+def test_carry_physics_default_pair():
     assert C.WELD_STIFF == (0.004, 1.0)
     d = C.carry_physics()
-    if C.LEGACY_CARRY_PHYS:
-        assert d == dict(fric_comp=None, weld_solref=None)
-    else:
-        assert d["fric_comp"] is True and d["weld_solref"] == C.WELD_STIFF
+    assert d["fric_comp"] is True and d["weld_solref"] == C.WELD_STIFF
 
 
 # ---------------------------------------------------------------- item 10: commanded acceleration

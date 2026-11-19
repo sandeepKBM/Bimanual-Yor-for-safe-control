@@ -41,14 +41,10 @@ def test_old_card_without_drift_gives_none_drift(tmp_path):
     assert c is not None and c["extra_lateral_m"] is None and c["extra_yaw_rad"] is None
 
 
-def test_per_level_values_are_used(tmp_path, monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_CARD_MAX_LEVELS", raising=False)
+def test_per_level_values_are_used(tmp_path):
     per = dict(L1=dict(GOOD, extra_lateral_m=0.0028), L2=dict(GOOD, extra_lateral_m=0.0052))
     p = _card(tmp_path, levels=["L1", "L2"], extra_lateral_m=0.0052, per_level=per)
     assert RC.base_stop_card(p, level="L1")["extra_lateral_m"] == 0.0028
     assert RC.base_stop_card(p, level="L2")["extra_lateral_m"] == 0.0052
-    monkeypatch.setenv("BIMANUAL_LEGACY_CARD_MAX_LEVELS", "1")
-    assert RC.base_stop_card(p, level="L1")["extra_lateral_m"] == 0.0052
-    monkeypatch.delenv("BIMANUAL_LEGACY_CARD_MAX_LEVELS")
     bad = dict(per, L1=dict(GOOD, n_not_at_rest=2))                       # (overwrites the same CARD.json)
     assert RC.base_stop_card(_card(tmp_path, levels=["L1", "L2"], per_level=bad), level="L1") is None

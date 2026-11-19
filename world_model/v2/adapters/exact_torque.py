@@ -275,16 +275,6 @@ def exact_torque_row(plan, contents_box, pieces=None, split="legacy", *, empty_m
     return _row(name, best, names, split, False, rot is not None, empty_inertia is not None, time.time() - t0)
 
 
-def legacy_equivalent(plan, contents_box, pieces=None, split="legacy", *, empty_mass=None, empty_com=None, o_ref=None, tau_limit=None,
-                      name="torque_exact_legacy_equiv") -> Row:
-    """the same samples and code path with qd = 0, qdd = 0, object acceleration 0, R = I, omega = alpha = 0 (no second-moment terms): equals the legacy
-    quasi-static Envelope (mode 'two_lever' for split 'legacy', 'two_share' for 'share') at a = 0, torque term only (no F_cap row), to rounding."""
-    t0 = time.time()
-    tl = np.asarray(C.tau_limit() if tau_limit is None else tau_limit, float)
-    best, names = _evaluate(plan, contents_box, pieces, split, True, empty_mass, empty_com, None, None, o_ref, tl, rotating=False)
-    return _row(name, best, names, split, True, False, False, time.time() - t0)
-
-
 def _row(name, best, names, split, zero, rot_given, inertia_given, wall):
     u = best["u"]
     ok = bool(u <= PAY.U_ADMIT)
@@ -300,31 +290,3 @@ def _row(name, best, names, split, zero, rot_given, inertia_given, wall):
         tau_limit=f"config.tau_limit() = {float(np.max(C.tau_limit())):g} Nm (MODEL)", u_admit=f"{PAY.U_ADMIT} (payload.U_ADMIT)")
     return Row(name, ok, margin=float(PAY.U_ADMIT - u), unit="utilisation", guarantee="proof", worst=worst, assumptions=assumptions,
                why="" if ok else f"exact-ID utilisation {u:.3f} > {PAY.U_ADMIT}")
-
-
-# ----------------------------------------------------------------------------------------------------------------------- legacy reference (comparison helper)
-def legacy_reference(plan, spec, a=None, stride=1, pieces=None, mode="two_lever"):
-    """legacy quasi-static Envelope on the plan's samples (every `stride`-th sample of each piece, both ends kept), TORQUE ONLY (payload cap disabled), the
-    SAME scene model.  a = peak per-axis object acceleration box [m/s^2] (default: the plan's own max |pdd| over the pieces).  -> (u_tau_max, detail)."""
-    import json
-
-    from world_model.v2.adapters import payload_envelope as PE
-    from world_model.v2.nero.contents import envelope as E
-    names = list(pieces) if pieces else list(plan.pieces)
-    cap0 = PE.caps()["pot"]
-    offs, q, tcp, keys = {}, {}, {}, []
-    for sg in names:
-        pc = plan.pieces[sg]
-        n = pc.p.shape[0]
-        for i in sorted(set(range(0, n, max(int(stride), 1))) | {n - 1}):
-            key = f"{sg}_{i}"
-            offs[key] = np.asarray(pc.p[i], float)
-            q[key] = {s: np.asarray(pc.q[s][i], float).tolist() for s in SIDES}
-            keys.append(key)
-    cap = dict(cap0, q=q, tcp=tcp)
-    arms = E.Arms(cap, model=plan.inp.m)
-    env = E.Envelope(spec, arms, PE.o_ref(), np.eye(3), list(SIDES), tau_lim=C.tau_limit(), payload_kg=1e6, grip_mass=0.0, offsets=offs)
-    if a is None:
-        a = max(float(np.abs(plan.pieces[sg].pdd).max()) for sg in names)
-    u, det = env.worst(spec.contents, keys, float(a), mode)
-    return float(u), dict(det, a=float(a), n_keys=len(keys))

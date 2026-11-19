@@ -87,7 +87,7 @@ def _job(args):
     t0 = time.time()
     try:
         r = CR.world_trial(world, f"{task}_{cell[0]}_{name}_a{a}", a_plan=a, branch_backups=False, m_hat=m_hat,
-                           fric_comp=True, weld_solref=CC.WELD_STIFF, ctl=ctl)   # == config.carry_physics() unless BIMANUAL_LEGACY_CARRY_PHYS=1 (kept explicit: the 11-02 sweep physics)
+                           fric_comp=True, weld_solref=CC.WELD_STIFF, ctl=ctl)   # == config.carry_physics() (kept explicit: the 11-02 sweep physics)
         segs = {s["seg"]: {k: s["nominal"].get(k) for k in ("obj_tilt_max", "cup_tilt_max", "spill_ratio", "tau_ratio", "e_obj_deg",
                                                              "e_obj_mm", "viol", "end_in_R", "F_int_max", "twist_max") + FLK
                          + (("ci_F_int", "ci_T_int", "ci_e_p_mm", "ci_e_R_deg", "ci_tau_cmd") if ctl != "lever" else ())}

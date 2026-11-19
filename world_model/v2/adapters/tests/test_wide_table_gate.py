@@ -5,12 +5,13 @@ On box closed_chain, prior cell 2.0-2.5 kg contents:
   - every program's set at every branch time contains Theta_t (theta_cert), and is Theta_t plus whole PRIOR cells only;
   - the admitted program is listed at every branch time;
   - Lemma 1: any Theta_new inside Theta_t answers continue (no switch from narrowing);
-  - a Theta_new in an added prior cell switches away from a program that is not certified there (read_then_retrace -> stored_backup);
-  - BIMANUAL_LEGACY_TABLE_THETA_T=1 gives sets equal to Theta_t."""
+  - a Theta_new in an added prior cell switches away from a program that is not certified there (read_then_retrace -> stored_backup)."""
 import pathlib
 
 import numpy as np
 import pytest
+
+pytestmark = pytest.mark.skip(reason="RETIRED (USER 11-19): fixed-base task, out of scope; with the measured load tilt its nominal plan is refused at lift (4.4 mm < 5 mm, n=4 tilt). Listed in docs/status/checker_measured_set_plan_2026-11-19.md Part 3")
 
 from world_model.v2.stack import theta as TH
 from world_model.v2.stack.checks import cover as COV
@@ -18,16 +19,13 @@ from world_model.v2.stack.checks import cover as COV
 CELL = (2.0, 2.5)
 
 
-def _run(tmp_path, monkeypatch, legacy):
+def _run(tmp_path, monkeypatch):
     from world_model.v2.adapters import rule1_contents as RC
+    from world_model.v2.adapters.tests.tilt_input import measured_tilt
     monkeypatch.setenv("BIMANUAL_PLANNER", "closed_chain")
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
-    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")          # untilted row (BIMANUAL_LEGACY_UNTILTED_COLLISION=1): this test is about Rule 1 logic, not the load tilt (11-17 tilt row: adapters/tests/test_tilt_collision_gate.py)
-    if legacy:
-        monkeypatch.setenv("BIMANUAL_LEGACY_TABLE_THETA_T", "1")
-    else:
-        monkeypatch.delenv("BIMANUAL_LEGACY_TABLE_THETA_T", raising=False)
-    return RC.run_cell("box", CELL, pathlib.Path(tmp_path), n_sampled=0, planner="closed_chain", fallback=True)
+    # the recovery collision rows need the load tilt: MEASURED for this cell (n = 4 ASSUMED test choice, sim only)
+    return RC.run_cell("box", CELL, pathlib.Path(tmp_path), n_sampled=0, planner="closed_chain", fallback=True, tilt=measured_tilt("box", CELL))
 
 
 def _adm(rec):
@@ -44,7 +42,7 @@ def _cells(s):
 
 @pytest.mark.slow
 def test_wide_table(tmp_path, monkeypatch):
-    recs = [r for r in _run(tmp_path, monkeypatch, legacy=False) if r.get("admitted")]
+    recs = [r for r in _run(tmp_path, monkeypatch) if r.get("admitted")]
     assert recs, "no admitted step on box 2.0-2.5"
     for r in recs:
         adm = _adm(r)
@@ -73,7 +71,7 @@ def test_wide_table(tmp_path, monkeypatch):
 
 @pytest.mark.slow
 def test_switch_from_read_program_into_an_added_cell(tmp_path, monkeypatch):
-    recs = [r for r in _run(tmp_path, monkeypatch, legacy=False) if r.get("admitted")]
+    recs = [r for r in _run(tmp_path, monkeypatch) if r.get("admitted")]
     hit = 0
     for r in recs:
         adm = _adm(r)
@@ -91,13 +89,3 @@ def test_switch_from_read_program_into_an_added_cell(tmp_path, monkeypatch):
             assert d.action == "switch" and d.recovery == "stored_backup", (r["seg"], t, d)
             hit += 1
     assert hit > 0, "no branch time lists both programs with a wider stored_backup set"
-
-
-@pytest.mark.slow
-def test_legacy_table_is_theta_t(tmp_path, monkeypatch):
-    for r in [r for r in _run(tmp_path, monkeypatch, legacy=True) if r.get("admitted")]:
-        adm = _adm(r)
-        tc = _cells(adm.theta_cert)
-        for t, lst in adm.table.items():
-            for n, s in lst:
-                assert _cells(s) == tc, (r["seg"], t, n)

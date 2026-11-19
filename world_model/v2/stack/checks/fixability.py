@@ -68,7 +68,7 @@ KNOWN_ROW_FAMILIES = {
     "base_stop.open_content":     "NOT_FIXABLE (11-17): the open-content limit of the tray at the BASE level's acceleration (pick_level row base_open_content); the base level is not a plan choice",
     "landing.not_supported":      "FIXABLE: a `hold` landing (held in the arms, not on a support; USER 11-17); knobs recovery skill",
     "base_stop.<checker>":        "NOT_FIXABLE: `base_stop.in_route` | `at_rest` | `tip` | `torque` (the checker's speed / stop model; MISSING without the MEASURED stop card)",
-    "not_executable":             "NOT_FIXABLE (11-17): a step admitted ONLY by a program the executor cannot run yet (run_cell refusal, `executable` False); BIMANUAL_LEGACY_NONEXEC_ADMIT=1 admits it",
+    "not_executable":             "NOT_FIXABLE (11-17): a step admitted ONLY by a program the executor cannot run yet (run_cell refusal, `executable` False)",
     "rule1_a_exceeds":            "NOT_FIXABLE: run_cell refusal 'a exceeds a_admit' (no rows)",
 }
 

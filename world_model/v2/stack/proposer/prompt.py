@@ -1,6 +1,6 @@
 """stack/proposer/prompt.py -- the system and user prompt of the proposer, per task.  SIMULATION ONLY.   (11-05)
 
-(Schema v2, 11-09: no hidden-parameter table at all; phenomenon cards + measuring-skill cards instead.  BIMANUAL_LEGACY_PROPOSER_V1=1 = the format described below.)
+(Schema v2, 11-09: no hidden-parameter table at all; phenomenon cards + measuring-skill cards instead.)
 The prompt holds: the task instruction (destination = the TASK INPUT), the scene facts (supports, object size, grasp), the robot limits (config), the skill
 vocabulary and the output format.  It holds NO hidden truth: no sampled world, no true contents mass / centre / fills, no prior box (bounds rule: the proposer
 states its own belief B).  The text is deterministic (no times, no random ids), so the response cache replays offline.
@@ -79,12 +79,10 @@ def _task_spec_behind(task, world=None):
     td = TK.task(str(task))
     be = BR.default_backend()
     w = world if world is not None else be.world_default(task)
-    sup = {k: dict(top=round(float(v["top"]), 4), x=[round(float(a), 4) for a in v["x"]], y=[round(float(a), 4) for a in v["y"]]) for k, v in be.supports(w).items()}
-    gx, gy = td.goal_dxy
-    goal = [round(float(w.obj_xy[0] + gx), 4), round(float(w.obj_xy[1] + gy), 4)]
+    sup = {k: dict(top=round(float(v["top"]), 4), x=[round(float(a), 4) for a in v["x"]], y=[round(float(a), 4) for a in v["y"]],
+                   **({"yaw_deg": round(float(np.degrees(v["yaw"])), 2)} if abs(v.get("yaw", 0.0)) > 0.0 else {})) for k, v in be.supports(w).items()}      # x / y = the AABB of an oriented top
+    goal = [round(float(v), 4) for v in be.goal(w)["goal_xy"]]               # the world's goal (geometry backend), not start + a fixed offset
     p0 = be.start_pose(w)
-    legacy_hints = os.environ.get("BIMANUAL_LEGACY_BEHIND_HINTS") == "1"     # USER 11-17: no route hint (cheat); the legacy prompt keeps R1 and the turning hint
-    r1 = [{k: v} for k, v in BR.default_route(td)] if legacy_hints else None
     if td.kind == "box":
         obj = dict(name="closed crate", footprint_xy_m=[w.box_outer[0], w.box_outer[1]], height_m=w.box_outer[2], empty_mass_kg=OB.BOX["mass"],
                    grasp="end tabs on the +y and -y sides, tab centre %.4f m above the support" % SC.GRASP_Z)
@@ -103,15 +101,12 @@ def _task_spec_behind(task, world=None):
             f"The robot base can drive: the step skill base_move(route) moves the whole robot, the arms hold still and keep carrying the object during it; "
             f"the robot's +x axis turns with the base (so after a 180 degree turn the robot faces -x).  base_move is a motion step like lift and place: give it a recovery too.  "
             f"The planner refuses a base route that sweeps the base, arms or object into a counter or table.  "
-            + (f"Known-good route R1 (it sweeps clear): {json.dumps(r1)}.  Turning in place at the pick pose hits counter 1.  " if legacy_hints else "")
             + "Place only on counter 2 (support name \"counter2\").")
     obj["start_xy"] = [round(float(w.obj_xy[0]), 4), round(float(w.obj_xy[1]), 4)]
     obj["start_support"] = "counter"
     base = dict(start_pose_xy_yaw_deg=[round(float(p0[0]), 4), round(float(p0[1]), 4), round(float(np.degrees(p0[2])), 2)],
                 note="pose of the base rotation centre; in-place turns turn about it; a line moves along the robot's CURRENT +x axis (negative = backwards)",
                 supports_world_frame_xy_m=dict(counter_1=sup["counter"], counter_2=sup["counter2"]))
-    if legacy_hints:
-        base["routes_known_good"] = {td.routes[0][0]: r1}
     return dict(task=task, instruction=text, start_xy=obj["start_xy"], goal_xy=goal, goal_support=td.goal_support, goal_top=sup[td.goal_support]["top"],
                 goal_tol_m=GOAL_TOL_M, supports=sup, object=obj, base=base)
 
@@ -126,9 +121,9 @@ def _task_spec_bookcase(task, world=None):
     td = TK.task(str(task))
     be = BR.default_backend()
     w = world if world is not None else be.world_default(task)
-    sup = {k: dict(top=round(float(v["top"]), 4), x=[round(float(a), 4) for a in v["x"]], y=[round(float(a), 4) for a in v["y"]]) for k, v in be.supports(w).items()}
-    gx, gy = td.goal_dxy
-    goal = [round(float(w.obj_xy[0] + gx), 4), round(float(w.obj_xy[1] + gy), 4)]
+    sup = {k: dict(top=round(float(v["top"]), 4), x=[round(float(a), 4) for a in v["x"]], y=[round(float(a), 4) for a in v["y"]],
+                   **({"yaw_deg": round(float(np.degrees(v["yaw"])), 2)} if abs(v.get("yaw", 0.0)) > 0.0 else {})) for k, v in be.supports(w).items()}      # x / y = the AABB of an oriented top
+    goal = [round(float(v), 4) for v in be.goal(w)["goal_xy"]]               # the world's goal (geometry backend), not start + a fixed offset
     p0 = be.start_pose(w)
     obj = dict(name="closed crate", footprint_xy_m=[w.box_outer[0], w.box_outer[1]], height_m=w.box_outer[2], empty_mass_kg=OB.BOX["mass"],
                grasp="end tabs on the +y and -y sides, tab centre %.4f m above the support" % SC.GRASP_Z,
@@ -153,7 +148,7 @@ def robot_limits():
 
 def scene_facts(task, world=None):
     """everything the model may know about the scene (JSON-able, deterministic).  No hidden truth.  Schema v2 (default): no hidden-parameter table, no sanity ranges, no
-    contents prior -- the phenomenon cards and the built-skill cards instead (skills/catalog.cards).  BIMANUAL_LEGACY_PROPOSER_V1=1: the 11-05..11-09 facts."""
+    contents prior -- the phenomenon cards and the built-skill cards instead (skills/catalog.cards). """
     sp = task_spec(task, world)
     behind = task in S.BASE_TASKS
     if behind:
@@ -164,34 +159,9 @@ def scene_facts(task, world=None):
     common = dict(task=sp, robot=robot_limits(), frame=frame,
                   grasp="Both claws are rigidly welded to the object at its handles/tabs for the whole motion (ASSUMED: grasping is not part of this task).  The object stays level.",
                   vocabulary=S.vocabulary(tuple(sp["supports"]), base=behind))
-    if not S.legacy_v1():
-        from world_model.v2.stack.skills import catalog as CAT
-        c = CAT.cards(task)
-        return dict(common, phenomena=c["phenomena"], measuring_skills=c["skills"])
-    P = S.params(task)
-    if behind:                                    # 11-08: no sanity ranges / contents prior in the table-behind prompt (validation still rejects a belief outside them, with the reason)
-        hp = {k: dict(unit=v["unit"], meaning=v["doc"]) for k, v in P.items()}
-    else:
-        hp = {k: dict(unit=v["unit"], sanity_range=[round(float(v["range"][0]), 4), round(float(v["range"][1]), 4)], meaning=v["doc"]) for k, v in P.items()}
-    return dict(common, hidden_parameters=hp)
-
-
-SYSTEM_V1 = """You are the high-level planner of a two-arm robot (two 7-DoF NERO arms) in a simulation. You write the plan; a separate low-level planner turns it into joint motions and a checker verifies it before anything moves. You never control joints.
-
-You must return ONE JSON object and nothing else (no prose outside it, no code fence needed). Format:
-{"belief": {"<hidden parameter>": [lo, hi], ...},
- "steps": [{"skill": "<name>", "args": {...}, "why": "<one short sentence>"}, ...],
- "recoveries": {"<step index>": [{"skill": "<recovery skill>", "args": {}, "covers": {"<hidden parameter>": [lo, hi]}}, ...], ...},
- "fallback": [{"skill": "<recovery skill>", "args": {}}, ...]}
-
-Rules:
-1. belief: give a range [lo, hi] for EVERY hidden parameter listed in the scene facts, wide enough that you believe the true value lies inside it. The robot will measure the load with a probe before moving; if the measurement falls outside your belief you will be asked again, so be honest about what you do not know.
-2. steps: a sequence of SEGMENTS, one object-level motion each (lift, move, place), then release as the LAST step. Exactly one place, directly before release. Use only the skills and argument ranges listed in the scene facts. All numbers are metres in the world frame.
-3. recoveries: for EVERY motion step (lift, move, place) give at least one recovery skill that is safe to run if the step has to be abandoned halfway (hold, retrace, set_down, let_go). Keys are the 0-based step indices as strings. "covers" is optional: the part of your belief the recovery is written for (a sub-range of the belief). Only the first recovery of a step is executed today; list the best one first. Letting go in the air drops the object.
-4. fallback: 1 to 3 recovery skills to run if the whole plan is not admitted (nothing has moved yet; the object is still on its start support).
-5. The object must clear everything it passes over, must end within the goal tolerance of the task goal on the named support, and must never be dragged along a support: horizontal motion needs height above the support.
-6. You do not set speeds or accelerations; the checker admits or slows the plan.
-7. Unknown skills, extra keys, missing keys or numbers outside the ranges make the whole reply invalid; it is then rejected, not repaired."""
+    from world_model.v2.stack.skills import catalog as CAT
+    c = CAT.cards(task)
+    return dict(common, phenomena=c["phenomena"], measuring_skills=c["skills"])
 
 
 SYSTEM_V2 = """You are the high-level planner of a two-arm robot (two 7-DoF NERO arms) in a simulation. You write the plan; a separate low-level planner turns it into joint motions and a checker verifies it before anything moves. You never control joints.
@@ -220,8 +190,8 @@ Rules:
 
 
 def system():
-    """the system prompt of the current format (schema v2 unless BIMANUAL_LEGACY_PROPOSER_V1=1)."""
-    return SYSTEM_V1 if S.legacy_v1() else SYSTEM_V2
+    """the system prompt of the current format (schema v2)."""
+    return SYSTEM_V2
 
 
 def __getattr__(name):                        # PR.SYSTEM is read at call time (propose.py), so the env switch applies per call
@@ -238,50 +208,17 @@ def user_prompt(task, facts=None, world=None):
             "Return the JSON object now.")
 
 
-def uncovered(belief, probe_set):
-    """parts of the probe set outside B: {param: [[lo, hi], ...]}."""
-    out = {}
-    for k, (lo, hi) in probe_set.items():
-        b = belief.get(k)
-        if b is None:
-            out[k] = [[lo, hi]]
-            continue
-        parts = []
-        if lo < b[0] - 1e-9:
-            parts.append([lo, min(hi, b[0])])
-        if hi > b[1] + 1e-9:
-            parts.append([max(lo, b[1]), hi])
-        if parts:
-            out[k] = parts
-    return out
-
-
 def reask_prompt(task, plan_dict, evidence, facts=None, world=None):
     """Rule 2 re-ask.  Schema v2 (default): `evidence` = the dict nero/contents/probe_select builds ({trigger: "T1"|"T2"|"T4", readings, probes_skipped, failing_rows, worst,
-    phenomena_shown, coverage}); see reask_evidence_block.  BIMANUAL_LEGACY_PROPOSER_V1=1: the v1 prompt, `evidence` = probe_set {param: [lo, hi]} of the probed parameter(s)
-    (Rule 2 as of 11-05: the probe set is not inside B)."""
-    if not S.legacy_v1():
-        f = facts if facts is not None else scene_facts(task, world)
-        return (f"TASK_ID: {task}\n"
-                f"TASK: {f['task']['instruction']}\n\n"
-                f"SCENE FACTS (JSON):\n{json.dumps(f, sort_keys=True)}\n\n"
-                "YOUR PREVIOUS PLAN (JSON):\n" + json.dumps(S.reply_of(plan_dict), sort_keys=True) + "\n\n"
-                + reask_evidence_block(evidence) + "\n"
-                "Return a COMPLETE new plan in the same JSON format (phenomena, probes, steps, recoveries, fallback). Name the phenomena and the probes again; "
-                "change the steps and recoveries to what the evidence above requires. Return the JSON object now.")
-    probe_set = evidence
+    phenomena_shown, coverage}); see reask_evidence_block. """
     f = facts if facts is not None else scene_facts(task, world)
-    unc = uncovered(plan_dict["belief"], probe_set)
     return (f"TASK_ID: {task}\n"
             f"TASK: {f['task']['instruction']}\n\n"
             f"SCENE FACTS (JSON):\n{json.dumps(f, sort_keys=True)}\n\n"
-            "YOUR PREVIOUS PLAN (JSON):\n" + json.dumps({k: plan_dict[k] for k in ("belief", "steps", "recoveries", "fallback")}, sort_keys=True) + "\n\n"
-            "NEW MEASUREMENT: the robot's probe (arms push the object up and read the joint torques) shows the true value of the following parameters lies in these "
-            "ranges (treat them as correct):\n" + json.dumps(probe_set, sort_keys=True) + "\n"
-            "Part of this measured range lies OUTSIDE your previous belief: " + json.dumps(unc, sort_keys=True) + "\n"
-            "Return a COMPLETE new plan in the same JSON format. Its belief must contain the measured range, and its steps and recoveries must be written for the part "
-            "your previous plan did not cover (a recovery that was only safe inside the old belief may not be safe now; the object is heavier or lighter than you assumed). "
-            "Return the JSON object now.")
+            "YOUR PREVIOUS PLAN (JSON):\n" + json.dumps(S.reply_of(plan_dict), sort_keys=True) + "\n\n"
+            + reask_evidence_block(evidence) + "\n"
+            "Return a COMPLETE new plan in the same JSON format (phenomena, probes, steps, recoveries, fallback). Name the phenomena and the probes again; "
+            "change the steps and recoveries to what the evidence above requires. Return the JSON object now.")
 
 
 REASK_MARK = "RULE 2 RE-ASK"          # the mock proposer keys on it (mock.py)
@@ -306,7 +243,7 @@ def _scrub(x):
 
 def _scrub_evidence(ev):
     """the evidence minus every belief-box corner / worst vertex / contents COM (USER 11-17).  Kept: measured readings, skipped probes, failing row names + numbers that are not corners, coverage.
-    Legacy: BIMANUAL_LEGACY_REASK_WORST=1 keeps the old block."""
+    """
     out = dict(ev)
     out.pop("worst", None)
     for k in ("failing_rows", "probes_skipped", "fixed_constraints", "rule1_refusals"):
@@ -325,9 +262,7 @@ def reask_evidence_block(ev):
             "T2": f"{REASK_MARK} (T2): no recovery of your plan is viable on the parameter set the probes left (the checker refuses the plan on it).",
             "T4": f"{REASK_MARK} (T4): the checker refuses step(s) {steps_t4} of your plan (Rule 1: no recovery works for every remaining world from every stop point)."}[trig]
     parts = [head]
-    legacy = os.environ.get("BIMANUAL_LEGACY_REASK_WORST") == "1"
-    if not legacy:                                           # USER 11-17: no belief-box corner / worst vertex in the evidence (a clue towards the answer)
-        ev = _scrub_evidence(ev)
+    ev = _scrub_evidence(ev)                                 # USER 11-17: no belief-box corner / worst vertex in the evidence (a clue towards the answer)
     parts.append("READINGS (the robot's measurements; treat as correct; a one-sided reading has hi = null, i.e. only a lower bound was read):\n"
                  + json.dumps(ev.get("readings", []), sort_keys=True))
     if ev.get("probes_skipped"):
@@ -336,8 +271,6 @@ def reask_evidence_block(ev):
         parts.append("PHENOMENA SHOWN BY A READING AND NOT NAMED IN YOUR PLAN:\n" + json.dumps(ev["phenomena_shown"], sort_keys=True))
     if ev.get("failing_rows"):
         parts.append("FAILING CHECKER ROWS ON THE CURRENT SET:\n" + json.dumps(ev["failing_rows"], sort_keys=True))
-    if ev.get("worst") and legacy:
-        parts.append("WORST VERTEX OF THE BINDING ROW (contents mass m [kg], contents COM c [m], waypoint wp):\n" + json.dumps(ev["worst"], sort_keys=True))
     if ev.get("rule1_refusals"):
         parts.append("RULE 1 REFUSALS YOU CAN FIX (step, recovery, stop time, row, pair, distance vs limit, which of your plan's choices affects it):\n"
                      + json.dumps(ev["rule1_refusals"], sort_keys=True))
@@ -365,3 +298,63 @@ def rejection_prompt(task, attempts, facts=None, world=None, prefix=None):
                  "(stages: parse/schema = the reply format or ranges; compile = the plan's own consistency with the task; planner = the arms cannot build it, e.g. a joint limit "
                  "or a collision at the named step). Change only what the reasons require. Return the JSON object now.")
     return "\n".join(parts)
+
+
+# ----------------------------------------------------------------------------------------------------------------------- geometry mode (USER 11-19; BIMANUAL_GEOM_PROBE=1)
+# Codex gets NO scene numbers in its first prompt: the goal in words, the robot's own facts, four room photos (attached by the caller), the geometry schema, the probe cards.
+# It answers with priors (+ reasons), a 2D box per entity per photo (the robot's segmentation: privileged sim segmentation until Phase 8, ASSUMED) and probe requests.
+GEO_TASKS = ("box_bookcase",)
+GEO_GOAL = ("Put the closed crate (it holds hidden contents) from the counter in front of the robot into the lower compartment of the two-level bookcase behind the robot, "
+            "and let go.")
+GEO_PHOTOS = ("IMAGES: four photos from fixed lab cameras, one on each wall of the room (room_front, room_left, room_back, room_right, in this order), taken before anything moves. "
+              "Pixel coordinates (u right, v down) are those of the photo.")
+
+
+def geom_probe_on():
+    return os.environ.get("BIMANUAL_GEOM_PROBE", "") == "1"
+
+
+def _geo_check_task(task):
+    if str(task) not in GEO_TASKS:
+        raise ValueError(f"geometry mode is built for {GEO_TASKS} only (got {task!r})")
+
+
+def geo_task_spec(task):
+    """the goal in words; no number."""
+    _geo_check_task(task)
+    return GEO_GOAL
+
+
+GEO_REPLY_FORMAT = (
+    'Reply with ONE JSON object and nothing else:\n'
+    '{"entities": [{"name": str, "kind": "object"|"support"|"obstacle", "roles": ["carried"|"goal_support", ...],\n'
+    '               "priors": {"cx": [lo, hi], "cy": [lo, hi], "cz": [lo, hi], "sx": [lo, hi], "sy": [lo, hi], "sz": [lo, hi], "yaw": [lo, hi]},\n'
+    '               "why": {"cx": str, ...},\n'
+    '               "boxes": {"room_front": [u0, v0, u1, v1], "room_left": [...], "room_back": [...], "room_right": [...]}}, ...],\n'
+    ' "probes": [{"probe": "measure_box"|"measure_support", "entity": "<an entity name above>"}, ...],\n'
+    ' "why": str}\n'
+    "boxes: for every entity and every photo that shows it, the 2D box [u0, v0, u1, v1] in pixels around it (omit a photo that does not show it). "
+    "Priors are guesses with a reason each; the checker never uses them, only probe readings and the robot model. Ask for a probe on every entity whose geometry the plan needs "
+    "(the carried object, the surface it starts on, the surface it must end on, and anything the arms or base could hit).")
+
+
+def geo_first_prompt(task):
+    """the full text of the first geometry-mode prompt (deterministic; no scene number, no structure content: an empty structure)."""
+    from world_model.v2.stack import geometry as GM
+    from world_model.v2.stack.skills import catalog as CAT
+    parts = [f"TASK_ID: {task}", f"TASK: {geo_task_spec(task)}", GEO_PHOTOS,
+             "ROBOT (self-knowledge, JSON):\n" + json.dumps(robot_limits(), sort_keys=True),
+             "GEOMETRY SCHEMA:\n" + GM.schema_for_prompt(),
+             "PROBE CARDS (JSON):\n" + json.dumps(CAT.geometry_cards(), sort_keys=True),
+             "GEOMETRY STRUCTURE SO FAR (empty):\n" + json.dumps(GM.GeometrySet().codex_view(), sort_keys=True),
+             GEO_REPLY_FORMAT]
+    return "\n\n".join(parts) + "\n"
+
+
+def geo_plan_prompt(task, gs):
+    """second round: the established geometry (priors, readings, sets, status, contradictions) and the ask for the plan in the existing plan schema."""
+    _geo_check_task(task)
+    return (f"TASK_ID: {task}\nTASK: {geo_task_spec(task)}\n\n"
+            "GEOMETRY STRUCTURE (JSON; 'set' = what the probes and the robot model established; a field with status 'missing' or 'contradiction' is unusable by the checker):\n"
+            + json.dumps(gs.codex_view(), sort_keys=True) + "\n\n"
+            "Now give the plan in the plan format of the system prompt (phenomena, probes, steps, recoveries, fallback). Return the JSON object now.")

@@ -69,12 +69,14 @@ def test_swept_bound_below_dense_on_plans(plans, task, sg):
     assert n_checked >= 8
 
 
-def test_collision_rows_admit_nominal_plans(plans, monkeypatch):
-    """the UNTILTED row (BIMANUAL_LEGACY_UNTILTED_COLLISION=1) admits the nominal plans by proof; without a tilt measurement the default
-    (tilt-aware, USER 11-17) row is MISSING (fail closed): see adapters/tests/test_tilt_collision_gate.py."""
-    from world_model.v2.adapters import collision_rows as CR
-    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")
+@pytest.mark.skip(reason="RETIRED (USER 11-19): fixed-base task, out of scope; with the measured load tilt its nominal plan is refused at lift (4.4 mm < 5 mm, n=4 tilt). Listed in docs/status/checker_measured_set_plan_2026-11-19.md Part 3")
+def test_collision_rows_admit_nominal_plans(plans):
+    """the tilt-aware row (USER 11-17) admits the nominal plans with the load tilt MEASURED per plan (n = 4 ASSUMED test choice); its guarantee is "sampled"
+    (the tilt is a max over n worlds, not a proof).  Without a tilt measurement the row is MISSING (fail closed): adapters/tests/test_tilt_collision_gate.py."""
+    from world_model.v2.adapters import collision_rows as CR, contents_specs as CS
+    from world_model.v2.adapters.tests.tilt_input import measured_tilt
     for task, plan in plans.items():
-        r = CR.collision_rows(plan)
-        assert r.ok and r.guarantee == "proof", (task, r.why)
+        lo, hi = CS.prior_total(task)
+        r = CR.collision_rows(plan, tilt=measured_tilt(task, (lo, min(hi, lo + 0.5))))      # the lightest 0.5 kg cell of the prior
+        assert r.ok and r.guarantee == "sampled", (task, r.guarantee, r.why)
         assert set(r.worst["by_class"]) == set(K.CLASSES), (task, r.worst["by_class"].keys())

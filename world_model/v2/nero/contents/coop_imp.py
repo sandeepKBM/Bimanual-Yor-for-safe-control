@@ -11,8 +11,7 @@ Law (per control step, world frame, W = [W_L W_R], W_i = [[I,0],[S(r_i),I]], r_i
 T about each claw TCP):
   acc    = a_d - g                                  S = M_hat R c_nom   (belief load, same as LeverCtl)
   h_o*   = [M_hat acc ; S x acc] + [Kp e_p + Dp e_v ; Ko e_R + Do e_w]       e_R = 1/2 sum_k r_k x rd_k (object columns vs desired)
-  h_I    = (I - W^+ W) h_meas                       h_meas = joint-torque estimate pinv(J^T)(tau_applied - tau_model) (11-03: the real NERO has no wrist F/T sensor; see _h_hat); BIMANUAL_LEGACY_COOP_SENSOR=1 =
-                     the sim-only weld constraint wrench (carry.claw_wrench), 2 steps old max
+  h_I    = (I - W^+ W) h_meas                       h_meas = joint-torque estimate pinv(J^T)(tau_applied - tau_model) (11-03: the real NERO has no wrist F/T sensor; see _h_hat)
   h_I*   = h_I,des - kP_I (h_I - h_I,des) - kI_I int (h_I - h_I,des) dt        (h_I,des = f_sq along the grasp line, equal and opposite)
   h*     = W^+ h_o* + (I - W^+ W) h_I*
   qdd_i  = J_i^+ (a_cl,i - Jdot_i qdot_i) + N_i [Kn (q_ref,i - q_i) + Dn (qd_ref,i - qdot_i)]      (N_i = I - J_i^+ J_i; arm-only)
@@ -34,7 +33,7 @@ GAINS = dict(
     Dp=80.0,       # ASSUMED [N s/m]
     Ko=100.0,       # ASSUMED object orientation stiffness [Nm/rad] (400 unstable)
     Do=10.0,       # ASSUMED [Nm s/rad]
-    f_sq=(5.0 if CR.C.LEGACY_COOP_SQUEEZE else 0.0),   # USER 11-03: 0 N like Caccavale 2008 (internal forces "must be avoided"); BIMANUAL_LEGACY_COOP_SQUEEZE=1 = the old 5 N ASSUMED. Desired squeeze along the grasp line [N]
+    f_sq=CR.C.coop_f_sq(),   # USER 11-03: 0 N like Caccavale 2008 (internal forces "must be avoided"). Desired squeeze along the grasp line [N]
     kP_I=0.3,       # ASSUMED internal wrench P gain (dimensionless)
     kI_I=2.0,       # ASSUMED internal wrench I gain [1/s]
     I_max=40.0,     # ASSUMED clamp on the internal integrator (per component, N or Nm)
@@ -255,14 +254,11 @@ class CoopImpCtl(CR.LeverCtl):
         if g["alloc"]:                      # internal setpoint = torque-balanced load sharing (IRLS-weighted least squares)
             h_des = self._alloc(Js, arm, Wp @ h_o, h_sq, Ni)
         h_true = np.asarray(self.ref_in["h_meas"], float)       # sim truth: the weld constraint wrench (no real counterpart)
-        if CR.C.LEGACY_COOP_SENSOR:                              # BIMANUAL_LEGACY_COOP_SENSOR=1: the pre-11-03 controller input
-            h_meas = h_true
-        else:
-            h_meas = self._h_hat(d, M, Js)
-            self.err_hist.append((max(float(np.linalg.norm((h_meas - h_true)[6 * i:6 * i + 3])) for i in range(2)),
-                                  max(float(np.linalg.norm((h_meas - h_true)[6 * i + 3:6 * i + 6])) for i in range(2)),
-                                  max(float(np.linalg.norm(h_true[6 * i:6 * i + 3])) for i in range(2)),
-                                  max(float(np.linalg.norm(h_true[6 * i + 3:6 * i + 6])) for i in range(2))))
+        h_meas = self._h_hat(d, M, Js)
+        self.err_hist.append((max(float(np.linalg.norm((h_meas - h_true)[6 * i:6 * i + 3])) for i in range(2)),
+                              max(float(np.linalg.norm((h_meas - h_true)[6 * i + 3:6 * i + 6])) for i in range(2)),
+                              max(float(np.linalg.norm(h_true[6 * i:6 * i + 3])) for i in range(2)),
+                              max(float(np.linalg.norm(h_true[6 * i + 3:6 * i + 6])) for i in range(2))))
         h_I = Ni @ h_meas
         err = h_I - h_des
         self.I_int = np.clip(self.I_int + err * dt, -g["I_max"] / max(g["kI_I"], 1e-9), g["I_max"] / max(g["kI_I"], 1e-9))

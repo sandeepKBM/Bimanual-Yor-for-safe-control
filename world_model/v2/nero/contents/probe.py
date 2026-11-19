@@ -60,8 +60,11 @@ T_HOLD = 0.4         # design: hold before reading [s]
 N_READ = 40          # design: readings averaged over the last N_READ control steps of the hold (0.2 s)
 FREE_RATIO = 0.2     # ASSUMED: "free" when the read grows by less than FREE_RATIO x the push step (one rung; calibrated)
 TAU_NOISE = 0.05     # ASSUMED: joint-torque reading noise, uniform +-TAU_NOISE per joint [Nm] (real NERO value unknown)
-PROBE_METHOD = os.environ.get("BIMANUAL_PROBE", "claw_guard")   # default "claw_guard" (USER 11-13); "poslift" (option A, the default 11-09..11-13: BIMANUAL_PROBE=poslift) | "poslift_ff" | "ladder" (11-03); make_probe(method=) overrides
-METHODS = ("poslift", "ladder", "poslift_ff", "claw_guard")     # poslift_ff, claw_guard: Stage 0b (11-12); claw_guard is the default since 11-13 (USER)
+PROBE_METHOD = os.environ.get("BIMANUAL_PROBE", "claw_guard")   # default "claw_guard" (USER 11-13); "poslift" | "poslift_ff"; make_probe(method=) overrides
+METHODS = ("poslift", "poslift_ff", "claw_guard")               # selectable probe methods (env BIMANUAL_PROBE / CLI); claw_guard is the default since 11-13 (USER).  The push ladder (class Probe) is no longer selectable by env / CLI
+_PROGRAMMATIC = ("ladder",)                                     # make_probe(method="ladder") only: probe_al (AL = push ladder) and the probe_liftoff variants subclass / patch Probe
+if PROBE_METHOD not in METHODS:
+    raise ValueError(f"BIMANUAL_PROBE={PROBE_METHOD!r} not in {METHODS}")
 # poslift constants (option A, "lift by position, read while holding"; env PL_* kept from the 11-09 prototype runs)
 DZ = float(os.environ.get("PL_DZ", 0.001))               # ASSUMED, USER-approved 11-09 (poslift): height step between rungs [m]
 Z_MAX = float(os.environ.get("PL_Z_MAX", 0.020))         # ASSUMED, USER-approved 11-09 (poslift): hard cap on the commanded claw rise [m]
@@ -109,7 +112,7 @@ def prior_contents(task):
     return OB.BOX_CONTENTS_KG
 
 
-def interval_spec(task, c_lo, c_hi, com=None):
+def interval_spec(task, c_lo, c_hi, com=None, world=None):
     """ObjectSpec for contents mass in [c_lo, c_hi].  Tray: the total fill is known only as a total, so one mug may hold all of
     it: per-mug fill <= min(fill_max, total fill hi) sets the spill limit (MODEL, conservative)."""
     if com is not None and task != "box":
@@ -117,7 +120,7 @@ def interval_spec(task, c_lo, c_hi, com=None):
     if task == "pot":
         return SC.pot_spec(c_lo, c_hi)                       # solid puck: no spill row; the loose-lid slide limit (mu_lid_min g) is the open-content row
     if not task.startswith("tray"):
-        return OB.boxed(c_lo, c_hi, com=com)
+        return OB.boxed(c_lo, c_hi, com=com, outer=getattr(world, "box_outer", None))      # world: the run world's drawn crate (contents prism / empty COM)
     n = n_cups(task)
     sp = OB.coffee_tray(n)
     sp.contents = OB.Contents(c_lo, c_hi, sp.contents.P, dict(sp.contents.labels, m=f"probe interval {c_lo:.3f}..{c_hi:.3f} kg"))
@@ -131,7 +134,7 @@ def interval_spec(task, c_lo, c_hi, com=None):
 def static_interval(task, c_lo, c_hi, world=None, planner=None, wp=None):
     """planner (11-05): None -> carry.resolve_planner() (env BIMANUAL_PLANNER, default "scripted").  wp: a closed_chain.WaypointPlan (the proposer's plan)."""
     world = world if world is not None else CC.world_default(task)
-    return CC.static_cell(task, (round(c_lo, 4), round(c_hi, 4)), world, spec=interval_spec(task, c_lo, c_hi), planner=planner, wp=wp)
+    return CC.static_cell(task, (round(c_lo, 4), round(c_hi, 4)), world, spec=interval_spec(task, c_lo, c_hi, world=world), planner=planner, wp=wp)
 
 
 def c_admit_max(task, tol=0.01, planner=None, wp=None):
@@ -155,30 +158,38 @@ def _c_admit_max(task, tol, planner, wp=None):
     return a
 
 
-def _rest_envelope(task, planner=None):
-    return _rest_envelope_c(task, CR.resolve_planner(planner))
+_REST = {}
 
 
-@functools.lru_cache(maxsize=None)
-def _rest_envelope_c(task, planner):
+def _rest_envelope(task, planner=None, world=None):
+    """rest-pose envelope of the planner's start configuration.  world (11-19): the RUN world (claws on its tabs = nyu_hold.hold_pose via the planner's inputs, object
+    reference point of that world); None = the nominal scene.  Only the closed_chain planner follows the world (the scripted legacy path stays on the captured pose)."""
+    from . import nyu_hold as NH
+    pl = CR.resolve_planner(planner)
+    k = (task, pl, None if (world is None or pl != "closed_chain") else NH._hold_key(world))
+    if k not in _REST:
+        _REST[k] = _rest_envelope_c(task, pl, world if pl == "closed_chain" else None)
+    return _REST[k]
+
+
+def _rest_envelope_c(task, planner, world=None):
     spec = interval_spec(task, *prior_contents(task))
     caps = json.loads(TH.CAP_FILE.read_text())
     if planner == "closed_chain":
         from ...stack.planners import closed_chain as CCP
-        offs, _, cap = CCP.static_path(task)
+        offs, _, cap = CCP.static_path(task, None, world)
     else:
         offs, _ = CC.path_offsets(task)
         cap = TH.capture_path(caps["pot"], offs)
-    tl, tr = np.asarray(caps["pot"]["tcp"]["W0_liftoff"]["left"]), np.asarray(caps["pot"]["tcp"]["W0_liftoff"]["right"])
-    o_ref = 0.5 * (tl + tr) - np.array([0, 0, TH.GRASP_DZ])
+    o_ref = TH.o_ref(world)
     return E.Envelope(spec, E.Arms(cap), o_ref, np.eye(3), ["left", "right"], grip_mass=caps["pot"]["gripper_mass"], offsets=offs)
 
 
-def rung_torque_u(task, m_ff):
+def rung_torque_u(task, m_ff, world=None):
     """static u at the rest pose (path key p0, a = 0) carrying total mass m_ff (contents m_ff - empty, COM anywhere in P): MODEL."""
     c = max(m_ff - empty_mass(task), 0.0)
     P = interval_spec(task, *prior_contents(task)).contents.P
-    u, _ = _rest_envelope(task).worst(OB.Contents(c, c, P), ["p0"], 0.0, "two_lever")
+    u, _ = _rest_envelope(task, world=world).worst(OB.Contents(c, c, P), ["p0"], 0.0, "two_lever")
     return float(u)
 
 
@@ -251,7 +262,7 @@ class Probe:
         return float(np.mean(reads)), float(max(nbs)), rise
 
     def admissible(self, m_to):
-        u = rung_torque_u(self.task, m_to)
+        u = rung_torque_u(self.task, m_to, getattr(getattr(self, "ep", None), "world", None))
         over = m_to - self.M_lo
         return (u <= E.U_ADMIT and over <= O_MAX + 1e-9), dict(u=round(u, 4), overshoot=round(over, 4))
 
@@ -294,21 +305,20 @@ class PosLiftProbe(Probe):
     """option A (user 11-09), "lift by position, read while holding": feed-forward ctl.mass = M_lo (current lower bound of the total mass); height ladder:
     both claws move up DZ over T_MOVE, hold T_HOLD_POSLIFT, read L (mean of the last N_READ steps).  Each rung: M_lo <- max(M_lo, L - EPS_LO - nb).  FREE when
     the last N_FREE_CONFIRM dL = L_k - L_{k-1} are all < FREE_TOL in magnitude -> interval [L - EPS_FREE - nb, L + EPS_FREE + nb].  Stops: decided_refuse
-    (M_lo > M_stop), rung_not_admissible (static u(M_lo) > U_ADMIT, or the predictive pre-check u(L_last + DL_STEP_MAX + eps_lo + nb) > U_ADMIT), z_cap
+    (M_lo > M_stop), rung_not_admissible (static u(M_lo) > U_ADMIT, or the adaptive step below DZ_MIN), z_cap
     (Z_MAX; lower bound only), load_guard (u(read L) > U_ADMIT after a hold; lower bound only).  Decisions use robot-side numbers only; the sim-truth claw
     payload row (ep.track["viol"]) is recorded as `sim_abort` (diagnostic, no stop).  u_read_max = max u(read L).  The claws
     are always moved back to the start height before returning.  Same Probe interface (M_lo, M_hi, m_ff, rungs, track, _ramp, admissible)."""
     method = "poslift"
 
-    def __init__(self, *a, dl_step_max=None, adaptive=True, k_step=None, dz_min=None, **k):
-        """adaptive=True (default, 11-09): step dz_k = min(DZ, H / K_STEP), H = L_admit_max - (L_last + eps_lo + nb); stop when dz_k < dz_min.
-        adaptive=False: the fixed-DZ probe with the DL_STEP_MAX pre-check (reproduction of the 11-09 runs)."""
+    def __init__(self, *a, adaptive=True, k_step=None, dz_min=None, **k):
+        """step dz_k = min(DZ, H / K_STEP), H = L_admit_max - (L_last + eps_lo + nb); stop when dz_k < dz_min.  The fixed-step probe (adaptive=False) was removed 11-19."""
+        if not adaptive:
+            raise ValueError("the fixed-step poslift probe (adaptive=False) was removed 11-19")
         super().__init__(*a, **k)
         self.peak_u, self.probe_time_s = 0.0, None
-        self.dl_step_max = poslift_dl_step_max() if dl_step_max is None else float(dl_step_max)   # MEASURED (CALIB DL_STEP_MAX)
-        self.adaptive = bool(adaptive)
-        # MEASURED [kg/mm] (CALIB K_STEP); only the adaptive step needs it (review 11-09: the fixed-step reproduction must run on the old CALIB without K_STEP)
-        self.k_step = (poslift_k_step()[0] if k_step is None else float(k_step)) if self.adaptive else None
+        self.adaptive = True
+        self.k_step = poslift_k_step()[0] if k_step is None else float(k_step)       # MEASURED [kg/mm] (CALIB K_STEP)
         self.dz_min = DZ_MIN if dz_min is None else float(dz_min)
         self.summary = None
         self.guard_events, self.sim_abort, self.u_read_max = [], None, 0.0
@@ -353,19 +363,12 @@ class PosLiftProbe(Probe):
                     why = "rung_not_admissible"
                     break
                 dz_k, headroom = DZ, None
-                if prev_L is not None and self.adaptive:    # adaptive step: largest dz whose predicted load stays admissible (robot-side numbers only)
+                if prev_L is not None:    # adaptive step: largest dz whose predicted load stays admissible (robot-side numbers only)
                     headroom = self._headroom(prev_L, last_nb)
                     dz_k = adaptive_dz(headroom, self.k_step)
                     if dz_k < self.dz_min - 1e-12 or self._switch(headroom):
                         self.guard_events.append(dict(kind="pre_check", headroom=round(headroom, 4), dz_k=round(dz_k, 6)))
                         why = self._after_height(prev_L, last_nb, M_stop)     # poslift: "rung_not_admissible" (unchanged); poslift_ff: the force-step finish
-                        break
-                elif prev_L is not None:                    # fixed step: predictive pre-check of the load the claws carry AFTER the next height step
-                    L_pred = prev_L + self.dl_step_max + self.eps_lo + last_nb
-                    u_pred = rung_torque_u(self.task, L_pred)
-                    if u_pred > E.U_ADMIT:
-                        self.guard_events.append(dict(kind="pre_check", L_pred=round(L_pred, 4), u_pred=round(u_pred, 4)))
-                        why = "rung_not_admissible"
                         break
                 if zc + dz_k > Z_MAX + 1e-9:
                     why = "z_cap"
@@ -441,7 +444,7 @@ class PosLiftProbe(Probe):
     # ---- hooks (Stage 0b, 11-12).  The poslift versions below are the expressions the loop used before (bit-identical).
     def _headroom(self, prev_L, last_nb):
         """load [kg] the next height step may add before the guard row: total load at the worst COM (MODEL l_admit_max) minus read + eps + noise bound."""
-        return l_admit_max(self.task) - (prev_L + self.eps_lo + last_nb)
+        return l_admit_max(self.task, world=getattr(getattr(self, "ep", None), "world", None)) - (prev_L + self.eps_lo + last_nb)
 
     def _switch(self, headroom):
         """poslift: never (the dz < DZ_MIN rule alone stops the height ladder)."""
@@ -452,7 +455,7 @@ class PosLiftProbe(Probe):
         return "rung_not_admissible"
 
     def _u_read(self, L):
-        return rung_torque_u(self.task, L)
+        return rung_torque_u(self.task, L, getattr(getattr(self, "ep", None), "world", None))
 
     def _rec_extra(self, rec):
         pass
@@ -481,41 +484,42 @@ def flat_update(flat_mm, dL, dz):
 _L_ADMIT = {}
 
 
-def l_admit_max(task, hi=30.0):
+def _wk(world):
+    """cache key of the world's hold geometry (None = nominal)."""
+    from . import nyu_hold as NH
+    return None if world is None else NH._hold_key(world)
+
+
+def l_admit_max(task, hi=30.0, world=None):
     """largest total load L [kg] with rung_torque_u(task, L) <= U_ADMIT (worst COM; bisection, u is nondecreasing in L): MODEL.  Cached per task."""
-    if task not in _L_ADMIT:
+    k = (task, _wk(world))
+    if k not in _L_ADMIT:
         lo = empty_mass(task)
-        if rung_torque_u(task, hi) <= E.U_ADMIT:
-            _L_ADMIT[task] = hi
-        elif rung_torque_u(task, lo) > E.U_ADMIT:
-            _L_ADMIT[task] = lo
+        if rung_torque_u(task, hi, world) <= E.U_ADMIT:
+            _L_ADMIT[k] = hi
+        elif rung_torque_u(task, lo, world) > E.U_ADMIT:
+            _L_ADMIT[k] = lo
         else:
             for _ in range(40):
                 mid = 0.5 * (lo + hi)
-                lo, hi = (mid, hi) if rung_torque_u(task, mid) <= E.U_ADMIT else (lo, mid)
-            _L_ADMIT[task] = lo
-    return _L_ADMIT[task]
+                lo, hi = (mid, hi) if rung_torque_u(task, mid, world) <= E.U_ADMIT else (lo, mid)
+            _L_ADMIT[k] = lo
+    return _L_ADMIT[k]
 
 
 def _calib_path():
-    return os.environ.get("PL_CALIB") or POSLIFT_CALIB      # PL_CALIB: read-only override of the calibration file (smoke / reproduction)
+    return POSLIFT_CALIB
 
 
 def poslift_k_step():
-    """(K_STEP [kg/mm], source).  MEASURED max over still-on-counter rungs of dL/dz (CALIB.json K_STEP).  A CALIB.json without K_STEP (11-09 file, all rungs
-    at DZ = 1 mm) falls back to DL_STEP_MAX / (DZ in mm): MEASURED at dz = DZ only, no smaller-step data."""
+    """(K_STEP [kg/mm], source).  MEASURED max over still-on-counter rungs of dL/dz (CALIB.json K_STEP).  """
     c = json.loads(pathlib.Path(_calib_path()).read_text())
     if "K_STEP" in c:
         return float(c["K_STEP"]["value"]), "CALIB K_STEP"
-    # 11-09 owner review: no silent fallback.  DL_STEP_MAX / DZ is MEASURED at dz = DZ only and under-states dL/dz at small steps
-    # (load lag): with it a heavy box read u = 1.05 before the post-hold guard stopped it.  The adaptive probe needs a MEASURED K_STEP.
-    raise ValueError(f"adaptive poslift probe needs K_STEP in {_calib_path()} (run probe_liftoff calibrate --variant poslift_mixed); "
-                     "use make_probe(..., adaptive=False) for the fixed-step probe")
+    # no silent fallback: the adaptive probe needs a MEASURED K_STEP.
+    raise ValueError(f"adaptive poslift probe needs K_STEP in {_calib_path()} (run probe_liftoff calibrate --variant poslift_mixed)")
 
 
-def poslift_dl_step_max():
-    """MEASURED largest per-rung load increase on the counter (CALIB.json DL_STEP_MAX, poslift)."""
-    return float(json.loads(pathlib.Path(_calib_path()).read_text())["DL_STEP_MAX"]["value"])
 
 
 # ------------------------------------------------------------------------------------------------- Stage 0b (11-12): poslift_ff and claw_guard
@@ -644,17 +648,17 @@ class PosLiftFFProbe(PosLiftProbe):
         return dict(ff=self.ff, dm_fine=self.dm_fine, ff_free_ratio=self.ff_free_ratio, ff_t_hold=self.ff_t_hold, jump=self.jump, jump_src=self.jump_src)
 
 
-def claw_cap_kg(task):
+def claw_cap_kg(task, world=None):
     """per-claw vertical load limit [kg] = the static rows' F_cap / g (envelope: NERO payload rating 3 kg MEASURED-spec minus the gripper mass, per arm; MODEL)."""
-    return float(_rest_envelope(_base_key(task)).F_cap / G)
+    return float(_rest_envelope(_base_key(task), world=world).F_cap / G)
 
 
-def rung_tau_u(task, L):
+def rung_tau_u(task, L, world=None):
     """joint-torque part only of rung_torque_u: worst over the COM set P of max_j |tau_j| / tau_lim_j at the rest pose, total mass L, lever split (MODEL;
     the envelope's tau detail is rounded to 1e-3 Nm)."""
     tk = _base_key(task)
     c = max(L - empty_mass(tk), 0.0)
-    env = _rest_envelope(tk)
+    env = _rest_envelope(tk, world=world)
     best = 0.0
     for pi in OB.Contents(c, c, interval_spec(tk, *prior_contents(tk)).contents.P).pi_vertices():
         _, det = env.u("p0", pi, np.zeros(3), "two_lever")
@@ -665,21 +669,22 @@ def rung_tau_u(task, L):
 _L_TAU = {}
 
 
-def l_tau_admit_max(task, hi=30.0):
+def l_tau_admit_max(task, hi=30.0, world=None):
     """largest total load with rung_tau_u <= U_ADMIT (bisection; MODEL).  Cached."""
     tk = _base_key(task)
-    if tk not in _L_TAU:
+    k = (tk, _wk(world))
+    if k not in _L_TAU:
         lo = empty_mass(tk)
-        if rung_tau_u(tk, hi) <= E.U_ADMIT:
-            _L_TAU[tk] = hi
-        elif rung_tau_u(tk, lo) > E.U_ADMIT:
-            _L_TAU[tk] = lo
+        if rung_tau_u(tk, hi, world) <= E.U_ADMIT:
+            _L_TAU[k] = hi
+        elif rung_tau_u(tk, lo, world) > E.U_ADMIT:
+            _L_TAU[k] = lo
         else:
             for _ in range(40):
                 mid = 0.5 * (lo + hi)
-                lo, hi = (mid, hi) if rung_tau_u(tk, mid) <= E.U_ADMIT else (lo, mid)
-            _L_TAU[tk] = lo
-    return _L_TAU[tk]
+                lo, hi = (mid, hi) if rung_tau_u(tk, mid, world) <= E.U_ADMIT else (lo, mid)
+            _L_TAU[k] = lo
+    return _L_TAU[k]
 
 
 def claw_u(L_sides, cap_kg):
@@ -777,11 +782,11 @@ class ClawGuardProbe(PosLiftProbe):
             self.eps_claw, self.eps_claw_src = self.eps_lo, "ASSUMED = eps_lo (total-load residual; per-claw residual not yet MEASURED)"
         if k_step_claw is not None:
             self.k_step, self.k_step_src = float(k_step_claw), "argument"
-        elif self.adaptive and "K_STEP_CLAW" in cal:
+        elif "K_STEP_CLAW" in cal:
             self.k_step, self.k_step_src = cal["K_STEP_CLAW"]
         else:
             self.k_step_src = "pooled total K_STEP (CALIB of poslift); transfer to the per-claw load ASSUMED"
-        self.cap_kg = claw_cap_kg(self.task)
+        self.cap_kg = claw_cap_kg(self.task, getattr(getattr(self, "ep", None), "world", None))
         self._buf, self._last_sides, self._last_u, self._last_h = [], None, None, None
         self._truth_now = {s: 0.0 for s in CR.SIDES}
 
@@ -820,14 +825,14 @@ class ClawGuardProbe(PosLiftProbe):
 
     def _u_read(self, L):
         sd = self._consume()
-        u_c, u_t = claw_u(sd["L"], self.cap_kg), rung_tau_u(self.task, L)
+        u_c, u_t = claw_u(sd["L"], self.cap_kg), rung_tau_u(self.task, L, getattr(getattr(self, "ep", None), "world", None))
         self._last_u = (u_c, u_t)
         return max(u_c, u_t)
 
     def _headroom(self, prev_L, last_nb):
         sd = self._last_sides
         h_c = claw_headroom(sd["L"], sd["nb"], self.eps_claw, self.cap_kg)
-        h_t = l_tau_admit_max(self.task) - (prev_L + self.eps_lo + last_nb)
+        h_t = l_tau_admit_max(self.task, world=getattr(getattr(self, "ep", None), "world", None)) - (prev_L + self.eps_lo + last_nb)
         self._last_h = (h_c, h_t)
         return min(h_c, h_t)
 
@@ -836,7 +841,7 @@ class ClawGuardProbe(PosLiftProbe):
             return super().admissible(m_to)                  # before the first read: today's row (worst COM)
         sd = self._last_sides
         u_c = max((sd["L"][s] + self.eps_claw + sd["nb"][s]) / self.cap_kg for s in CR.SIDES)
-        u_t = rung_tau_u(self.task, m_to)
+        u_t = rung_tau_u(self.task, m_to, getattr(getattr(self, "ep", None), "world", None))
         over = m_to - self.M_lo
         u = max(u_c, u_t)
         return (u <= E.U_ADMIT and over <= O_MAX + 1e-9), dict(u=round(u, 4), overshoot=round(over, 4), u_claw=round(u_c, 4), u_tau=round(u_t, 4))
@@ -873,7 +878,7 @@ class ClawGuardProbe(PosLiftProbe):
     def _summary_extra(self):
         last = self.rungs[-1].get("claw") if self.rungs else None
         return dict(claw=dict(cap_kg=round(self.cap_kg, 4), eps_claw=self.eps_claw, eps_claw_src=self.eps_claw_src, k_step=self.k_step,
-                              k_step_src=getattr(self, "k_step_src", None), l_tau_admit_max=round(l_tau_admit_max(self.task), 4),
+                              k_step_src=getattr(self, "k_step_src", None), l_tau_admit_max=round(l_tau_admit_max(self.task, world=getattr(getattr(self, "ep", None), "world", None)), 4),
                               split_last=None if last is None else last["split"], split_last_free=bool(self.rungs and self.rungs[-1]["free"]),
                               com_truth_offset_m=self._com_truth_offset()))
 
@@ -904,10 +909,10 @@ def _new_method_assumptions(method):
 
 
 def make_probe(ep, task, eps_lo, eps_free, rng=None, noise=True, method=None, adaptive=True):
-    """the one place a Probe is built.  method None -> PROBE_METHOD (env BIMANUAL_PROBE, default "claw_guard" since 11-13).  "ladder" returns the module's `Probe`
-    (looked up now, so probe_variants / probe_liftoff, which patch P.Probe, keep working)."""
+    """the one place a Probe is built.  method None -> PROBE_METHOD (env BIMANUAL_PROBE, default "claw_guard" since 11-13).  method="ladder" (programmatic only, not in METHODS) returns the module's
+    `Probe` (looked up now, so probe_liftoff, which patches P.Probe, and probe_al keep working)."""
     method = PROBE_METHOD if method is None else method
-    if method not in METHODS:
+    if method not in METHODS + _PROGRAMMATIC:
         raise ValueError(f"probe method {method!r} not in {METHODS}")
     cls = {"poslift": PosLiftProbe, "poslift_ff": PosLiftFFProbe, "claw_guard": ClawGuardProbe}.get(method) or Probe
     pr = cls(ep, task, eps_lo, eps_free, rng=rng, noise=noise, **(dict(adaptive=adaptive) if method != "ladder" else {}))
@@ -931,7 +936,7 @@ def default_calib(method=None):
 def _k_step_note():
     try:
         k, src = poslift_k_step()
-    except ValueError as e:                    # a CALIB without K_STEP (fixed-step runs): say so, do not invent a value
+    except ValueError as e:                    # a CALIB without K_STEP: say so, do not invent a value
         return f"not in CALIB ({e}); adaptive step unavailable"
     return f"MEASURED {k:.4g} kg/mm, {src} (adaptive step dz = min(DZ, H/K_STEP))"
 
@@ -947,7 +952,7 @@ def method_assumptions(method=None):
                     TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform", tracker="carry.LeverCtl (FL-MPC, pre-11-07)",
                     DZ_MIN=f"{DZ_MIN} m ASSUMED, USER-approved 11-09", K_STEP=_k_step_note(),
                     free_test="rate |dL|/dz < FREE_TOL/DZ",
-                    DL_STEP_MAX="MEASURED, CALIB.json DL_STEP_MAX (pre-check of the next height step, fixed-step probe only); guard: u(read L) > U_ADMIT (1.0 MODEL: rated limits, USER 11-09)")
+                    guard="u(read L) > U_ADMIT (1.0 MODEL: rated limits, USER 11-09)")
     return dict(probe_method="ladder", DM=f"{DM} kg ASSUMED", O_MAX=f"{O_MAX} kg ASSUMED", FREE_RATIO=f"{FREE_RATIO} ASSUMED",
                 TAU_NOISE=f"+-{TAU_NOISE} Nm/joint ASSUMED uniform", tracker="carry.LeverCtl (FL-MPC, pre-11-07)")
 
@@ -1026,7 +1031,7 @@ def _e2e_job(args, method=None, adaptive=True):
     """args = (task, i, eps_lo, eps_free[, plan]).  plan (11-05, same_worlds --plan-source codex): dict(wp = closed_chain.WaypointPlan, fallback = tuple of recovery
     skills, belief = {param: [lo, hi]} | None, outside_b = "refuse" | "carry"): the proposer's compiled plan replaces the default one in the static admission, the
     carry (its segments and recoveries) and the refuse path (its fallback).  Without it: unchanged.  method: probe method (None -> PROBE_METHOD).
-    A schema-v2 plan (plan["plan_dict"] with phenomena + probes) runs probe_select.fixed_job instead; a v1 plan (numeric belief, BIMANUAL_LEGACY_PROPOSER_V1=1) runs the code below."""
+    A schema-v2 plan (plan["plan_dict"] with phenomena + probes) runs probe_select.fixed_job instead; any other plan dict (wp / fallback / belief, e.g. coffee_run's compiled job_plan) runs the code below."""
     task, i, eps_lo, eps_free, *rest = args
     plan = rest[0] if rest else None
     from . import probe_select as PS
@@ -1058,11 +1063,8 @@ def _e2e_job(args, method=None, adaptive=True):
             c_lo, c_hi = pr.M_lo - empty_mass(task), pr.M_hi - empty_mass(task)
             st = static_interval(task, c_lo, c_hi, w, wp=wp)
             decision = dict(action=st["action"], a_admit=st["a_admit"], u_nom=st["u_nom"], contents=[c_lo, c_hi])
-            if plan and plan.get("belief"):                  # Rule 2: is the probe's set inside the proposer's belief B?  (only the probed dimension, the contents mass)
-                from world_model.v2.stack.proposer import compile as PC
-                rec["probe_in_B"] = PC.probe_in_belief(task, plan["belief"], c_lo, c_hi)
-                if not rec["probe_in_B"]["inside"] and plan.get("outside_b", "refuse") == "refuse":
-                    decision = dict(decision, action="refuse (probe set outside B)", a_admit=None, why_B=rec["probe_in_B"])
+            if plan and plan.get("belief"):                  # v1 Rule 2 (probe set inside the proposer's belief B) removed with the v1 schema
+                raise ValueError("v1 plan with a belief B: the v1 proposer schema is retired (USER 11-19); send a schema-v2 plan")
         rec["decision"] = decision
         if decision and decision["a_admit"] is not None:
             ep.set_belief(0.5 * (decision["contents"][0] + decision["contents"][1]), a_plan=decision["a_admit"])

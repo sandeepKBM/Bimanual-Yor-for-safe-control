@@ -166,9 +166,9 @@ def propose(task, scene_facts=None, image=None, backend_spec=DEFAULT_SPEC, cache
 
 
 def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cache_dir=None, offline=False, image=None, world=None, images=None, image_note=None, budget=None):
-    """Rule 2 re-ask.  `plan` = a status-ok plan dict.  Schema v2 (default): `evidence` = the dict of nero/contents/probe_select ({trigger T1|T2|T4, readings, probes_skipped,
-    failing_rows, worst, ...}, prompt.reask_evidence_block); ask for a complete new plan; record["evidence"], record["trigger"] say what was asked.  BIMANUAL_LEGACY_PROPOSER_V1=1:
-    `evidence` = probe_set {param: [lo, hi]} that is not inside B (11-05 Rule 2); record["probe_set"], record["uncovered"].  -> (new plan dict, record)."""
+    """Rule 2 re-ask.  `plan` = a status-ok plan dict.  `evidence` = the dict of nero/contents/probe_select ({trigger T1|T2|T4, readings, probes_skipped,
+    failing_rows, worst, ...}, prompt.reask_evidence_block); ask for a complete new plan; record["evidence"], record["trigger"] say what was asked. 
+    -> (new plan dict, record)."""
     if plan.get("status") != "ok":
         raise ValueError("reask needs a plan that validated (status ok)")
     f = scene_facts if scene_facts is not None else PR.scene_facts(task, world)
@@ -178,8 +178,7 @@ def reask(task, plan, evidence, scene_facts=None, backend_spec=DEFAULT_SPEC, cac
     if budget is not None:
         budget.charge()
     reply, out, key, wall = _ask(be, PR.SYSTEM, user, image)
-    extra = (dict(probe_set=evidence, uncovered=PR.uncovered(plan["belief"], evidence), previous_plan_id=plan.get("plan_id")) if S.legacy_v1()
-             else dict(trigger=evidence.get("trigger"), evidence=evidence, previous_plan_id=plan.get("plan_id")))
+    extra = dict(trigger=evidence.get("trigger"), evidence=evidence, previous_plan_id=plan.get("plan_id"))
     return _finish("reask", task, backend_spec, be, key, out, wall, PR.SYSTEM, user, image, reply, tuple(f["task"]["supports"]), extra)
 
 

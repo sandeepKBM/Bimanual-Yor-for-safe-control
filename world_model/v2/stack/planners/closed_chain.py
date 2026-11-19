@@ -48,7 +48,6 @@ MOVES = ("lift", "carry", "place")
 
 # ---- ASSUMED planner numbers (each listed in plan.assumptions)
 CLEAR_M = {"tray": 0.05, "box": 0.03, "pot": 0.05}       # ASSUMED [m]: object underside clearance above the highest support it passes over (the clearances implied by the user-confirmed 11-02 plans: tray lift 5 cm, box 18 cm = shelf 15 cm + 3 cm)
-LEGACY_SMOOTH_ALL_D2 = os.environ.get("BIMANUAL_LEGACY_SMOOTH_ALL_D2") == "1"
 LAT_CLEAR = 0.005                           # ASSUMED [m]: lateral bloat of the object volume in the shelf collision test.  USER 11-17: kept at 5 mm (the 10 mm try added no clearance: the box starts exactly 10 mm from the shelf edge; the shelf contact that prompted it was a test-setup error, belief not set)
 DY_GRID = tuple(np.round(np.arange(-0.04, 0.0601, 0.005), 4))   # ASSUMED search grid of the lateral lift offset [m]
 MARGIN_WANT = 0.05                          # ASSUMED [rad] (= carry.PATH_MARGIN_MIN): joint-limit distance wanted at every path sample
@@ -62,11 +61,8 @@ N_GRID = 160                                # TOPP-RA grid points per piece
 FK_TOL_M, FK_TOL_RAD = 1e-6, 1e-6           # MODEL checks of the chosen configurations against MuJoCo FK
 RETREAT_T = 0.8                             # s, legacy release retreat time (carry.run_phases)
 RETREAT_M = 0.05                            # m, = carry.RETREAT
-BIG_ACC = 1e4                               # sentinel for "no joint acceleration limit" in TOPP-RA (NOT a robot limit; config.py has none)
-LEGACY_NO_QDD_LIMIT = os.environ.get("BIMANUAL_LEGACY_NO_QDD_LIMIT") == "1"
-LEGACY_BANGBANG_ENDS = os.environ.get("BIMANUAL_LEGACY_BANGBANG_ENDS") == "1"
-QDD_MAX = BIG_ACC if LEGACY_NO_QDD_LIMIT else 6.0    # ASSUMED (USER confirmed 11-17) [rad/s^2]: joint acceleration limit of all 14 arm joints in TOPP-RA (config.py has none; the datasheet publishes none).  USER 11-17; BIMANUAL_LEGACY_NO_QDD_LIMIT=1 restores BIG_ACC
-RAMP_T_S = 0.0 if LEGACY_BANGBANG_ENDS else 0.15     # ASSUMED (USER confirmed 11-17) [s]: the TOPP-RA path acceleration s-ddot(t) is smoothed with a box filter of this width (jerk-limited ramps at piece start/end and at the accel->decel flip); +RAMP_T_S to every piece.  BIMANUAL_LEGACY_BANGBANG_ENDS=1 restores the bang-bang profile
+QDD_MAX = 6.0    # ASSUMED (USER confirmed 11-17) [rad/s^2]: joint acceleration limit of all 14 arm joints in TOPP-RA (config.py has none; the datasheet publishes none).
+RAMP_T_S = 0.15     # ASSUMED (USER confirmed 11-17) [s]: the TOPP-RA path acceleration s-ddot(t) is smoothed with a box filter of this width (jerk-limited ramps at piece start/end and at the accel->decel flip); +RAMP_T_S to every piece.
 BIG_VEL = 1e3                               # sentinel for the object-offset dimensions' speed (no object speed limit)
 CACHE_DIR = pathlib.Path(os.environ.get("BIMANUAL_PLAN_CACHE", pathlib.Path(__file__).resolve().parent / "plan_cache"))
 
@@ -148,12 +144,29 @@ class PlanInputs:
     def __init__(self, m, world, q0, task, wp=None):
         self.m, self.world, self.task = m, world, kind_of(task)
         self.task_name = str(task)
-        if wp is None and is_base_task(task):                                          # a table-behind task has no GOAL_DXY plan: its default is lift -> base_move R1 -> place on counter 2
-            wp = default_waypoint(task, world)
+        default_sel = wp is None and is_base_task(task)
+        self.route_form = None
+        if default_sel:                                                                # a table-behind task has no GOAL_DXY plan: its default is lift -> base_move (route from the geometry) -> place
+            self.route_form, wp = default_waypoint_form(task, world)
         self.wp = wp                                                                   # WaypointPlan | None (None = the default GOAL_DXY lift / carry / place)
         self.q0 = {s: np.asarray(q0[s], float) for s in SIDES}
         self.arms = {s: SRSArm(m, s) for s in SIDES}
         self.T0 = {s: self.arms[s].fk(self.q0[s]) for s in SIDES}                      # claw TCP pose at the hold = rigidly fixed relative to the object
+        if default_sel:                                                                # the default route is accepted only if the WHOLE route passes the planned-geometry check (geometry_for -> base_route.check); else the next form
+            skip, why = [], []
+            while True:
+                try:
+                    geometry_for(self)
+                    break
+                except PlanRefused as e:
+                    if e.info.get("reason") != "base_sweep":
+                        raise
+                    why.append(f"{self.route_form}: {e}")
+                    skip.append(self.route_form)
+                    try:
+                        self.route_form, self.wp = default_waypoint_form(task, world, skip_forms=tuple(skip))
+                    except PlanRefused as e2:
+                        raise PlanRefused("no default base route passes the whole-route check: " + " | ".join(why + [str(e2)]), reason="base_route_form") from e2
 
     def key(self):
         from world_model.v2.nero.contents import scenes as SC
@@ -163,7 +176,13 @@ class PlanInputs:
                  box=list(w.box_outer) if self.task == "box" else None, shelf_t=getattr(w, "shelf_t", None),
                  q0={s: [round(float(x), 9) for x in self.q0[s]] for s in SIDES}, lim=[SRSArm_limits(self.arms[s]) for s in SIDES],
                  params=dict(CLEAR_M=CLEAR_M[self.task], GOAL=TK.GOAL_DXY[self.task], LAT=LAT_CLEAR, DY=list(map(float, DY_GRID)), MW=MARGIN_WANT, MG=M_GOOD,
-                             DS=DS, PSI=PSI_STEP_DEG, DQ=DQ_MAX, SS=list(SMOOTH_SIGMAS), SL=SMOOTH_MARGIN_LOSS, LAT_LEG=True, SM_LEG=LEGACY_SMOOTH_ALL_D2), v=4)
+                             DS=DS, PSI=PSI_STEP_DEG, DQ=DQ_MAX, SS=list(SMOOTH_SIGMAS), SL=SMOOTH_MARGIN_LOSS, LAT_LEG=True, SM_LEG=False), v=4)
+        if is_base_task(self.task_name):                                               # every geometry field of the world (cache key), from the geometry backend
+            be = _BASE_BACKEND or BR.default_backend()
+            d["geo"] = dict(obj_xy=list(w.obj_xy), obj_yaw=float(getattr(w, "obj_yaw", 0.0)), box_outer=list(getattr(w, "box_outer", ()) or ()),
+                            counter_top=float(w.counter_top), bc_dxy=list(getattr(w, "bc_dxy", ())), bc_yaw=float(getattr(w, "bc_yaw", 0.0)), bc_l1_h=getattr(w, "bc_l1_h", None),
+                            c2_dxy=list(getattr(w, "c2_dxy", ())), goal=be.goal(w),
+                            supports={k: {kk: (list(vv) if isinstance(vv, (tuple, list)) else vv) for kk, vv in v.items()} for k, v in be.supports(w).items()})
         if self.wp is not None:                                                        # only a waypoint plan adds a key: default-plan keys (and cache files) are unchanged
             d["wp"] = self.wp.key_data()
         return hashlib.sha256(json.dumps(d, sort_keys=True, default=float).encode()).hexdigest()[:20]
@@ -183,22 +202,74 @@ _BASE_BACKEND = None           # tests may set a backend object here (base_route
 
 
 def default_waypoint(task, world, backend=None):
-    """the default plan of a table-behind task (ASSUMED shape, design section 2): lift CLEAR_M -> base_move (TaskDef route R1) -> straight down onto the goal support
+    """the default plan of a table-behind task whose route passes the WHOLE-route check (planned geometry + base_route.check) in `world`: forms are tried in order, a form that
+    collides is skipped, none passing = PlanRefused (reason base_route_form).  With a caller-supplied backend (tests) only the route-form pre-filter applies."""
+    if backend is not None or _BASE_BACKEND is not None:
+        return default_waypoint_form(task, world, backend)[1]
+    skip, why = [], []
+    while True:
+        try:
+            form, wp = default_waypoint_form(task, world, None, tuple(skip))
+        except PlanRefused as e:
+            if not why:
+                raise
+            raise PlanRefused("no default base route passes the whole-route check: " + " | ".join(why + [str(e)]), reason="base_route_form") from e
+        try:
+            geometry_for(inputs_for_world(task, world, wp))
+            return wp
+        except PlanRefused as e:
+            if e.info.get("reason") != "base_sweep":
+                raise
+            why.append(f"{form}: {e}")
+            skip.append(form)
+
+
+def default_waypoint_form(task, world, backend=None, skip_forms=()):
+    """-> (route form, WaypointPlan).  skip_forms: route forms the caller found to fail the whole-route check.  The default plan of a table-behind task (ASSUMED shape, design section 2): lift CLEAR_M -> base_move (TaskDef route R1) -> straight down onto the goal support
     (the route puts the place pose of the object at the pick pose in the robot frame: scene.place_pose_xy), then release.  Arm-space deltas, base frame."""
     td = TK.task(str(task))
     be = backend or _BASE_BACKEND or BR.default_backend()
     sup = be.supports(world)
-    zc = CLEAR_M[td.kind]
-    dz = float(sup[td.goal_support]["top"]) - (float(sup["counter"]["top"]) + zc)
+    gs = sup[td.goal_support]
+    t0 = float(sup["counter"]["top"])
+    zc = max(float(gs["top"]), t0) + CLEAR_M[td.kind] - t0           # lift clears the highest support on the path by CLEAR_M (= CLEAR_M for equal tops)
+    dz = float(gs["top"]) - (t0 + zc)
+    g = be.goal(world)
+    ins = float(g["insert_m"])
+    if td.insert_m > 0 and "z_roof" in gs:                            # the crate (carried at lift height) must fit under the compartment roof during the insert
+        hz = float(be.object_box(world)["half"][2]) * 2
+        room = float(gs["z_roof"]) - (t0 + zc + hz)
+        if room < float(getattr(be, "CLEARANCE_MIN", 0.005)):
+            raise PlanRefused(f"{td.name}: the crate top at lift height is {room * 1e3:.1f} mm below the compartment roof (needs >= {float(getattr(be, 'CLEARANCE_MIN', 0.005)) * 1e3:.1f} mm)",
+                              reason="roof_clearance", room_m=float(room))
+    form, route, _ = BR.default_route_form(td, world, be, obj_dz=zc, skip=skip_forms)
     if td.insert_m > 0:        # box_bookcase (USER 11-16): lift -> base route (+ turn) -> insert straight into the compartment at lift height (base-frame +x = toward the bookcase after the turn) -> lower -> release
-        # backups (USER 11-17 "Change the plan's backups"): set_down for every step.  Lift: back on counter 1.  After the base move set_down means advance
-        # onto the plinth and release (the landing is set_down:goal), because USER 11-17 "safe = resting on a support" refutes a hold landing.
-        # BIMANUAL_LEGACY_BOOKCASE_BACKUPS=1 = the 11-16 backups (set_down, retrace, hold): insert / place then land in a hold and Rule 1 refuses them.
-        bk = ("set_down", "retrace", "hold") if os.environ.get("BIMANUAL_LEGACY_BOOKCASE_BACKUPS") == "1" else ("set_down", "set_down", "set_down")
-        return WaypointPlan(("s0_lift", "s1_insert", "s2_place"), ((0.0, 0.0, zc), (float(td.insert_m), 0.0, 0.0), (0.0, 0.0, round(dz, 9))), bk, True,
-                            ((1, BR.default_route(td), BASE_LEVEL_DEFAULT),))
-    return WaypointPlan(("s0_lift", "s2_place"), ((0.0, 0.0, zc), (0.0, 0.0, round(dz, 9))), ("set_down", "hold"), True,
-                        ((1, BR.default_route(td), BASE_LEVEL_DEFAULT),))
+        # backups (USER 11-17): set_down for every step (landing on the plinth).
+        bk = ("set_down", "set_down", "set_down")
+        return form, WaypointPlan(("s0_lift", "s1_insert", "s2_place"), ((0.0, 0.0, zc), (ins, 0.0, 0.0), (0.0, 0.0, round(dz, 9))), bk, True,
+                                  ((1, route, BASE_LEVEL_DEFAULT),))
+    return form, WaypointPlan(("s0_lift", "s2_place"), ((0.0, 0.0, zc), (0.0, 0.0, round(dz, 9))), ("set_down", "hold"), True,
+                              ((1, route, BASE_LEVEL_DEFAULT),))
+
+
+_WORLD_INPUTS = {}
+
+
+def _hold_or_refuse(world):
+    """claw hold pose of the world's own tabs (nyu_hold.hold_pose, MODEL, 11-19); no pose -> PlanRefused(reason="grasp_unreachable")."""
+    be = _BASE_BACKEND or BR.default_backend()
+    return {s: np.asarray(q).tolist() for s, q in be.hold_q(world).items()}      # backend.hold_q = nyu_hold.hold_pose; GraspUnreachable is a PlanRefused (reason "grasp_unreachable")
+
+
+def inputs_for_world(task, world, wp=None):
+    """PlanInputs of `task` in the RUN world (its geometry), hold pose of contents/capture_nyu.json.  Table-behind: the compiled swerve scene of the world (geometry backend);
+    other tasks: SC.compose(world).  Cached per (task, world, wp)."""
+    from world_model.v2.nero.contents import envelope as E, scenes as SC
+    k = (str(task), repr(world), wp)
+    if k not in _WORLD_INPUTS:
+        m = BR.default_backend().compose(world) if is_base_task(task) else SC.compose(world)
+        _WORLD_INPUTS[k] = PlanInputs(m, world, _hold_or_refuse(world), task, wp=wp)
+    return _WORLD_INPUTS[k]
 
 
 @functools.lru_cache(maxsize=None)
@@ -214,8 +285,7 @@ def _nominal_inputs(task, wp=None):
         w = (SC.TrayWorld(n_cups=int(task[4:]) if task.startswith("tray") and task[4:].isdigit() else 2) if k == "tray"
              else (SC.PotWorld() if k == "pot" else SC.BoxWorld()))
         m = SC.compose(w)
-    cap = json.loads(E.CAP_FILE.read_text())["pot"]
-    return PlanInputs(m, w, {s: cap["q"]["W0_liftoff"][s] for s in SIDES}, task, wp=wp)
+    return PlanInputs(m, w, _hold_or_refuse(w), task, wp=wp)
 
 
 # ----------------------------------------------------------------------------------------------------------------------- object path
@@ -229,7 +299,8 @@ def object_path(inp: PlanInputs, dy):
         nodes = inp.wp.nodes()
         if inp.wp.pure_rise_first:
             nodes[1, 1] += dy
-        return nodes, dict(z_c=float(nodes[:, 2].max()), goal_dz=float(nodes[-1, 2]), goal_xy=[float(w.obj_xy[0] + nodes[-1, 0]), float(w.obj_xy[1] + nodes[-1, 1])])
+        gxy = (_BASE_BACKEND or BR.default_backend()).goal(w)["goal_xy"] if is_base_task(inp.task_name) else [float(w.obj_xy[0] + nodes[-1, 0]), float(w.obj_xy[1] + nodes[-1, 1])]
+        return nodes, dict(z_c=float(nodes[:, 2].max()), goal_dz=float(nodes[-1, 2]), goal_xy=[float(gxy[0]), float(gxy[1])])
     goal_top = tops["shelf"]["top"] if (task == "box" and "shelf" in tops) else t0
     z_c = max(goal_top, t0) + CLEAR_M[task] - t0
     gx, gy = TK.GOAL_DXY[task]
@@ -245,6 +316,8 @@ def _collides(inp: PlanInputs, nodes, n=400):
     if inp.task != "box" or "shelf" not in tops:
         return None
     hx, hy, H = w.box_outer[0] / 2, w.box_outer[1] / 2, w.box_outer[2]
+    yw = float(getattr(w, "obj_yaw", 0.0))                                           # AABB of the yawed crate (identical at yaw 0)
+    hx, hy = abs(np.cos(yw)) * hx + abs(np.sin(yw)) * hy, abs(np.sin(yw)) * hx + abs(np.cos(yw)) * hy
     sx, sy, top, t = tops["shelf"]["x"], tops["shelf"]["y"], tops["shelf"]["top"], w.shelf_t
     z0 = tops["counter"]["top"]
     for k, (a, b) in enumerate(zip(nodes[:-1], nodes[1:])):
@@ -440,11 +513,11 @@ def _dp_chain(arm, T0, offs, q0, psis, corners=()):
 def _max_d2(q, corners=()):
     """largest second difference of q(s) [rad].  `corners` = sample indices where two rest-to-rest pieces join (a corner of the object polyline): the joint path
     has a real kink there and each piece starts/ends at rest, so those samples are left out (USER 11-17 fix: the corner used to dominate the metric, so the
-    smoothing never 'improved' it and was dropped for the right arm, sigma 0.0).  BIMANUAL_LEGACY_SMOOTH_ALL_D2=1 restores the old metric."""
+    smoothing never 'improved' it and was dropped for the right arm, sigma 0.0)."""
     if len(q) <= 2:
         return 0.0
     d2 = np.abs(q[2:] - 2 * q[1:-1] + q[:-2]).max(1)
-    if corners and not LEGACY_SMOOTH_ALL_D2:
+    if corners:
         keep = np.ones(len(d2), bool)
         for c in corners:
             if 1 <= c <= len(q) - 2:
@@ -937,11 +1010,6 @@ def phases_for(seg):
     return [("track", seg), ("hold", 0.3)]
 
 
-def legacy_behind_backup():
-    """BIMANUAL_LEGACY_BEHIND_BACKUP=1 restores the 11-09 set_down backup after the base move (retrace the post-base moves, let go, jretreat('start'))."""
-    return os.environ.get("BIMANUAL_LEGACY_BEHIND_BACKUP") == "1"
-
-
 def backup_phases_for(seg, wp=None):
     """stored backup of a move.  Default plan: stop, retrace to the lift start, let go.  wp (WaypointPlan): the kind named for that move --
     set_down  = the default (retrace this move and all earlier ones in reverse to the start of the first, let go there)
@@ -962,10 +1030,9 @@ def backup_phases_for(seg, wp=None):
         if kind != "set_down":
             raise ValueError(f"unknown backup kind {kind!r}")
         post_base = bool(wp.base and j >= wp.base[0][0])
-        if post_base and not legacy_behind_backup():                     # 11-13 (F1, USER-approved 11-12): after the base move the object is NOT near counter 1; continue the plan down onto the goal support, let go, retreat from the goal
+        if post_base:                     # 11-13 (F1, USER-approved 11-12): after the base move the object is NOT near counter 1; continue the plan down onto the goal support, let go, retreat from the goal
             return [("stop", TY.STOP_T_S), ("advance", tuple(wp.names[j:])), ("hold", 0.3), ("weld", False), ("jretreat", "goal"), ("hold", 0.6)]
-        k0 = wp.base[0][0] if post_base else 0                           # LEGACY (BIMANUAL_LEGACY_BEHIND_BACKUP=1): a retrace never runs back across the base move: after it, set_down
-        back = list(wp.names[k0:j + 1])[::-1]                            # retraces to the start of the post-base moves and lets go THERE (the object is not back on counter 1)
+        back = list(wp.names[:j + 1])[::-1]
     else:
         back = {"lift": ["lift"], "carry": ["carry", "lift"], "place": ["place", "carry", "lift"]}.get(seg)
     if back is None:
@@ -977,8 +1044,8 @@ def backup_phases_for(seg, wp=None):
 
 def check_start_retreat(phases, wp):
     """11-13 guard: a retreat to knot 0 ("jretreat"/"retreat" "start") is rejected (ValueError at compile) when the commanded q there is not knot 0, i.e. the last retrace
-    before it does not end at the start of the plan's first move (names[0]).  Skipped under BIMANUAL_LEGACY_BEHIND_BACKUP=1."""
-    if wp is None or legacy_behind_backup():
+    before it does not end at the start of the plan's first move (names[0])."""
+    if wp is None:
         return
     end = None
     for p in phases:
@@ -1044,7 +1111,7 @@ class ClosedChainPlanner:
 
 def _base_segment(inp, cc, prev, base, level, t0):
     """the Segment of a base move: mode "carry" (no new Mode literal), phases [("base_move", ref)], arms hold the last planned q of the previous move (ASSUMED A4).
-    ref = dict(route=[[kind, value], ...], level).  meta: base_ref, accel = dict(source="base_card", level), backup_phases = [(base_stop, BASE_STOP_MAX_S), (hold, 0.5)] by default (11-16; rows: stack/checks/base_stop.py); None under BIMANUAL_LEGACY_NO_BASE_BACKUP=1 (BIMANUAL_BASE_BACKUP=1 forces it on)."""
+    ref = dict(route=[[kind, value], ...], level).  meta: base_ref, accel = dict(source="base_card", level), backup_phases = [(base_stop, BASE_STOP_MAX_S), (hold, 0.5)] by default (11-16; rows: stack/checks/base_stop.py)."""
     after, route, lv = base
     lv = level or lv or BASE_LEVEL_DEFAULT
     be = _BASE_BACKEND or BR.default_backend()
@@ -1052,7 +1119,7 @@ def _base_segment(inp, cc, prev, base, level, t0):
     pc = cc.pieces[prev]
     q_end = {s: (pc.q[s][-1].copy(), np.zeros(7), np.zeros(7)) for s in SIDES}
     dur = BR.route_duration(route, lv, be.levels())
-    bk = None if (os.environ.get("BIMANUAL_LEGACY_NO_BASE_BACKUP") == "1" and os.environ.get("BIMANUAL_BASE_BACKUP") != "1") else [("base_stop", BASE_STOP_MAX_S), ("hold", 0.5)]     # 11-16: base_stop recovery ON by default (11-13 F2 had it opt-in); BIMANUAL_LEGACY_NO_BASE_BACKUP=1 = the old None
+    bk = [("base_stop", BASE_STOP_MAX_S), ("hold", 0.5)]     # 11-16: base_stop recovery always on
     meta = dict(phases=[("base_move", ref)], base_ref=ref, accel=dict(source="base_card", level=lv), backup_phases=bk, cc=cc,
                 end_pose=cc.geo.info.get("base", {}).get("end_pose"))
     return Segment(mode="carry", t0=t0, t1=t0 + dur, q_ref=lambda t, q=q_end: q, x_obj=None, weld={s: True for s in SIDES}, meta=meta)
@@ -1068,16 +1135,18 @@ def _q_ref(pc):
 def _x_obj(inp, cc, sg, after_base=False):
     pc = cc.pieces[sg]
     x0 = np.array([inp.world.obj_xy[0], inp.world.obj_xy[1], 0.0])
+    yw = float(getattr(inp.world, "obj_yaw", 0.0))             # object start yaw (geometry prior; 0 = nominal: identity quaternion as before)
     if not after_base:
+        q_start = np.array([np.cos(yw / 2), 0.0, 0.0, np.sin(yw / 2)])
         def f(t):
             k = int(np.clip(round(t / DT), 0, pc.n))
-            return np.r_[x0 + pc.p[k], 1.0, 0, 0, 0]          # z relative to the support start; orientation fixed (level)
+            return np.r_[x0 + pc.p[k], q_start]                # z relative to the support start; orientation fixed (level), yaw = the start yaw
         return f
     b = cc.geo.info["base"]                                   # after the base move: base-frame position -> world through the nominal end pose (pose of the rotation centre)
     c0, ce = np.array(b["start_pose"][:2]), np.array(b["end_pose"][:2])
     dl = b["end_pose"][2] - b["start_pose"][2]
     R = BR.rot(dl)
-    qz = np.array([np.cos(dl / 2), 0.0, 0.0, np.sin(dl / 2)])
+    qz = np.array([np.cos((dl + yw) / 2), 0.0, 0.0, np.sin((dl + yw) / 2)])
 
     def g(t):
         k = int(np.clip(round(t / DT), 0, pc.n))
@@ -1102,8 +1171,8 @@ def assumptions():
         object_acc=A("per-axis |a_i| <= a_plan", "the box the static rows are certified on; a_plan = admitted acceleration (envelope.A_NOM 0.5 ASSUMED, or a*)"),
         a_backup=A("carry.A_BACKUP", "ASSUMED 0.25 m/s^2"), retreat=A(dict(m=RETREAT_M, T=RETREAT_T), "legacy release retreat, smoothstep"),
         joint_speed=dict(tag="MEASURED-spec", value=list(C.MANUAL["joint_speed_deg_s"]), src="NERO datasheet, config.MANUAL (deg/s)"),
-        joint_accel=A(QDD_MAX, "joint acceleration limit of the 14 arm joints in TOPP-RA [rad/s^2] (USER 11-17; config.py has none; BIMANUAL_LEGACY_NO_QDD_LIMIT=1 = none, sentinel 1e4)"),
-        ramp_t_s=A(RAMP_T_S, "box-filter width of the TOPP-RA path acceleration = jerk-limited ramp at piece ends and the accel->decel flip [s] (USER 11-17; BIMANUAL_LEGACY_BANGBANG_ENDS=1 = 0)"),
+        joint_accel=A(QDD_MAX, "joint acceleration limit of the 14 arm joints in TOPP-RA [rad/s^2] (USER 11-17; config.py has none;)"),
+        ramp_t_s=A(RAMP_T_S, "box-filter width of the TOPP-RA path acceleration = jerk-limited ramp at piece ends and the accel->decel flip [s] (USER 11-17)"),
         kinematics=dict(tag="MODEL", src="SRS constants read from the compiled MJCF; every chosen q FK-validated (MuJoCo)"),
         base_route=A(dict(MAX_SEGMENTS=BR.MAX_SEGMENTS, MAX_LINE_M=BR.MAX_LINE_M, MAX_TURN_DEG=BR.MAX_TURN_DEG, STEP_M=BR.STEP_M, STEP_DEG=BR.STEP_DEG, GAP_S=BR.GAP_S,
                          TRACK_MARGIN_M=BR.TRACK_MARGIN_M, level_default=BASE_LEVEL_DEFAULT),
@@ -1111,11 +1180,11 @@ def assumptions():
 
 
 # ----------------------------------------------------------------------------------------------------------------------- static-admission hooks
-def static_path(task, wp=None):
+def static_path(task, wp=None, world=None):
     """(offs {key: object offset}, per_seg {seg: [keys]}, cap) for carry_cert.static_cell: the planned path samples (N_STATIC per move, evenly in path
     parameter, both ends) with the planned joint configurations of both arms.  cap = capture_nyu 'pot' dict with q / tcp replaced (same layout as thresholds.capture_path)."""
     from world_model.v2.nero.contents import envelope as E
-    inp = _nominal_inputs(task, wp)
+    inp = _nominal_inputs(task, wp) if world is None else inputs_for_world(task, world, wp)
     g = geometry_for(inp)
     caps = json.loads(E.CAP_FILE.read_text())["pot"]
     offs, per_seg, q, tcp = {}, {}, {}, {}
@@ -1144,14 +1213,14 @@ def static_path(task, wp=None):
 N_STATIC = 6                                    # path samples per move for the static rows (same count as carry_cert.N_PER_MOVE)
 
 
-def goal_offset(task, wp=None):
+def goal_offset(task, wp=None, world=None):
     """total object offset S -> G of the planned path [m] (3,)."""
-    return geometry_for(_nominal_inputs(task, wp)).offs[-1].copy()
+    return geometry_for(_nominal_inputs(task, wp) if world is None else inputs_for_world(task, world, wp)).offs[-1].copy()
 
 
-def accel_records(task, a, wp=None):
+def accel_records(task, a, wp=None, world=None):
     """per move: the planned object acceleration record for plan acceleration a (carry_cert.cell_accel analogue)."""
-    inp = _nominal_inputs(task, wp)
+    inp = _nominal_inputs(task, wp) if world is None else inputs_for_world(task, world, wp)
     cc = plan_for(inp, a)
     return {sg: cc.accel_record(sg) for sg in cc.geo.bounds}
 

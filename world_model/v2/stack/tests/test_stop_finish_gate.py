@@ -7,10 +7,9 @@ along the next segment" at corners, where the executor actually continues straig
 
 What is checked here:
   1. the executor (stack/executor.py "stop") finishes the move when its remaining time <= T, and keeps the Hermite stop otherwise (fake episode, no physics);
-  2. BIMANUAL_LEGACY_STOP=1 restores the old Hermite stop (which overshoots the move's end);
-  3. the Rule 1 path model marks exactly the branches in the last T seconds of each segment as finish, ending at the segment's last sample, at the
-     plan's acceleration, and no branch is MISSING any more on the box plan; legacy keeps the old MISSING place branch;
-  4. the executor and the Rule 1 model take the SAME decision at every Rule 1 branch time of the box plan (the executor run on the planned joint
+  2. the Rule 1 path model marks exactly the branches in the last T seconds of each segment as finish, ending at the segment's last sample, at the
+     plan's acceleration, and no branch is MISSING any more on the box plan;
+  3. the executor and the Rule 1 model take the SAME decision at every Rule 1 branch time of the box plan (the executor run on the planned joint
      references of each segment).
 """
 from __future__ import annotations
@@ -52,7 +51,6 @@ def ep_with_move(t_stop, D=1.0):
 
 
 def test_stop_in_last_T_finishes_the_move(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_STOP", raising=False)
     ep, Q = ep_with_move(0.8)                                   # 0.2 s left <= T
     before = {s: list(ep.paths[s]) for s in SIDES}
     EX.run_phases(ep, [("stop", T_STOP)])
@@ -67,7 +65,6 @@ def test_stop_in_last_T_finishes_the_move(monkeypatch):
 
 
 def test_stop_earlier_keeps_the_hermite_stop(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_STOP", raising=False)
     ep, Q = ep_with_move(0.4)                                   # 0.6 s left > T
     q = ep._cmd("left", 0.4)
     v = (ep._cmd("left", 0.4 + 1e-3) - q) / 1e-3
@@ -78,19 +75,10 @@ def test_stop_earlier_keeps_the_hermite_stop(monkeypatch):
     assert float(end @ Q / (Q @ Q)) < 1.0                       # a smoothstep move: the Hermite end stays before the knot when > T is left
 
 
-def test_legacy_flag_restores_the_overshooting_stop(monkeypatch):
-    monkeypatch.setenv("BIMANUAL_LEGACY_STOP", "1")
-    ep, Q = ep_with_move(0.8)
-    EX.run_phases(ep, [("stop", T_STOP)])
-    end = ep._cmd("left", ep.k * DT)
-    assert float(end @ Q / (Q @ Q)) > 1.0 + 1e-3                # the old stop runs past the end of the move (smoothstep at tau 0.8: +4 % of the move)
-    assert len(ep.paths["left"]) >= 2
-
-
 # ----------------------------------------------------------------------------------------------------------------------- Rule 1 model on the box plan
 def _box_model(cell=(1.0, 1.5)):
     from world_model.v2.adapters import rule1_contents as RC
-    ctx = RC.Ctx("box", "closed_chain")                         # fresh: models are cached per Ctx, the legacy flag is read when a model is built
+    ctx = RC.Ctx("box", "closed_chain")                         # fresh: models are cached per Ctx
     lo, hi = RC.cell_total("box", cell)
     adm, model = RC.plan_admission(ctx, cell, lo, hi)
     assert model is not None, adm.action
@@ -98,7 +86,6 @@ def _box_model(cell=(1.0, 1.5)):
 
 
 def test_rule1_model_finishes_exactly_the_last_T_branches(monkeypatch):
-    monkeypatch.delenv("BIMANUAL_LEGACY_STOP", raising=False)
     ctx, model = _box_model()
     g = model.geo
     n_finish = {}
@@ -117,17 +104,8 @@ def test_rule1_model_finishes_exactly_the_last_T_branches(monkeypatch):
     assert n_finish["place"] >= 1, n_finish
 
 
-def test_rule1_model_legacy_keeps_the_missing_place_branch(monkeypatch):
-    monkeypatch.setenv("BIMANUAL_LEGACY_STOP", "1")
-    monkeypatch.setenv("BIMANUAL_LEGACY_NO_ARM_EXT", "1")          # 11-17: the overshoot past the last sample is now extended and checked (USER 11-17); the old MISSING branch needs both flags
-    ctx, model = _box_model()
-    assert not any(getattr(b, "finish", False) for s in model.names for b in model.branches[s])
-    assert any(b.ahead is None for b in model.branches["place"])
-
-
 def test_executor_and_rule1_take_the_same_decision_on_the_box_plan(monkeypatch):
     """the executor's stop decision, run on each segment's PLANNED joint reference at every Rule 1 branch time, equals the Rule 1 model's finish flag."""
-    monkeypatch.delenv("BIMANUAL_LEGACY_STOP", raising=False)
     ctx, model = _box_model()
     for seg in model.names:
         pc = model.cc.segment(seg)

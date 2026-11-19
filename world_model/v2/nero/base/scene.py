@@ -107,11 +107,14 @@ def bookcase_geometry(world):
     c = world
     mc = mirror_centre(BC_RETREAT_M, BC_ADVANCE_M)
     xr, yr = mirror(c.obj_xy, mc)                                   # obj origin (box centre) after the route
+    xr, yr = xr + c.bc_dxy[0], yr + c.bc_dxy[1]                     # bookcase offset (geom_prior; 0 = nominal)
+    h1 = BC_INNER_H if c.bc_l1_h is None else float(c.bc_l1_h)      # inner height of l1
     hx = c.box_outer[0] / 2
     x_open = float(xr - hx - BC_GAP_M)                               # opening plane; the box front face (-x) is BC_GAP_M in front of it
     zf = float(c.counter_top)                                        # MODEL: the l1 floor top = the counter top (same arm pose as at the pick)
     return dict(x_open=x_open, x_back_in=x_open - BC_DEPTH, y0=float(yr - BC_INNER_W / 2), y1=float(yr + BC_INNER_W / 2), z_floor=zf,
-                z_mid_bot=zf + BC_INNER_H, z_mid_top=zf + BC_INNER_H + BC_T, z_top_bot=zf + 2 * BC_INNER_H + BC_T, z_top_top=zf + 2 * BC_INNER_H + 2 * BC_T,
+                yaw=float(c.bc_yaw), centre=(float(x_open - BC_DEPTH / 2), float(yr)),                  # bookcase yaw about its centre (see _add_bookcase)
+                z_mid_bot=zf + h1, z_mid_top=zf + h1 + BC_T, z_top_bot=zf + h1 + BC_INNER_H + BC_T, z_top_top=zf + h1 + BC_INNER_H + 2 * BC_T,
                 box_end_xy=(float(xr), float(yr)), goal_xy=(float(xr - BC_INSERT_M), float(yr)))
 
 
@@ -123,9 +126,16 @@ def _add_bookcase(spec, world, floor_z):
     xc, hxs = (xo + xb) / 2, (xo - xb) / 2
     yc, hyi = (g["y0"] + g["y1"]) / 2, BC_INNER_W / 2
 
+    yaw = float(world.bc_yaw)
+
     def box(name, hs, pos, vis=False):
+        kw = {}
+        if yaw != 0.0:                                                                                           # yaw the whole bookcase about its centre (xc, yc)
+            dx, dy = pos[0] - xc, pos[1] - yc
+            pos = (xc + np.cos(yaw) * dx - np.sin(yaw) * dy, yc + np.sin(yaw) * dx + np.cos(yaw) * dy, pos[2])
+            kw["quat"] = [float(np.cos(yaw / 2)), 0.0, 0.0, float(np.sin(yaw / 2))]
         W.add_geom(name=name, type=mujoco.mjtGeom.mjGEOM_BOX, size=list(hs), pos=list(pos), contype=0 if vis else 1, conaffinity=0 if vis else 1,
-                   friction=[world.counter_mu, *SC.FRIC], rgba=[0.62, 0.45, 0.28, 1])
+                   friction=[world.counter_mu, *SC.FRIC], rgba=[0.62, 0.45, 0.28, 1], **kw)
     zf = g["z_floor"]
     fh = hyi if BC_FLOOR_W is None else BC_FLOOR_W / 2
     box("bookcase_l1_floor", (hxs, fh, t / 2), (xc, yc, zf - t / 2))                                             # goal support (top = counter top), top of the plinth
@@ -162,14 +172,14 @@ def build_spec(world, second_table=True, base="swerve", retreat=RETREAT_M, advan
         W = spec.worldbody
         tab = np.array(c.table_half, float)
         ctr = mirror_centre(retreat, advance)
-        t2 = mirror(c.table_centre_xy, ctr)
+        t2 = mirror(c.table_centre_xy, ctr) + np.asarray(c.c2_dxy, float)
         W.add_geom(name="table2_top", type=mujoco.mjtGeom.mjGEOM_BOX, size=list(tab), pos=[t2[0], t2[1], c.table_top_z - tab[2]],
                    contype=1, conaffinity=1, friction=[c.table_mu, *SC.FRIC], rgba=[0.55, 0.45, 0.35, 1])
         for i, (sx, sy) in enumerate(((1, 1), (1, -1), (-1, 1), (-1, -1))):
             W.add_geom(name=f"table2_leg{i}", type=mujoco.mjtGeom.mjGEOM_BOX, size=[0.02, 0.02, (c.table_top_z - 2 * tab[2]) / 2],
                        pos=[t2[0] + sx * (tab[0] - 0.03), t2[1] + sy * (tab[1] - 0.03), (c.table_top_z - 2 * tab[2]) / 2],
                        contype=0, conaffinity=0, rgba=[0.4, 0.35, 0.3, 1])
-        cc = mirror(c.counter_centre[:2], ctr)
+        cc = mirror(c.counter_centre[:2], ctr) + np.asarray(c.c2_dxy, float)
         W.add_geom(name="counter2", type=mujoco.mjtGeom.mjGEOM_BOX, size=list(c.counter_half), pos=[cc[0], cc[1], c.counter_centre[2]],
                    contype=1, conaffinity=1, friction=[c.counter_mu, *SC.FRIC], rgba=[0.5, 0.5, 0.5, 1])
     return spec
@@ -179,7 +189,7 @@ def place_pose_xy(world):
     """world xy of the obj frame origin on counter2 (= the pick pose mirrored about mirror_centre()); bookcase: the end of the insert (bookcase_geometry goal_xy)."""
     if is_bookcase(world):
         return np.array(bookcase_geometry(world)["goal_xy"])
-    return mirror(world.obj_xy, mirror_centre())
+    return mirror(world.obj_xy, mirror_centre()) + np.asarray(world.c2_dxy, float)
 
 
 def support_tops_behind(world):
@@ -190,11 +200,17 @@ def support_tops_behind(world):
         g = bookcase_geometry(world)
         fh = BC_INNER_W / 2 if BC_FLOOR_W is None else BC_FLOOR_W / 2
         yc = (g["y0"] + g["y1"]) / 2
-        out["bookcase_l1"] = dict(top=g["z_floor"], x=(g["x_back_in"], g["x_open"]), y=(yc - fh, yc + fh), z_roof=g["z_mid_bot"])       # roof of the compartment = underside of bookcase_mid
+        xc, yc = g["centre"]
+        hxs = (g["x_open"] - g["x_back_in"]) / 2
+        yaw = g["yaw"]
+        ex, ey = abs(np.cos(yaw)) * hxs + abs(np.sin(yaw)) * fh, abs(np.sin(yaw)) * hxs + abs(np.cos(yaw)) * fh      # AABB of the oriented plinth rectangle
+        out["bookcase_l1"] = dict(top=g["z_floor"], x=(float(xc - ex), float(xc + ex)), y=(float(yc - ey), float(yc + ey)), z_roof=g["z_mid_bot"],
+                                  yaw=yaw, centre=(float(xc), float(yc)), half=(float(hxs), float(fh)))       # x / y = AABB; yaw / centre / half = the oriented rectangle (MODEL)
         return out
-    cx, cy = mirror(world.counter_centre[:2], mirror_centre())
+    cx, cy = mirror(world.counter_centre[:2], mirror_centre()) + np.asarray(world.c2_dxy, float)
     hx, hy, _ = world.counter_half
-    out["counter2"] = dict(top=float(world.counter_top), x=(float(cx - hx), float(cx + hx)), y=(float(cy - hy), float(cy + hy)))   # box faces are axis-aligned: the 180-deg mirror keeps the half sizes
+    out["counter2"] = dict(top=float(world.counter_top), x=(float(cx - hx), float(cx + hx)), y=(float(cy - hy), float(cy + hy)),
+                         yaw=0.0, centre=(float(cx), float(cy)), half=(float(hx), float(hy)))   # box faces are axis-aligned: the 180-deg mirror keeps the half sizes
     return out
 
 

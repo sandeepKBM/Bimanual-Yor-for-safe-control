@@ -1,8 +1,7 @@
 """Owner gate (11-17): USER "Velocity reference in tracker" -- FL-MPC gets d/dt of the planned joint reference over the horizon (rad/s), not zeros.
 SIMULATION ONLY, CPU, no network.  PYTHONPATH=. python -m pytest -q world_model/v2/nero/contents/tests/test_vref_gate.py
 Checks: at a hold the velocity reference is exactly 0; during a planned move it equals np.gradient(reference, FDT) and is non-zero; the vector passed
-to fl.step is that array; BIMANUAL_LEGACY_ZERO_VREF=1 passes zeros.  (Bit-identity of the legacy flag vs the pre-edit carry.py was checked once
-by the owner on 11-17: lift, box cell 2.0-2.5 world 0, 339 steps, same qpos SHA256 2ea4cad9...)"""
+to fl.step is that array."""
 from types import SimpleNamespace
 
 import numpy as np
@@ -13,13 +12,9 @@ from world_model.v2.stack.planners.closed_chain import ClosedChainPlanner
 from world_model.v2.stack.types import SkillCall
 
 
-def _ep(monkeypatch, legacy):
+def _ep(monkeypatch):
     monkeypatch.setenv("BIMANUAL_NO_NETWORK", "1")
     monkeypatch.setenv("BIMANUAL_PLANNER", "closed_chain")
-    if legacy:
-        monkeypatch.setenv("BIMANUAL_LEGACY_ZERO_VREF", "1")
-    else:
-        monkeypatch.delenv("BIMANUAL_LEGACY_ZERO_VREF", raising=False)
     w = CC.sample_world("box", (2.0, 2.5), np.random.default_rng(1117200000))
     ep = CR.CarryEpisode(w, a_plan=0.5, planner="closed_chain")
     ep.set_belief(2.25, a_plan=0.5)
@@ -45,7 +40,7 @@ def _lift(ep):
 
 
 def test_hold_zero_and_move_is_gradient(monkeypatch):
-    ep, seen = _ep(monkeypatch, legacy=False)
+    ep, seen = _ep(monkeypatch)
     ep.run_phases([("hold", 0.1)])
     assert seen and all(np.all(v == 0.0) and np.all(w == 0.0) for _, v, _, w in seen), "hold must give an exact zero velocity reference"
     n0 = len(seen)
@@ -57,9 +52,3 @@ def test_hold_zero_and_move_is_gradient(monkeypatch):
         moved += int(np.abs(ve).max() > 1e-6)
     assert moved > 0, "a planned move must give a non-zero velocity reference"
 
-
-def test_legacy_passes_zeros(monkeypatch):
-    ep, seen = _ep(monkeypatch, legacy=True)
-    ep.run_phases([("hold", 0.05)])
-    _lift(ep)
-    assert seen and all(np.all(v == 0.0) and np.all(w == 0.0) for _, v, _, w in seen)

@@ -15,7 +15,3 @@ def test_default_static_rows_have_no_claw_twist():
     assert st["T_cap"] is None
     for seg in ("lift", "carry", "place"):
         assert "torque_payload" in st["rows"][seg] and "torque_payload_twist" not in st["rows"][seg]
-    old = CC.static_cell("box", cell, SC.BoxWorld(), T_cap=E.T_CAP)
-    assert "torque_payload_twist" in old["rows"]["lift"]
-    assert st["u_nom"] <= old["u_nom"] + 1e-9          # dropping a row can only lower the utilisation
-    assert st["u_one_nom"] <= old["u_one_nom"] + 1e-9

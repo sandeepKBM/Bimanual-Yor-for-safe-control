@@ -231,3 +231,37 @@ def all_bounds():
                 out.append((f"{s.id}.noise.{k}", s.noise[k]))
         out += [(f"{s.id}.own_limits.{n}", b) for n, b in s.own_limits]
     return out
+
+
+# ----------------------------------------------------------------------------------------------------------------------- geometry probe cards (11-19; behind BIMANUAL_GEOM_PROBE=1)
+# Pure data, no physics.  NOT part of cards(task): the geometry prompt (stack/proposer/prompt.geo_first_prompt) adds them.  The error table does not exist yet:
+# every `err` below is MISSING until the owner's noise study writes it (a field with no table entry gets NO reading: fail closed).
+GEOM_NOISE_TABLE = "nero/results/geom_noise_2026-11-19/"          # MEASURED once the study is done (not yet); sampled guarantee
+GEOM_CAMERAS = ("room_front", "room_left", "room_back", "room_right")   # the four lab-fixed room cameras (USER 11-19)
+GEOM_GUARANTEE = "sampled"
+_GEOM_FIELDS_NOTE = ("fields cx, cy, cz, sx, sy, sz, yaw; each observed field comes back as value +- err (err = half-width of an interval from the error table, "
+                     "MISSING until the noise study exists); a field the cameras cannot see (e.g. the hidden bottom of a box on a support, the yaw of a near-square footprint) "
+                     "comes back as NOT observed and gives no reading; a one-sided face bound (only the visible face of a thing) is a bound on that face, not a size")
+
+
+def geometry_cards():
+    """-> list of dicts: the geometry probe cards and the two robot-model queries, as the geometry prompt shows them.  Deterministic, no scene number."""
+    base = dict(guarantee=GEOM_GUARANTEE, cameras=list(GEOM_CAMERAS), error_table=GEOM_NOISE_TABLE,
+                err="MISSING: no error table exists yet (the noise study is not done); until then a probe's err is not available to the checker",
+                source="MEASURED", request_format='{"probe": "<id>", "entity": "<your entity name>"}')
+    return [
+        dict(base, id="measure_box", kind="probe",
+             does=("the four room cameras (fixed in the room, depth) look at your entity (the robot finds it with the 2D box you gave per photo) and fit an upright oriented box "
+                   "to its points; returns " + _GEOM_FIELDS_NOTE),
+             returns="per field: value, err (half-width), observed flag; faces used"),
+        dict(base, id="measure_support", kind="probe",
+             does=("the same four cameras look at a SUPPORT entity (a counter top or a bookcase board) and read its top surface and extent; returns " + _GEOM_FIELDS_NOTE
+                   + ".  Use it for the surface the object must end on."),
+             returns="per field: value, err (half-width), observed flag; one-sided face bounds where only one face is visible"),
+        dict(id="arm_room", kind="model_query", source="MODEL", guarantee="proof",
+             does="asks the robot model whether both arms, holding the object at a pose you name, stay in free space (arm-arm clearance, tables, floor). Uses only the geometry sets the probes established",
+             request_format='{"query": "arm_room", "object_pose": {"x": m, "y": m, "z": m, "yaw": rad}}'),
+        dict(id="path_clear", kind="model_query", source="MODEL", guarantee="proof",
+             does="asks the robot model whether the base and the carried object sweep clear of the entities along the waypoints you name. Uses only the geometry sets the probes established",
+             request_format='{"query": "path_clear", "waypoints": [{"x": m, "y": m, "yaw": rad}, ...]}'),
+    ]

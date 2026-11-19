@@ -133,12 +133,6 @@
  },
  {
   "rule": "stack_engine_no_episode",
-  "importer": "stack/proposer/compile.py",
-  "imported": "world_model.v2.nero.contents.probe",
-  "reason": "pre-unification 11-09; remove in switch step"
- },
- {
-  "rule": "stack_engine_no_episode",
   "importer": "stack/proposer/prompt.py",
   "imported": "world_model.v2.nero.contents.carry_cert",
   "reason": "pre-unification 11-09; remove in switch step"

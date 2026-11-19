@@ -178,10 +178,9 @@ def test_monitors_U_and_R():
     fv = _carry_state()
     fv.first_viol = dict(kind="collision")
     assert not MON.u_row(fv, t).ok
-    if TK._u_obj_world_on():                                             # USER 11-16 D9: object-world clearance below 5 mm is U
-        ow = _carry_state()
-        ow.worst["obj_world_clear_m"] = 0.003
-        assert not MON.u_row(ow, t).ok and MON.first_violation(ow, t)[0] == "obj_world_clear_m"
+    ow = _carry_state()                                                  # USER 11-16 D9: object-world clearance below 5 mm is U
+    ow.worst["obj_world_clear_m"] = 0.003
+    assert not MON.u_row(ow, t).ok and MON.first_violation(ow, t)[0] == "obj_world_clear_m"
     assert not MON.recoverable(_carry_state(obj_speed=0.01), t).ok
     assert not MON.recoverable(_carry_state(support_contact=0.0), t).ok
     assert not MON.recoverable(_carry_state(cup_tilt_deg=6.0), t).ok
@@ -318,48 +317,13 @@ def test_unknown_is_never_true_or_false():
     assert OC.classify(True, ok, False, None, ok).safe_success is None and OC.classify(True, ok, True, None, ok).safe_success is False
     assert OC.classify(None, ok, True, False, ok).success is None and OC.classify(False, ok, None, None, ok).success is False
     assert OC.classify(None, ok, False, False, ok).finished is None
-    theirs = dict(task="box", outcome="completed", goal=dict(xy_err=0.0, z_err=0.0), end_in_R=True, R_fail=[], pre_hold_viol=None)       # no `track`
-    o = OC.load_legacy(theirs)
-    assert o.unsafe is None and o.success is True and o.safe_success is None
-    pan = dict(segments=[dict(seg="lift", nominal=dict(viol=None, success=True))])                                          # no status
-    o = OC.load_legacy(pan)
-    assert o.finished is None and o.success is None
 
 
-def test_pre_hold_from_ours_record():
-    """item 2: probe records carry carry.pre_hold_viol; a U entry before the hold fails the world."""
-    ours = dict(outcome="carried", carry=dict(end_in_R=[True, []], segments=[dict(nominal=dict(viol=None))], pre_hold_viol=dict(kind="tau_sat")))
-    o = OC.load_legacy(ours)
-    assert o.success is None and o.safe_success is False and o.pre_hold_unsafe is True
-    ours["carry"]["pre_hold_viol"] = None
-    o = OC.load_legacy(ours)
-    assert o.pre_hold_unsafe is False and o.success is None            # goal still missing in an ours record
-    del ours["carry"]["pre_hold_viol"]
-    assert OC.load_legacy(ours).pre_hold_unsafe is None                # not recorded = unknown, not False
-
-
-def test_load_legacy():
-    theirs = dict(task="box", outcome="completed", goal=dict(xy_err=0.02, z_err=0.01), end_in_R=True, R_fail=[], pre_hold_viol=None, track=dict(viol=None),
-                  ac_success=False)
-    o = OC.load_legacy(theirs)
-    assert o.success is True and o.safe_success is True      # the record's own ac_success is NOT used (re-evaluated on the task's goal terms)
-    theirs["goal"]["xy_err"] = 0.04
-    assert OC.load_legacy(theirs).success is True            # 4 cm: inside the AgentChord 5 cm bound (the old 3 cm rule failed it)
-    theirs["goal"]["xy_err"] = 0.06
-    assert OC.load_legacy(theirs).success is False
-    theirs["goal"].update(xy_err=0.0, tilt_deg=50.0)
-    assert OC.load_legacy(theirs).success is False
-    theirs.update(goal=dict(xy_err=0.0, z_err=0.0), pre_hold_viol=dict(kind="x"))
-    assert OC.load_legacy(theirs).pre_hold_unsafe
-    ours = dict(outcome="carried", carry=dict(end_in_R=[True, []], segments=[dict(nominal=dict(viol=None))]))
-    o = OC.load_legacy(ours)
-    assert o.success is None and o.goal.guarantee == "missing" and not o.unsafe
-    ours["carry"]["segments"][0]["nominal"]["viol"] = dict(kind="spill")
-    assert OC.load_legacy(ours).unsafe is True and OC.load_legacy(ours).safe_success is False
-    assert OC.tally([dict(result=dict(success=True, unsafe=False, safe_success=True, in_R=True, refused=False)), ours])["unsafe"] == 1
-    assert OC.load_legacy(dict(outcome="refused (placement)", carry={})).refused
-    pan = dict(segments=[dict(seg="lift", nominal=dict(viol=None, status="done", success=True))])
-    assert OC.load_legacy(pan).success is True and OC.load_legacy(pan).safe_success is None      # pre-hold not recorded in pan records: safe_success unknown
+def test_result_of_refuses_a_record_without_result():
+    """the legacy loader is gone (11-19): a record without a "result" dict is refused with a clear error; tally counts a current record."""
+    with pytest.raises(ValueError, match="no 'result'"):
+        OC.result_of(dict(outcome="carried", carry={}))
+    assert OC.tally([dict(result=dict(success=True, unsafe=False, safe_success=True, in_R=True, refused=False))])["success"] == 1
 
 
 def test_registry_checkers_resolve():

@@ -3,9 +3,8 @@
 Checked:
   1. reach_summary on box_bookcase at z = 0.02 m equals the owner's independent scan (11-16, same SRS solver, 1 cm steps): forward 0.06, back 0.25, left 0.05, right 0.03 m;
   2. a real refused Codex reply (run1 reply 3: lift 2 cm, push 15 cm) is still refused at the planner, with the SAME first reason as before.
-     USER 11-17 "no clues": by DEFAULT no "arm reach" line goes to the proposer; BIMANUAL_LEGACY_REACH_TEXT=1 restores the 11-16 option-b line (exactly one);
-  3. BIMANUAL_LEGACY_NO_REACH_TEXT=1 gives the old reasons exactly (no reach line);
-  4. a plan the planner admits (the mock default) is unchanged (no reach work on success).
+     USER 11-17 "no clues": no "arm reach" line goes to the proposer;
+  3. a plan the planner admits (the mock default) is unchanged (no reach work on success).
 """
 import json
 import pathlib
@@ -27,16 +26,8 @@ def _plan(text):
     return d
 
 
-def _reasons(monkeypatch, legacy, reach_text=False):
+def _reasons(monkeypatch):
     monkeypatch.setenv("BIMANUAL_PLANNER", "closed_chain")
-    if reach_text:
-        monkeypatch.setenv("BIMANUAL_LEGACY_REACH_TEXT", "1")
-    else:
-        monkeypatch.delenv("BIMANUAL_LEGACY_REACH_TEXT", raising=False)
-    if legacy:
-        monkeypatch.setenv("BIMANUAL_LEGACY_NO_REACH_TEXT", "1")
-    else:
-        monkeypatch.delenv("BIMANUAL_LEGACY_NO_REACH_TEXT", raising=False)
     with pytest.raises(S.PlanRejected) as ei:
         PC.compile_plan(_plan(REPLY3), TASK, level="L1")
     assert ei.value.stage == "planner"
@@ -50,21 +41,9 @@ def test_reach_summary_matches_owner_scan():
 
 def test_default_has_no_reach_line(monkeypatch):
     """USER 11-17 "no clues": the reach line is a clue, off by default."""
-    rs = _reasons(monkeypatch, legacy=False)
+    rs = _reasons(monkeypatch)
     assert rs[0].startswith(OLD_FIRST), rs[0]
     assert not any(x.startswith("arm reach") for x in rs), rs
-
-
-def test_legacy_reach_text_gets_one_reach_line(monkeypatch):
-    rs = _reasons(monkeypatch, legacy=False, reach_text=True)
-    assert rs[0].startswith(OLD_FIRST), rs[0]
-    reach = [x for x in rs if x.startswith("arm reach")]
-    assert len(reach) == 1 and "forward 0.06 m" in reach[0] and "robot's right 0.03 m" in reach[0], reach
-
-
-def test_legacy_flag_restores_old_reasons(monkeypatch):
-    rs = _reasons(monkeypatch, legacy=True)
-    assert rs[0].startswith(OLD_FIRST) and not any(x.startswith("arm reach") for x in rs) and len(rs) == 3, rs
 
 
 def test_admitted_plan_unchanged(monkeypatch):

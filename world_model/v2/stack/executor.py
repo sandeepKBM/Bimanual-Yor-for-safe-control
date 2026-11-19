@@ -3,7 +3,7 @@ SIMULATION ONLY.  Extracted 2026-11-03 from CarryEpisode.run_phases and carry.ru
 ONLY copy of that logic; CarryEpisode.run_phases / carry.run_segments delegate here.  Stepping, controller, monitors, snapshot/restore stay
 on the episode (CarryEpisode._step / _check / snapshot / restore / _add_path).
 
-11-17 (USER rulings, executor phase; every item has a BIMANUAL_LEGACY_* flag):
+11-17 (USER rulings, executor phase):
   * ("program", spec)   a Rule 1 recovery program as plain JSON (adapters/rule1_contents.Ctx.program_spec): fixed (the stored backup) or read_then_retrace (stop, hold + read the claw
                         load, pick the verified bin, retrace / advance at the bin's acceleration, the stored backup's tail).
   * ("transfer", rec)   a Rule 4 transfer (stop, hold, retrace, set-down tail) from an accepted rule4 admission record.
@@ -28,15 +28,6 @@ from world_model.v2.stack import theta as TH
 from world_model.v2.stack.types import SIDES, BimanualPlan
 
 
-def _flag(name):
-    return os.environ.get(name) == "1"
-
-
-def legacy_stop():
-    """BIMANUAL_LEGACY_STOP=1 restores the pre-11-16 stop: always the fixed-T Hermite stop (also when the move ends within T).  Read at call time."""
-    return _flag("BIMANUAL_LEGACY_STOP")
-
-
 def _tup(ph):
     """one JSON phase (lists) -> the tuple form run_phases dispatches on (nested lists -> tuples)."""
     return tuple(tuple(x) if isinstance(x, list) else x for x in ph)
@@ -50,9 +41,9 @@ def _tups(phs):
 def _path_stop(ep, t, dur):
     """a stop while a closed_chain piece (track / retrace / advance) is being tracked follows the PLANNED PATH: the object's arc speed falls linearly from v0 to 0 over dur
     (s = s0 + v0 tau - v0 tau^2 / 2 dur), the joint reference is the piece's own q at that arc (linear interpolation).  It ends at s0 + 0.5 v0 dur, which is inside Rule 1's checked span.
-    v0 = Rule 1's formula (norm of np.gradient(pc.p, DT) at round(t / DT)).  -> True if handled (BIMANUAL_LEGACY_HERMITE_STOP=1, no active piece, a joint-only piece, or rest: False)."""
+    v0 = Rule 1's formula (norm of np.gradient(pc.p, DT) at round(t / DT)).  -> True if handled (no active piece, a joint-only piece, or rest: False)."""
     ap = getattr(ep, "_active_piece", None)
-    if ap is None or _flag("BIMANUAL_LEGACY_HERMITE_STOP"):
+    if ap is None:
         return False
     pc, t0 = ap
     n = pc.n
@@ -163,7 +154,7 @@ def run_phases(ep, phases, branch=None):
                     else:
                         break
                 rem[s] = None if ent is None else float(ent[1] - t)
-            finish = (not legacy_stop()) and all(r is not None and 1e-9 < r <= dur + 1e-9 for r in rem.values())
+            finish = all(r is not None and 1e-9 < r <= dur + 1e-9 for r in rem.values())
             if getattr(ep, "stop_log", None) is None:
                 ep.stop_log = []
             mode = "finish" if finish else "hermite"
@@ -267,8 +258,8 @@ def _cascade_phases(step, fb_spec, at_rest):
 
 def _safe_ok(ep, sg=None):
     """the SAFE-set test of a recovery landing.  Default: ep.landed_safe() (in_R AND both welds off); a BASE segment's family checks only 'paused' (the base at rest and no U; the full
-    safe-set check happens at the end of an interrupt resume, USER Q8).  BIMANUAL_LEGACY_SAFE_WELDED=1: in_R."""
-    if _flag("BIMANUAL_LEGACY_SAFE_WELDED") or not hasattr(ep, "landed_safe"):
+    safe-set check happens at the end of an interrupt resume, USER Q8)."""
+    if not hasattr(ep, "landed_safe"):
         return ep.in_R()
     if sg is not None and "base_ref" in sg.meta:
         bl = getattr(ep, "base_stop_log", None) or []
@@ -287,7 +278,7 @@ def _decide(ep, rt, theta_new, t_b, rest_at=None):
     from world_model.v2.stack.checks import cover as COV
     sg = rt.get("sg")
     meta = {} if sg is None else sg.meta
-    adm = None if _flag("BIMANUAL_LEGACY_NO_COVER") else rt.get("admission")           # BIMANUAL_LEGACY_NO_COVER=1: no table lookup (every belief goes to Rule 4 / the cascade)
+    adm = rt.get("admission")
     out = dict(kind="uncert", certified=False, action="fallback", recovery=None, why="", lookup_s=None)
     if adm is None or theta_new is None:
         out["why"] = "no admission or no theta_new: nothing certified"
@@ -316,7 +307,7 @@ def _decide(ep, rt, theta_new, t_b, rest_at=None):
     out.update(kind="uncert", certified=False)
     # --- Rule 4 (injected; offline mock proposer): a certified transfer on theta_new, else the uncertified cascade ---
     r4 = (rt.get("handles") or {}).get("rule4")
-    if r4 is not None and theta_new is not None and not _flag("BIMANUAL_LEGACY_NO_RULE4"):
+    if r4 is not None and theta_new is not None:
         t_call = float(t_b) if np.isfinite(t_b) else rt.get("t_end")
         out["rule4"] = dict(called=t_call is not None)
         if t_call is not None:
@@ -358,8 +349,7 @@ def _execute(ep, rt, plan, at_rest, ev):
             plan["certified"] = False
     if not ok_run:
         plan["certified"] = False
-        forced = os.environ.get("BIMANUAL_UNCERT_FALLBACK")
-        order = [forced] if forced in ("retrace_min", "stored", "hold") else ["retrace_min", "stored", "hold"]
+        order = ["retrace_min", "stored", "hold"]
         ev["cascade_tried"] = []
         for step in order:
             try:
@@ -576,7 +566,7 @@ def run_segments(ep, plan: BimanualPlan, rec, branch_backups=True, t0=None, inte
     t0 = time.time() if t0 is None else t0
     handles = handles or {}
     hold_viol = ep.track["viol"]
-    certs_on = certs is not None and not _flag("BIMANUAL_LEGACY_NO_RUNTIME_RULES") and not _flag("BIMANUAL_LEGACY_STORED_BACKUP_ONLY")
+    certs_on = certs is not None
     events = []
     ep._rt = None
     ep._bread = None
@@ -608,7 +598,7 @@ def run_segments(ep, plan: BimanualPlan, rec, branch_backups=True, t0=None, inte
         bk = sg.meta["backup_phases"]
         if has_cert and sg.meta.get("program_phases") is not None:
             bk = sg.meta["program_phases"]
-        # ---- boundary read -> Rule 3 at this step's t = 0 (11-17, USER Q7; BIMANUAL_LEGACY_NO_BOUNDARY_READ=1 = off) ----
+        # ---- boundary read -> Rule 3 at this step's t = 0 (11-17, USER Q7) ----
         if has_cert and boundary is not None and boundary.get("reads") and sg.meta.get("read_spec") is not None and sg.meta.get("theta_0") is not None:
             rd = boundary["reads"][-1]
             bev = dict(step=pix, seg=seg, y=rd["y"], nb=rd["nb"], valid=bool(rd["valid"]), v_max=rd["v_max"])
@@ -640,7 +630,7 @@ def run_segments(ep, plan: BimanualPlan, rec, branch_backups=True, t0=None, inte
             ep.cc = sg.meta["cc"]                              # 11-05: closed_chain plan (planned joint references), opt-in
         if seg != "release":
             ep.last_accel = sg.meta["accel"]                   # 11-03 item 10 (was set inside CarryEpisode.segment_phases)
-        if has_cert and not _flag("BIMANUAL_LEGACY_NO_BOUNDARY_READ") and seg != "release" and "cc" in sg.meta and pix + 1 < len(plan.segments):
+        if has_cert and seg != "release" and "cc" in sg.meta and pix + 1 < len(plan.segments):
             nxt = certs.get(pix + 1)
             if nxt is not None and nxt.get("admitted") and nxt.get("read_spec") is not None:
                 ep._bread = dict(n_read=40, reads=[])           # the hold at the end of this move is read (n_read = rule1_contents.N_READ_RT, ASSUMED)
@@ -655,7 +645,7 @@ def run_segments(ep, plan: BimanualPlan, rec, branch_backups=True, t0=None, inte
         end_sn = None
         if bk is not None and branch_backups:
             end_sn = ep.snapshot()
-            fbr = list(branches) if (pix > 0 and not resumed and not _flag("BIMANUAL_LEGACY_FAMILY_SKIP_T0")) else list(branches[1:])      # 11-17: t = 0 too after the first step (Rule 1 checks it)
+            fbr = list(branches) if (pix > 0 and not resumed) else list(branches[1:])      # 11-17: t = 0 too after the first step (Rule 1 checks it)
             _run_family(ep, sg, rt if rt is not None else {}, fbr + [(None, end_sn)], bk, fam)
             ep.restore(end_sn)
             ep.program_log = []
@@ -701,8 +691,8 @@ def _landing(ep, k0):
 
 
 def _interrupt(ep, plan, sg, ix, branches, bk, spec, rec, rt=None, end_sn=None, ctx=None):
-    """execute-and-continue: restore the latest branch snapshot <= spec["t"] (11-17; BIMANUAL_LEGACY_INTERRUPT_NEAREST=1: the nearest), run the armed recovery for real, record the landing.
-    spec may carry a belief that arrived at t: theta_new (+ admission; default the segment's certificate) -> Rule 3 (BIMANUAL_LEGACY_NO_COVER=1 = off):
+    """execute-and-continue: restore the latest branch snapshot <= spec["t"] (11-17), run the armed recovery for real, record the landing.
+    spec may carry a belief that arrived at t: theta_new (+ admission; default the segment's certificate) -> Rule 3:
       continue  keep the armed recovery (nothing runs unless spec["stop"]);   switch  re-arm that recovery (the family branches >= t_branch re-run with it: family_after_switch);
       fallback certified on theta_new  run the fallback now (certified);   anything else  Rule 4 (handles["rule4"]) then the uncertified cascade (certified False, counted).
     spec["stop"] (default: True without theta_new, False with it) runs the armed recovery from t_branch.  -> None (stop the run) | list of continuation Segments (resume)."""
@@ -711,11 +701,8 @@ def _interrupt(ep, plan, sg, ix, branches, bk, spec, rec, rt=None, end_sn=None, 
         out["error"] = "no stored backup (or no branch points) for this segment"
         return None
     t_req = float(spec["t"])
-    if _flag("BIMANUAL_LEGACY_INTERRUPT_NEAREST"):
-        tr, sn = min(branches, key=lambda b: abs(b[0] - t_req))
-    else:
-        le = [b for b in branches if b[0] <= t_req + 1e-9]                    # the latest snapshot <= t: a certified state
-        tr, sn = max(le, key=lambda b: b[0]) if le else branches[0]
+    le = [b for b in branches if b[0] <= t_req + 1e-9]                    # the latest snapshot <= t: a certified state
+    tr, sn = max(le, key=lambda b: b[0]) if le else branches[0]
     out["t_branch"] = float(tr)
     theta_new = spec.get("theta_new")
     stop = bool(spec.get("stop", theta_new is None))
@@ -725,7 +712,7 @@ def _interrupt(ep, plan, sg, ix, branches, bk, spec, rec, rt=None, end_sn=None, 
                 t_end=(float(sg.meta["piece"].n * CR.DT) if "piece" in sg.meta else None), rest_at=None)
     if spec.get("admission") is not None:
         rt_i["admission"] = spec["admission"]
-    if theta_new is not None and not _flag("BIMANUAL_LEGACY_NO_COVER") and os.environ.get("BIMANUAL_COVER") != "0":
+    if theta_new is not None:
         ep._rt = rt_i
         plan_i = _decide(ep, rt_i, theta_new, float(tr))
         cv = out["cover"] = dict(t=t_req, t_b=float(tr), **_decision_json(plan_i), certified=bool(plan_i["certified"]))
@@ -790,15 +777,13 @@ def _after_landing(ep, plan, sg, ix, tr, spec, out):
     from world_model.v2.stack.planners import base_route as BR
     p_now, p_end = ep.sb.pose(), sg.meta["end_pose"]
     try:
-        if os.environ.get("BIMANUAL_LEGACY_RESUME_DIRECT") == "1":
-            route = BR.continuation_route(p_now, p_end)
-        else:                                                   # USER 11-17: resume = finish the PLANNED route from the landed pose (turn-line-turn is the legacy)
-            from world_model.v2.stack.checks import base_stop as BS
-            planned = BR.normalize_route(sg.meta["base_ref"]["route"])
-            lv = sg.meta["base_ref"].get("level", "L1")
-            segs = BS.segment_table(planned, BR.default_backend().levels()[lv], BR.GAP_S)
-            i_seg = BS.interrupted_index(segs, float(tr))
-            route = BR.remaining_route(BR.route_start(p_end, planned), planned, i_seg, p_now)
+        # USER 11-17: resume = finish the PLANNED route from the landed pose
+        from world_model.v2.stack.checks import base_stop as BS
+        planned = BR.normalize_route(sg.meta["base_ref"]["route"])
+        lv = sg.meta["base_ref"].get("level", "L1")
+        segs = BS.segment_table(planned, BR.default_backend().levels()[lv], BR.GAP_S)
+        i_seg = BS.interrupted_index(segs, float(tr))
+        route = BR.remaining_route(BR.route_start(p_end, planned), planned, i_seg, p_now)
         rinfo = dict(route=[list(r) for r in route], from_pose=[float(a) for a in p_now], to_pose=[float(a) for a in p_end])
         if not route:
             raise ValueError("already at the nominal end pose")

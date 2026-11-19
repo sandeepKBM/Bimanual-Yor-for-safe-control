@@ -9,7 +9,7 @@ problem statement = its §3, user 11-05). Formulation: `docs/paper/proposal_2026
 Current branch: `contents-armside-2026-11-02`, worktree `.claude/worktrees/contents-armside2` (`basestop-1116` merged into it 11-17).
 `world_model/v2/stack/`, `world_model/v2/flmpc/`, `docs/README.md` and the 11-02..11-17 docs are not on `master` or on the main checkout's
 branch; read them in that worktree.
-This file = how to *operate* here. Last updated 2026-11-17 (status facts moved to the current-state doc; paths checked against the code).
+This file = how to *operate* here. Last updated 2026-11-19 (legacy switches removed: flag lines updated; earlier 11-17: status facts moved to the current-state doc).
 
 ## Environment / running
 - Python env: `/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python`.
@@ -34,11 +34,10 @@ This file = how to *operate* here. Last updated 2026-11-17 (status facts moved t
   Datasheet facts: `config.MANUAL` (payload, speeds) and `config.TORQUE_PRESETS` (MIT command ranges; no rated torque is published).
   The Piper 8 Nm cap does not apply to NERO.
 - **Arm torque limit = the MJCF numbers (USER 11-05):** 100 Nm per joint (MJCF forcerange = URDF `effort`). One source:
-  `config.tau_limit()`, used by FL-MPC runners and the contents admission rows. `BIMANUAL_TAU_MIT16=1` restores the 16 Nm MIT range
-  of the 11-03..11-05 runs (needed to reproduce them). The payload rating (3 kg, datasheet) is unchanged.
+  `config.tau_limit()`, used by FL-MPC runners and the contents admission rows. The payload rating (3 kg, datasheet) is unchanged.
 - **Gripper = the NYU gripper** (YOR's, Dynamixel XL430) for every scene; the grasp is a rigid weld (claims 11-02). Sim gripper actuator
   limit = the lead-screw NUT force `config.NUT_FORCE_N` (not a jaw force) via `config.claw_default()` (tag and chain in `nero/nyu_gripper.py:59`); physics substeps =
-  `config.substeps_default()`. Hardware squeeze force is unknown (ASSUMED until measured). Legacy env flags are `BIMANUAL_LEGACY_*`.
+  `config.substeps_default()`. Hardware squeeze force is unknown (ASSUMED until measured). No legacy env flags (USER 11-19: git history is the way back).
 - Base and YOR-body values come from the **UNMODIFIED YOR GitHub model** (`YOR/`, remote github.com/YOR-robot/YOR.git): base lift
   actuator ±56 (not an arm joint). Confirm files are `git status`-clean vs origin before trusting a value. `sim_common.TAU_MAX=100`
   belongs to the old cup-demo stack (`experiments/ab_smooth_vs_bangbang/`), not to NERO.
@@ -50,8 +49,7 @@ This file = how to *operate* here. Last updated 2026-11-17 (status facts moved t
   comparison, not a discard.
 - `experiments/.../mpc7.py` torque-space MPC — **DEFUNCT** (linearized rollout
   diverged/collided; superseded).
-- **FL-MPC** = `world_model/v2/flmpc/` (the old `experiments/ab_smooth_vs_bangbang/mpc_fl.py` is a `sys.modules` alias; patch
-  `mpc_fl.sc.<name>`). Feedback-linearized (`τ=M·a+c` ⇒ exact double integrator); plans acceleration; exact analytic horizon
+- **FL-MPC** = `world_model/v2/flmpc/` (import `world_model.v2.flmpc.mpc_fl`; patch `mpc_fl.sc.<name>`). Feedback-linearized (`τ=M·a+c` ⇒ exact double integrator); plans acceleration; exact analytic horizon
   prediction (no MuJoCo rollout in the controller); Numba-optimized; safety lives in the QP **constraints** (arm-arm clearance,
   table-floor, torque box, cup-tilt).
 - Current work: the hidden-contents carry, `world_model/v2/nero/contents/` (`carry.py`; tracker = basic FL-MPC,

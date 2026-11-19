@@ -125,7 +125,7 @@ for _p in (str(REPO_ROOT), str(AB4_DIR), str(EVAL_DIR)):
 import sim_common as sc  # noqa: E402  (read-only import)
 import run_ab4  # noqa: E402  (read-only import; reuses the v4-C* intruder-margin law)
 import mpc7 as mpc7_mod  # noqa: E402  (read-only import; --controller v7c reuses this UNMODIFIED)
-import mpc_fl  # noqa: E402  (feedback-linearized cooperative MPC; --controller flmpc)
+from world_model.v2.flmpc import mpc_fl  # noqa: E402  (feedback-linearized cooperative MPC; --controller flmpc)
 import mpc_fl_decentralized  # noqa: E402  (Option B: decentralized worst-case FL-MPC; --controller flmpc_decentB)
 import ee_speed_limit as ee_speed_limit_mod  # noqa: E402  (EE-SPEED-LIMIT FIX; module aliased to avoid the `ee_speed_limit` bool)
 import scene_setup  # noqa: E402  (eval/, read-only import)

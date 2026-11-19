@@ -77,7 +77,7 @@ def job(args):
                 st = BJ._static(task, lo, hi, w, wp0)
                 lvl = None
                 if st["a_admit"] is not None:
-                    lvl, _ = BE.pick_level(task, P.interval_spec(bt, lo, hi), BJ.LEVELS, BJ.SOURCE)
+                    lvl, _ = BE.pick_level(task, P.interval_spec(bt, lo, hi, world=w), BJ.LEVELS, BJ.SOURCE, world=w)
                 return dict(action=st["action"], a_admit=st["a_admit"], u_nom=st["u_nom"], base_level=lvl,
                             admitted=st["a_admit"] is not None and lvl is not None)
             plan_id = plan.get("plan_id")

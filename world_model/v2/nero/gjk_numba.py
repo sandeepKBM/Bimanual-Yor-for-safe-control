@@ -3,7 +3,7 @@
 Same loop, tolerances (tol=1e-10, maxit=60, nv<1e-12 -> 0, keep lam>1e-12) and support rule as the scipy version; the nnls step (min |P^T lam|,
 sum lam = 1, lam >= 0, solved there with an M=1e3 penalty row) is replaced by the EXACT closest point to the origin on the simplex spanned by
 the current points (<= 4): every subset's affine-hull minimiser is solved in closed form and the smallest valid (lam >= 0) one is taken.
-fastmath OFF.  Flag BIMANUAL_LEGACY_GJK_SCIPY=1 restores the scipy path (see clearance.py).
+fastmath OFF.  
 """
 import numpy as np
 from numba import njit

@@ -15,7 +15,7 @@ The transfer = a Rule 1 program: prefix = a STOP (read_hold rows: stop decelerat
                 -> MISSING (a shorter stop fails the rows, a longer one has no checked pose);
   retrace a = min(A_BACKUP, a_max over the retrace samples, open-content limit), halved up to RETRACE_HALVINGS times (never below A_MIN) until every branch point passes.
   11-16: a stop whose move (the segment, or the retrace) has remaining time <= T FINISHES the move (executor stop branch): end sample = the move's end, deceleration = a (not v / T,
-  not 0.5 v T); BIMANUAL_LEGACY_STOP=1 restores the old model.
+  not 0.5 v T).
   Branch points of the transfer = every 0.25 s of its duration plus the end.  The in-flight stops ARE enumerated: at each branch point the recovery (stop, then continue
   to the target) is checked with its own stop time from the ladder (T = 0.3 s included, whose deceleration v / T can exceed a) and, in the accelerating half of the
   retrace, also T = v / a; the chosen T and end sample per branch point are recorded in admission['transfer']['per_branch'].
@@ -37,7 +37,6 @@ import numpy as np
 
 from world_model.v2.adapters import rule1_contents as RC
 from world_model.v2.nero.contents import carry_cert as CC
-from world_model.v2.stack import executor as EX
 from world_model.v2.stack import theta as TH
 from world_model.v2.stack import types as TY
 from world_model.v2.stack.checks import admit as AD
@@ -196,7 +195,7 @@ def _choose_stop(ctx, model, ext, theta, seg, arc, ib, v, direction, it=None, a_
     cands = sorted([_stop_t0() * 2 ** k for k in range(STOP_K_MAX + 1)] + ([v / a_brake] if a_brake and v > 1e-9 and v / a_brake >= _stop_t0() else []))
     last = None
     for T in cands:
-        fin = (not EX.legacy_stop()) and t_rem is not None and end_idx is not None and a_fin is not None and v > 1e-9 and 1e-9 < t_rem <= T + 1e-9
+        fin = t_rem is not None and end_idx is not None and a_fin is not None and v > 1e-9 and 1e-9 < t_rem <= T + 1e-9
         if fin:      # 11-16 (executor stop branch): a stop in the last T s of a rest-to-rest move lets the move finish: end = the move's end sample, deceleration = the move's own a
             e, acc = int(end_idx), float(a_fin)
         else:
@@ -453,7 +452,7 @@ def make_check(st: CarryState, theta_t: TH.ThetaSet):
             adm["assumptions"] += [dict(name="STOP_K_MAX", value=STOP_K_MAX, tag="ASSUMED", src="rule4_contents: stop time ladder STOP_T0 * 2^k, k <= STOP_K_MAX (to be raised to the user)"),
                                    dict(name="RETRACE_HALVINGS", value=RETRACE_HALVINGS, tag="ASSUMED", src="rule4_contents: retrace acceleration halved at most this often, never below A_MIN"),
                                    dict(name="stop_finish", value="a stop (initial: remaining time of the segment; in-flight in the accelerating half of the retrace: remaining time of the retrace) with remaining time <= T finishes the move: end = the move's end sample, deceleration = the plan's a (initial) / the retrace a (in-flight)", tag="MODEL",
-                                        src="executor stop branch 11-16 (rest-to-rest references); BIMANUAL_LEGACY_STOP=1 restores the 0.5 v T Hermite overshoot"),
+                                        src="executor stop branch 11-16 (rest-to-rest references)"),
                                    dict(name="R4_HOLD_S", value=R4_HOLD_S, tag="ASSUMED", src="rule4_contents: hold between the transfer's stop and its retrace [s] (11-17)"),
                                    dict(name="STOP_T0", value=_stop_t0(), tag="ASSUMED", src="rule4_contents: shortest stop time = the stored backups' stop time (carry backup_phases)")]
         return ok, rows, adm
@@ -486,10 +485,12 @@ class MockTargetProposer:
 
 
 # ----------------------------------------------------------------------------------------------------------------------- the trap
-def build_trap(task="box", cell=(2.5, 3.0), seg="carry", t=0.75, planner=None):
+def build_trap(task="box", cell=(2.5, 3.0), seg="carry", t=0.75, planner=None, tilt=None):
     """a state mid-carry on a heavy cell where Rule 1 refuses (box contents 2.5-3.0 kg: every step is refused, rule1_contents).
     -> dict(state, theta_t, rule1_refused: bool, failing_rows: [Row], plan_action, a_plan)."""
     ctx = RC.get_ctx(task, planner)
+    if tilt is not None:
+        ctx.tilt = tilt                  # the per-plan load tilt measurement (collision_rows.TiltSpec); None = the recovery collision rows are MISSING
     lo, hi = RC.cell_total(task, cell)
     theta_t = RC.theta_box(lo, hi)
     adm0, model = RC.plan_admission(ctx, cell, lo, hi)

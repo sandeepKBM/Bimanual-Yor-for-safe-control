@@ -60,6 +60,13 @@ class Common:
     gravcomp: bool = False                             # never gravity-compensate the held object
     tau_preset: str | None = None
     drop_eps: float = 1e-4                             # initial gap above support [m]
+    obj_yaw: float = 0.0                               # object yaw about z at its start [rad] (base/geom_prior draws it; 0 = nominal)
+    c2_dxy: tuple = (0.0, 0.0)                         # counter2 offset [m] from the point mirror of the counter (table-behind tasks; base/geom_prior; 0 = nominal)
+
+    @property
+    def grasp_y(self):
+        """|y| of the grasp sites in the obj frame (tray / pot: the fixed GRASP_Y; BoxWorld follows its end wall)."""
+        return GRASP_Y
 
     @property
     def counter_top(self):
@@ -117,8 +124,6 @@ class BoxWorld(Common):
     box_outer: tuple = (0.20, 0.30, 0.15)   # ASSUMED crate (x, y, z)
     wall_t: float = 0.005             # ASSUMED
     box_mass: float = 0.25            # ASSUMED cardboard crate
-    tab_inner_y: float = 0.15
-    tab_outer_y: float = 0.21
     shelf: bool = True
     shelf_x: tuple = (0.06, 0.27)     # ASSUMED, wall-mounted (no post modelled)
     shelf_yc: float = -0.30 + SCENE_DY   # ASSUMED
@@ -126,7 +131,23 @@ class BoxWorld(Common):
     shelf_top: float = 0.97           # ASSUMED (11-02: counter top + 0.15; a 20 cm lift misses the right arm by 18 mm, 18 cm reaches)
     shelf_t: float = 0.02             # ASSUMED
     shelf_mu: float = 0.6             # ASSUMED
+    bc_dxy: tuple = (0.0, 0.0)        # bookcase position offset [m] (base/geom_prior; 0 = nominal)
+    bc_yaw: float = 0.0               # bookcase yaw about its centre [rad]
+    bc_l1_h: float | None = None      # inner height of compartment l1 [m]; None = nero/base/scene.BC_INNER_H
     bookcase: bool = False            # table-behind task box_bookcase (USER 11-16): the goal is the lower compartment of a 2-level bookcase (nero/base/scene.py), no counter2
+
+    # tabs follow the crate end wall (USER 11-19; MODEL, the nominal offsets kept: box_y 0.30 -> 0.15 / 0.21 / 0.186 bit for bit)
+    @property
+    def tab_inner_y(self):
+        return self.box_outer[1] / 2
+
+    @property
+    def tab_outer_y(self):
+        return self.box_outer[1] / 2 + 0.06
+
+    @property
+    def grasp_y(self):
+        return self.box_outer[1] / 2 + 0.036
 
 
 POT_HANDLE_LEN = 0.11   # ASSUMED m: stack/universes/pot.py NOMINAL (the THETA box has 0.09..0.13; 0.12-0.13 has no passing right pre-grasp with the NYU gripper, 11-04)
@@ -261,10 +282,12 @@ def _distribute(parts, total):
 
 def _obj_body(W, c, name_sites_z):
     b = W.add_body(name="obj", pos=[c.obj_xy[0], c.obj_xy[1], c.counter_top + c.drop_eps])
+    if c.obj_yaw != 0.0:
+        b.quat = [float(np.cos(c.obj_yaw / 2)), 0.0, 0.0, float(np.sin(c.obj_yaw / 2))]
     b.add_freejoint(name="obj_free")
     b.add_site(name="obj_ref", pos=[0, 0, 0], size=[0.004, 0, 0], rgba=[0.2, 1, 0.2, 1])
-    b.add_site(name="obj_grasp_left", pos=[0, GRASP_Y, GRASP_Z], size=[0.006, 0, 0], rgba=[1, 0.2, 0.2, 1])
-    b.add_site(name="obj_grasp_right", pos=[0, -GRASP_Y, GRASP_Z], size=[0.006, 0, 0], rgba=[1, 0.2, 0.2, 1])
+    b.add_site(name="obj_grasp_left", pos=[0, c.grasp_y, GRASP_Z], size=[0.006, 0, 0], rgba=[1, 0.2, 0.2, 1])
+    b.add_site(name="obj_grasp_right", pos=[0, -c.grasp_y, GRASP_Z], size=[0.006, 0, 0], rgba=[1, 0.2, 0.2, 1])
     return b
 
 
@@ -343,8 +366,11 @@ def build_spec(world):
         for (n, h, p), m in zip(parts, ms):
             _box_geom(b, n, h, p, m, w.box_mu, [0.7, 0.55, 0.35, 1])
         ch = np.array(w.contents_half, float)
-        cb = W.add_body(name="contents", pos=[c.obj_xy[0] + w.contents_xy[0], c.obj_xy[1] + w.contents_xy[1],
-                                              c.counter_top + c.drop_eps + t + ch[2] + 1e-4])
+        cyw = float(c.obj_yaw)                                   # contents_xy is in the BOX frame: rotate it by the crate's start yaw (identical at yaw 0); the block turns with the crate
+        cxy = (c.obj_xy[0] + np.cos(cyw) * w.contents_xy[0] - np.sin(cyw) * w.contents_xy[1], c.obj_xy[1] + np.sin(cyw) * w.contents_xy[0] + np.cos(cyw) * w.contents_xy[1])
+        cb = W.add_body(name="contents", pos=[cxy[0], cxy[1], c.counter_top + c.drop_eps + t + ch[2] + 1e-4])
+        if cyw != 0.0:
+            cb.quat = [float(np.cos(cyw / 2)), 0.0, 0.0, float(np.sin(cyw / 2))]
         cb.add_freejoint(name="contents_free")
         cb.add_geom(name="contents_geom", type=mujoco.mjtGeom.mjGEOM_BOX, size=list(ch), mass=w.contents_kg,
                     friction=[w.contents_mu, *FRIC], contype=1, conaffinity=1, rgba=[0.3, 0.3, 0.8, 1])

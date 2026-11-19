@@ -86,7 +86,7 @@ possible task slowdown or standstill. See the smoke report.
 from __future__ import annotations
 import numpy as np
 import sim_common as sc
-from mpc_fl import FLMPC, _assemble_fl
+from world_model.v2.flmpc.mpc_fl import FLMPC, _assemble_fl
 
 
 # Module-level default worst-case tube gain, so a driver that constructs

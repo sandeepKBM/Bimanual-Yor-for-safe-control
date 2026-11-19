@@ -26,8 +26,7 @@ def _tau_note():
     """the torque box this process actually uses (config.tau_limit(), one source).  11-07 fix (clarity report 11-06 (f)9): the records said
     "16 Nm box" while the 11-05 runs used the 100 Nm MJCF default."""
     from world_model.v2.nero import config as NC
-    src = "BIMANUAL_TAU_MIT16=1: MIT command range, ASSUMED" if NC.TAU_MIT16 else "MJCF forcerange, MODEL, USER 11-05"
-    return f"{float(NC.tau_limit()[0]):g} Nm torque box ({src})"
+    return f"{float(NC.tau_limit()[0]):g} Nm torque box (MJCF forcerange, MODEL, USER 11-05)"
 
 
 ASSUMPTIONS = dict(

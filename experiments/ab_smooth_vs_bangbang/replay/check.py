@@ -128,7 +128,7 @@ def main(argv=None):
     cov = None
     if args.coverage:
         import coverage
-        import mpc_fl
+        from world_model.v2.flmpc import mpc_fl
         import flmpc_value
         cov = coverage.Coverage(include=[mpc_fl.__file__, flmpc_value.__file__], data_file=None)
         cov.start()
@@ -151,7 +151,7 @@ def main(argv=None):
     if len(bad) > 10:
         print(f"  ... and {len(bad) - 10} more failing records")
     if cov is not None:
-        import mpc_fl
+        from world_model.v2.flmpc import mpc_fl
         import inspect
         _, executable, _, missing, _ = cov.analysis2(mpc_fl.__file__)
         sl, el = inspect.getsourcelines(mpc_fl.FLMPC.step)

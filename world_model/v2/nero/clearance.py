@@ -9,14 +9,11 @@ Same-arm pairs are not checked.  Threshold used by callers: >= CLEARANCE_MIN (5 
 """
 from __future__ import annotations
 
-import os
-
 import numpy as np
 import mujoco
 
 CLEARANCE_MIN = 0.005    # ASSUMED, same as pan CLAMP clear
 _DMAX = 0.10
-_LEGACY_SCIPY = os.environ.get("BIMANUAL_LEGACY_GJK_SCIPY") == "1"   # 11-17: 1 = old scipy-nnls GJK
 
 
 def _robot_side(m, g):
@@ -86,34 +83,9 @@ def _hull_pts(m, g):
 
 
 def _gjk(Wa, Wb, tol=1e-10, maxit=60):
-    """Numba version (nero/gjk_numba.py) unless BIMANUAL_LEGACY_GJK_SCIPY=1."""
-    if not _LEGACY_SCIPY:
-        from .gjk_numba import gjk
-        return float(gjk(np.ascontiguousarray(Wa, dtype=np.float64), np.ascontiguousarray(Wb, dtype=np.float64), tol, maxit))
-    return _gjk_scipy(Wa, Wb, tol, maxit)
-
-
-def _gjk_scipy(Wa, Wb, tol=1e-10, maxit=60):
-    """Gilbert distance between the convex hulls of two point sets (0.0 when they touch / overlap)."""
-    from scipy.optimize import nnls
-    sup = lambda dr: Wa[np.argmax(Wa @ dr)] - Wb[np.argmin(Wb @ dr)]
-    v = Wa[0] - Wb[0]
-    S = [v]
-    for _ in range(maxit):
-        nv = float(v @ v)
-        if nv < 1e-12:
-            return 0.0
-        w = sup(-v)
-        if nv - float(v @ w) < tol + 1e-9 * nv:
-            break
-        S.append(w)
-        P = np.array(S)
-        M = 1e3
-        lam, _ = nnls(np.vstack([P.T, M * np.ones((1, len(P)))]), np.array([0.0, 0.0, 0.0, M]))
-        keep = lam > 1e-12
-        S = [S[i] for i in range(len(S)) if keep[i]]
-        v = lam[keep] @ P[keep]
-    return float(np.linalg.norm(v))
+    """Gilbert distance between the convex hulls of two point sets (Numba, nero/gjk_numba.py)."""
+    from .gjk_numba import gjk
+    return float(gjk(np.ascontiguousarray(Wa, dtype=np.float64), np.ascontiguousarray(Wb, dtype=np.float64), tol, maxit))
 
 
 def _dist(m, d, a, b):

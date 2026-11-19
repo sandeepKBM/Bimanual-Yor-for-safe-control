@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from world_model.v2.stack import theta as TH
 from world_model.v2.stack.checks import rule4 as R4
 from world_model.v2.stack.checks.row import Row
@@ -96,16 +98,18 @@ def test_loop_trap_and_no_repeats():
 
 
 # ---------------------------------------------------------------------------------------------------------- physics (box trap, closed_chain), slow
+@pytest.mark.skip(reason="RETIRED (USER 11-19): fixed-base task, out of scope; with the measured load tilt its nominal plan is refused at lift (4.4 mm < 5 mm, n=4 tilt). Listed in docs/status/checker_measured_set_plan_2026-11-19.md Part 3")
 def test_box_trap_offgrid_set_down_is_a_safe_park(monkeypatch):
     """box 2.5-3.0 kg mid-carry at t = 0.8 s (off the 0.25 s grid on purpose: no snapping).  Holding in the air is refused (the next step fails Rule 1);
     a set-down at the start is accepted, checked from EVERY branch point of the transfer (0.25 s grid + its end), and labelled a safe park
     (Rule 1 still refuses continuing: the 11-16 livelock finding; the policy is the user's call)."""
     if "BIMANUAL_PLANNER" not in __import__("os").environ:
         monkeypatch.setenv("BIMANUAL_PLANNER", "closed_chain")          # restored after the test (was a leaking setdefault)
-    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")          # untilted row (BIMANUAL_LEGACY_UNTILTED_COLLISION=1): this test is about Rule 1 logic, not the load tilt (11-17 tilt row: adapters/tests/test_tilt_collision_gate.py)
+    from world_model.v2.adapters.tests.tilt_input import measured_tilt      # the recovery collision rows need the load tilt: MEASURED for the cell (n = 4 ASSUMED test choice)
+    tilt = measured_tilt("box", (2.5, 3.0))
     from world_model.v2.adapters import rule4_contents as R4C
     from world_model.v2.stack.checks import rule1 as R1
-    acc, log, tr = R4C.run_trap(True, t=0.8)
+    acc, log, tr = R4C.run_trap(True, t=0.8, tilt=tilt)
     assert tr["state"].t == 0.8
     assert acc is not None and acc.name == "set_down_start", [(e["round"], e["verdicts"]) for e in log]
     rejected = {v["target"] for e in log for v in e["verdicts"] if not v["ok"]}
@@ -121,5 +125,5 @@ def test_box_trap_offgrid_set_down_is_a_safe_park(monkeypatch):
     assert all(e["T"] is not None and e["end_idx"] is not None and e["mode"] for e in pb if e["mode"] != "continue_decel_to_target"), pb
     names = {x["name"]: x for x in ad["assumptions"]}
     assert {"STOP_K_MAX", "RETRACE_HALVINGS", "STOP_T0"} <= set(names) and all(names[n]["tag"] == "ASSUMED" for n in ("STOP_K_MAX", "RETRACE_HALVINGS", "STOP_T0"))
-    acc2, log2, _ = R4C.run_trap(False, t=0.8)
+    acc2, log2, _ = R4C.run_trap(False, t=0.8, tilt=tilt)
     assert acc2 is None and log2[-1].get("note") == "the proposer offered no new target"

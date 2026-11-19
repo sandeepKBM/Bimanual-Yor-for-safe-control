@@ -40,7 +40,7 @@ SRC = Path("/common/users/ss5772/bimanual_data/contents/table_behind_same_2026-1
 PLAN_CACHE = Path("/common/users/ss5772/bimanual_data/contents/table_behind_same_2026-11-09/ours_plans_v2")
 PLAN_SPEC = "codex:gpt-5.6-sol:high"
 A_PLAN = 0.5                     # ASSUMED (see module doc): the a_admit of every admitted world in the source run
-PROBE_METHOD = "poslift"         # source run CONFIG.json
+PROBE_METHOD = "claw_guard"      # the default probe method since USER 11-13 (11-19: was poslift, the source run's method); eps = its own calibration, probe.default_calib
 ALL_VARIANTS = ("known:L1", "known:L2", "known:L3", "true:L1", "true:L2", "true:L3")
 
 
@@ -73,8 +73,7 @@ def first_plan(task):
 
 def _calib():
     from world_model.v2.nero.contents import probe as P
-    cfg = json.loads((SRC / "CONFIG.json").read_text())
-    cal = P.load_calib(cfg["calib"], PROBE_METHOD)["eps"]
+    cal = P.load_calib(P.default_calib(PROBE_METHOD), PROBE_METHOD)["eps"]
     return float(cal["EPS_LO"]), float(cal["EPS_FREE"])
 
 
@@ -119,7 +118,7 @@ def job(args):
         st_true = BJ._static(task, c_true, c_true, w, wp0)
         lvl_true, rows_true = (None, None)
         if st_true["a_admit"] is not None:
-            lvl_true, rows_true = BE.pick_level(task, P.interval_spec(bt, c_true, c_true), BJ.LEVELS, BJ.SOURCE)
+            lvl_true, rows_true = BE.pick_level(task, P.interval_spec(bt, c_true, c_true, world=w), BJ.LEVELS, BJ.SOURCE, world=w)
         rec = dict(task=task, i=i, seed=seed, variant=variant, belief_kind=belief_kind, level=level, a_plan=A_PLAN, plan_id=plan.get("plan_id"),
                    M_true=M, c_true=c_true, Theta=[pr.M_lo, pr.M_hi], why=why, peak_u=round(getattr(pr, "peak_u", 0.0), 4), probe_viol=probe_viol,
                    verdict_theta=dict(action=st_theta["action"], a_admit=st_theta["a_admit"], u_nom=st_theta["u_nom"]),

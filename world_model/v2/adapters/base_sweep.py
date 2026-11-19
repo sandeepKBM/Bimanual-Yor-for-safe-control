@@ -7,7 +7,7 @@ The stack core cannot import physics; base_route.py calls this backend (duck-typ
                                          exists; else MODEL: counter 1 mirrored about scene.mirror_centre())
   BACKEND.start_pose(world)              (x, y, yaw) of the base rotation centre at the start (MODEL: scene.base_geometry, SwerveBase._yaw0)
   BACKEND.levels()                       {level: (v m/s, a m/s^2, w rad/s, alpha rad/s^2)}   (nero/base/smoke.LEVELS, ASSUMED)
-  BACKEND.hold_q(world)                  {side: q (7,)} claw hold pose of the carry (contents/capture_nyu.json, what compile._inputs uses)
+  BACKEND.hold_q(world)                  {side: q (7,)} claw hold pose of the carry (nyu_hold.hold_pose of the world: claws on its tabs; what compile._inputs uses)
   BACKEND.sweep(world, poses, q_hold, obj_off, clearance_min)
                                          swept clearance of a base route: -> dict(min_dist, worst, by_segment, n_poses, clearance_min, ...)
 
@@ -51,7 +51,14 @@ def world_default(task):
 def _episode(world):
     k = repr(world)
     if k not in _EP:
-        _EP[k] = SM.make_ep(world)
+        from ..nero.contents import nyu_hold as NH, envelope as E
+        try:
+            hq = None                                                  # claws on the world's tabs
+            NH.hold_pose(world)
+        except NH.GraspUnreachable:      # geometry queries (start_pose, object_box, goal) never read the arms; sweep() takes hold_q(world) itself and raises
+            cap = json.loads(E.CAP_FILE.read_text())["pot"]["q"]["W0_liftoff"]
+            hq = {s: cap[s] for s in C.SIDES}
+        _EP[k] = SM.make_ep(world, hold_q=hq)
         mujoco.mj_forward(_EP[k].m, _EP[k].d)
     return _EP[k]
 
@@ -71,15 +78,19 @@ def supports(world):
 
 
 def obstacles(world, prefix="bookcase"):
-    """MODEL (the compiled scene): world-frame axis-aligned extents of the furniture geoms named `prefix*` (the bookcase boards): {name: dict(x, y, z)} [m]."""
+    """MODEL (the compiled scene): world-frame axis-aligned extents (AABB of the yawed box) of the furniture geoms named `prefix*` (the bookcase boards): {name: dict(x, y, z [, yaw_deg])} [m]."""
     ep = _episode(world)
     m, d = ep.m, ep.d
     out = {}
     for i in range(m.ngeom):
         nm = mujoco.mj_id2name(m, mujoco.mjtObj.mjOBJ_GEOM, i)
         if nm and nm.startswith(prefix) and m.geom_type[i] == mujoco.mjtGeom.mjGEOM_BOX:
-            c, h = d.geom_xpos[i], m.geom_size[i]
+            c = d.geom_xpos[i]
+            h = np.abs(d.geom_xmat[i].reshape(3, 3)) @ m.geom_size[i]          # half extents of the AABB of the (yawed) box (= geom_size at yaw 0)
             out[nm] = {ax: [round(float(c[k] - h[k]), 4), round(float(c[k] + h[k]), 4)] for k, ax in enumerate("xyz")}
+            yaw = float(np.arctan2(d.geom_xmat[i][3], d.geom_xmat[i][0]))
+            if abs(yaw) > 1e-9:
+                out[nm]["yaw_deg"] = round(float(np.degrees(yaw)), 2)
     return out
 
 
@@ -95,8 +106,8 @@ def levels():
 
 
 def hold_q(world=None):
-    cap = json.loads(E.CAP_FILE.read_text())["pot"]
-    return {s: np.asarray(cap["q"]["W0_liftoff"][s], float) for s in C.SIDES}
+    from ..nero.contents import nyu_hold as NH, scenes as SC
+    return NH.hold_pose(world if world is not None else SC.TrayWorld())      # 11-19: claws on the RUN world's tabs (nyu_hold.hold_pose), not the nominal capture
 
 
 def compose(world):
@@ -106,6 +117,52 @@ def compose(world):
 
 def place_pose_xy(world):
     return [float(x) for x in BS.place_pose_xy(world)]
+
+
+def goal(world):
+    """MODEL (truth of the sim scene; a measured geometry set answers the same call later).  The goal of the table-behind task in the world frame:
+    dict(goal_xy = obj reference xy at the plan end (scene.place_pose_xy), pre_xy = obj reference xy when the base route ends (before the arm insert),
+    heading = base yaw at the route end (faces the goal support; the bookcase yaw is followed), insert_m (arm insert along the base +x after the turn),
+    retreat_m (first route segment, ASSUMED scene constants), support = goal support name)."""
+    bc = BS.is_bookcase(world)
+    gxy = np.asarray(BS.place_pose_xy(world), float)
+    yaw0 = start_pose(world)[2]
+    heading = float(yaw0 + np.pi + (float(world.bc_yaw) if bc else 0.0))
+    ins = float(BS.BC_INSERT_M) if bc else 0.0
+    pre = gxy - ins * np.array([np.cos(heading), np.sin(heading)])
+    return dict(goal_xy=[float(gxy[0]), float(gxy[1])], pre_xy=[float(pre[0]), float(pre[1])], heading=heading, insert_m=ins,
+                retreat_m=float(BS.BC_RETREAT_M if bc else BS.RETREAT_M), support="bookcase_l1" if bc else "counter2")
+
+
+def object_box(world):
+    """MODEL: the carried object at the start: dict(xy, yaw, half=(hx, hy, hz)) (crate: world.box_outer; tray: objects.TRAY lx, ly)."""
+    bo = getattr(world, "box_outer", None)
+    if bo is None:
+        from world_model.v2.nero.contents import objects as OB
+        bo = (OB.TRAY["lx"], OB.TRAY["ly"], OB.TRAY.get("lz", 0.0))
+    return dict(xy=[float(world.obj_xy[0]), float(world.obj_xy[1])], yaw=float(getattr(world, "obj_yaw", 0.0)), half=tuple(float(v) / 2 for v in bo))
+
+
+def required_end_pose(world, off_xy=(0.0, 0.0)):
+    """MODEL: the base pose (x, y, yaw) at the end of the route such that the carried object (base-frame offset off_xy from its start xy, welded) stands at goal()['pre_xy']:
+    c_e = pre - R(dl) (obj_xy + off - c0), dl = heading - start yaw."""
+    g = goal(world)
+    c0 = np.asarray(start_pose(world)[:2], float)
+    dl = g["heading"] - start_pose(world)[2]
+    R = np.array([[np.cos(dl), -np.sin(dl)], [np.sin(dl), np.cos(dl)]])
+    ce = np.asarray(g["pre_xy"], float) - R @ (np.asarray(world.obj_xy, float)[:2] + np.asarray(off_xy, float) - c0)
+    return (float(ce[0]), float(ce[1]), float(g["heading"]))
+
+
+def support_geo(world, goal_support):
+    """MODEL: what stack/checks/support.support_row needs for the goal support of a table-behind task: the oriented support top (yaw, centre, half), the object's yaw in the world at the
+    goal (start yaw + the base turn) and its footprint (the drawn crate).  None entries when the world has no such field."""
+    sup = supports(world)[goal_support]
+    g = goal(world)
+    ob = object_box(world)
+    return dict(sup_yaw=float(sup.get("yaw", 0.0)), sup_centre=sup.get("centre"), sup_half=sup.get("half"),
+                obj_yaw=float((ob["yaw"] + (g["heading"] - start_pose(world)[2]) + np.pi / 2) % np.pi - np.pi / 2),      # a rectangle is symmetric under pi: folded to [-pi/2, pi/2)
+                footprint=(2 * ob["half"][0], 2 * ob["half"][1]) if hasattr(world, "box_outer") else None)
 
 
 def _qz(a):

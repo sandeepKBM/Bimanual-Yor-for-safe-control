@@ -38,7 +38,6 @@ from world_model.v2.nero.contents import envelope as E
 from world_model.v2.nero.contents import objects as OB
 from world_model.v2.nero.contents import scenes as SC
 from world_model.v2.nero.contents import thresholds as THR
-from world_model.v2.stack import executor as EX
 from world_model.v2.stack import tasks as TK
 from world_model.v2.stack import types as TY
 from world_model.v2.stack import theta as TH
@@ -232,25 +231,26 @@ class PathModel:
 class _SharedBackend:
     """payload_envelope.EnvelopeBackend with ONE Arms per capture (Arms builds the MJCF terms of every key; the rows below reuse it)."""
 
-    def __init__(self):
+    def __init__(self, world=None):
         self._arms = {}
+        self.world = world                       # the run world (set by the context once it is known); None = nominal
 
     def o_ref(self):
-        return PE.o_ref()
+        return PE.o_ref(self.world)
 
     def make_envelope(self, spec, cap, offs):
         hit = self._arms.get(id(cap))
         if hit is None or hit[0] is not cap:
             hit = (cap, E.Arms(cap))
             self._arms[id(cap)] = hit
-        return E.Envelope(spec, hit[1], PE.o_ref(), np.eye(3), ["left", "right"], grip_mass=PE.caps()["pot"]["gripper_mass"], offsets=offs)
+        return E.Envelope(spec, hit[1], PE.o_ref(self.world), np.eye(3), ["left", "right"], grip_mass=PE.caps()["pot"]["gripper_mass"], offsets=offs)
 
 
 # ----------------------------------------------------------------------------------------------------------------------- the task context
 class Ctx:
     """everything physics for one task: the world, the planned path samples with branch points, the envelope, the support geometry and the caches."""
 
-    def __init__(self, task: str, planner: str | None = None, wp=None):
+    def __init__(self, task: str, planner: str | None = None, wp=None, world=None):
         self.task = task
         self.td = TK.task(task)
         if self.td.kind == "pot":
@@ -262,13 +262,16 @@ class Ctx:
         if self.planner == "closed_chain":
             from world_model.v2.stack.planners import closed_chain as CCP
             self.CCP = CCP
-            self.inp = CCP._nominal_inputs(task, wp)          # wp: a WaypointPlan in place of the task default (z3 oracle); None = the default plan
+            self.inp = CCP._nominal_inputs(task, wp) if world is None else CCP.inputs_for_world(task, world, wp)      # wp: a WaypointPlan in place of the task default (z3 oracle); None = the default plan; world: the RUN world (geometry)
             self.world = self.inp.world
             self.wp = self.inp.wp
         else:
             self.CCP = None
             self.world = CC.world_default(task)
             self.wp = None
+        self.backend.world = self.world
+        if self.td.kind == "box" and hasattr(self.world, "box_outer"):      # empty-crate COM height follows the world's drawn crate (objects.boxed: lz / 2)
+            self.ec = (self.ec[0], self.ec[1], float(self.world.box_outer[2]) / 2)
         self.models, self._envs, self._wit, self._specs, self._memo, self._recs = {}, {}, {}, {}, {}, {}
         self.cell_spec = {}              # (lo, hi) total interval -> the carry_cert cell ObjectSpec (the K2-consistent spec when theta is exactly that cell)
         self.n_sampled, self.procs = 0, 1
@@ -280,11 +283,11 @@ class Ctx:
         if k in self.cell_spec:
             return self.cell_spec[k]
         if k not in self._specs:
-            self._specs[k] = CS.spec_from_total(self.task, max(lo - self.em, 0.0), hi - self.em)
+            self._specs[k] = CS.spec_from_total(self.task, max(lo - self.em, 0.0), hi - self.em, self.world)
         return self._specs[k]
 
     def register_cell(self, cell, lo, hi):
-        self.cell_spec[(round(lo, 6), round(hi, 6))] = CS.spec_from_cell(self.task, *cell)
+        self.cell_spec[(round(lo, 6), round(hi, 6))] = CS.spec_from_cell(self.task, *cell, world=self.world)
 
     # ------------------------------------------------------------------ plan model
     def backup(self, seg):
@@ -339,7 +342,7 @@ class Ctx:
                 fin, ext = False, None
                 if v <= 1e-9:
                     ie = ib
-                elif (not EX.legacy_stop()) and 1e-9 < T[sg] - t <= sT + 1e-9:
+                elif 1e-9 < T[sg] - t <= sT + 1e-9:
                     ie, fin = i1, True       # 11-16: the stop finishes the segment (executor stop branch); end of stop = the segment's last geometry sample
                 else:
                     # END of the stop: first sample at or beyond 0.5 v T (+ DS/2: the nearest sample may sit up to half a spacing behind the branch pose), continuing into the next
@@ -348,7 +351,7 @@ class Ctx:
                     ie = next((i for i in range(ib, n_all) if arc[i] >= want), None)
                     if ie is not None and self._post_of(g, sg, ie) != self._post_of(g, sg, ib):
                         ie = None            # the overshoot would run through the base move: no planned sample at the end of the stop
-                    if ie is None and os.environ.get("BIMANUAL_LEGACY_NO_ARM_EXT") != "1":
+                    if ie is None:
                         ext = self._extend_stop(g, sg, ib, want, arc, ext_store, n_all)       # 11-17: check the overshoot pose (straight-line continuation + both arms' IK)
                 if ext is not None and ext["ok"]:
                     need |= set(range(ib, ext["i_last"] + 1)) | set(ext["idx"])
@@ -455,7 +458,7 @@ class Ctx:
                 fin = False
                 if v <= 1e-9:
                     ke = kb
-                elif (not EX.legacy_stop()) and 1e-9 < T[seg] - t <= sT + 1e-9:
+                elif 1e-9 < T[seg] - t <= sT + 1e-9:
                     ke, fin = f"{seg}:{N_STATIC}", True      # 11-16: the stop finishes the segment: end of stop = the segment's end sample
                 else:       # the END of the stop: first sample at or beyond 0.5 v T along the path (continuing into the next segments); None = past the last sample
                     want = arc[kb] + 0.5 * v * sT
@@ -476,7 +479,7 @@ class Ctx:
 
     def _prior_spec(self):
         lo, hi = CS.prior_total(self.task)
-        return CS.spec_from_total(self.task, lo, hi)
+        return CS.spec_from_total(self.task, lo, hi, self.world)
 
     # ------------------------------------------------------------------ geometry of the landings
     def start_support(self):
@@ -484,17 +487,29 @@ class Ctx:
 
     def goal(self, model: PathModel):
         """(support top dict, dest xy) of the plan's goal, as stack/adapters/static_admission does."""
-        o = np.asarray(PE.o_ref(), float)
+        o = np.asarray(PE.o_ref(self.world), float)
         if self.td.base:
-            from world_model.v2.nero.base import scene as BS
-            return BS.support_tops_behind(self.world)[self.td.goal_support], np.asarray(BS.place_pose_xy(self.world), float)
+            from world_model.v2.stack.planners import base_route as BR
+            be = BR.default_backend()
+            return be.supports(self.world)[self.td.goal_support], np.asarray(be.goal(self.world)["goal_xy"], float)
         return SC.support_tops(self.world)[self.td.goal_support], o[:2] + np.asarray(model.disp, float)[:2]
+
+    def support_geo(self):
+        """the oriented goal support / object yaw / drawn footprint for the support row (table-behind: geometry backend); None otherwise."""
+        if not self.td.base:
+            return None
+        from world_model.v2.stack.planners import base_route as BR
+        return BR.default_backend().support_geo(self.world, self.td.goal_support)
+
+    def support_arg(self, sup):
+        g = self.support_geo()
+        return (sup["x"], sup["y"], g) if g else (sup["x"], sup["y"])
 
     def admit_disp(self, model: PathModel) -> np.ndarray:
         d = np.asarray(model.disp, float).copy()
         if self.td.base:
             _, dest = self.goal(model)
-            d[:2] = dest - np.asarray(PE.o_ref(), float)[:2]
+            d[:2] = dest - np.asarray(PE.o_ref(self.world), float)[:2]
         return d
 
     # ------------------------------------------------------------------ rows
@@ -566,9 +581,9 @@ class Ctx:
 
     # ------------------------------------------------------------------ collision rows of the recovery motion
     def _tilt_tag(self):
-        """cache key part of the load tilt cover (None = untilted: legacy flag or no measurement)."""
+        """cache key part of the load tilt cover (None = no measurement)."""
         t = getattr(self, "tilt", None)
-        return None if (t is None or RCOL.legacy_untilted()) else t.tag()
+        return None if t is None else t.tag()
 
     def _scene(self, model):
         if not hasattr(self, "_scenes"):
@@ -632,9 +647,8 @@ class Ctx:
         if self.planner != "closed_chain" or model.geo is None:
             return missing(nm, "scripted plan: the recovery is executed by fresh continuation IK, its arm configurations are not known in advance, so no collision model exists; "
                                "scripted programs are not admitted until one is built")
-        if not RCOL.legacy_untilted() and getattr(self, "tilt", None) is None:          # USER 11-17: the load tilt must come from the per-plan measurement
-            return missing(nm, "no per-plan load tilt measurement (run_cell(tilt=TiltSpec)): the load-vs-world row cannot cover the tilt; "
-                               "BIMANUAL_LEGACY_UNTILTED_COLLISION=1 = the untilted row")
+        if getattr(self, "tilt", None) is None:          # USER 11-17: the load tilt must come from the per-plan measurement
+            return missing(nm, "no per-plan load tilt measurement (run_cell(tilt=TiltSpec)): the load-vs-world row cannot cover the tilt")
         idxs = self.recovery_indices(model, seg, br, plan)
         try:
             sc = self._scene(model)
@@ -655,7 +669,7 @@ class Ctx:
         tt, n_ref = np.arange(n, dtype=float), 0
         Dst = {c: np.stack([x[0][c] for x in st]) for c in RCOL.CLASSES}
         Xst, Rst = np.stack([x[1] for x in st]), np.stack([x[2] for x in st])
-        if n > 1 and not RCOL.swept_coarse():          # USER 11-17: adaptive refinement of the tight intervals (collision_rows.refine_samples); legacy BIMANUAL_LEGACY_SWEPT_COARSE=1
+        if n > 1:          # USER 11-17: adaptive refinement of the tight intervals (collision_rows.refine_samples)
             tt, Dst, Xst, Rst, n_ref = RCOL.refine_samples(sc, [self._coll_args(model, i, post(i)) for i in idxs], Dst, Xst, Rst, RCOL.d_min_table())
         m_ = len(tt)
         h = np.diff(tt)
@@ -678,8 +692,7 @@ class Ctx:
             names[c] = [f"{sc.nm(sc.pairs[c][i][0])}|{sc.nm(sc.pairs[c][i][1]) if sc.pairs[c][i][1] >= 0 else 'floor'}" for i in D.argmin(1)]
         row = KC.swept_clearance_row(d, v, tt, RCOL.d_min_table(), name=nm, pair_names=names)
         row.assumptions = dict(row.assumptions, samples=f"{n} geometry samples (indices {idxs[0]}..{idxs[-1]}), swept bound per 1 cm interval (dt = 1 per sample)",
-                               swept_refinement=("none (BIMANUAL_LEGACY_SWEPT_COARSE=1)" if RCOL.swept_coarse() else
-                                                 f"adaptive: an interval with bound < d_min (endpoints >= d_min) is halved up to {RCOL.SWEPT_MAX_DEPTH} times (min step = 1/{2 ** RCOL.SWEPT_MAX_DEPTH} of the interval, "
+                               swept_refinement=(f"adaptive: an interval with bound < d_min (endpoints >= d_min) is halved up to {RCOL.SWEPT_MAX_DEPTH} times (min step = 1/{2 ** RCOL.SWEPT_MAX_DEPTH} of the interval, "
                                                  f"ASSUMED, USER to confirm), state linear in q and p (the row's MODEL), own speed bound per sub-interval; {n_ref} midpoints added, {m_} points tested"),
                                not_covered="arm links vs the carried object, self-collision, base / lift column, anything the speed model misses; same d_min as collision_rows", **HONEST)
         if sc.tilt is not None:
@@ -756,7 +769,7 @@ class Ctx:
     def landing_row(self, model: PathModel, landing: str, theta: TH.ThetaSet) -> Row:
         """landing_ok of Rule 1: S (support at the landing / torque at the hold poses) and R_K (a constructive witness within depth K and NODE_CAP)."""
         lo, hi = _hull(theta)
-        key = (self.task, model.a, landing, round(lo, 6), round(hi, 6), os.environ.get("BIMANUAL_LEGACY_HOLD_IS_SAFE"))       # the flag is read at call time: part of the cache key
+        key = (self.task, model.a, landing, round(lo, 6), round(hi, 6))
         if key in self._wit:
             return self._wit[key]
         kind, _, arg = landing.partition(":")
@@ -764,15 +777,15 @@ class Ctx:
         em, ec, cont = self.em, self.ec, self.spec_for(lo, hi).contents
         if kind == "set_down" and arg == "start":
             sup = self.start_support()
-            s = SUP.support_row(self.td, np.asarray(PE.o_ref(), float)[:2], sup["x"], sup["y"], em, ec, cont)
+            s = SUP.support_row(self.td, np.asarray(PE.o_ref(self.world), float)[:2], sup["x"], sup["y"], em, ec, cont)
             rows = [s, self.witness(model, 0, theta, "plan from the start: the whole plan, depth 1")]
         elif kind == "set_down" and arg == "goal":
             sup, dest = self.goal(model)
-            s = SUP.support_row(self.td, dest, sup["x"], sup["y"], em, ec, cont)
+            s = SUP.support_row(self.td, dest, sup["x"], sup["y"], em, ec, cont, geo=self.support_geo())
             w = Row("R_K[goal]", True, margin=None, unit="", guarantee="proof", worst=dict(depth=0, nodes=0, K=R1.K, node_cap=R1.NODE_CAP, action="the landing is the plan's goal"),
                     assumptions=dict(model="zero remaining moves: the object is set down at the goal of the plan (placement error NOT covered)"))
             rows = [s, w]
-        elif kind == "hold" and arg in model.names and os.environ.get("BIMANUAL_LEGACY_HOLD_IS_SAFE") != "1":
+        elif kind == "hold" and arg in model.names:
             ns = Row("landing.not_supported", False, margin=None, unit="", guarantee="refuted", worst=dict(landing=landing),
                      assumptions=dict(model="USER 11-17: safe = resting on a support; an object held in the arms is not"), why="held in the arms: not on a support (USER 11-17)")
             rows = [ns, self.torque_row(model, theta, model.static[arg], 0.0, "hold_poses"),
@@ -792,7 +805,7 @@ class Ctx:
         sup, _ = self.goal(model)
         ps = model.path_samples(first)
         ps = AD.PathSamples(ps.offs, ps.per_seg, ps.cap, self.admit_disp(model))
-        adm = AD.admit(self.td, self.spec_for(lo, hi), ps, self.backend, (sup["x"], sup["y"]))
+        adm = AD.admit(self.td, self.spec_for(lo, hi), ps, self.backend, self.support_arg(sup))
         ok = bool(adm.verdict.admit) and not adm.action.startswith("refuse")
         ms = [m for m in adm.verdict.margins.values() if m is not None and math.isfinite(m)]
         return Row(f"R_K[{self.task}:{model.names[first]}..]", ok, margin=(min(ms) if ms else None), unit="mixed", guarantee="proof" if ok else "refuted",
@@ -902,7 +915,7 @@ class Ctx:
                              a=(None if ref.a is None else float(ref.a)), verified=bool(nonempty and ok_rows and ref.kind != "refuse" and ref.segs is not None),
                              theta_j=(None if th_j is None else th_j.to_json())))
         stop_T = float(prog.prefix.stop_T)
-        exe = (self.planner == "closed_chain" and i_m is not None and os.environ.get("BIMANUAL_LEGACY_STORED_BACKUP_ONLY") != "1")
+        exe = (self.planner == "closed_chain" and i_m is not None)
         return dict(name=prog.name, kind="read", stop_T=stop_T, prefix_phases=[["stop", stop_T], ["read_hold", READ_HOLD_S]],
                     read=dict(producer=READ_PRODUCER, hold_s=READ_HOLD_S, n_read=N_READ_RT, spec=prog.reading.to_json()), bins=bins, tail_phases=tail,
                     landing=prog.landing, executable=bool(exe), a_min=float(A_MIN), a_backup=float(A_BACKUP))
@@ -940,7 +953,7 @@ class Ctx:
                   "Hermite stop q1 = q + 0.5 v T; a stop that ends past the last sample gives a MISSING row"),
                 A("stop_finish", "a branch within the last stop_T s of its segment: the stop FINISHES the segment (end of stop = the segment's last path sample), deceleration a_stop = the plan's acceleration a "
                   "(the planned remainder is the plan's own motion, whose acceleration cap is a); the collision swept term is geometric per sample (dt = 1), so it needs no speed for the remainder", "MODEL",
-                  "executor stop branch 11-16 (every reference entry ends at rest: the move finishes); BIMANUAL_LEGACY_STOP=1 restores the Hermite 0.5 v T overshoot model for every branch"),
+                  "executor stop branch 11-16 (every reference entry ends at rest: the move finishes)"),
                 A("collision", "closed_chain: swept row (D9 obj_world + arm_arm + arm_world) on the stop + retrace / advance samples; scripted: MISSING (no model); 11-17: obj_world over the "
                   "MEASURED load tilt cover (envelope of the plan's per-piece max over n, sampled; ASSUMED recovery tilt <= nominal max), MISSING without a measurement", "MODEL", "adapters/collision_rows"),
                 *self._read_assumptions(model),
@@ -950,10 +963,10 @@ class Ctx:
 _CTX = {}
 
 
-def get_ctx(task, planner=None, wp=None) -> Ctx:
-    k = (task, planner) if wp is None else (task, planner, wp)
+def get_ctx(task, planner=None, wp=None, world=None) -> Ctx:
+    k = ((task, planner) if wp is None else (task, planner, wp)) + (() if world is None else (repr(world),))
     if k not in _CTX:
-        _CTX[k] = Ctx(task, planner, wp)
+        _CTX[k] = Ctx(task, planner, wp, world)
     return _CTX[k]
 
 
@@ -966,7 +979,7 @@ def plan_admission(ctx: Ctx, cell, lo, hi):
     for _ in range(2):
         ps = m.path_samples(0)
         ps = AD.PathSamples(ps.offs, ps.per_seg, ps.cap, ctx.admit_disp(m))
-        adm = AD.admit(ctx.td, ctx.spec_for(lo, hi), ps, ctx.backend, (sup["x"], sup["y"]))
+        adm = AD.admit(ctx.td, ctx.spec_for(lo, hi), ps, ctx.backend, ctx.support_arg(sup))
         if adm.a_admit is None or abs(adm.a_admit - m.a) < 1e-6:
             break
         m = ctx.model(adm.a_admit)
@@ -1009,8 +1022,8 @@ def base_stop_card(path=None, level=None):
         if level is None or str(level) not in levels:
             return None
         plan = c.get("plan")
-        if isinstance(c.get("per_level"), dict) and os.environ.get("BIMANUAL_LEGACY_CARD_MAX_LEVELS") != "1":
-            if str(level) not in c["per_level"]:                  # 11-17 (USER "measure per level"): the level's own measured values; legacy flag = max over levels
+        if isinstance(c.get("per_level"), dict):
+            if str(level) not in c["per_level"]:                  # 11-17 (USER "measure per level"): the level's own measured values
                 return None
             c = dict(c, **c["per_level"][str(level)])
         if c.get("n_not_at_rest") != 0 or c.get("U_kinds") != []:
@@ -1044,7 +1057,7 @@ def base_stop_record(ctx: Ctx, model: PathModel, theta_t: TH.ThetaSet, ix: int, 
     (base_route.remaining_route from the LANDED pose = stop distance + MEASURED extra + MEASURED lateral / yaw drift, four corners) -> the plan's remaining arm steps -> landing on the goal
     support (S = the support row at the goal on theta_t).  Checked at every branch time of the route (R1.branch_times over route_duration) plus each moving segment's decel start (analytic
     worst case) on theta_t.  skills = the step's recovery list (None: the stored default, hold).  level = the base level actually run (None: the plan's level, else the default); the card must
-    cover it.  card = base_stop_card(level=, task=) (None: read the file; no usable card -> the rows that need it are MISSING).  BIMANUAL_LEGACY_STOP_DRIFT=1: no drift (the 11-17 first version).
+    cover it.  card = base_stop_card(level=, task=) (None: read the file; no usable card -> the rows that need it are MISSING).
     base_stop.next_step is MISSING here; run_cell fills it from the later steps' records (link_base_next).  -> dict to merge into the step record."""
     from world_model.v2.adapters import base_envelope as BE
     from world_model.v2.stack.planners import base_route as BR
@@ -1058,10 +1071,9 @@ def base_stop_record(ctx: Ctx, model: PathModel, theta_t: TH.ThetaSet, ix: int, 
     times = R1.branch_times(dur)
     card = base_stop_card(level=lv) if card is None else card
     extra = None if card is None else card["extra_overshoot"]
-    legacy_drift = os.environ.get("BIMANUAL_LEGACY_STOP_DRIFT") == "1"
-    drift = None                                       # (lateral m, yaw rad) MEASURED max over the card's n; None = not used (legacy) or not on the card
+    drift = None                                       # (lateral m, yaw rad) MEASURED max over the card's n; None = not on the card
     drift_missing = False
-    if card is not None and not legacy_drift:
+    if card is not None:
         lat, yw = card.get("extra_lateral_m"), card.get("extra_yaw_rad")
         if lat is None or yw is None:
             drift_missing = True
@@ -1070,7 +1082,7 @@ def base_stop_record(ctx: Ctx, model: PathModel, theta_t: TH.ThetaSet, ix: int, 
     prev = model.names[after - 1]
     lo, hi = _hull(theta_t)
     spec = ctx.spec_for(lo, hi)
-    _, lvl_rows = BE.pick_level(ctx.task, spec, (lv,), "measured")
+    _, lvl_rows = BE.pick_level(ctx.task, spec, (lv,), "measured", world=ctx.world)
     p0 = be.start_pose(ctx.world)
     pert = (lambda pose: BS.drift_poses(pose, drift[0], drift[1])) if drift is not None else (lambda pose: [tuple(float(x) for x in pose)])
     can_sweep = extra is not None and not drift_missing
@@ -1139,7 +1151,7 @@ def base_stop_record(ctx: Ctx, model: PathModel, theta_t: TH.ThetaSet, ix: int, 
     for r in rows:
         if card is not None and r.name in ("base_stop.in_route", "base_stop.at_rest", "base_stop.continuation"):
             r.assumptions = dict(r.assumptions, card=dict(n=card["n"], src=card["src"], tag="MEASURED", levels=card["levels"], plan=card.get("plan")),
-                                 drift=("none (BIMANUAL_LEGACY_STOP_DRIFT=1)" if legacy_drift else (None if drift is None else dict(lateral_m=drift[0], yaw_rad=drift[1], tag="MEASURED max over n; applied as a symmetric box, four corners swept (MODEL)"))))
+                                 drift=(None if drift is None else dict(lateral_m=drift[0], yaw_rad=drift[1], tag="MEASURED max over n; applied as a symmetric box, four corners swept (MODEL)")))
     rec = _base_rec(model, lv, times, rows, card, prev)
     rec["card_level"] = None if card is None else card.get("card_level")
     return rec
@@ -1188,13 +1200,13 @@ def link_base_next(res: list) -> None:
         pathlib.Path(r["out_file"]).write_text(json.dumps(r, indent=1, default=float))
 
 
-def run_cell(task, cell, out: pathlib.Path, n_sampled=0, procs=1, planner=None, fallback=True, wp=None, a=None, level=None, tilt=None) -> list:
+def run_cell(task, cell, out: pathlib.Path, n_sampled=0, procs=1, planner=None, fallback=True, wp=None, a=None, level=None, tilt=None, world=None) -> list:
     """a=None: the steps are checked at the static admission's a_admit (as before).  a given (Part B, 11-16, the Z3 oracle passes the plan's a): the steps use ctx.model(a), provided
     the static admission admits at a (a <= a_admit + 1e-9); else every step is a refusal record (the oracle refuses such plans at stage b; run_cell stays self-consistent).
     level (11-17): the base level actually run (probe_select passes the admitted level); None = the plan's own base level (ctx.wp.base[0]).  The base-stop rows use it (record base_level, card_level).
     tilt (11-17): the per-plan load tilt measurement (adapters/collision_rows.TiltSpec, tilt_from_table on tilt_measure.measure_plan); the recovery collision rows use its envelope.
-    None = those rows are MISSING (BIMANUAL_LEGACY_UNTILTED_COLLISION=1: the untilted rows as before)."""
-    ctx = get_ctx(task, planner, wp)
+    None = those rows are MISSING."""
+    ctx = get_ctx(task, planner, wp, world)
     ctx.n_sampled, ctx.procs = n_sampled, procs
     ctx.tilt = tilt                      # 11-17: the per-plan load tilt measurement (collision_rows.TiltSpec) for the recovery collision rows; None = those rows are MISSING (default ON)
     lo, hi = cell_total(task, cell)
@@ -1218,9 +1230,6 @@ def run_cell(task, cell, out: pathlib.Path, n_sampled=0, procs=1, planner=None, 
         elif model is None:
             rows = [R1.row_to_dict(r) for r in adm0.rows if r.name.startswith(("torque_payload", "support_dest", "open_content")) and not r.ok] or [R1.row_to_dict(r) for r in adm0.rows]
             rec.update(admitted=False, refusal=f"the plan itself is refused by the static admission ({adm0.action}); no step is started", rows=rows, guarantee=adm0.verdict.guarantee)
-        elif seg == "base_move" and os.environ.get("BIMANUAL_LEGACY_NO_BASE_BACKUP") == "1":
-            r = missing("recovery[base_move]", "no stored recovery for the base move (backup_phases is None unless BIMANUAL_BASE_BACKUP=1); the base-stop landing check is not built here (base_tip)")
-            rec.update(admitted=False, refusal="no recovery program", rows=[R1.row_to_dict(r)], guarantee="missing")
         elif seg == "base_move":
             rec.update(base_stop_record(ctx, model, theta_t, ix, level=level))
         else:
@@ -1233,17 +1242,17 @@ def run_cell(task, cell, out: pathlib.Path, n_sampled=0, procs=1, planner=None, 
                        landings={p.name: p.landing for p in progs})
             if adm is not None:
                 specs = {p.name: ctx.program_spec(model, seg, p, per.get(p.name, []), theta_t) for p in progs}
-                # 11-17: the executor runs the stored backup AND the reading program (stack/executor.py ("program", spec): stop, read, bin retrace); BIMANUAL_LEGACY_STORED_BACKUP_ONLY=1 = stored backups only
+                # 11-17: the executor runs the stored backup AND the reading program (stack/executor.py ("program", spec): stop, read, bin retrace)
                 ex = adm.recovery == "stored_backup" or bool(specs[adm.recovery].get("executable"))
-                adm.assumptions.append(dict(name="executable", value=ex, tag="MODEL", src="stack/executor.py runs the stored backup and the reading program (BIMANUAL_LEGACY_STORED_BACKUP_ONLY=1: stored backups only)"))
+                adm.assumptions.append(dict(name="executable", value=ex, tag="MODEL", src="stack/executor.py runs the stored backup and the reading program"))
                 rspec = ctx.read_spec(model)[0]
                 rec.update(executable=ex, admitted=True, program=adm.recovery, admission=adm.to_json(), guarantee=next(a["value"] for a in adm.assumptions if a["name"] == "guarantee"),
                            program_spec=specs[adm.recovery], programs_spec=specs, fallback_spec=(None if fb is None else specs.get(fb.name)), plan_key=ctx.plan_key(model),
                            theta_0=(None if theta_0 is None else theta_0.to_json()), read_spec=(None if rspec is None else rspec.to_json()))
-                if not ex and os.environ.get("BIMANUAL_LEGACY_NONEXEC_ADMIT") != "1":
+                if not ex:
                     # 11-17: a step admitted ONLY by a program the executor cannot run is not admitted
                     nx = Row("not_executable", False, margin=None, unit="", guarantee="refuted", worst=dict(program=adm.recovery),
-                             assumptions=dict(model="stack/executor.py cannot run this program (stored backups only under BIMANUAL_LEGACY_STORED_BACKUP_ONLY=1, or no closed_chain retrace)"),
+                             assumptions=dict(model="stack/executor.py cannot run this program (no closed_chain retrace)"),
                              why="admitted only by a program the executor cannot run")
                     rec.update(admitted=False, refusal="admitted only by a program the executor cannot run yet", rows=[R1.row_to_dict(nx)], guarantee="refuted", refusal_tag="NOT_FIXABLE:not_executable")
             else:

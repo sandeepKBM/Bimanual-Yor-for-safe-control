@@ -124,12 +124,11 @@ def build_world(spec):
     lo, hi = TK.prior_box("box")
     if not (lo <= kg <= hi):
         raise ValueError(f"{spec['id']}: contents {kg} kg outside the prior box {lo}..{hi}")
-    b0 = SC.BoxWorld()
-    hx = b0.box_outer[0] / 2 - b0.wall_t - b0.contents_half[0]
-    hy = b0.box_outer[1] / 2 - b0.wall_t - b0.contents_half[1]
+    w = dataclasses.replace(SC.BoxWorld(contents_kg=kg, contents_xy=(x, y)), **dict(TK.task("box_behind").world_kw))
+    hx = w.box_outer[0] / 2 - w.wall_t - w.contents_half[0]                    # the interior reach of THIS world's crate
+    hy = w.box_outer[1] / 2 - w.wall_t - w.contents_half[1]
     if abs(x) > hx + 1e-9 or abs(y) > hy + 1e-9:
         raise ValueError(f"{spec['id']}: contents_xy {(x, y)} outside the interior reach (+-{hx:.4f}, +-{hy:.4f})")
-    w = dataclasses.replace(SC.BoxWorld(contents_kg=kg, contents_xy=(x, y)), **dict(TK.task("box_behind").world_kw))
     return seed_of(spec["id"]), w
 
 
@@ -344,7 +343,7 @@ def _verdict(task, w, wp, c_lo, c_hi, com=None):
     st = BJ._static(task, c_lo, c_hi, w, wp, com=com)
     lvl = None
     if st["a_admit"] is not None:
-        lvl, _ = BE.pick_level(task, P.interval_spec(bt, c_lo, c_hi, com=com), BJ.LEVELS, BJ.SOURCE)
+        lvl, _ = BE.pick_level(task, P.interval_spec(bt, c_lo, c_hi, com=com, world=w), BJ.LEVELS, BJ.SOURCE, world=w)
     return CR._jsonable(dict(action=st["action"], a_admit=st["a_admit"], u_nom=st["u_nom"], base_level=lvl, admit=bool(st["a_admit"] is not None and lvl is not None), contents=[c_lo, c_hi]))
 
 

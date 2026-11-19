@@ -15,7 +15,6 @@ Helpers: torque_row / open_row / mug_geom for one task, level and acceleration s
 from __future__ import annotations
 
 import functools
-import os
 
 import mujoco
 import numpy as np
@@ -62,7 +61,7 @@ class BaseEnvelope:
         self.o = d.site_xpos[m.site("obj_ref").id].copy()
         ob = m.body("obj").id
         self.Ro = d.xmat[ob].reshape(3, 3).copy()
-        spec = CS.spec_from_cell(task, *TK.prior_box(task))
+        spec = CS.spec_from_cell(task, *TK.prior_box(task), world=w)      # contents from the PRIOR box; the empty object / crate size from the world
         self.m_e = float(spec.empty_mass)
         self.p_e = self.Ro @ np.asarray(spec.empty_com, float) + self.o
         self.P = np.asarray(spec.contents.P, float)
@@ -185,9 +184,9 @@ def mug_geom(task: str = "tray6_behind") -> BM.MugGeom:
                                            zc="MODEL: solid cylinder COM H/2, fill on the inner bottom; max over the fill interval")))
 
 
-def mug_corners(task: str = "tray6_behind", footprint: str = "tray"):
+def mug_corners(task: str = "tray6_behind", footprint: str = "tray", world=None):
     """mug positions [m] from the rotation centre, in B: the tray footprint corners (ASSUMED A10; 'cups' = the cup-centre rectangle, smaller)."""
-    mm = BT.mass_model(task)
+    mm = BT.mass_model(task, world)
     if footprint == "tray":
         hx, hy = OB.TRAY["lx"] / 2, OB.TRAY["ly"] / 2
     else:
@@ -195,9 +194,9 @@ def mug_corners(task: str = "tray6_behind", footprint: str = "tray"):
     return np.array([(mm.obj_R @ np.array([sx * hx, sy * hy, 0.0]) + mm.obj_p)[:2] for sx in (-1, 1) for sy in (-1, 1)])
 
 
-def open_row(task: str, level: str, source: str = "measured", footprint: str = "tray"):
+def open_row(task: str, level: str, source: str = "measured", footprint: str = "tray", world=None):
     """base_open_content row (tray tasks only)."""
-    return BM.open_content_base_row(mug_geom(task), mug_corners(task, footprint), BT.accels(level, source))
+    return BM.open_content_base_row(mug_geom(task), mug_corners(task, footprint, world), BT.accels(level, source))
 
 
 def plan_lift_note(wp):
@@ -211,18 +210,18 @@ def plan_lift_note(wp):
                 modelled=False, tag="ASSUMED: plan lift not modelled (object and arm masses evaluated at the hold pose, not at the carry pose)")
 
 
-def pick_level(task: str, spec, levels=("L1", "L2", "L3"), source: str = "measured", wp=None):
+def pick_level(task: str, spec, levels=("L1", "L2", "L3"), source: str = "measured", wp=None, world=None):
     """the base level of the admission (design section 3): the HIGHEST level at which every base row passes on spec.contents (Theta_t): base_tip, base_torque and (tray
     tasks only) base_open_content, all on the acceleration box of `source` ("measured" = the base card, sampled; "command" is for comparison only).  Robot masses and
-    the arm envelope are the task's default scene (MODEL: they do not depend on the hidden world; the contents enter through spec.contents).
+    the arm envelope are the scene of `world` (geometry: crate size, object / counter pose; None = the task's default scene); the hidden contents enter only through spec.contents.
     -> (level | None, {level: {row name: Row}}); None = no level passes -> refuse."""
     rows, best = {}, None
-    note = None if os.environ.get("BIMANUAL_LEGACY_BASE_START_POSE") == "1" else plan_lift_note(wp)      # record only: the decision is unchanged (legacy flag: no note, bit-identical rows)
+    note = plan_lift_note(wp)      # record only: the decision is unchanged
     for L in levels:
-        r = {"base_tip": BTIP.tip_row(BT.mass_model(task), spec.contents, BT.polygons(task), BT.accels(L, source)),
-             "base_torque": torque_row(task, spec.contents, L, source)}
+        r = {"base_tip": BTIP.tip_row(BT.mass_model(task, world), spec.contents, BT.polygons(task), BT.accels(L, source)),
+             "base_torque": torque_row(task, spec.contents, L, source, world)}
         if TK.task(task).kind == "tray":
-            r["base_open_content"] = open_row(task, L, source)
+            r["base_open_content"] = open_row(task, L, source, world=world)
         if note is not None:
             for x in r.values():
                 x.assumptions = dict(x.assumptions or {}, plan_pose=note)

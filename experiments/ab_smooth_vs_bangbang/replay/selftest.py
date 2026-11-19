@@ -46,7 +46,7 @@ def main(argv=None):
     ap.add_argument("--atol", type=float, default=1e-9)
     args = ap.parse_args(argv)
 
-    import mpc_fl
+    from world_model.v2.flmpc import mpc_fl
     import sim_common as sc
     import flmpc_value as fv
     import rt_flmpc

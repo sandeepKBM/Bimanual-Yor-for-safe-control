@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import dataclasses
 import math
-import os
 
 from world_model.v2.stack import theta as TH
 from world_model.v2.stack.checks import payload as PAY
@@ -26,7 +25,7 @@ from world_model.v2.stack.checks.row import Row, combine
 K = 3                  # ASSUMED (to be raised to the user): R_K depth -- the planner must find a sequence to the next subgoal of at most K admitted steps
 NODE_CAP = 50          # ASSUMED (to be raised to the user): node cap of that search
 BRANCH_DT = 0.25       # ASSUMED s: the branch grid.  executor.run_segments stores a branch snapshot every 0.25 s, but a trigger can come at ANY control step, so a step admission
-                       # is checked on the grid only: its guarantee is capped at "sampled" (11-17; BIMANUAL_LEGACY_R1_PROOF=1 restores the uncapped "proof")
+                       # is checked on the grid only: its guarantee is capped at "sampled" (11-17)
 
 
 def branch_times(duration: float, dt: float = BRANCH_DT) -> list:
@@ -135,11 +134,11 @@ def admit_step(step: int, theta_t: TH.ThetaSet, programs, branch_times, check_mo
     if not ok_names:
         return None, per
     win = next(p for p in programs if p.name == ok_names[0])
-    # 11-17 (USER Q5, wide table): table[t] = the set each listed program is verified on at branch time t.  Narrow (BIMANUAL_LEGACY_TABLE_THETA_T=1, the old table): theta_t for every
-    # viable program.  Wide (default, needs theta_0): theta_t UNION every prior cell c of theta_0 on which ALL rows of the program at t and every time-independent row pass
+    # 11-17 (USER Q5, wide table): table[t] = the set each listed program is verified on at branch time t.  Narrow (no theta_0): theta_t for every
+    # viable program.  Wide (needs theta_0): theta_t UNION every prior cell c of theta_0 on which ALL rows of the program at t and every time-independent row pass
     # (program_viable on {c}).  Without it every table set equals theta_t, and any sound update (theta_new = theta_t ∩ reading) is inside theta_t: cover could never answer "switch".
     # The admitted program is still listed at every t it passes on theta_t.  A reading program cannot extend beyond theta_t: its coverage row fails on a cell outside it.
-    wide = theta_0 is not None and not theta_0.is_empty() and os.environ.get("BIMANUAL_LEGACY_TABLE_THETA_T") != "1"
+    wide = theta_0 is not None and not theta_0.is_empty()
     extra = {}                      # program name -> [(c, tagged rows)] for the prior cells NOT inside theta_t
     if wide:
         for p in programs:
@@ -177,7 +176,7 @@ def admit_step(step: int, theta_t: TH.ThetaSet, programs, branch_times, check_mo
         fb_ok = TH.ThetaSet(tuple(good)) if good else None
     verdict = combine(per[win.name], "rule1")
     guarantee = verdict.guarantee
-    if guarantee == "proof" and os.environ.get("BIMANUAL_LEGACY_R1_PROOF") != "1":
+    if guarantee == "proof":
         guarantee = "sampled"                      # the branch times are a 0.25 s grid (ASSUMED): between grid points nothing is checked, so never "proof"
     ass = [_assumption("K", K, "ASSUMED", "R_K depth (to be raised to the user)"),
            _assumption("NODE_CAP", NODE_CAP, "ASSUMED", "R_K node cap (to be raised to the user)"),
