@@ -28,7 +28,7 @@ This file = how to *operate* here. Last updated 2026-11-17 (status facts moved t
   never ship a subagent's numbers unchecked (e.g. re-run the equivalence/accuracy gate).
 
 ## Robot fidelity (never invent)
-- Use only sensors/specs the real robot has.
+- Use only sensors/specs the real robot has, plus lab-fixed sensors with a calibrated pose (USER 11-19, e.g. a ceiling camera).
 - **Arms are AgileX NERO 7-DoF** (`world_model/v2/nero/`), not Piper. The one source for arm and gripper limits is
   `world_model/v2/nero/config.py` (each value tagged MEASURED/MODEL/ASSUMED). Read numbers there; do not copy them into docs.
   Datasheet facts: `config.MANUAL` (payload, speeds) and `config.TORQUE_PRESETS` (MIT command ranges; no rated torque is published).
