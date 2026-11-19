@@ -1,27 +1,28 @@
 # docs/ index
 
-The one list of every document under `docs/`, with its status. Built 2026-11-05. Keep it up to date when you add, supersede or
-archive a doc. If two docs disagree: user rulings in `docs/status/decisions.md` win, then `docs/paper/claims_2026-11-02.md`, then the
-code for facts about the code. Simulation only; hardware rules are in `AGENTS.md`.
+The one list of every document under `docs/`, with its status. Built 2026-11-05; updated 2026-11-17. Keep it up to date when you add,
+supersede or archive a doc. If two docs disagree: user rulings in `docs/status/decisions.md` win, then `docs/paper/claims_2026-11-02.md`,
+then the code for facts about the code. Simulation only; hardware rules are in `AGENTS.md`.
 
 ## Read first
 
 1. `AGENTS.md` (repo root): how to operate here; robot limits point to `world_model/v2/nero/config.py`.
-2. `docs/paper/claims_2026-11-02.md`: the four claims; §3 = the problem statement (user, 11-05); §8 = open decisions.
-3. `docs/status/decisions.md`: user rulings, newest first, and the questions still open.
-4. `docs/status/2026-11-03_handoff_notes.md`: planner decisions D1-D7 and the next-step order.
-5. `docs/status/checker_design_2026-11-05.md`: the checker design (not built; build after planner step 2).
+2. `docs/status/current_state_2026-11-17.md`: what is built, wired and tested, what is not, open findings, pending work.
+3. `docs/status/decisions.md`: user rulings in one table, newest first, with status; the questions still open.
+4. `docs/paper/claims_2026-11-02.md`: the four claims; §3 = the problem statement (user, 11-05); §8 = open decisions.
+5. `docs/status/checker_design_2026-11-05.md`: the checker design; partly built (its 11-17 status note maps design to code).
 6. `docs/paper/proposal_2026-10-27.md`: the formulation basis (needs revision; read its status banner first).
 
 ## Current work, in one paragraph
 
-Hidden-contents carry in `world_model/v2/nero/contents/`: a tray of 2/4/6 mugs (hidden fill), a closed box onto a shelf (hidden mass
-and centre of mass) and the pot. The grasp is a rigid weld (ASSUMED) with the NYU gripper. Probe ladder: `contents/probe.py`
-(narrows the total mass only); limits: `contents/probe_limits.py`. Planner stack: `world_model/v2/stack/` (ScriptedPlanner is the
-default; ClosedChainPlanner is opt-in via `--planner closed_chain` or `BIMANUAL_PLANNER`). Same-world comparison, ours vs the
-AgentChord-style executor: `contents/same_worlds.py`, raw output in `/data/local/ss5772/contents/same_worlds*_2026-11-05/` (no doc
-yet). AgentChord's own dual-arm pour task cannot run on this stack today: it needs one object per arm, a pour skill and a liquid model.
-The main demo for the decisive test is open (claims §8 item 1).
+Hidden-contents carry in `world_model/v2/nero/contents/`: a tray of 2/4/6 mugs (hidden fill), a closed box (hidden mass and centre of
+mass) and the pot. The grasp is a rigid weld (ASSUMED) with the NYU gripper. The base-move demo is `box_bookcase` (USER 11-16): lift
+the box, drive the swerve base about 2.5 m, turn, and place it in the lower compartment of a bookcase. The proposer (Codex
+`gpt-5.6-sol:high`, `nero/pan/llm.py` DEFAULT) writes the plan from a goal-only prompt; the run path is `nero/contents/probe_select.py`
+(probe, static admission, planned-path rows, Rule 1 through `adapters/rule1_contents.py`, then `stack/executor.py` with Rules 3 and 4).
+Probe default: `claw_guard` (`nero/contents/probe.py` `PROBE_METHOD`). Rule 1 always plans with ClosedChainPlanner; elsewhere
+ScriptedPlanner is still the default of `CarryEpisode` (`carry.py:156`) and ClosedChainPlanner is opt-in (`BIMANUAL_PLANNER`). Status
+in detail: `docs/status/current_state_2026-11-17.md`.
 
 ## All documents
 
@@ -48,14 +49,17 @@ Status: **current** = use it; **superseded by X** = use X instead; **history** =
 
 | Path | Purpose | Status | Date |
 |---|---|---|---|
-| `status/decisions.md` | ledger of user rulings and open questions | **current** | 11-09 |
-| `status/table_behind_design_2026-11-09.md` | table-behind task (swerve base, tray6 and box to the table behind): TaskDef, plan vocabulary, checker rows 3a-3g, tracker, AgentChord port, run protocol | **current**; built: G0 smoke, tasks, tip row 3e (`stack/checks/base_tip.py`); open questions Q1-Q8 | 11-09 |
-| `status/tracker_skills_design_2026-11-09.md` | arm tracker skills T1-T4, skill cards, proposal aids | **current**; design only; AS1-AS8, Q1-Q8 open | 11-09 |
-| `status/probe_selection_build_spec_2026-11-09.md` | probe selection build spec | current; spec | 11-09 |
-| `status/probing_skills_research_2026-11-09.md` | literature on probing skills (system identification, information gain) | current (paper numbers not checked; adopted mechanisms, not a claim) | 11-09 |
-| `status/2026-11-03_handoff_notes.md` | planner decisions D1-D7, next steps, open questions | **current** (banner lists updates since 11-03) | 11-03 |
-| `status/checker_design_2026-11-05.md` | task-agnostic checker design; Rules 1-4 as checker calls | **current**; design only, not built | 11-05 |
+| `status/current_state_2026-11-17.md` | built / wired / tested / not built; open findings; pending work | **current** | 11-17 |
+| `status/decisions.md` | ledger of user rulings (one table, with status) and open questions | **current** | 11-17 |
+| `status/speed_envelope_design_2026-11-16.md` | speed modulator inside a certified bound | draft design, not built | 11-16 |
+| `status/table_behind_design_2026-11-09.md` | table-behind task (swerve base, tray6 and box to the table behind): TaskDef, plan vocabulary, checker rows 3a-3g, tracker, AgentChord port, run protocol | current for the base rows and `tray6_behind`; `box_behind` dropped as a demo 11-16 (replaced by `box_bookcase`); base-stop rows are in `stack/checks/base_stop.py` (11-16/17); open questions Q1-Q8 | 11-09 |
+| `status/tracker_skills_design_2026-11-09.md` | arm tracker skills T1-T4, skill cards, proposal aids | current; design only; AS1-AS8, Q1-Q8 open | 11-09 |
+| `status/probe_selection_build_spec_2026-11-09.md` | probe selection build spec | current as the spec of `nero/contents/probe_select.py` (later rulings in the ledger) | 11-09 |
+| `status/probing_skills_research_2026-11-09.md` | literature on probing skills (system identification, information gain) | current (paper numbers not checked; prior art, not a claim) | 11-09 |
+| `status/2026-11-03_handoff_notes.md` | planner decisions D1-D7, 11-03 snapshot | history (11-17 note at the top); current state: `current_state_2026-11-17.md` | 11-03 |
+| `status/checker_design_2026-11-05.md` | task-agnostic checker design; Rules 1-4 as checker calls | current as the design; partly built (11-17 note maps it to code) | 11-05 |
 | `status/probe_limits_2026-11-05.md` | what the NERO arms can probe from joint torques | **current** (MODEL; conditional on an ASSUMED torque-read error) | 11-05 |
+| `status/literature_notes.md` | literature notes moved from session memory | current reference | 11-05 |
 | `status/lit_probing_belief_2026-11-03.md` | literature on probing and online belief estimation | current (shallow search; adopted mechanisms, not a claim) | 11-03 |
 | `archive/status/2026-11-03_handoff_auto.md` | machine-generated handoff snapshot | history | 11-03 |
 | `status/coffee_tray_approach_2026-11-02/` (`.tex`, `.pdf`, `agentchord_plan.dot/.pdf`) | coffee-tray status note, AgentChord plan graph | history (scripted plan retired 11-03) | 11-02 |
@@ -78,6 +82,25 @@ Status: **current** = use it; **superseded by X** = use X instead; **history** =
 | `status/pin_cup_fix_2026-10-08.md` | pin_cup carrier fix | history | 10-08 |
 | `status/stale_inventory_2026-10-08.md` | stale-data inventory after the pin_cup fix | history | 10-08 |
 | `status/vdirect_f_handoff_2026-10-01.md` | learned-WM falsifier handoff | history (learned WM dropped 10-15) | 10-01 |
+
+### reports (study PDFs)
+
+| Path | Purpose | Status | Date |
+|---|---|---|---|
+| `../reports/2026-11-13_fable_studies/` (`README.md`, `overview/overview.pdf`, `fable_studies_2026-11-13_all.pdf`) | four report-only studies: better demonstrations, recovery algorithm, VLM per-phase scene plan, unhandled cases | input for decisions; nothing in them is approved or built; questions open. Untracked: it exists only in the `contents-armside2` working tree | 11-13 |
+
+### Code map: files added 11-16/11-17 (paths under `world_model/v2/`)
+
+| Path | What |
+|---|---|
+| `stack/checks/base_stop.py` | Rule 1 rows of the base-stop recovery of a `base_move` step; program `base_stop_finish` |
+| `nero/contents/runtime_rules.py` | run-time Rule 3 / Rule 4 helpers; `rule4_hook` (offline mock target proposer) |
+| `nero/gjk_numba.py` | Numba GJK distance (default; `BIMANUAL_LEGACY_GJK_SCIPY=1` = scipy) |
+| `nero/results/base_stop_card_2026-11-16/` | MEASURED stop card per level (L1, L2; no L3) |
+| `nero/results/accel_k_2026-11-17/` | k = achieved / planned acceleration (before vref) |
+| `nero/results/bookcase_codex_2026-11-16/` | live Codex runs 1 and 2 on `box_bookcase` |
+| `nero/results/{assumed_sweep,tilt_table,speed_mono,z3_box,z3_stage0,box_place_video}_2026-11-16/` | sweeps of ASSUMED values, tilt tables, monotonicity, Z3 prototype, place video |
+| gate tests | `stack/tests/test_base_stop_rows.py`, `test_remaining_route_gate.py`; `adapters/tests/test_base_stop_card_gate.py`, `test_base_stop_gate.py`, `test_wide_table_gate.py`; `nero/contents/tests/test_vref_gate.py`, `test_support_exempt_gate.py`; `nero/tests/test_gjk_numba_gate.py` |
 
 ### docs/design (all Sept-Oct; none current)
 
@@ -102,4 +125,4 @@ Status: **current** = use it; **superseded by X** = use X instead; **history** =
 | `runbooks/slurm.md` | sbatch rule: generous `--time`, self-release | current as a general rule; who may submit where: `AGENTS.md` + user's compute rules | 09-06 |
 | `runbooks/slurm_rules_vendor_skill.md` | vendor Slurm rules copy | superseded for node choice; history | 09-06 |
 | `offload.md` | Box uploader + Slurm gateway adapter | reference; network actions need the user's approval | 09-21 |
-| `README.md` | this index | current | 11-05 |
+| `README.md` | this index | current | 11-17 |

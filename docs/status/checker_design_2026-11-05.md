@@ -1,6 +1,22 @@
 # Task-agnostic checker: design (2026-11-05)
 
-Status: **design only, nothing is built.** Statements about existing code carry file:line (worktree `contents-armside2`, paths under
+> Status note (2026-11-17): **partly built.** The design below is not rewritten; lines that the code now contradicts carry
+> "[11-17: ...]". Built / wired / tested: `docs/status/current_state_2026-11-17.md`. Decisions D1, D2, D4, D9 were ruled 11-16
+> (`docs/status/decisions.md`). Map of the build steps (§7) to code, checked 11-17:
+>
+> | Step | State | Code |
+> |---|---|---|
+> | C0 types | built | `stack/theta.py` (Interval, Cell, ThetaSet, ReadingSpec, RecoveryProgram, Admission) |
+> | C4 reach, closed chain, joint q / qd | built (planned-path rows) | `nero/contents/probe_select.planned_path_rows`, `stack/checks/motion.py` |
+> | C5 exact-ID torque row | code and gate exist; wiring into the run path not checked | `adapters/exact_torque.py`, `stack/tests/test_exact_torque_gate.py` |
+> | C6 support, open content, tilt, collision | built; tilt = MEASURED per plan; collision = swept bound (`SWEPT_MAX_DEPTH` 4); the load is modelled untilted (tilt-aware row parked) | `stack/checks/{support,open_content,tilt}.py`, `adapters/collision_rows.py`, `nero/contents/tilt_measure.py` |
+> | C7 `admit` with fixed recoveries and programs (Rule 1) | built | `stack/checks/rule1.py`, `adapters/rule1_contents.py` |
+> | C8 run-time cover table + fallback (Rule 3) | built; wide table | `stack/checks/cover.py`, `stack/checks/rule1.py:138-144`, `stack/executor.py` |
+> | C9 R_K and the Rule 4 loop with a mock proposer | Rule 4 built (offline mock at run time); R_K depth 1 only (K, NODE_CAP recorded, unused) | `stack/checks/rule4.py`, `adapters/rule4_contents.py`, `nero/contents/runtime_rules.py` |
+> | base-stop rows (not in the 11-05 design) | built | `stack/checks/base_stop.py` |
+> | C1-C3, C10, gates G1-G4 | not checked for this note | — |
+>
+> Status (2026-11-05, superseded by the note above): **design only, nothing is built.** Statements about existing code carry file:line (worktree `contents-armside2`, paths under
 `world_model/v2/` unless given in full). Everything else is a proposal. Simulation only. Problem statement: `docs/paper/claims_2026-11-02.md`
 §1 (rows 11-04, 11-05) and §3 "Problem". The checker is built after planner step 2 (closed-chain path + TOPP-RA,
 `docs/status/2026-11-03_handoff_notes.md:65-67`).
@@ -58,13 +74,16 @@ beyond set-inclusion lookups.
 3. Contents dynamic rows branch every 0.25 s (`stack/executor.py:57`) with one stored backup, `family=(0.0,)` (`carry_cert.py:241`). The
    0.2 s spacing and "longest backup" choice are the pan path (`admit.py:17`, `pan/cert/backups.py:24`).
 4. Object–world contact is **not in U** for the carry: `_check` skips any contact without an arm geom (`carry.py:532-542`), and the welded
-   object is in no FL-MPC table row (`rules.py:21`; superseded 11-09: `rules.py` deleted, c8cf380). A box hitting the shelf edge counts only if it tilts > 10° or drops.
+   object is in no FL-MPC table row (`rules.py:21`; superseded 11-09: `rules.py` deleted, c8cf380). A box hitting the shelf edge counts only if it tilts > 10° or drops. [11-17: object-world contact is in U (D9, USER 11-16; `nero/contents/carry.py:140`), clearance 5 mm; the landing support is exempt at release (USER 11-17).]
 5. `capture_nyu.json` field `o0` is the old pot origin (y = −0.30) while its TCP midpoint is at y = −0.22 (`scenes.py:38,48`,
    SCENE_DY). `carry_cert` builds o_ref from the TCPs (`carry_cert.py:111-112`), so its rows are not affected; a new adapter must not read `o0`.
 6. Two torque functions: `config.tau_limits()` defaults to 100 Nm (`config.py:72-77`), `config.tau_limit()` to 16 Nm (`config.py:86-92`).
-   The checker must take the limit explicitly (AGENTS.md: the arm torque limit is OPEN).
+   The checker must take the limit explicitly (AGENTS.md: the arm torque limit is OPEN). [11-17: ruled 11-05: `config.tau_limit()` = 100 Nm
+   (MJCF forcerange); 16 Nm only under `BIMANUAL_TAU_MIT16=1`.]
 7. `types.Checker.check` takes a `sim` (`stack/types.py:152-156`); model rows need none. `registry.CHECKERS` is empty (`stack/registry.py:25`).
-8. `config.py` has **no joint acceleration limit** (only position `config.py:25-26` and speed `config.py:42`).
+   [11-17: `registry.CHECKERS` now lists the unified rows (`stack/registry.py:32`).]
+8. `config.py` has **no joint acceleration limit** (only position `config.py:25-26` and speed `config.py:42`). [11-17: still true for
+   `config.py`; the planner has QDD_MAX 6 rad/s² (ASSUMED, USER 11-17, `stack/planners/closed_chain.py:68`) in TOPP-RA.]
 
 ## 2. Interfaces
 
@@ -94,7 +113,7 @@ class RobotModel:
     q_lim: Bound_per_joint                    # config.URDF_LIMITS (MODEL), margin config/ carry.PATH_MARGIN_MIN (ASSUMED)
     qd_lim: Bound_per_joint                   # config.MANUAL joint_speed_deg_s (MEASURED-spec)
     qdd_lim: Bound_per_joint | None           # None today (config.py has none): decision D6
-    tau_lim: np.ndarray; tau_src: str         # passed explicitly (AGENTS.md: OPEN, 16 vs 100 Nm)
+    tau_lim: np.ndarray; tau_src: str         # passed explicitly ([11-17: 100 Nm, USER 11-05])
     payload_N: float                          # (3 kg - gripper mass) g (envelope.py:20)
     collision: Any                            # convex collision geoms (clearance.py) + FL-MPC proxy spheres (proxy.py)
 
@@ -239,7 +258,8 @@ What changes from `envelope.py`:
 - **Motion scale.** Along a fixed path, TOPP-RA's torque constraint is affine in (s̈, ṡ²). Torque is affine in π for fixed (s̈, ṡ²) and
   affine in (s̈, ṡ²) for fixed π: separately convex, so the vertex check over (π vertices × scale endpoints) is exact. This is what makes
   a "slow down by a reading" recovery program checkable (§4.3). Today's `a_max` bisection relies on the same convexity (`envelope.py:11-13`).
-- **Admission margin.** Admit only at u ≤ U_ADMIT = 0.9 (ASSUMED, `envelope.py:53`) for the feedback torque above the model.
+- **Admission margin.** Admit only at u ≤ U_ADMIT = 0.9 (ASSUMED, `envelope.py:53`) for the feedback torque above the model. [11-17:
+  `U_ADMIT = 1.0` (USER 11-09: the rated limits, no margin; `envelope.py:54`).]
 - **Between knots:** D7.
 
 ### 3.2 Joint position, speed, acceleration
@@ -284,7 +304,9 @@ Clearance ≥ CLEARANCE_MIN 5 mm (ASSUMED, `clearance.py:14`) + TCP residual (A3
 ### 3.7 Object tilt
 
 No model row exists (claims §3, claim 1 row). Bound = planned tilt of R(t) + residual r_tilt(cell, acceleration) MEASURED from sim (claims
-"Next": corner max × measured interior margin). Guarantee: sampled. U threshold 10° (ASSUMED, `carry.py:75`).
+"Next": corner max × measured interior margin). Guarantee: sampled. U threshold 10° (ASSUMED, `carry.py:75`). [11-17: built as a per-plan
+MEASURED row (`nero/contents/tilt_measure.measure_plan`, n = 20 ASSUMED, USER 11-17); numbers predate vref. The collision rows still
+model the load untilted; the tilt-aware collision row is parked.]
 
 ### 3.8 Unsafe set U
 
@@ -305,7 +327,8 @@ Three levels (decision D2):
 - **R1** = R0 + the next skill's `pre()` holds and its first motion passes rows 3.2-3.3 (as pan R_V2 adds a reach test,
   `pan/segments.py:961-983`).
 - **R_K** = R1 + the planner finds, within depth K and a node cap, a sequence to the next subgoal whose every step is admitted under Θ
-  (proposal `:108-112`). A returned admitted sequence is a constructive witness. "Not found" means not shown, not refuted.
+  (proposal `:108-112`). [11-17: R = R_K ruled 11-16 (D2); built at depth 1 only: one recovery program, then in R or the continuation;
+  K = 3 and NODE_CAP = 50 are recorded, not used (`stack/checks/rule1.py:26-27`). A hold is not a safe landing (USER 11-17).] A returned admitted sequence is a constructive witness. "Not found" means not shown, not refuted.
 The landing depends on θ: use the nominal landing plus a landing residual box (A5), corners sampled. By Lemma 1 (claims §3) a witness for Θ
 stays valid for any sound narrowing Θ' ⊆ Θ, so witnesses are cached by (landing region, Θ). R_K runs before motion only.
 
@@ -412,18 +435,18 @@ Then report the new mode (exact ID, ClosedChainPlanner plan) beside legacy, mark
 
 ### 6.1 Decisions
 
-1. **D1 Fallback set F** (OPEN 11-05). (a) prior box Θ_0: strongest, may leave no feasible fallback (box 4.5-5 kg); (b) B: covers only
+1. **D1 Fallback set F** (OPEN 11-05; [11-17: ruled 11-16: F = Θ_0]). (a) prior box Θ_0: strongest, may leave no feasible fallback (box 4.5-5 kg); (b) B: covers only
    changes inside the VLM range; (c) Θ_t widened by a margin (new ASSUMED bound); (d) union of B and Θ_0 ∩ reachable. Any choice is
    stored in the plan and the verdict; outside F the fallback runs uncertified and is counted.
-2. **D2 Meaning of R.** R0 (today, no progress test) / R1 (+ next skill precondition and reach) / R_K (planner witness, choose K, node cap).
+2. **D2 Meaning of R.** [11-17: ruled 11-16: R_K.] R0 (today, no progress test) / R1 (+ next skill precondition and reach) / R_K (planner witness, choose K, node cap).
 3. **D3 Rule 2 scope.** Does the VLM write plans for D = Θ_t \ B only, or for all of Θ_t whenever D is not empty (Rule 1 needs one recovery)?
-4. **D4 Recovery form.** Per-cell fixed library (needs narrow Θ_t, so a probe first) vs reading-binned programs; cell and bin widths.
+4. **D4 Recovery form.** [11-17: ruled 11-16: programs first.] Per-cell fixed library (needs narrow Θ_t, so a probe first) vs reading-binned programs; cell and bin widths.
 5. **D5 Torque row.** Model: legacy quasi-static vs exact ID from the plan. Split checked: what the tracker commands (lever / W⁺ for
-   coopimp_safe), with the LP capability as information. Limit: 16 vs 100 Nm (AGENTS.md OPEN).
-6. **D6 Joint acceleration limit.** None (torque row only) / an ASSUMED number / measured on hardware later.
+   coopimp_safe), with the LP capability as information. Limit: 16 vs 100 Nm (AGENTS.md OPEN). [11-17: 100 Nm, USER 11-05.]
+6. **D6 Joint acceleration limit.** [11-17: the planner uses QDD_MAX 6 rad/s² ASSUMED (USER 11-17); no robot limit in `config.py`.] None (torque row only) / an ASSUMED number / measured on hardware later.
 7. **D7 Between knots.** Lipschitz / sweep margin (proof under MODEL, more conservative) vs dense sampling (sampled in time).
 8. **D8 Object rotation in plans.** Allow (needs the π10 outer box) or keep the object level as a planner constraint for now.
-9. **D9 Object–world contact in U** and the clearance margin (5 mm today).
+9. **D9 Object–world contact in U** and the clearance margin (5 mm today). [11-17: ruled 11-16: in U, 5 mm ASSUMED.]
 10. **D10 Static check sets.** Run the pre-probe static check on B only, or on Θ_0 too.
 11. **D11 Sampled rows.** Worlds per set (n), target ε, and the set they are drawn from (cell vs Θ_t).
 

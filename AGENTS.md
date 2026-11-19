@@ -2,15 +2,14 @@
 
 Bimanual YOR (simulation in this repo; a hardware experiment is planned as claim 4, no hardware code here): classical planning + formal safety checkers + VLM proposals. The learned world-model / latent-HJ
 thesis was DROPPED 2026-10-15.
-**Docs index: `docs/README.md`** (every doc, its status, a read-first list). User rulings: `docs/status/decisions.md` (newest first).
+**Docs index: `docs/README.md`** (every doc, its status, a read-first list). User rulings: `docs/status/decisions.md` (one table,
+newest first, with status). **What is built, wired and tested: `docs/status/current_state_2026-11-17.md`** (status facts live there, not here).
 Current claims + scope: `docs/paper/claims_2026-11-02.md` (four claims; hidden contents; grasp = rigid weld, not our problem; probing = a means;
-problem statement = its §3, user 11-05). Demos: `docs/paper/demos_2026-11-01.md` (test-world method; main demo pending, claims §8 item 1).
-Formulation: `docs/paper/proposal_2026-10-27.md` (needs revision for 11-01..11-05). Superseded (history only): `docs/archive/paper/claims_2026-10-27.md`,
-`docs/archive/paper/claims_2026-10-26.md`, `docs/paper/YOR_Thesis_Full_Idea_and_Demonstration_Plan_2026-10-15.docx`, `docs/design/MASTER.md`.
-Current work lives in the worktree `.claude/worktrees/contents-armside2` (branch `contents-armside-2026-11-02`). The 11-02 claims,
-the 11-03 handoff, the 11-05 docs, `docs/README.md`, `world_model/v2/flmpc/` and `world_model/v2/stack/` exist only there until it is merged;
-read them there from other checkouts.
-This file = how to *operate* here. Last updated 2026-11-15 (audit: paths checked against the code, probe default added, replies rule deduplicated).
+problem statement = its §3, user 11-05). Formulation: `docs/paper/proposal_2026-10-27.md` (needs revision). Superseded docs: see `docs/README.md`.
+Current branch: `contents-armside-2026-11-02`, worktree `.claude/worktrees/contents-armside2` (`basestop-1116` merged into it 11-17).
+`world_model/v2/stack/`, `world_model/v2/flmpc/`, `docs/README.md` and the 11-02..11-17 docs are not on `master` or on the main checkout's
+branch; read them in that worktree.
+This file = how to *operate* here. Last updated 2026-11-17 (status facts moved to the current-state doc; paths checked against the code).
 
 ## Environment / running
 - Python env: `/common/users/ss5772/miniforge3/envs/mujoco_ur5e/bin/python`.
@@ -56,18 +55,21 @@ This file = how to *operate* here. Last updated 2026-11-15 (audit: paths checked
   prediction (no MuJoCo rollout in the controller); Numba-optimized; safety lives in the QP **constraints** (arm-arm clearance,
   table-floor, torque box, cup-tilt).
 - Current work: the hidden-contents carry, `world_model/v2/nero/contents/` (`carry.py`; tracker = basic FL-MPC,
-  `world_model/v2/flmpc/basic.py`, speed limit from `config.MANUAL`). Planner decisions 11-03: `docs/status/2026-11-03_handoff_notes.md`. Planner stack `world_model/v2/stack/`:
-  ScriptedPlanner (legacy `carry.PLANS`) is the default; ClosedChainPlanner (`stack/planners/closed_chain.py`) is opt-in via
-  `BIMANUAL_PLANNER=closed_chain` (any entry point; `--planner closed_chain` exists only on `carry_cert.py`, `same_worlds.py`,
-  `baseline_ungated.py`). Checker design (not built): `docs/status/checker_design_2026-11-05.md`.
+  `world_model/v2/flmpc/basic.py`, speed limit from `config.MANUAL`). Run path: `nero/contents/probe_select.py` (Rule 1 through
+  `world_model/v2/adapters/rule1_contents.py`, then `world_model/v2/stack/executor.py`). Build state and open findings: the current-state doc.
+- Planner: ScriptedPlanner (legacy `carry.PLANS`) is the `CarryEpisode` default; ClosedChainPlanner (`stack/planners/closed_chain.py`) is
+  opt-in via `BIMANUAL_PLANNER=closed_chain` (any entry point; `--planner` exists on `carry_cert.py`, `same_worlds.py`,
+  `baseline_ungated.py`, `probe.py`, `tilt_measure.py`, `adapters/rule1_contents.py`). Rule 1 in `probe_select` always uses closed_chain.
 - Probe default = `claw_guard` (USER 11-13; `nero/contents/probe.py` `PROBE_METHOD`). `BIMANUAL_PROBE=poslift` = the 11-09..11-13 default
   (needed to reproduce those runs).
+- Proposer for development and baselines = Codex (`world_model/v2/nero/pan/llm.py` DEFAULT `codex:gpt-5.6-sol:high`); open-weight models
+  only for the final comparison (USER 10-29, restated 11-17). Codex is a live cloud service: live runs need the user's approval (see the
+  hardware & live-service rule); offline replay uses the request cache.
 - Per-task facts live ONLY in `world_model/v2/stack/tasks.py` (TaskDef table: goals, priors, U/R bounds, rows); `stack/` core imports no
   physics (only `world_model/v2/adapters/` does); `stack/tests/test_dependency_rules.py` enforces it.
-- Table-behind task (USER 11-09): `tray6_behind`, `box_behind` (base moves the object to the counter behind the robot). Swerve base
-  `world_model/v2/nero/base/` (`swerve.py` controller, `scene.py` two-table scene, `smoke.py` G0 smoke + base U flags). Design:
-  `docs/status/table_behind_design_2026-11-09.md`. Base tip row: `stack/checks/base_tip.py` (ZMP in the wheel polygon, guarantee sampled on
-  the MEASURED base card `nero/results/base_card_G0b_2026-11-09/CARD.json`; admission picks the highest passing speed level).
+- Base-move task = `box_bookcase` (USER 11-16; `box_behind` is no longer a demo). Swerve base `world_model/v2/nero/base/` (`swerve.py`
+  controller, `drive.py`, `scene.py` scenes incl. the bookcase, `smoke.py` G0 smoke). Base rows: `stack/checks/base_tip.py` (tip) and
+  `stack/checks/base_stop.py` (base-stop recovery; needs the MEASURED stop card of the run's level, else MISSING).
 - Old flagship demo (Sept, cup collect): `scripts/make_cup_collect_safety_demo.py --controller {v4c,v7c,flmpc}`.
 
 ## Known failure modes (honest)
