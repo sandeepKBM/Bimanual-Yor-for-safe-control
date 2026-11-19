@@ -8,9 +8,12 @@ from world_model.v2.stack import tasks as TK
 from world_model.v2.stack.checks import base_tip as T
 
 
-def test_polygon_from_pivots_and_offsets():
+def test_polygon_from_pivots_and_offsets(monkeypatch):
+    """11-13 (c37b7a6): the wheel offset is measured from the tyre-mesh centre (about 1.1 mm), not the hub origin (21.3 mm); the wheel-floor contacts
+    sit at |y| about 0.1556 m in the sim.  BIMANUAL_LEGACY_SWERVE_OFF=1 = the hub-origin offset (y_hi 0.156 - 0.021)."""
+    monkeypatch.delenv("BIMANUAL_LEGACY_SWERVE_OFF", raising=False)
     P = BT.polygons()
-    assert P["line"].x_hi == pytest.approx(0.105, abs=2e-3) and P["line"].y_hi == pytest.approx(0.156 - 0.021, abs=2e-3)
+    assert P["line"].x_hi == pytest.approx(0.105, abs=2e-3) and P["line"].y_hi == pytest.approx(0.1556 - 0.0011, abs=2e-3)
     assert P["turn"].x_hi < P["line"].x_hi and P["turn"].y_hi > P["line"].y_hi
 
 

@@ -216,6 +216,20 @@ class SwerveBase:
             self.d.ctrl[self.a_drive[i]] = uc
         return th
 
+    def pre_steer(self, theta, dt):
+        """stand STILL (twist 0, wheel speed command 0) while the steer modules swing to `theta` [rad] (same slew limit as apply); used before a holonomic shift (USER 11-17)."""
+        L = self.lim
+        self._dt = dt
+        mx = L.steer_rate_max * dt
+        prev = self.th_cmd if self._have_cmd else self.steer()
+        self.th_cmd = prev + np.clip(_wrap(theta - prev), -mx, mx)
+        self._have_cmd = True
+        self._wi[:] = 0.0
+        self._v[:] = 0.0
+        for i in range(4):
+            self.d.ctrl[self.a_steer[i]] = self.th_cmd[i]
+            self.d.ctrl[self.a_drive[i]] = 0.0
+
     def stop(self):
         """no active route: hold the steers, let the wheel-speed command decay (tau = stop_tau) instead of a step to 0 (a step is a spurious deceleration spike)."""
         th_now = self.steer()

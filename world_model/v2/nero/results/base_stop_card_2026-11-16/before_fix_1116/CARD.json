@@ -1,0 +1,52 @@
+{
+ "n": 106,
+ "worlds": [
+  {
+   "world": 0,
+   "M_true": null,
+   "outcome": null,
+   "level": null,
+   "n_stops": 0
+  },
+  {
+   "world": 2,
+   "M_true": 1.4288574483568972,
+   "outcome": "carried",
+   "level": "L2",
+   "n_stops": 53
+  },
+  {
+   "world": 24,
+   "M_true": null,
+   "outcome": null,
+   "level": null,
+   "n_stops": 0
+  },
+  {
+   "world": 26,
+   "M_true": 0.8933112872883865,
+   "outcome": "carried",
+   "level": "L2",
+   "n_stops": 53
+  }
+ ],
+ "extra_overshoot_m": 0.006334804918341097,
+ "extra_overshoot_rad": 0.009034909640563008,
+ "settle_s": 3.9973876200483236,
+ "T_s_max": 4.0,
+ "n_not_at_rest": 2,
+ "n_not_in_R": 106,
+ "U_kinds": [
+  "base_stop_timeout"
+ ],
+ "acc_peak_max": 0.8270964956366028,
+ "alpha_peak_max": 1.8871558403297684,
+ "levels": [
+  "L2"
+ ],
+ "tag": "MEASURED",
+ "statistic": "max over n stops (not a bound)",
+ "src": "/common/users/ss5772/bimanual/.claude/worktrees/contents-armside2/world_model/v2/nero/results/base_stop_card_2026-11-16/measure_base_stop.py: run-2 bookcase plan (Codex reply 3), base backup ON, every 0.25 s branch point of the base segment",
+ "noise_model": "none (sim, deterministic per world); achieved accelerations from second differences of the base pose over 50 ms windows",
+ "leaves_out": "nominal-route tracking error before the branch (TRACK_MARGIN_M = 0); refused worlds; other plans and levels than those listed"
+}

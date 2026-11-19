@@ -1,0 +1,101 @@
+{
+ "n": 270,
+ "worlds": [
+  {
+   "world": 2,
+   "level_forced": "L1",
+   "M_true": 1.4288574483568972,
+   "outcome": "carried",
+   "level": "L1",
+   "n_stops": 81
+  },
+  {
+   "world": 26,
+   "level_forced": "L1",
+   "M_true": 0.8933112872883865,
+   "outcome": "carried",
+   "level": "L1",
+   "n_stops": 81
+  },
+  {
+   "world": 2,
+   "level_forced": "L2",
+   "M_true": 1.4288574483568972,
+   "outcome": "carried",
+   "level": "L2",
+   "n_stops": 54
+  },
+  {
+   "world": 26,
+   "level_forced": "L2",
+   "M_true": 0.8933112872883865,
+   "outcome": "carried",
+   "level": "L2",
+   "n_stops": 54
+  },
+  {
+   "world": 2,
+   "level_forced": "L3",
+   "M_true": 1.4288574483568972,
+   "outcome": "refused_in_R",
+   "level": null,
+   "n_stops": 0
+  },
+  {
+   "world": 26,
+   "level_forced": "L3",
+   "M_true": 0.8933112872883865,
+   "outcome": "refused_in_R",
+   "level": null,
+   "n_stops": 0
+  }
+ ],
+ "extra_overshoot_m": 0.006334804918341097,
+ "extra_overshoot_rad": 0.009034909640563008,
+ "settle_s": 0.3100928805825215,
+ "T_s_max": 1.3,
+ "n_not_at_rest": 0,
+ "n_not_in_R": 270,
+ "U_kinds": [],
+ "acc_peak_max": 0.8270964956366028,
+ "alpha_peak_max": 1.8871558403297684,
+ "levels": [
+  "L1",
+  "L2"
+ ],
+ "tag": "MEASURED",
+ "statistic": "max over n stops (not a bound)",
+ "src": "/common/users/ss5772/bimanual/.claude/worktrees/basestop-1116/world_model/v2/nero/results/base_stop_card_2026-11-16/measure_base_stop.py: run-2 bookcase plan (Codex reply 3, saved compiled plan), carried at each forced level, base backup ON, every 0.25 s branch point of the base segment; card values = max over ALL levels listed (conservative for each)",
+ "noise_model": "none (sim, deterministic per world); achieved accelerations from second differences of the base pose over 50 ms windows",
+ "leaves_out": "nominal-route tracking error before the branch (TRACK_MARGIN_M = 0); refused worlds; other plans and levels than those listed",
+ "per_level": {
+  "L1": {
+   "n": 162,
+   "extra_overshoot_m": 0.0025737746502196034,
+   "extra_overshoot_rad": 0.005435787506562628,
+   "settle_s": 0.30000000000000004,
+   "T_s_max": 1.3,
+   "n_not_at_rest": 0,
+   "acc_peak_max": 0.44899103453968014,
+   "alpha_peak_max": 1.3249586793580903,
+   "U_kinds": [],
+   "extra_lateral_m": 0.0027921452211892555,
+   "extra_yaw_rad": 1.9129971340348106e-07
+  },
+  "L2": {
+   "n": 108,
+   "extra_overshoot_m": 0.006334804918341097,
+   "extra_overshoot_rad": 0.009034909640563008,
+   "settle_s": 0.3100928805825215,
+   "T_s_max": 1.3,
+   "n_not_at_rest": 0,
+   "acc_peak_max": 0.8270964956366028,
+   "alpha_peak_max": 1.8871558403297684,
+   "U_kinds": [],
+   "extra_lateral_m": 0.0052068250040097665,
+   "extra_yaw_rad": 1.9129971340348106e-07
+  }
+ },
+ "extra_lateral_m": 0.0052068250040097665,
+ "extra_yaw_rad": 1.9129971340348106e-07
+}

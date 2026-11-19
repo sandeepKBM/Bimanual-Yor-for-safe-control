@@ -5,6 +5,8 @@ frame B (origin = rotation centre on the floor, x forward, z up); the arms hold,
     a_i = a_b + alpha z x r_i - w^2 r_i                       (r_i = horizontal position of mass i; flat floor, no vertical acceleration)
     ZMP = c_xy - (1 / (M g)) sum_i m_i z_i a_i,xy              (M = total mass, c = total COM)
         = c_xy - (S_z a_b + alpha z x S_zr - w^2 S_zr) / (M g),  S_z = sum m_i z_i,  S_zr = sum m_i z_i r_i
+A shift (internal, 11-17: executor's sideways correction after a base stop) is NOT covered here: the line polygon assumes steer 0 and a shift runs with the steers at 90 deg, so tip_row returns MISSING for
+a route with a shift (its lateral acceleration is a line's |a_b| <= a, but the polygon is not modelled).  The planned route (proposer: line | turn) never contains one; the base_stop continuation is checked by the swept-clearance rows only.
 Segment kinds (route R1):  line: |a_b| <= a (any direction: worst per edge in closed form), alpha = w = 0;
                            turn: a_b = 0 (centre held), alpha in [-alpha_max, alpha_max], w^2 in [0, w_max^2] (4 corners, affine).
 Contents: the ObjectSpec contents set (masses {m_lo, m_hi} x COM polytope vertices, object frame).  M * margin is affine in m and multilinear
@@ -23,7 +25,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from world_model.v2.stack.checks.row import Row
+from world_model.v2.stack.checks.row import Row, missing
 
 G = 9.81
 GUARANTEE = ("proof under MODEL: point masses at the body COMs (body rotational inertia left out), flat level floor, all wheels down at the "
@@ -99,6 +101,8 @@ def zmp_margin(m, p, poly: Polygon, kind: str, acc: Accel):
 
 def tip_row(model: MassModel, contents, polys: dict, accs: dict, name="base_tip") -> Row:
     """polys / accs: {kind: Polygon / Accel} for the segment kinds of the route.  contents: objects.Contents (m_lo, m_hi, P in the object frame)."""
+    if "shift" in polys or "shift" in accs:          # USER 11-17: the internal holonomic shift (steers at 90 deg) has no contact polygon model here -> MISSING, never a pass
+        return missing(name, "the route contains a shift piece: its wheel contact polygon (steers at 90 deg) is not modelled (the tip row covers line / turn of the PLANNED route only)")
     worst, wv = np.inf, None
     for mm in sorted({contents.m_lo, contents.m_hi}):
         for v in contents.P:

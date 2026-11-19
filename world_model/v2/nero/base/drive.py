@@ -24,7 +24,11 @@ DT = 0.005                 # = carry.DT (checked by the base tests)
 GAP_S = 0.5                # ASSUMED s: rest after each route segment (G0 smoke)
 END_SETTLE_S = 0.5         # ASSUMED s: extra hold after the last rest gap (G0 smoke ran route + 0.5 s)
 BRANCH_PERIOD_S = 0.25     # same as the arm moves
+PRE_STEER_MAX_S = 1.0      # ASSUMED s (USER 11-17 "wait for wheels"): the base stands STILL (twist 0) while the steer modules swing to +-90 deg before a "shift"; the shift starts when every module is within the swerve gate's
+                           # gate_e0 (0.30 rad, existing ASSUMED) of that direction; after PRE_STEER_MAX_S without it the shift and the rest of the route are ABORTED and reported (flag shift_misaligned), never driven misaligned
 ACC_WIN_STEPS = 10         # ASSUMED: achieved base acceleration = |v(t) - v(t - 0.05 s)| / 0.05 s of the base freejoint xy velocity (recording only; one step is contact-noisy)
+from world_model.v2.stack.checks import base_stop as _BS      # pure; the checker mirrors PRE_STEER_MAX_S (and owns SHIFT_YAW_SCRUB_RAD)
+assert PRE_STEER_MAX_S == _BS.PRE_STEER_MAX_S, "PRE_STEER_MAX_S must be equal in drive.py, base_route.py and base_stop.py"
 
 
 def route_to_segments(route):
@@ -32,12 +36,12 @@ def route_to_segments(route):
     out = []
     for seg in route:
         kind, a = seg[0], float(seg[1])
-        if kind == "line":
-            out.append(("line", a))
+        if kind in ("line", "shift"):                       # "shift" (11-17, internal: the executor's holonomic sideways correction) = a line at rel_heading +pi/2
+            out.append((str(kind), a))
         elif kind == "turn":
             out.append(("turn", float(np.radians(a))))
         else:
-            raise ValueError(f"route segment must be line or turn, got {kind!r}")
+            raise ValueError(f"route segment must be line, shift or turn, got {kind!r}")
     return out
 
 
@@ -47,6 +51,8 @@ def nominal_end(p0, route):
     for kind, a in route_to_segments(route):
         if kind == "line":
             x, y = x + a * np.cos(yaw), y + a * np.sin(yaw)
+        elif kind == "shift":                                # +a = along the base's own +y (left)
+            x, y = x - a * np.sin(yaw), y + a * np.cos(yaw)
         else:
             yaw += a
     return np.array([x, y, yaw])
@@ -64,6 +70,7 @@ class BaseDriver:
         self.queue, self.pf, self.gap_left, self.seg_err = [], None, 0.0, []
         self.seg_idx, self.seg_kind, self.last, self._pend, self.gap = -1, "", None, False, GAP_S
         self.active = False
+        self.pre_left, self._pre_ok, self.pre_times, self.shift_aborted = None, False, [], False
         self.slip_peak = 0.0
         self.acc_peak = {}                  # 11-13 recording only: segment index -> [peak achieved base acceleration m/s^2, episode time s]
         self._vh = []                       # last ACC_WIN_STEPS+1 world-frame base xy velocities (rolling window of the acceleration estimate)
@@ -75,8 +82,11 @@ class BaseDriver:
         self.seg_idx, self.seg_kind = -1, ""
         T = 0.0
         L = self.sb.lim
+        self.pre_left, self._pre_ok, self.pre_times, self.shift_aborted = None, False, [], False
         for kind, a in route:
-            T += (SW.trap_profile(a, L.v_max, L.a_max)[0] if kind == "line" else SW.trap_profile(a, L.w_max, L.alpha_max)[0]) + gap
+            if kind == "shift":
+                T += PRE_STEER_MAX_S                          # upper bound: the pre-steer phase before a shift (ends early once aligned)
+            T += (SW.trap_profile(a, L.v_max, L.a_max)[0] if kind in ("line", "shift") else SW.trap_profile(a, L.w_max, L.alpha_max)[0]) + gap
         self.active = True
         return T
 
@@ -87,10 +97,30 @@ class BaseDriver:
             self.seg_err.append(self.last.error())          # segment error AFTER the rest gap (P hold on the segment's goal)
             self._pend = False
         if self.pf is None and self.gap_left <= 0.0 and self.queue:
-            kind, a = self.queue.pop(0)
+            kind, a = self.queue[0]
+            if kind == "shift" and not self._pre_ok:             # pre-steer phase (11-17): creep sideways at PRE_STEER_MPS until the modules point along +-y (the swerve gate would hold a short shift while they swing)
+                if self.pre_left is None:
+                    self.pre_left = PRE_STEER_MAX_S
+                if self.sb.align_gate(np.array([0.0, float(np.sign(a)) * 0.05, 0.0])) >= 1.0:
+                    self.pre_times.append(PRE_STEER_MAX_S - self.pre_left)
+                elif self.pre_left > 0.0:
+                    return
+                else:                                              # timeout: never drive the shift misaligned
+                    self.shift_aborted = True
+                    self.pre_times.append(float("inf"))
+                    self.queue = []
+                    self.ep.base_flag("shift_misaligned", self.ep.k * DT, timeout_s=PRE_STEER_MAX_S, tol="PRE_STEER_MAX_S 1.0 s, gate_e0 0.30 rad ASSUMED")
+                    self.pre_left, self._pre_ok = None, False
+                    return
+                self._pre_ok = True
+            self.queue.pop(0)
+            self.pre_left, self._pre_ok = None, False
             self.seg_idx, self.seg_kind = self.seg_idx + 1, kind
             self.pf = SW.PathFollower(self.sb)
-            (self.pf.drive_line if kind == "line" else self.pf.turn_in_place)(a)
+            if kind == "shift":                                    # holonomic sideways drive, yaw held (USER 11-17): a line at rel_heading +pi/2 (a > 0 = left)
+                self.pf.drive_line(a, rel_heading=np.pi / 2)
+            else:
+                (self.pf.drive_line if kind == "line" else self.pf.turn_in_place)(a)
 
     def abort(self):
         """drop the rest of the route; while still active, __call__ rate-limits the twist to 0 at the level's a / alpha (PathFollower._limit).
@@ -111,10 +141,15 @@ class BaseDriver:
             self._advance()
             if self.pf is not None:
                 tw = self.pf.step(DT)
+            elif self.gap_left <= 0.0 and self.queue and self.queue[0][0] == "shift" and not self._pre_ok:
+                self.pre_left -= DT
+                tw = None
+                self.sb.pre_steer(float(np.sign(self.queue[0][1])) * np.pi / 2, DT)
             else:
                 self.gap_left -= DT
                 tw = self.last.hold_twist(DT) if self.last is not None else SW.PathFollower(self.sb)._limit(np.zeros(3), DT)      # rest gap: P on the last goal
-            self.sb.apply(tw, DT)
+            if tw is not None:
+                self.sb.apply(tw, DT)
         else:
             self.sb.stop()
         self.slip_peak = max(self.slip_peak, float(self.sb.wheel_slip().max()))
@@ -137,7 +172,7 @@ class BaseDriver:
         """everything the route clock needs (the PathFollowers are shallow-copied: their arrays are never modified in place)."""
         sb = self.sb
         return dict(queue=list(self.queue), gap_left=self.gap_left, gap=self.gap, seg_err=list(self.seg_err), seg_idx=self.seg_idx, seg_kind=self.seg_kind,
-                    pend=self._pend, active=self.active, slip=self.slip_peak,
+                    pend=self._pend, pre=(self.pre_left, self._pre_ok), active=self.active, slip=self.slip_peak,
                     acc_peak={k: list(v) for k, v in self.acc_peak.items()}, vh=[v.copy() for v in self._vh],
                     pf=None if self.pf is None else copy.copy(self.pf), last=None if self.last is None else copy.copy(self.last),
                     sb=dict(th_cmd=sb.th_cmd.copy(), have_cmd=sb._have_cmd, sgn=sb._sgn.copy(), n_rev=sb.n_reversal, wi=sb._wi.copy(), yaw_off=sb.yaw_off,
@@ -145,6 +180,7 @@ class BaseDriver:
 
     def set_state(self, s):
         self.queue, self.gap_left, self.gap, self.seg_err = list(s["queue"]), s["gap_left"], s["gap"], list(s["seg_err"])
+        self.pre_left, self._pre_ok = s.get("pre", (None, False))
         self.seg_idx, self.seg_kind, self._pend, self.active, self.slip_peak = s["seg_idx"], s["seg_kind"], s["pend"], s["active"], s["slip"]
         self.acc_peak, self._vh = {k: list(v) for k, v in s.get("acc_peak", {}).items()}, [v.copy() for v in s.get("vh", [])]
         self.pf = None if s["pf"] is None else copy.copy(s["pf"])
@@ -182,9 +218,9 @@ class BaseDriver:
         e_m, e_deg = float(np.linalg.norm(pb[:2] - nom[:2])), float(np.degrees(dyaw))
         if e_m > MON.ROUTE_TOL_M or abs(e_deg) > MON.ROUTE_TOL_DEG:
             ep.base_flag("route_unfinished", ep.k * DT, err_mm=1e3 * e_m, yaw_err_deg=e_deg, tol=f"{1e3 * MON.ROUTE_TOL_M:.0f} mm / {MON.ROUTE_TOL_DEG} deg ASSUMED")
-        return dict(level=level, T_s=float(T), start=p0.tolist(), end=pb.tolist(), nominal_end=nom.tolist(), err_mm=e_m, err_m=e_m, err_deg=e_deg,        # NOTE: `err_mm` holds METRES (legacy name, kept so recorded numbers do not change); `err_m` is the same value, correctly named
+        return dict(pre_steer_s=list(self.pre_times), shift_aborted=bool(self.shift_aborted), level=level, T_s=float(T), start=p0.tolist(), end=pb.tolist(), nominal_end=nom.tolist(), err_mm=e_m, err_m=e_m, err_deg=e_deg,        # NOTE: `err_mm` holds METRES (legacy name, kept so recorded numbers do not change); `err_m` is the same value, correctly named
                     
                     seg_pos_err_mm=[1e3 * e[0] for e in self.seg_err], seg_yaw_err_deg=[float(np.degrees(e[1])) for e in self.seg_err],
                     slip_peak_mps=self.slip_peak,
-                    seg_acc_peak=[dict(seg=k, kind=route[k][0], a_peak_mps2=v[0], t_s=v[1], a_cmd_mps2=float(sb.lim.a_max if route[k][0] == "line" else sb.lim.alpha_max))
+                    seg_acc_peak=[dict(seg=k, kind=route[k][0], a_peak_mps2=v[0], t_s=v[1], a_cmd_mps2=float(sb.lim.a_max if route[k][0] in ("line", "shift") else sb.lim.alpha_max))
                                   for k, v in sorted(self.acc_peak.items()) if 0 <= k < len(route)])      # BA4 recording: achieved |a_xy| (0.05 s window) vs the level's command (line: m/s^2, turn: a_cmd is rad/s^2)

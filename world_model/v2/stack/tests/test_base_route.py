@@ -76,7 +76,8 @@ def test_schema_accepts_fixture_and_rejects_bad_routes():
 
 def test_fixed_base_schema_unchanged():
     assert "base_move" not in S.vocabulary()["steps"] and "base_move" not in S.vocabulary(("counter", "shelf"), base=False)["steps"]
-    assert S.vocabulary(("counter", "counter2"), base=True)["steps"]["base_move"]["route"]["segments"] == "1..4"
+    r = S.vocabulary(("counter", "counter2"), base=True)["steps"]["base_move"]["route"]          # USER 11-17: the real format (one key line | turn), 1..4 segments
+    assert "1 to 4" in r["format"] and set(r) == {"format", "line", "turn"} and "line_m" not in str(r)
     for t in ("tray6", "box", "pot"):
         d = MK.fixture_plan(t)
         S.validate(d, t, ("counter", "shelf"))
@@ -88,15 +89,21 @@ def test_fixed_base_schema_unchanged():
     assert S.step_skills("tray6") == S.STEP_SKILLS and "base_move" in S.step_skills("box_behind")
 
 
-def test_prompt_behind():
+def test_prompt_behind(monkeypatch):
+    monkeypatch.delenv("BIMANUAL_LEGACY_BEHIND_HINTS", raising=False)
     sp = PR.task_spec("tray6_behind")
     assert set(sp["supports"]) == {"counter", "counter2"} and sp["goal_support"] == "counter2"
     assert abs(sp["goal_xy"][0] + 1.38) < 1e-3 and abs(sp["goal_xy"][1] + 0.1991) < 1e-3
     t = sp["instruction"]
-    for frag in ("counter 2", "base_move", "+x axis turns with the base", "Known-good route R1", "Turning in place at the pick pose hits counter 1", "recovery"):
+    for frag in ("counter 2", "base_move", "+x axis turns with the base", "recovery"):
         assert frag in t, frag
+    for frag in ("Known-good route R1", "Turning in place at the pick pose hits counter 1"):      # USER 11-17: no route hints (cheats)
+        assert frag not in t, frag
     f = PR.scene_facts("tray6_behind")
-    assert "base_move" in f["vocabulary"]["steps"] and "hidden_parameters" not in f and f["phenomena"] and f["task"]["base"]["routes_known_good"]["R1"]     # schema v2 (11-09)
+    assert "base_move" in f["vocabulary"]["steps"] and "hidden_parameters" not in f and f["phenomena"] and "routes_known_good" not in str(f)
+    monkeypatch.setenv("BIMANUAL_LEGACY_BEHIND_HINTS", "1")                                          # the legacy prompt keeps them
+    t_old = PR.task_spec("tray6_behind")["instruction"]
+    assert "Known-good route R1" in t_old and "Turning in place at the pick pose hits counter 1" in t_old
     assert "prior" not in str(f).lower().replace("prior box", "") and "sanity" not in str(f).lower()
     f6 = PR.scene_facts("tray6")                                       # fixed task: no base block, no base_move, no ranges either
     assert "base" not in f6["task"] and "hidden_parameters" not in f6 and "base_move" not in f6["vocabulary"]["steps"]
@@ -174,7 +181,7 @@ def test_default_plan_is_r1_and_sweeps_clear(tray_inp):
     modes = [s.mode for s in pl.segments]
     assert modes == ["s0_lift", "carry", "s2_place", "release"]
     sb = pl.segments[1]
-    assert sb.meta["phases"] == [("base_move", sb.meta["base_ref"])] and sb.meta["base_ref"]["level"] == "L1" and sb.meta["backup_phases"] is None
+    assert sb.meta["phases"] == [("base_move", sb.meta["base_ref"])] and sb.meta["base_ref"]["level"] == "L1" and sb.meta["backup_phases"] == [("base_stop", 4.0), ("hold", 0.5)]
     assert sb.meta["accel"] == dict(source="base_card", level="L1") and sb.t1 - sb.t0 > 5.0
     assert all(pl.segments[i].t1 <= pl.segments[i + 1].t0 + 1e-9 for i in range(3))
     xo = pl.segments[2].x_obj(0.0)                                     # after the base move: the object sits over the counter-2 goal in the WORLD frame

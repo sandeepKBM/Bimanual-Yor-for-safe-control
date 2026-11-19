@@ -15,6 +15,7 @@ Helpers: torque_row / open_row / mug_geom for one task, level and acceleration s
 from __future__ import annotations
 
 import functools
+import os
 
 import mujoco
 import numpy as np
@@ -199,17 +200,32 @@ def open_row(task: str, level: str, source: str = "measured", footprint: str = "
     return BM.open_content_base_row(mug_geom(task), mug_corners(task, footprint), BT.accels(level, source))
 
 
-def pick_level(task: str, spec, levels=("L1", "L2", "L3"), source: str = "measured"):
+def plan_lift_note(wp):
+    """11-17: the base rows are evaluated at the HOLD pose (the episode start), not at the plan's carry pose.  The plan lifts the object (steps before the base move) by `lift_dz`
+    and the arms move with it: NOT modelled (ASSUMED: the hold-pose tip / torque rows stand in for the carry pose).  -> dict (the rows' assumptions["plan_pose"]) or None (no wp)."""
+    if wp is None:
+        return None
+    ib = min((int(b[0]) for b in (getattr(wp, "base", ()) or ())), default=len(wp.deltas))
+    dz = float(sum(float(d[2]) for d in wp.deltas[:ib]))
+    return dict(pose="hold pose (episode start)", plan_lift_dz_m=round(dz, 4), steps_before_base_move=list(wp.names[:ib]),
+                modelled=False, tag="ASSUMED: plan lift not modelled (object and arm masses evaluated at the hold pose, not at the carry pose)")
+
+
+def pick_level(task: str, spec, levels=("L1", "L2", "L3"), source: str = "measured", wp=None):
     """the base level of the admission (design section 3): the HIGHEST level at which every base row passes on spec.contents (Theta_t): base_tip, base_torque and (tray
     tasks only) base_open_content, all on the acceleration box of `source` ("measured" = the base card, sampled; "command" is for comparison only).  Robot masses and
     the arm envelope are the task's default scene (MODEL: they do not depend on the hidden world; the contents enter through spec.contents).
     -> (level | None, {level: {row name: Row}}); None = no level passes -> refuse."""
     rows, best = {}, None
+    note = None if os.environ.get("BIMANUAL_LEGACY_BASE_START_POSE") == "1" else plan_lift_note(wp)      # record only: the decision is unchanged (legacy flag: no note, bit-identical rows)
     for L in levels:
         r = {"base_tip": BTIP.tip_row(BT.mass_model(task), spec.contents, BT.polygons(task), BT.accels(L, source)),
              "base_torque": torque_row(task, spec.contents, L, source)}
         if TK.task(task).kind == "tray":
             r["base_open_content"] = open_row(task, L, source)
+        if note is not None:
+            for x in r.values():
+                x.assumptions = dict(x.assumptions or {}, plan_pose=note)
         rows[L] = r
         if all(x.ok for x in r.values()):
             best = L

@@ -1,0 +1,13 @@
+{
+ "world": 26,
+ "level_forced": "L3",
+ "outcome": "refused_in_R",
+ "refused_by": "base_level",
+ "error": null,
+ "M_true": 0.8933112872883865,
+ "base_level": null,
+ "any_U": false,
+ "n_stops": 0,
+ "stops": [],
+ "wall_s": 117.4
+}

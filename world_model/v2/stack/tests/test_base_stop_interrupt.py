@@ -27,6 +27,7 @@ def test_continuation_route_pure():
 
 def test_flag_off_base_segment_has_no_backup(monkeypatch):
     monkeypatch.delenv("BIMANUAL_BASE_BACKUP", raising=False)
+    monkeypatch.setenv("BIMANUAL_LEGACY_NO_BASE_BACKUP", "1")           # 11-17: the base segment has a stored backup by default; the legacy flag restores None
     inp = CCP._nominal_inputs("tray6_behind")
     pl = CCP.ClosedChainPlanner().plan(None, CCP.SkillCall("plan", {"task": "tray6_behind", "a_plan": 0.5}), inputs=inp)
     base_off = pl.segments[1].meta["backup_phases"]
