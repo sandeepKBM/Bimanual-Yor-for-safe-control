@@ -9,11 +9,14 @@ Same-arm pairs are not checked.  Threshold used by callers: >= CLEARANCE_MIN (5 
 """
 from __future__ import annotations
 
+import os
+
 import numpy as np
 import mujoco
 
 CLEARANCE_MIN = 0.005    # ASSUMED, same as pan CLAMP clear
 _DMAX = 0.10
+_LEGACY_SCIPY = os.environ.get("BIMANUAL_LEGACY_GJK_SCIPY") == "1"   # 11-17: 1 = old scipy-nnls GJK
 
 
 def _robot_side(m, g):
@@ -83,6 +86,14 @@ def _hull_pts(m, g):
 
 
 def _gjk(Wa, Wb, tol=1e-10, maxit=60):
+    """Numba version (nero/gjk_numba.py) unless BIMANUAL_LEGACY_GJK_SCIPY=1."""
+    if not _LEGACY_SCIPY:
+        from .gjk_numba import gjk
+        return float(gjk(np.ascontiguousarray(Wa, dtype=np.float64), np.ascontiguousarray(Wb, dtype=np.float64), tol, maxit))
+    return _gjk_scipy(Wa, Wb, tol, maxit)
+
+
+def _gjk_scipy(Wa, Wb, tol=1e-10, maxit=60):
     """Gilbert distance between the convex hulls of two point sets (0.0 when they touch / overlap)."""
     from scipy.optimize import nnls
     sup = lambda dr: Wa[np.argmax(Wa @ dr)] - Wb[np.argmin(Wb @ dr)]
