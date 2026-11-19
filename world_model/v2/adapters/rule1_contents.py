@@ -272,6 +272,7 @@ class Ctx:
         self.models, self._envs, self._wit, self._specs, self._memo, self._recs = {}, {}, {}, {}, {}, {}
         self.cell_spec = {}              # (lo, hi) total interval -> the carry_cert cell ObjectSpec (the K2-consistent spec when theta is exactly that cell)
         self.n_sampled, self.procs = 0, 1
+        self.tilt = None                 # 11-17: the per-plan load tilt measurement (adapters/collision_rows.TiltSpec) for the collision row; run_cell(tilt=) sets it
 
     # ------------------------------------------------------------------ specs
     def spec_for(self, lo, hi):
@@ -564,35 +565,48 @@ class Ctx:
         return r
 
     # ------------------------------------------------------------------ collision rows of the recovery motion
+    def _tilt_tag(self):
+        """cache key part of the load tilt cover (None = untilted: legacy flag or no measurement)."""
+        t = getattr(self, "tilt", None)
+        return None if (t is None or RCOL.legacy_untilted()) else t.tag()
+
     def _scene(self, model):
         if not hasattr(self, "_scenes"):
             self._scenes, self._cd, self._crow = {}, {}, {}
-        if model.a not in self._scenes:
-            self._scenes[model.a] = RCOL._Scene(model.cc)
-        return self._scenes[model.a]
+        k = (model.a, self._tilt_tag())
+        if k not in self._scenes:
+            self._scenes[k] = RCOL._Scene(model.cc, tilt=getattr(self, "tilt", None))      # raises RCOL.TiltMissing (start-pose mismatch): collision_row -> MISSING
+        return self._scenes[k]
+
+    def _coll_tilt(self, sc):
+        """the load tilt cover of a recovery sample: the ENVELOPE over the plan's measured pieces (ASSUMED: the recovery's tilt <= the nominal carry's max; not measured)."""
+        return sc.tilt_of(None)
 
     def _coll_state(self, model, idx, post):
-        k = (model.a, idx, post)
+        k = (model.a, idx, post, self._tilt_tag())
         if k not in self._cd:
             sc = self._scene(model)
             g = model.geo
+            tl = self._coll_tilt(sc)
             if idx >= len(g.offs):                                   # an extended sample of an overshoot past the last planned one (Br.ext)
                 e = model.ext_store[idx]
-                sc.set_state(e["q"]["left"], e["q"]["right"], e["off"], post)
+                sc.set_state(e["q"]["left"], e["q"]["right"], e["off"], post, tl)
             else:
-                sc.set_state(g.q["left"][idx], g.q["right"][idx], g.offs[idx], post)
+                sc.set_state(g.q["left"][idx], g.q["right"][idx], g.offs[idx], post, tl)
             dd = sc.distances()
             X, R = sc.geom_state()
             self._cd[k] = ({c: np.where(dd[c][1], sc.cap[c], dd[c][0]) for c in RCOL.CLASSES}, X, R)
         return self._cd[k]
 
     def _coll_args(self, model, idx, post):
-        """(ql, qr, p, post) of geometry sample idx (the arguments _coll_state passes to the scene)."""
+        """(ql, qr, p, post[, tilt]) of geometry sample idx (the arguments _coll_state passes to the scene; tilt only when the load tilt cover is on)."""
         g = model.geo
+        tl = self._coll_tilt(self._scene(model))
+        tx = () if tl is None else (tl,)
         if idx >= len(g.offs):
             e = model.ext_store[idx]
-            return (e["q"]["left"], e["q"]["right"], e["off"], post)
-        return (g.q["left"][idx], g.q["right"][idx], g.offs[idx], post)
+            return (e["q"]["left"], e["q"]["right"], e["off"], post) + tx
+        return (g.q["left"][idx], g.q["right"][idx], g.offs[idx], post) + tx
 
     def recovery_indices(self, model, seg, br, plan) -> list:
         """closed_chain geometry sample indices walked by the recovery from branch br: the stop (branch pose -> end of the stop), then the retrace back to the start of
@@ -618,9 +632,16 @@ class Ctx:
         if self.planner != "closed_chain" or model.geo is None:
             return missing(nm, "scripted plan: the recovery is executed by fresh continuation IK, its arm configurations are not known in advance, so no collision model exists; "
                                "scripted programs are not admitted until one is built")
+        if not RCOL.legacy_untilted() and getattr(self, "tilt", None) is None:          # USER 11-17: the load tilt must come from the per-plan measurement
+            return missing(nm, "no per-plan load tilt measurement (run_cell(tilt=TiltSpec)): the load-vs-world row cannot cover the tilt; "
+                               "BIMANUAL_LEGACY_UNTILTED_COLLISION=1 = the untilted row")
         idxs = self.recovery_indices(model, seg, br, plan)
-        sc = self._scene(model)
-        ck = (model.a, seg, tuple(idxs))
+        try:
+            sc = self._scene(model)
+            sc.tilt_of(None)
+        except RCOL.TiltMissing as ex:
+            return missing(nm, f"load tilt measurement unusable: {ex}")
+        ck = (model.a, seg, tuple(idxs), self._tilt_tag())
         if ck in self._crow:
             return self._crow[ck]
 
@@ -661,6 +682,11 @@ class Ctx:
                                                  f"adaptive: an interval with bound < d_min (endpoints >= d_min) is halved up to {RCOL.SWEPT_MAX_DEPTH} times (min step = 1/{2 ** RCOL.SWEPT_MAX_DEPTH} of the interval, "
                                                  f"ASSUMED, USER to confirm), state linear in q and p (the row's MODEL), own speed bound per sub-interval; {n_ref} midpoints added, {m_} points tested"),
                                not_covered="arm links vs the carried object, self-collision, base / lift column, anything the speed model misses; same d_min as collision_rows", **HONEST)
+        if sc.tilt is not None:
+            row.assumptions = dict(row.assumptions, **RCOL.tilt_assumptions(sc, "recovery motion: the ENVELOPE (max over the plan's measured pieces) of swing / twist / drift; "
+                                                                               "ASSUMED: the recovery's load tilt <= the nominal carry's max (the recovery is not measured)"))
+            if row.ok and row.guarantee == "proof":
+                row.guarantee = "sampled"
         self._crow[ck] = row
         return row
 
@@ -915,7 +941,8 @@ class Ctx:
                 A("stop_finish", "a branch within the last stop_T s of its segment: the stop FINISHES the segment (end of stop = the segment's last path sample), deceleration a_stop = the plan's acceleration a "
                   "(the planned remainder is the plan's own motion, whose acceleration cap is a); the collision swept term is geometric per sample (dt = 1), so it needs no speed for the remainder", "MODEL",
                   "executor stop branch 11-16 (every reference entry ends at rest: the move finishes); BIMANUAL_LEGACY_STOP=1 restores the Hermite 0.5 v T overshoot model for every branch"),
-                A("collision", "closed_chain: swept row (D9 obj_world + arm_arm + arm_world) on the stop + retrace / advance samples; scripted: MISSING (no model)", "MODEL", "adapters/collision_rows"),
+                A("collision", "closed_chain: swept row (D9 obj_world + arm_arm + arm_world) on the stop + retrace / advance samples; scripted: MISSING (no model); 11-17: obj_world over the "
+                  "MEASURED load tilt cover (envelope of the plan's per-piece max over n, sampled; ASSUMED recovery tilt <= nominal max), MISSING without a measurement", "MODEL", "adapters/collision_rows"),
                 *self._read_assumptions(model),
                 A("tray_bins", "bins and the start-landing witness use spec_from_total (one mug may hold all the fill): conservative for the spill limit", "MODEL", "adapters/contents_specs")]
 
@@ -1161,12 +1188,15 @@ def link_base_next(res: list) -> None:
         pathlib.Path(r["out_file"]).write_text(json.dumps(r, indent=1, default=float))
 
 
-def run_cell(task, cell, out: pathlib.Path, n_sampled=0, procs=1, planner=None, fallback=True, wp=None, a=None, level=None) -> list:
+def run_cell(task, cell, out: pathlib.Path, n_sampled=0, procs=1, planner=None, fallback=True, wp=None, a=None, level=None, tilt=None) -> list:
     """a=None: the steps are checked at the static admission's a_admit (as before).  a given (Part B, 11-16, the Z3 oracle passes the plan's a): the steps use ctx.model(a), provided
     the static admission admits at a (a <= a_admit + 1e-9); else every step is a refusal record (the oracle refuses such plans at stage b; run_cell stays self-consistent).
-    level (11-17): the base level actually run (probe_select passes the admitted level); None = the plan's own base level (ctx.wp.base[0]).  The base-stop rows use it (record base_level, card_level)."""
+    level (11-17): the base level actually run (probe_select passes the admitted level); None = the plan's own base level (ctx.wp.base[0]).  The base-stop rows use it (record base_level, card_level).
+    tilt (11-17): the per-plan load tilt measurement (adapters/collision_rows.TiltSpec, tilt_from_table on tilt_measure.measure_plan); the recovery collision rows use its envelope.
+    None = those rows are MISSING (BIMANUAL_LEGACY_UNTILTED_COLLISION=1: the untilted rows as before)."""
     ctx = get_ctx(task, planner, wp)
     ctx.n_sampled, ctx.procs = n_sampled, procs
+    ctx.tilt = tilt                      # 11-17: the per-plan load tilt measurement (collision_rows.TiltSpec) for the recovery collision rows; None = those rows are MISSING (default ON)
     lo, hi = cell_total(task, cell)
     theta_t = theta_box(lo, hi)
     adm0, model = plan_admission(ctx, cell, lo, hi)

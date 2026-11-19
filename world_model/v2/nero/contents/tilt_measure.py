@@ -63,6 +63,32 @@ def _git_head():
         return "?"
 
 
+def rot_summary(ok):
+    """per-piece max over the episodes of RotTrack's swing / twist / drift (MEASURED, a max over n: not a bound), or None when no episode carries `rot`.
+    n_missing_rot = ok episodes without a `rot` record (the consumer treats > 0 as MISSING)."""
+    import numpy as np
+    have = [r for r in ok if r.get("rot")]
+    if not have:
+        return None
+    seg = {}
+    for r in have:
+        for s, v in r["rot"]["seg"].items():
+            x = seg.setdefault(s, dict(swing_deg=0.0, twist_deg=0.0, drift_m=0.0, drift_time_matched_m=0.0, n_episodes=0))
+            x["swing_deg"], x["twist_deg"] = max(x["swing_deg"], v["swing_deg"]), max(x["twist_deg"], v["twist_deg"])
+            x["drift_time_matched_m"] = max(x["drift_time_matched_m"], v.get("drift_time_matched_m", 0.0))
+            x["drift_m"], x["n_episodes"] = max(x["drift_m"], v["drift_m"]), x["n_episodes"] + 1
+    piv = np.array([r["rot"]["pivot_obj"] for r in have])
+    x0 = np.array([r["rot"]["x0"] for r in have])
+    R0 = np.array([r["rot"]["R0"] for r in have])
+    return dict(per_seg_max=seg, n_rot=len(have), n_missing_rot=len(ok) - len(have), pivot_obj=piv.mean(0).tolist(),
+                pivot_obj_spread_m=float(np.linalg.norm(piv - piv.mean(0), axis=1).max()), x0=x0.mean(0).tolist(),
+                x0_spread_m=float(np.linalg.norm(x0 - x0.mean(0), axis=1).max()), R0=R0[0].tolist(),
+                R0_spread_rad=float(max(np.arccos(np.clip((np.trace(R0[0].T @ Rk) - 1) / 2, -1, 1)) for Rk in R0)),
+                n_unattributed_steps=int(sum(r["rot"]["n_unattributed"] for r in have)), n_pre_unfolded=int(sum(r["rot"].get("n_pre_unfolded", 0) for r in have)),
+                unattributed_max_deg=dict(swing=max(r["rot"]["unattributed_max_deg"]["swing"] for r in have), twist=max(r["rot"]["unattributed_max_deg"]["twist"] for r in have)),
+                what="RotTrack (tilt_measure.py): per plan piece, max over episodes of swing / twist [deg] of R_act R_nom^T and pivot drift [m] (pivot = object-fixed claw midpoint at k = 0)")
+
+
 def build_table(rows, tasks, a_levels, n, meta):
     import numpy as np
     cells = {}
@@ -84,6 +110,9 @@ def build_table(rows, tasks, a_levels, n, meta):
                              max=round(float(t.max()), 4) if len(t) else None,
                              per_seg_max={s: round(max(r["tilt_seg"].get(s, 0.0) for r in ok), 4) for s in (("lift", "carry", "place", "release") + tuple(sorted({k for r in ok for k in r["tilt_seg"]} - {"lift", "carry", "place", "release"})))} if ok else None,
                              seeds=[r["seed"] for r in rs])
+            rot = rot_summary(ok)
+            if rot is not None:
+                levels[a]["rot"] = rot
         tab[key] = dict(task=task, planner=meta["planner"], u_limit_deg=ul, levels=levels)
     return dict(cells=tab, noise_model=NOISE, leaves_out=LEAVES_OUT, n_requested=n, a_levels=a_levels, tasks=tasks, **meta)
 
@@ -128,8 +157,139 @@ def _plan_world(task, cell, seed):
     return w
 
 
+def swing_twist(Rrel):
+    """swing-twist split of a WORLD-frame rotation Rrel = R_swing @ R_twist (R_twist about world z, R_swing about a horizontal axis) -> (swing, |twist|) [rad].
+    swing = angle(Rrel e_z, e_z) (= the obj_tilt_deg of a level nominal pose); twist = the yaw left after removing the swing."""
+    import numpy as np
+    v = Rrel[:, 2]
+    sw = float(np.arccos(np.clip(v[2], -1.0, 1.0)))
+    ax = np.array([-v[1], v[0], 0.0])                      # e_z x v
+    s = float(np.linalg.norm(ax))
+    if s < 1e-12:
+        Rs = np.eye(3)
+    else:
+        k = ax / s
+        Kx = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+        Rs = np.eye(3) + np.sin(sw) * Kx + (1 - np.cos(sw)) * Kx @ Kx
+    Rt = Rs.T @ Rrel
+    return sw, abs(float(np.arctan2(Rt[1, 0], Rt[0, 0])))
+
+
+class RotTrack:
+    """MEASURED (11-17, collision row under load tilt): per control step, the deviation of the carried object from where the closed_chain plan puts it, as the
+    collision row (adapters/collision_rows) places it: nominal pose = the model's start pose (m.qpos0 of the object's free joint, level) translated by the active piece's planned object offset p[kk]
+    (kk = the time-matched sample, clipped to the piece) and, after the base move, the PLANNED base transform (geo.info["base"]), exactly as collision_rows._Scene.set_state.
+    Pivot = the object-fixed point at the claw midpoint at k = 0 (mean of the two *_arm_ee_grasp sites, in the ACTUAL k = 0 object frame), stored in the object frame (pivot_obj).
+    The k = 0 deviation of the actual pose from qpos0 (settling) is recorded (k0_dev) and is part of the measured swing / drift.
+    Per step: R_rel = R_act R_nom^T split into swing (horizontal axis) and twist (about z) [swing_twist]; drift_time_matched = |actual pivot - nominal pivot at the time-matched sample| (holds the
+    tracking lag along the path); drift_m (used by the row) = distance of the actual pivot to the nearest point of THE SAME piece's nominal pivot path (linear between
+    samples), which is what the row needs (static world: the set of poses matters, not their timing; the row covers that piece's samples and the segments between them).  Steps counted: weld on, base driver not active, a plan piece active (attributed to that piece); the steps before the first piece
+    (the pre-lift hold) are attributed to the FIRST piece at its sample 0.  Welded steps outside these (base driving, no active piece after the first) are counted, not attributed."""
+
+    def __init__(self, ep):
+        import numpy as np
+        import mujoco
+        m, d = ep.m, ep.d
+        xa, Ra = d.xpos[ep.obj].copy(), d.xmat[ep.obj].reshape(3, 3).copy()          # actual pose at k = 0 (may have settled a little off the model pose)
+        cm = 0.5 * (d.site_xpos[ep.site["left"]] + d.site_xpos[ep.site["right"]])
+        self.o_c = Ra.T @ (cm - xa)                                                   # pivot: object-fixed point at the claw midpoint at k = 0
+        j = next(j for j in range(m.body_jntadr[ep.obj], m.body_jntadr[ep.obj] + m.body_jntnum[ep.obj]) if m.jnt_type[j] == mujoco.mjtJoint.mjJNT_FREE)
+        adr = int(m.jnt_qposadr[j])
+        self.x0 = np.array(m.qpos0[adr:adr + 3], float)                               # NOMINAL start pose = the model's qpos0 (what collision_rows places at p = 0)
+        R0 = np.zeros(9)
+        mujoco.mju_quat2Mat(R0, np.array(m.qpos0[adr + 3:adr + 7], float))
+        self.R0 = R0.reshape(3, 3)
+        self.c0 = self.x0 + self.R0 @ self.o_c                                         # nominal pivot at p = 0
+        self.k0_dev = dict(dx_m=float(np.linalg.norm(xa - self.x0)), swing_twist_deg=[float(np.degrees(v)) for v in swing_twist(Ra @ self.R0.T)])
+        self.pre, self.stats, self.seen = [], {}, False
+        self.n_base = self.n_unattr = 0
+        self.unattr_max = dict(swing=0.0, twist=0.0)
+        self._np = np
+
+    def _nominal(self, cc, name, p):
+        np = self._np
+        P, Rn = self.c0 + np.asarray(p, float), self.R0
+        names = list(cc.pieces)
+        wp = getattr(cc.inp, "wp", None)
+        if wp is not None and getattr(wp, "base", None) and names.index(name) >= wp.base[0][0]:
+            from world_model.v2.stack.planners import base_route as BR
+            b = cc.geo.info["base"]
+            c0, ce = np.array(b["start_pose"][:2], float), np.array(b["end_pose"][:2], float)
+            dl = float(b["end_pose"][2] - b["start_pose"][2])
+            P = np.r_[ce + BR.rot(dl) @ (P[:2] - c0), P[2]]
+            Rz = np.array([[np.cos(dl), -np.sin(dl), 0.0], [np.sin(dl), np.cos(dl), 0.0], [0.0, 0.0, 1.0]])
+            Rn = Rz @ Rn
+        return P, Rn
+
+    def _poly(self, cc, name):
+        """the nominal pivot path of piece `name` (one node per planned sample) -> (A (n,3), B (n,3)) segment ends (a single node: A = B)."""
+        if not hasattr(self, "_polys"):
+            self._polys = {}
+        if name not in self._polys:
+            np = self._np
+            Pn = np.array([self._nominal(cc, name, q)[0] for q in cc.pieces[name].p])
+            self._polys[name] = (Pn[:-1], Pn[1:]) if len(Pn) > 1 else (Pn, Pn)
+        return self._polys[name]
+
+    def _add(self, name, x, R, P, Rn, cc):
+        np = self._np
+        sw, tw = swing_twist(R @ Rn.T)
+        Pa = x + R @ self.o_c
+        dr_t = float(np.linalg.norm(Pa - P))                                      # time-matched
+        A, B = self._poly(cc, name)                                               # set-based: nearest point of this piece's nominal pivot path (linear between samples = the row's model)
+        AB = B - A
+        u = np.clip(np.einsum("ij,ij->i", Pa - A, AB) / np.maximum(np.einsum("ij,ij->i", AB, AB), 1e-18), 0.0, 1.0)
+        dr = float(np.linalg.norm(A + u[:, None] * AB - Pa, axis=1).min())
+        s = self.stats.setdefault(name, dict(swing=0.0, twist=0.0, drift=0.0, drift_t=0.0, n=0))
+        s["swing"], s["twist"], s["drift"], s["drift_t"], s["n"] = max(s["swing"], sw), max(s["twist"], tw), max(s["drift"], dr), max(s["drift_t"], dr_t), s["n"] + 1
+
+    def __call__(self, ep):
+        d = ep.d
+        if not all(d.eq_active[ep.weld_id[s]] for s in ("left", "right")):
+            return
+        x, R = d.xpos[ep.obj].copy(), d.xmat[ep.obj].reshape(3, 3).copy()
+        drv = getattr(ep, "driver", None)
+        if drv is not None and getattr(drv, "active", False):
+            self.n_base += 1
+            return
+        ap = getattr(ep, "_active_piece", None)
+        cc = getattr(ep, "cc", None)
+        name = None
+        if ap is not None and cc is not None:
+            pc, t0 = ap
+            name = next((k for k, v in cc.pieces.items() if v is pc), None)
+        if name is None:
+            if not self.seen:
+                self.pre.append((x, R))
+            else:
+                self.n_unattr += 1
+                sw, tw = swing_twist(R @ self.R0.T)
+                self.unattr_max = dict(swing=max(self.unattr_max["swing"], sw), twist=max(self.unattr_max["twist"], tw))
+            return
+        self.seen = True
+        from . import carry as CR
+        kk = min(max(int(round(ep.k - t0 / CR.DT)), 0), pc.n)
+        P, Rn = self._nominal(cc, name, pc.p[kk])
+        self._add(name, x, R, P, Rn, cc)
+
+    def result(self, ep):
+        """-> JSON dict (degrees / metres)."""
+        import math
+        cc = getattr(ep, "cc", None)
+        if cc is not None and self.pre:
+            first = list(cc.pieces)[0]
+            P, Rn = self._nominal(cc, first, cc.pieces[first].p[0])
+            for x, R in self.pre:
+                self._add(first, x, R, P, Rn, cc)
+        seg = {k: dict(swing_deg=math.degrees(v["swing"]), twist_deg=math.degrees(v["twist"]), drift_m=v["drift"], drift_time_matched_m=v["drift_t"], n_steps=v["n"]) for k, v in self.stats.items()}
+        return dict(seg=seg, pivot_obj=self.o_c.tolist(), x0=self.x0.tolist(), R0=self.R0.tolist(), c0=self.c0.tolist(), k0_dev=self.k0_dev, n_pre=len(self.pre) if cc is not None else 0,
+                    n_pre_unfolded=0 if cc is not None else len(self.pre), n_base_steps=self.n_base, n_unattributed=self.n_unattr,
+                    unattributed_max_deg=dict(swing=math.degrees(self.unattr_max["swing"]), twist=math.degrees(self.unattr_max["twist"])))
+
+
 def _plan_episode(args):
-    """one nominal carry of the GIVEN compiled plan (base move included for base tasks; the episode path of behind_job: CarryEpisode(wp=, base="swerve") -> set_belief -> hold -> run_segments)."""
+    """one nominal carry of the GIVEN compiled plan (base move included for base tasks; the episode path of behind_job: CarryEpisode(wp=, base="swerve") -> set_belief -> hold -> run_segments).
+    11-17: also the per-piece rotation / pivot drift of the load (RotTrack, record key `rot`) for the collision row's tilt cover (adapters/collision_rows)."""
     task, plan_id, wp, cell, a, i, seed, level, *rest = args
     strict_claw = bool(rest[0]) if rest else False               # 11-17: the run's own strict_claw (probe_select passes ep.strict_claw); default False = as before
     os.environ["BIMANUAL_PLANNER"] = "closed_chain"
@@ -147,6 +307,8 @@ def _plan_episode(args):
         td = TK.TASKS[task]
         kw = dict(base="swerve", goal_support=td.goal_support) if td.base else {}
         ep = CR.CarryEpisode(w, m_hat=0.5 * (cell[0] + cell[1]), fric_comp=True, weld_solref=CC.WELD_STIFF, wp=wp, a_plan=a, strict_claw=strict_claw, **kw)
+        rt = RotTrack(ep)                                                    # 11-17: per-piece load rotation + pivot drift (collision row tilt cover)
+        ep.step_hooks.append(rt)
         ep.set_belief(0.5 * (cell[0] + cell[1]), a_plan=a)
         ep.run_phases([("hold", 0.4)])
         r = CR.run_segments(ep, dict(segments=[]), branch_backups=False)
@@ -155,7 +317,7 @@ def _plan_episode(args):
         if viol is None and ep.track["viol"]:                                # a U outside the segment records (base flags, pre-hold)
             viol = ("episode", CR._jsonable(ep.track["viol"]))
         out = dict(base, tilt_seg=segs, tilt_max=max(segs.values()) if segs else None, pre_hold_viol=r.get("pre_hold_viol"),
-                   stopped_at=list(viol) if viol else None, wall_s=round(time.time() - t0, 1))
+                   stopped_at=list(viol) if viol else None, rot=rt.result(ep), wall_s=round(time.time() - t0, 1))
     except Exception as e:
         out = dict(base, error=repr(e), wall_s=round(time.time() - t0, 1))
     return out

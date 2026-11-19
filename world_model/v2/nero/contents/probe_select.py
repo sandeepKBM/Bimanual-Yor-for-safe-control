@@ -171,10 +171,12 @@ def _from_row(r):
 TILT_N = 20            # ASSUMED (11-17): worlds per per-plan tilt measurement (tilt_measure.N_PLAN_DEFAULT)
 
 
-def planned_path_rows(task, wp, a, theta, level=None, plan_id="", tilt_dir=None, procs=1, n=None, strict_claw=False):
+def planned_path_rows(task, wp, a, theta, level=None, plan_id="", tilt_dir=None, procs=1, n=None, strict_claw=False, out=None):
     """USER 11-17: the rows of the NOMINAL planned closed_chain path (plan_for(inputs(task, wp), a)): motion (joint_pos margin PATH_MARGIN_MIN, joint_speed, reach, closed_chain), the swept
     collision row (arm_arm, arm_world, obj_world: every class present on every piece, else MISSING), the tilt row (measured table, default plan only, else MISSING).
     The tilt row is MEASURED for this plan at admission time (tilt_measure.measure_plan; n = TILT_N 20 ASSUMED; worlds i.i.d. from the belief cell; base move included).
+    11-17 (USER "Checker uses measured tilt"): the tilt is measured FIRST and the collision row covers the measured load tilt (collision_rows(plan, tilt=tilt_from_table(...)));
+    no usable measurement = a MISSING collision row.  out (dict, optional) receives "tilt_spec" (collision_rows.TiltSpec or None) for Rule 1 / Rule 4 (same plan, cell, a).
     -> [row dict]; ok False or guarantee "missing" refuses.  Raises nothing for a row failure (a crashed row is a MISSING row)."""
     from world_model.v2.adapters import collision_rows as RCOL, motion_rows as MR
     from world_model.v2.stack.checks import collision as K, tilt as TL
@@ -188,17 +190,8 @@ def planned_path_rows(task, wp, a, theta, level=None, plan_id="", tilt_dir=None,
         rows += [_from_row(r) for r in MR.motion_rows(plan)]
     except Exception as ex:
         rows.append(_row_dict("motion_rows", False, None, "missing", f"motion_rows crashed: {ex!r}"[:500]))
-    try:
-        cr = RCOL.collision_rows(plan)
-        by = (cr.worst or {}).get("by_class_all", {})
-        absent = sorted({c for c in K.CLASSES for bc in by.values() if c not in bc} | ({c for c in K.CLASSES} if not by else set()))
-        d = _from_row(cr)
-        if absent:
-            d = _row_dict("collision", False, None, "missing", f"collision classes missing on some piece: {absent}")
-        rows.append(d)
-    except Exception as ex:
-        rows.append(_row_dict("collision", False, None, "missing", f"collision_rows crashed: {ex!r}"[:500]))
-    try:
+    spec, spec_why = None, "tilt measurement not run"
+    try:                                                                 # 11-17: the tilt is MEASURED first; the collision row covers the measured load tilt
         from world_model.v2.nero.contents import carry as CR
         from world_model.v2.nero.contents import tilt_measure as TM
         lo, hi = round_out(theta[0], theta[1])
@@ -207,9 +200,30 @@ def planned_path_rows(task, wp, a, theta, level=None, plan_id="", tilt_dir=None,
                                      level=level, plan_id=plan_id, strict_claw=strict_claw)       # MEASURED for THIS plan, fresh in this run (USER 11-17); refuses on n_over / n_stopped / n_errors via tilt_row
         tr = TL.tilt_row(tab, TM.cell_key(task, (lo, hi)), float(a), CR.U_TILT_OBJ)
         tx = dict(table_path=tinfo["table_path"], seeds=tinfo["seeds"], n=tinfo["n"], tilt_wall_s=tinfo["wall_s"], procs=tinfo["procs"], n_tag="ASSUMED")
-        rows.append(dict(_from_row(tr), **tx))
+        trow = dict(_from_row(tr), **tx)
+        try:
+            spec = RCOL.tilt_from_table(tab, TM.cell_key(task, (lo, hi)), float(a), source=tinfo["table_path"])
+        except RCOL.TiltMissing as ex:
+            spec_why = str(ex)
     except Exception as ex:
-        rows.append(_row_dict("obj_tilt", False, None, "missing", f"tilt row crashed: {ex!r}"[:500]))
+        trow = _row_dict("obj_tilt", False, None, "missing", f"tilt row crashed: {ex!r}"[:500])
+        spec_why = f"tilt measurement crashed: {ex!r}"[:300]
+    if out is not None:
+        out["tilt_spec"] = spec
+    try:
+        cr = RCOL.collision_rows(plan, tilt=spec)
+        if cr.guarantee == "missing":
+            d = _row_dict("collision", False, None, "missing", cr.why if spec is not None else f"{cr.why} [{spec_why}]")
+        else:
+            by = (cr.worst or {}).get("by_class_all", {})
+            absent = sorted({c for c in K.CLASSES for bc in by.values() if c not in bc} | ({c for c in K.CLASSES} if not by else set()))
+            d = _from_row(cr)
+            if absent:
+                d = _row_dict("collision", False, None, "missing", f"collision classes missing on some piece: {absent}")
+        rows.append(d)
+    except Exception as ex:
+        rows.append(_row_dict("collision", False, None, "missing", f"collision_rows crashed: {ex!r}"[:500]))
+    rows.append(trow)
     return rows
 
 
@@ -232,14 +246,14 @@ def legacy_no_runtime_rules():
     return os.environ.get("BIMANUAL_LEGACY_NO_RUNTIME_RULES") == "1"
 
 
-def run_rule1(c, lo, hi, wp, a, level=None):
+def run_rule1(c, lo, hi, wp, a, level=None, tilt=None):
     """Rule 1 per step on the admitted plan (rule1_contents.run_cell, n_sampled = 0, closed_chain; 11-17: fallback=True = the wide Rule 3 table needs Theta_0, unless BIMANUAL_LEGACY_NO_RUNTIME_RULES=1) -> the step records.  level = the admitted base level (behind tasks)."""
     if c.rule1 is not None:
         return c.rule1(c.task, (lo, hi), wp, a)
     from world_model.v2.adapters import rule1_contents as R1
     kw = {} if level is None else dict(level=level)
     with tempfile.TemporaryDirectory(prefix="t4_rule1_") as td:
-        return R1.run_cell(c.task, (lo, hi), pathlib.Path(td), n_sampled=0, planner="closed_chain", fallback=not legacy_no_runtime_rules(), wp=wp, a=a, **kw)
+        return R1.run_cell(c.task, (lo, hi), pathlib.Path(td), n_sampled=0, planner="closed_chain", fallback=not legacy_no_runtime_rules(), wp=wp, a=a, tilt=tilt, **kw)
 
 
 def rule1_failures(recs):
@@ -365,6 +379,7 @@ def run_world(c: Ctx):
         cov = CAT.coverage(task, cum, mode=c.coverage_mode, named=named, new_names=new_names)
         c_lo, c_hi = cum.theta_t[FIELD]
         st, lvl_rows, wp_run = None, None, None
+        path_out = {}                                                        # 11-17: planned_path_rows hands its TiltSpec to Rule 1 / Rule 4 (same plan, cell, a)
         if cov.refuses:
             decision = dict(action="refuse (uncovered)", a_admit=None, u_nom=None, contents=[c_lo, c_hi], refused_by="coverage", uncovered=cov.uncovered)
         else:
@@ -387,7 +402,7 @@ def run_world(c: Ctx):
                     prows = (c.path_rows(c.task, wp_path, decision["a_admit"], (c_lo, c_hi)) if c.path_rows is not None else
                              planned_path_rows(c.task, wp_path, decision["a_admit"], (c_lo, c_hi), level=decision.get("base_level"), plan_id=str(cur_pd.get("plan_id") or ""),
                                                tilt_dir=cfg.get("tilt_dir"), procs=int(cfg.get("tilt_procs") or 1), n=cfg.get("tilt_n"),
-                                               strict_claw=bool(getattr(ep, "strict_claw", False))))       # 11-17: the tilt measurement uses the run's own strict_claw
+                                               strict_claw=bool(getattr(ep, "strict_claw", False)), out=path_out))       # 11-17: the tilt measurement uses the run's own strict_claw
                 except Exception as ex:                                              # a crashed row is MISSING, never an admission
                     prows = [_row_dict("planned_path", False, None, "missing", f"path rows crashed: {ex!r}"[:500])]
                 att["path_rows"] = clean(prows)
@@ -411,12 +426,13 @@ def run_world(c: Ctx):
         else:                                                               # T4: the static admission admits; Rule 1 (a recovery viable from every stop point) on the plan it admits
             wp_r1 = wp_run if c.behind else cur_wp
             try:
-                r1 = run_rule1(c, *round_out(c_lo, c_hi), wp_r1, decision["a_admit"], level=decision.get("base_level") if c.behind else None)
+                r1 = run_rule1(c, *round_out(c_lo, c_hi), wp_r1, decision["a_admit"], level=decision.get("base_level") if c.behind else None,
+                               tilt=path_out.get("tilt_spec"))                # 11-17: the planned-path tilt measurement covers the recovery collision rows (None -> MISSING)
                 att["rule1"] = dict(a=decision["a_admit"], level=decision.get("base_level") if c.behind else None,
                                     steps=clean([dict(step=x.get("step"), seg=x.get("seg"), admitted=bool(x.get("admitted")), program=x.get("program"), refusal=x.get("refusal"),
                                                       programs=x.get("programs")) for x in r1]))
                 if all(x.get("admitted") for x in r1):
-                    r1_final = dict(recs=r1, wp=wp_r1, a=decision["a_admit"], level=decision.get("base_level") if c.behind else None)
+                    r1_final = dict(recs=r1, wp=wp_r1, a=decision["a_admit"], level=decision.get("base_level") if c.behind else None, tilt=path_out.get("tilt_spec"))
                     break
                 r1_fixable, r1_fixed, r1_untag = rule1_failures(r1)
             except Exception as ex:                                         # owner 11-16 / 11-17: fail CLOSED (a crashed safety check, or its failure tagging, never lets the carry run); recorded
@@ -530,7 +546,7 @@ def run_world(c: Ctx):
             else:
                 from . import runtime_rules as RR
                 certs = RR.certs_from_rule1(r1_final["recs"])
-                handles = dict(rule4=RR.rule4_hook(task, wp_now, float(r1_final["a"])))
+                handles = dict(rule4=RR.rule4_hook(task, wp_now, float(r1_final["a"]), tilt=r1_final.get("tilt")))       # 11-17: the plan's own tilt measurement (None -> Rule 4 refuses, MISSING)
                 ep.read_seed = int(np.random.SeedSequence([44, int(P.CC.TASK_ID.get(task, 0)), int(c.i)]).generate_state(1)[0])               # deterministic per world (the noise stream of the in-carry claw-load reads)
         if cert_refusal is None:
             carry = CR.run_segments(ep, dict(segments=[]), branch_backups=True, certs=certs, handles=handles)

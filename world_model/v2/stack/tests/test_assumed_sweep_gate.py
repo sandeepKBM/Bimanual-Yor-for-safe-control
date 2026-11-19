@@ -25,7 +25,9 @@ NO_MOVE = {"CLEARANCE_MIN"}   # arm classes only; the box collision row binds on
 
 @pytest.fixture(scope="module")
 def runs(tmp_path_factory):
-    env = dict(os.environ, BIMANUAL_PLANNER="closed_chain", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1", NUMBA_NUM_THREADS="1",
+    # BIMANUAL_LEGACY_UNTILTED_COLLISION=1 (11-18): the static level runs z3_oracle_contents, which gets no per-plan tilt measurement (current_state
+    # finding 10), so the default tilt-aware collision row is MISSING (no margin).  This gate is about knob patching, not the load tilt.
+    env = dict(os.environ, BIMANUAL_LEGACY_UNTILTED_COLLISION="1", BIMANUAL_PLANNER="closed_chain", OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1", NUMBA_NUM_THREADS="1",
                PYTHONPATH=f"{ROOT}:{ROOT}/experiments/ab_smooth_vs_bangbang:{ROOT}/experiments/realtime")
     procs, outs = {}, {}
     for knob, vals in CASES.items():

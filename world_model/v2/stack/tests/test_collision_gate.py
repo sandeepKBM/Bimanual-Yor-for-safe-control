@@ -69,8 +69,11 @@ def test_swept_bound_below_dense_on_plans(plans, task, sg):
     assert n_checked >= 8
 
 
-def test_collision_rows_admit_nominal_plans(plans):
+def test_collision_rows_admit_nominal_plans(plans, monkeypatch):
+    """the UNTILTED row (BIMANUAL_LEGACY_UNTILTED_COLLISION=1) admits the nominal plans by proof; without a tilt measurement the default
+    (tilt-aware, USER 11-17) row is MISSING (fail closed): see adapters/tests/test_tilt_collision_gate.py."""
     from world_model.v2.adapters import collision_rows as CR
+    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")
     for task, plan in plans.items():
         r = CR.collision_rows(plan)
         assert r.ok and r.guarantee == "proof", (task, r.why)

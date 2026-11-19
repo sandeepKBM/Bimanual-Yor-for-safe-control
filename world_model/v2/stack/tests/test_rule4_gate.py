@@ -102,6 +102,7 @@ def test_box_trap_offgrid_set_down_is_a_safe_park(monkeypatch):
     (Rule 1 still refuses continuing: the 11-16 livelock finding; the policy is the user's call)."""
     if "BIMANUAL_PLANNER" not in __import__("os").environ:
         monkeypatch.setenv("BIMANUAL_PLANNER", "closed_chain")          # restored after the test (was a leaking setdefault)
+    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")          # untilted row (BIMANUAL_LEGACY_UNTILTED_COLLISION=1): this test is about Rule 1 logic, not the load tilt (11-17 tilt row: adapters/tests/test_tilt_collision_gate.py)
     from world_model.v2.adapters import rule4_contents as R4C
     from world_model.v2.stack.checks import rule1 as R1
     acc, log, tr = R4C.run_trap(True, t=0.8)

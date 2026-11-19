@@ -174,6 +174,7 @@ def test_any_U_includes_the_pre_hold_violation(tmp_path, monkeypatch):
     # 11-17: the planned-path rows (incl. the per-plan tilt measurement) also call CR.run_segments, which is faked above for the carry only;
     # they are not the subject of this test, so they are stubbed to pass (planned_path_rows has its own gates)
     monkeypatch.setattr(PS, "planned_path_rows", lambda *a, **k: [PS._row_dict("planned_path", True, 0.0, "sampled", "stubbed in this test")])
+    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")          # the stubbed path rows give no tilt measurement: Rule 1 / Rule 4 use the untilted row (not this test's subject)
     r = PS.fixed_job(("box", 1, *EPS, plan), method="poslift", make_skills=lambda w: {"weigh": Light(w)})
     assert "error" not in r, r.get("tb")
     assert "carry" in r and r["carry"]["pre_hold_viol"] == inj and r["probe_viol"] is None

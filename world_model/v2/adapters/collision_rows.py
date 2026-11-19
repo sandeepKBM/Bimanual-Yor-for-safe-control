@@ -21,10 +21,33 @@ r_g = max |hull vertex| in the geom frame (clearance._hull_pts) or geom_rbound i
 with dm_p = min(d_p(k), d_p(k+1)) and dm = min_p dm_p, only pairs with dm_p <= dm + s_max * dt can have a lower swept bound below dm's pair (s_max = max_p s_p), so v_k = max s_p over those.
 A pair that is allowed (obj_world support approach) at a sample counts as the cap distance at that sample; the allowance is evaluated at the samples only (not between them).
 
+LOAD TILT (USER 11-17 "Checker uses measured tilt"; default ON, BIMANUAL_LEGACY_UNTILTED_COLLISION=1 = the untilted row exactly as before).  Only obj_world changes.
+  Cover set at a sample (MODEL, rigid load: every carried body turns with the object): nominal load pose L, rotated about the pivot c by R = R_swing R_twist with R_swing about
+  ANY horizontal axis by an angle <= sw and R_twist about world z by <= tw, then translated by any |t| <= de.  c = the nominal position of the object-fixed point pivot_obj
+  (the claw midpoint at k = 0 of the measurement episodes, object frame).  sw / tw / de come from the per-plan MEASUREMENT (tilt_measure.measure_plan -> RotTrack: per piece,
+  max over n episodes of swing, twist and set-based pivot drift; guarantee "sampled", n ASSUMED there) via TiltSpec / tilt_from_table; no measurement = the row is MISSING.
+  Lower bound on the distance over the cover set, per (world geom W, load geom L) pair (MODEL, exact algebra, sound for every R / t in the set):
+    separating direction n (unit, W -> L):  d >= min_j lb_j(n) - h_W(n) - de,  lb_j(n) = n.c + f_j - 2 sin(tw/2) |u_j,h|,  u_j = v_j - c (L's vertices, untilted),
+      f_j = min over phi in [0, sw] of (A - C) cos phi - B sin phi + C  (closed form: K cos(phi + g) + C, K = hypot(A - C, B), g = atan2(B, A - C); = C - K if g + sw >= pi else value at sw)
+      A = n.u, B = |(u x n)_h|, C = (u_h.n_h - |u_h||n_h|) / 2  (from R_a(phi) u = cos phi u + sin phi a x u + (1 - cos phi) a (a.u), a horizontal unit: a.(u x n) <= B, (a.u)(a.n) >= C)
+      twist term: |R_s R_t u - R_s u| = |R_t u - u| <= 2 sin(tw/2) |u_h|.   h_W(n) = support of W (box: n.x + sum_i h_i |n.R_i|; plane: n = its normal only).
+      L a polytope (box) -> the min of a linear function is at a vertex, so the per-vertex bound bounds the whole geom.  n ranges over the 15 SAT axes of the two boxes (both signs)
+      and the untilted closest-point direction (mj_geomDistance fromto); the max over n is taken (each n alone is a valid bound).
+    other geom types (no vertices / no support function): d >= d0 - bloat - de, bloat = max point displacement = max_j 2 sin(sw/2)|u_j| + 2 sin(tw/2)|u_j,h| (box) or
+      (|x_L - c| + rbound_L)(2 sin(sw/2) + 2 sin(tw/2)).
+  Swept composition: within a piece the load only translates (orientation fixed), and c moves with it, so the cover set at an interpolated state = the cover set at sample k
+  translated by p(s) - p(k): the bound at k minus |p(s) - p(k)| holds there, which is what the existing speed term (geom displacement / dt) charges; refine_samples carries the
+  per-sample tilt into its midpoints (same piece = same tilt).  The support allowance is evaluated at the untilted pose and only where the untilted row evaluates it
+  (distance < cap), exactly as before; every other pair gets the tilt bound.
+
 Constants: obj_world d_min = carry.U_OBJ_CLEAR_M (5 mm, ASSUMED, USER 11-16 D9).  arm_arm / arm_world d_min = clearance.CLEARANCE_MIN (5 mm, ASSUMED, "same as pan CLAMP clear"; reused, no new constant).
 Not covered (stated): arm links vs the carried object (non-gripper), self-collision of one arm, the base / lift column vs arms, anything between samples that the speed model misses.
 """
 from __future__ import annotations
+
+import dataclasses
+import math
+import os
 
 import numpy as np
 import mujoco
@@ -35,6 +58,93 @@ from world_model.v2.stack.planners import closed_chain as CC
 
 SIDES = CC.SIDES
 CLASSES = K.CLASSES
+
+
+# ---- load tilt cover (USER 11-17)
+def legacy_untilted():
+    """BIMANUAL_LEGACY_UNTILTED_COLLISION=1: the obj_world row at the planned (untilted) load pose, exactly as before 11-17."""
+    return os.environ.get("BIMANUAL_LEGACY_UNTILTED_COLLISION", "0") == "1"
+
+
+class TiltMissing(Exception):
+    """no usable per-plan tilt measurement: the row is MISSING."""
+
+
+@dataclasses.dataclass(frozen=True)
+class TiltSpec:
+    """the MEASURED load deviation of one plan (tilt_measure.measure_plan, RotTrack): per piece (swing [rad], twist [rad], pivot drift [m]), max over n episodes (sampled)."""
+    per_piece: tuple            # ((name, swing_rad, twist_rad, drift_m, n_episodes), ...)
+    pivot_obj: tuple            # pivot in the object frame [m] (claw midpoint at k = 0)
+    x0: tuple                   # the measurement model's object start pose (qpos0) [m]
+    R0: tuple                   # its orientation (9,)
+    n: int                      # episodes with a rotation record
+    source: str = ""            # TABLE.json path
+    key: str = ""
+    a: float = float("nan")
+    extra: tuple = ()           # (name, value) pairs recorded in the row's assumptions
+
+    def piece(self, name):
+        for nm, sw, tw, de, ne in self.per_piece:
+            if nm == name:
+                if ne < 1:
+                    raise TiltMissing(f"piece {name!r}: no measured episode reached it")
+                return (float(sw), float(tw), float(de))
+        raise TiltMissing(f"piece {name!r} has no tilt measurement (measured pieces: {[p[0] for p in self.per_piece]})")
+
+    def envelope(self):
+        """max over the pieces (for motions that are not one plan piece: Rule 1's recovery)."""
+        if not self.per_piece:
+            raise TiltMissing("empty tilt measurement")
+        return tuple(float(max(p[i] for p in self.per_piece)) for i in (1, 2, 3))
+
+    def tag(self):
+        return (self.source, self.key, round(float(self.a), 6), self.per_piece)
+
+    def to_json(self):
+        return dict(per_piece={p[0]: dict(swing_deg=math.degrees(p[1]), twist_deg=math.degrees(p[2]), drift_m=p[3], n_episodes=p[4]) for p in self.per_piece},
+                    pivot_obj=list(self.pivot_obj), n=self.n, source=self.source, key=self.key, a=self.a, **dict(self.extra))
+
+
+def tilt_from_table(tab, key, a, source=None):
+    """TiltSpec from a tilt_measure.measure_plan table (cells[key].levels[repr(a)].rot).  Raises TiltMissing when the measurement is absent or incomplete
+    (no rot record, an errored episode, an episode without a rot record, pre-hold steps not folded into a piece)."""
+    try:
+        lv = tab["cells"][key]["levels"][repr(float(a))]
+    except (KeyError, TypeError) as ex:
+        raise TiltMissing(f"no tilt table entry for {key} at a = {a}: {ex!r}")
+    rot = lv.get("rot")
+    if not rot:
+        raise TiltMissing(f"tilt table {key} a = {a} has no per-piece rotation record (tilt_measure RotTrack)")
+    if lv.get("n_errors", 0) or rot.get("n_missing_rot", 0) or rot.get("n_pre_unfolded", 0):
+        raise TiltMissing(f"tilt measurement incomplete: n_errors {lv.get('n_errors')}, n_missing_rot {rot.get('n_missing_rot')}, n_pre_unfolded {rot.get('n_pre_unfolded')}")
+    pp = tuple((s, math.radians(v["swing_deg"]), math.radians(v["twist_deg"]), float(v["drift_m"]), int(v["n_episodes"])) for s, v in sorted(rot["per_seg_max"].items()))
+    extra = (("n_stopped", lv.get("n_stopped")), ("pivot_obj_spread_m", rot.get("pivot_obj_spread_m")), ("x0_spread_m", rot.get("x0_spread_m")),
+             ("R0_spread_rad", rot.get("R0_spread_rad")), ("n_unattributed_steps", rot.get("n_unattributed_steps")), ("unattributed_max_deg", rot.get("unattributed_max_deg")),
+             ("seeds", lv.get("seeds")))
+    return TiltSpec(per_piece=pp, pivot_obj=tuple(rot["pivot_obj"]), x0=tuple(rot["x0"]), R0=tuple(np.ravel(rot["R0"])), n=int(rot["n_rot"]),
+                    source=str(source or tab.get("file") or ""), key=str(key), a=float(a), extra=extra)
+
+
+_SG = np.array([[sx, sy, sz] for sx in (-1, 1) for sy in (-1, 1) for sz in (-1, 1)], float)
+
+
+def swing_twist_lb(n, U, sw, tw):
+    """per vertex j: a lower bound on n.(R u_j) over R = R_swing R_twist, swing about a horizontal axis by <= sw, twist about z by <= tw (MODEL, see the module docstring).
+    n (3,) unit, U (k, 3) vertices relative to the pivot -> (k,)."""
+    A = U @ n
+    ux = np.cross(U, n)
+    B = np.hypot(ux[:, 0], ux[:, 1])
+    uh = np.linalg.norm(U[:, :2], axis=1)
+    C = 0.5 * (U[:, :2] @ n[:2] - uh * float(np.hypot(n[0], n[1])))
+    K_ = np.hypot(A - C, B)
+    g = np.arctan2(B, A - C)
+    f = np.where(g + sw >= np.pi, C - K_, (A - C) * math.cos(sw) - B * math.sin(sw) + C)
+    return np.minimum(f, A) - 2.0 * math.sin(0.5 * tw) * uh
+
+
+def displacement_bound(U, sw, tw):
+    """max over the cover set of |R u - u| per vertex: 2 sin(sw/2)|u| + 2 sin(tw/2)|u_h|."""
+    return 2.0 * math.sin(0.5 * sw) * np.linalg.norm(U, axis=1) + 2.0 * math.sin(0.5 * tw) * np.linalg.norm(U[:, :2], axis=1)
 
 
 def d_min_table():
@@ -52,9 +162,11 @@ def _radius(m, g):
 class _Scene:
     """one plan's model + data and the pair lists of the three classes."""
 
-    def __init__(self, plan):
+    def __init__(self, plan, tilt=None):
+        """tilt: a TiltSpec (the per-plan measurement) or None.  With a TiltSpec (and not legacy_untilted()), set_state(..., tilt=(sw, tw, de)) makes obj_world the cover-set bound."""
         from world_model.v2.nero.contents import carry
         self.carry = carry
+        self.tilt, self.cur = (None if legacy_untilted() else tilt), None
         self.plan, self.inp = plan, plan.inp
         m = self.m = self.inp.m
         self.d = mujoco.MjData(m)
@@ -98,6 +210,18 @@ class _Scene:
         wp = self.inp.wp
         self.post_idx = wp.base[0][0] if (wp is not None and wp.base) else None
         self.names_wp = list(wp.names) if wp is not None else None
+        self.obj_b = m.body("obj").id
+        if self.tilt is not None:
+            jo = next(j for j in range(m.body_jntadr[self.obj_b], m.body_jntadr[self.obj_b] + m.body_jntnum[self.obj_b]) if m.jnt_type[j] == mujoco.mjtJoint.mjJNT_FREE)
+            adr = int(m.jnt_qposadr[jo])
+            R0 = np.zeros(9)
+            mujoco.mju_quat2Mat(R0, np.array(m.qpos0[adr + 3:adr + 7], float))
+            dR = R0.reshape(3, 3).T @ np.reshape(self.tilt.R0, (3, 3))
+            self.r0_mis = float(np.arccos(np.clip((np.trace(dR) - 1.0) / 2.0, -1.0, 1.0)))
+            self.x0_mis = float(np.linalg.norm(np.array(m.qpos0[adr:adr + 3]) - np.array(self.tilt.x0)))      # added to the drift (the measurement's nominal = its own qpos0)
+            if self.r0_mis > 1e-6:
+                raise TiltMissing(f"the tilt measurement's start orientation differs from the row model's by {self.r0_mis:.2e} rad: the measured swing / twist do not apply")
+            self.piv = np.array(self.tilt.pivot_obj, float)
 
     def _is_free_load(self, b):
         m = self.m
@@ -113,7 +237,16 @@ class _Scene:
         dl = float(b["end_pose"][2] - b["start_pose"][2])
         return c0, ce, dl, BR.rot(dl)
 
-    def set_state(self, ql, qr, p, post=False):
+    def tilt_of(self, sg=None):
+        """(sw, tw, de) for piece sg (None = the envelope over the pieces), de including the start-pose mismatch; None when the row is untilted."""
+        if self.tilt is None:
+            return None
+        sw, tw, de = self.tilt.piece(sg) if sg is not None else self.tilt.envelope()
+        return (sw, tw, de + self.x0_mis)
+
+    def set_state(self, ql, qr, p, post=False, tilt=None):
+        """tilt: (sw, tw, de) of this sample (tilt_of) or None (untilted: the obj_world distances as before)."""
+        self.cur = tilt if self.tilt is not None else None
         m, d = self.m, self.d
         d.qpos[:] = m.qpos0
         d.qpos[self.qadr["left"]] = ql
@@ -163,6 +296,8 @@ class _Scene:
         return out
 
     def _obj_world(self):
+        if self.cur is not None:
+            return self._obj_world_tilted(*self.cur)
         carry, m, d = self.carry, self.m, self.d
         pairs = self.pairs["obj_world"]
         cap = self.cap["obj_world"]
@@ -201,6 +336,93 @@ class _Scene:
                 v = fromto[3:] - fromto[:3]
                 allow = v[2] >= cosl * np.linalg.norm(v)
             D[i], allowed[i] = dist, allow
+        return D, allowed
+
+    def _verts(self, g):
+        """vertices (k, 3) of geom g at the current state (box corners; mesh hull points), or None."""
+        m, d = self.m, self.d
+        if m.geom_type[g] == mujoco.mjtGeom.mjGEOM_BOX:
+            P = _SG * m.geom_size[g]
+        elif m.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH:
+            try:
+                P = CL._hull_pts(m, g)[0]
+            except Exception:
+                return None
+        else:
+            return None
+        return d.geom_xpos[g] + P @ d.geom_xmat[g].reshape(3, 3).T
+
+    def _obj_world_tilted(self, sw, tw, de):
+        """obj_world over the tilt cover set (module docstring): -> (D lower bounds (P,), allowed (P,)); allowance as in _obj_world, at the untilted pose."""
+        carry, m, d = self.carry, self.m, self.d
+        pairs = self.pairs["obj_world"]
+        cap = self.cap["obj_world"]
+        D = np.full(len(pairs), cap)
+        allowed = np.zeros(len(pairs), bool)
+        if not pairs:
+            return D, allowed
+        c = d.xpos[self.obj_b] + d.xmat[self.obj_b].reshape(3, 3) @ self.piv          # pivot, nominal position
+        gx, rb = d.geom_xpos, m.geom_rbound
+        cosl = np.cos(np.radians(carry.SUPPORT_APPROACH_DEG))
+        BOX, PLANE = carry._BOX, mujoco.mjtGeom.mjGEOM_PLANE
+        vcache, bl = {}, {}
+        for _, l in pairs:
+            if l in bl:
+                continue
+            V = self._verts(l)
+            vcache[l] = V
+            bl[l] = (float(displacement_bound(V - c, sw, tw).max()) if V is not None else
+                     (float(np.linalg.norm(gx[l] - c)) + float(rb[l])) * (2.0 * math.sin(0.5 * sw) + 2.0 * math.sin(0.5 * tw)))
+        fromto = np.zeros(6)
+        for i, (w, l) in enumerate(pairs):
+            dmax = cap + bl[l] + de
+            if rb[w] > 0 and rb[l] > 0 and np.linalg.norm(gx[w] - gx[l]) > rb[w] + rb[l] + dmax:
+                continue
+            dist = mujoco.mj_geomDistance(m, d, w, l, dmax, fromto)
+            if dist >= dmax:
+                continue
+            allow, n0 = False, None
+            if dist == 0.0 and m.geom_type[w] == BOX == m.geom_type[l]:
+                dist, n = carry._box_sat(d, m, w, l)
+                if dist >= dmax:
+                    continue
+                allow = n[2] >= cosl
+            elif dist <= 0.0:
+                n = None
+                for cn in d.contact[:d.ncon]:
+                    if int(cn.geom1) == w and int(cn.geom2) == l:
+                        n = np.array(cn.frame[:3]); break
+                    if int(cn.geom1) == l and int(cn.geom2) == w:
+                        n = -np.array(cn.frame[:3]); break
+                if n is None and m.geom_type[w] == BOX == m.geom_type[l]:
+                    _, n = carry._box_sat(d, m, w, l)
+                allow = n is not None and n[2] >= cosl
+            else:
+                v = fromto[3:] - fromto[:3]
+                allow = v[2] >= cosl * np.linalg.norm(v)
+                n0 = v / max(float(np.linalg.norm(v)), 1e-15)
+            if allow and dist < cap:                         # the allowance region of the untilted row exactly (dist < cap); a pair beyond the cap gets the tilt bound
+                D[i], allowed[i] = dist, True
+                continue
+            V = vcache[l]
+            tw_ = m.geom_type[w]
+            if V is not None and tw_ in (BOX, PLANE):
+                Rw = d.geom_xmat[w].reshape(3, 3)
+                if tw_ == PLANE:
+                    N = Rw[:, 2][None, :]
+                    hW = N @ gx[w]
+                else:
+                    Rl = d.geom_xmat[l].reshape(3, 3)
+                    ax = [Rw[:, k] for k in range(3)] + ([Rl[:, k] for k in range(3)] if m.geom_type[l] == BOX else [])
+                    ax += [np.cross(Rw[:, a], Rl[:, b]) for a in range(3) for b in range(3)] if m.geom_type[l] == BOX else []
+                    N = np.array([x / np.linalg.norm(x) for x in ax if np.linalg.norm(x) > 1e-9])
+                    N = np.vstack([N, -N] + ([n0[None, :]] if n0 is not None else []))
+                    hW = N @ gx[w] + np.abs(N @ Rw) @ m.geom_size[w]
+                U = V - c
+                lb = np.array([float((c @ nn) + swing_twist_lb(nn, U, sw, tw).min()) for nn in N]) - hW
+                D[i] = min(cap, float(lb.max()) - de)
+            else:
+                D[i] = min(cap, float(dist) - bl[l] - de)
         return D, allowed
 
     def _arrs(self, c):
@@ -246,10 +468,11 @@ def piece_distances(plan, sg, sc=None):
     t, q, _, p = piece_arrays(plan, sg)
     n = len(t)
     post = sc.post_base(sg)
+    tl = sc.tilt_of(sg)                                     # None when untilted; raises TiltMissing for a piece without a measurement
     Dall = {c: np.zeros((n, len(sc.pairs[c]))) for c in CLASSES}
     X = np.zeros((n, sc.m.ngeom, 3)); R = np.zeros((n, sc.m.ngeom, 9))
     for k in range(n):
-        sc.set_state(q["left"][k], q["right"][k], p[k], post)
+        sc.set_state(q["left"][k], q["right"][k], p[k], post, tl)
         dd = sc.distances()
         for c in CLASSES:
             D, al = dd[c]
@@ -275,10 +498,36 @@ def piece_distances(plan, sg, sc=None):
     return t, res
 
 
-def collision_rows(plan, world=None, pieces=None, classes=None):
+TILT_NOTE = ("load tilt cover (USER 11-17): obj_world over {planned load pose rotated about the pivot by swing <= sw (any horizontal axis) and twist <= tw (about z), "
+             "then shifted by <= de}; sw / tw / de = per-piece max over n measured episodes (tilt_measure RotTrack): guarantee SAMPLED, not a bound over the cell")
+TILT_NOT_COVERED = ("tilt / drift larger than the max over n; contents moving relative to the box (rigid-load MODEL); claw / arm tracking error in the arm classes; "
+                    "the base move; the allowance is judged at the untilted pose")
+
+
+def tilt_assumptions(sc, scope):
+    """the row's tilt assumptions (dict)."""
+    t = sc.tilt
+    return dict(load_tilt=dict(tag="MEASURED (sampled)", what=TILT_NOTE, scope=scope, measurement=t.to_json(), pivot="object-fixed point at the claw midpoint at k = 0 "
+                               f"(pivot_obj {np.round(t.pivot_obj, 5).tolist()} m, object frame); rotation about it, drift measured at it",
+                               start_pose_mismatch_m=sc.x0_mis, bound="MODEL: per-vertex swing/twist bound on SAT axes + closest-point direction (box / plane), else "
+                               "d0 - max vertex displacement 2 sin(sw/2)|u| + 2 sin(tw/2)|u_h|; minus drift de", not_covered=TILT_NOT_COVERED))
+
+
+def collision_rows(plan, world=None, pieces=None, classes=None, tilt=None):
     """plan: closed_chain.ClosedChainPlan (world is unused: the plan's own model / world; kept for the registry signature).  -> ONE Row ('collision'); the worst piece binds
-    and is named in row.worst['piece']; row.worst['by_class'] gives margin / worst case per class for that piece's worst class and 'pieces' the margin per piece."""
-    sc = _Scene(plan)
+    and is named in row.worst['piece']; row.worst['by_class'] gives margin / worst case per class for that piece's worst class and 'pieces' the margin per piece.
+    tilt (USER 11-17): the per-plan TiltSpec (tilt_from_table on tilt_measure.measure_plan's table).  Default ON: no TiltSpec / an incomplete one = a MISSING row.
+    BIMANUAL_LEGACY_UNTILTED_COLLISION=1: tilt is ignored, the untilted row as before."""
+    from world_model.v2.stack.checks.row import missing
+    if not legacy_untilted() and tilt is None:
+        return missing("collision", "no per-plan load tilt measurement passed (collision_rows(plan, tilt=tilt_from_table(...))): the load-vs-world row cannot cover the tilt "
+                                    "(USER 11-17); BIMANUAL_LEGACY_UNTILTED_COLLISION=1 = the untilted row")
+    try:
+        sc = _Scene(plan, tilt=tilt)
+        for sg in (list(pieces) if pieces else list(plan.pieces)):
+            sc.tilt_of(sg)
+    except TiltMissing as ex:
+        return missing("collision", f"load tilt measurement unusable: {ex}")
     dmin = d_min_table()
     names = list(pieces) if pieces else list(plan.pieces)
     rows = []
@@ -293,6 +542,10 @@ def collision_rows(plan, world=None, pieces=None, classes=None):
     if r.why:
         r.why = f"[{sg}] " + r.why
     r.n = int(sum(x.n for _, x in rows))
+    if sc.tilt is not None:
+        r.assumptions = dict(r.assumptions, **tilt_assumptions(sc, "per plan piece: that piece's measured max"))
+        if r.ok and r.guarantee == "proof":
+            r.guarantee = "sampled"                         # the tilt / drift are a max over n episodes
     return r
 
 
@@ -337,7 +590,7 @@ def _class_lb(sc, c, Da, Db, X2, R2, h):
 
 
 def refine_samples(sc, args, D0, X0, R0, d_min, max_depth=None):
-    """Adaptive refinement of a sample sequence.  args[k] = (ql, qr, p, post) of sample k; D0 {class: (n, P)}, X0 (n, G, 3), R0 (n, G, 9) the states there.  An interval whose swept
+    """Adaptive refinement of a sample sequence.  args[k] = (ql, qr, p, post[, tilt]) of sample k (tilt = the load tilt cover (sw, tw, de), _Scene.tilt_of); D0 {class: (n, P)}, X0 (n, G, 3), R0 (n, G, 9) the states there.  An interval whose swept
     bound is below d_min while both endpoints are above it is halved (state = linear interpolation in q and p, the model the row already assumes), down to max_depth halvings
     (SWEPT_MAX_DEPTH).  Each sub-interval gets its own speed bound, so the row's bound min over sub-intervals stays a sound bound on the whole interval (same MODEL).
     Intervals across a base-move boundary (post differs) are not refined.
@@ -361,8 +614,11 @@ def refine_samples(sc, args, D0, X0, R0, d_min, max_depth=None):
         return False
 
     def mid(a, b):
-        (ql0, qr0, p0, po0), (ql1, qr1, p1, po1) = a["a"], b["a"]
+        (ql0, qr0, p0, po0), (ql1, qr1, p1, po1) = a["a"][:4], b["a"][:4]
         ar = (0.5 * (np.asarray(ql0) + ql1), 0.5 * (np.asarray(qr0) + qr1), 0.5 * (np.asarray(p0) + p1), po0)
+        t0, t1 = (a["a"][4] if len(a["a"]) > 4 else None), (b["a"][4] if len(b["a"]) > 4 else None)
+        if t0 is not None or t1 is not None:            # load tilt cover: the larger of the two endpoints' (same piece = equal)
+            ar = ar + (tuple(max(x, y) for x, y in zip(t0 or t1, t1 or t0)),)
         sc.set_state(*ar)
         dd = sc.distances()
         X, R = sc.geom_state()

@@ -4,7 +4,9 @@ The Z3 loop (stack/z3plan/) proposes a plan (PlanVals) and a contents interval T
 are TRUE about the answer (stack/z3plan/types.Learned).  No new physics: it only calls the existing checkers, cheapest first, and stops at the first failing stage:
   a  plan      closed_chain geometry_for (IK / reach / lift-vs-shelf collision: independent of a and theta) then plan_for(inp, a) (TOPP-RA timing, retreats)
   b  static    carry_cert.static_cell(..., wp=wp, planner="closed_chain") on [theta.lo, theta.hi]; refused, or a > a_admit, fails
-  c  motion    adapters/motion_rows.motion_rows + adapters/collision_rows.collision_rows on the plan
+  c  motion    adapters/motion_rows.motion_rows + adapters/collision_rows.collision_rows on the plan.  11-17: the collision row needs the per-plan load tilt
+               measurement, which this oracle does not run, so it is MISSING (default ON): a MISSING row = NO information -> the plan is not admitted and only
+               block_exact is learned (never a generalised block); stage d's Rule 1 recovery collision rows are MISSING for the same reason.
   d  rule1     adapters/rule1_contents.run_cell(..., wp=wp, fallback=False), one row per step, judged on the recovery program the plan names (vals["recovery"])
   e  tilt      stack/checks/tilt.tilt_row on nero/results/tilt_table_2026-11-16/box_closed_chain/TABLE.json, ONLY for the default plan on a measured cell; else a
                MISSING row (reported, NOT counted in `ok`; `tilt_missing=True` on the result)
@@ -348,10 +350,13 @@ class Oracle:
         mrows = MR.motion_rows(plan)
         crow = RCOL.collision_rows(plan)
         wall["c_motion"] = time.time() - ts
-        learned = []
+        learned, c_missing = [], []
         for r in mrows + [crow]:
             rows.append(_from_checker_row(r))
             if r.ok:
+                continue
+            if r.guarantee == "missing":                         # 11-17: a MISSING row (e.g. collision without a per-plan tilt measurement) is NO information: never a generalised block
+                c_missing.append(r)
                 continue
             # NOTE: the block_all_theta_a constraints below (joint_pos / reach / a SAMPLE collision distance below d_min) are STRICTER than this oracle at other a: they block every a,
             # although the oracle itself only evaluates the plan at vals["a"] (documented, not changed; the sample distance / joint path are geometry and do not depend on a)
@@ -367,6 +372,8 @@ class Oracle:
                     learned.append(Learned("block_all_theta", dict(vals), None, f"collision swept bound below d_min (depends on speed, so on a; collision_rows(plan) takes no theta, no recovery): {r.why[:300]}", free=("recovery",)))
             else:
                 learned.append(Learned("block_all_theta", dict(vals), None, f"{r.name} row fails at this a (motion_rows(plan) takes the plan only: no theta, no recovery): {r.why[:300]}", free=("recovery",)))
+        if c_missing and not learned:                           # not admitted (no information), and only this exact (plan, theta) is excluded: fail() adds block_exact
+            learned = [Learned("block_exact", dict(vals), theta, "MISSING row(s), no information (never a generalised block): " + "; ".join(f"{r.name}: {r.why[:200]}" for r in c_missing), free=())]
         if learned:
             r_ = fail("c_motion", learned, can_continue=True)
             if r_ is not None:

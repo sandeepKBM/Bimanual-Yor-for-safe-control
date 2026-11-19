@@ -143,7 +143,9 @@ def box_records(tmp_path_factory):
     # planner passed explicitly; no os.environ change (a module-scoped setdefault leaked BIMANUAL_PLANNER into later test files: ilab job 1301045)
     from world_model.v2.adapters import rule1_contents as RC
     out = tmp_path_factory.mktemp("r1")
-    return {cell: RC.run_cell("box", cell, out, n_sampled=0, planner="closed_chain", fallback=False) for cell in ((1.0, 1.5), (3.0, 3.5))}
+    with pytest.MonkeyPatch.context() as mp:                  # untilted row (BIMANUAL_LEGACY_UNTILTED_COLLISION=1): this test is about Rule 1 logic, not the load tilt (11-17 tilt row: adapters/tests/test_tilt_collision_gate.py)
+        mp.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")
+        return {cell: RC.run_cell("box", cell, out, n_sampled=0, planner="closed_chain", fallback=False) for cell in ((1.0, 1.5), (3.0, 3.5))}
 
 
 def test_rule1_admits_only_inside_the_static_admission(box_records):
@@ -185,6 +187,7 @@ def test_coarse_swept_bound_refuses_place(tmp_path, monkeypatch):
     swept bound 2.1 mm < 5 mm)."""
     from world_model.v2.adapters import rule1_contents as RC
     monkeypatch.setenv("BIMANUAL_LEGACY_SWEPT_COARSE", "1")
+    monkeypatch.setenv("BIMANUAL_LEGACY_UNTILTED_COLLISION", "1")          # untilted row (BIMANUAL_LEGACY_UNTILTED_COLLISION=1): this test is about Rule 1 logic, not the load tilt (11-17 tilt row: adapters/tests/test_tilt_collision_gate.py)
     monkeypatch.setattr(RC, "_CTX", {})                     # fresh contexts: Ctx._crow caches collision rows by (a, seg, idxs) without the coarse flag
     recs = {r["seg"]: r for r in RC.run_cell("box", (1.0, 1.5), tmp_path, n_sampled=0, planner="closed_chain", fallback=False)}
     assert recs["lift"]["admitted"] and recs["carry"]["admitted"]
