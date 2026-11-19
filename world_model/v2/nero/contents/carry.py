@@ -131,6 +131,12 @@ def _face_axis(d, m, w, l):
     return dc / nd if nd > 1e-12 else np.array([0.0, 0.0, 1.0])
 
 
+def support_exempt_enabled():
+    """USER 11-17 "Release: exempt the support": once both welds are off, the world geoms the load touches at that moment (the landing support) are
+    exempt from the obj_world row; every other world geom still counts.  BIMANUAL_LEGACY_NO_SUPPORT_EXEMPT=1 = the 11-16..11-17 monitor (no exemption)."""
+    return os.environ.get("BIMANUAL_LEGACY_NO_SUPPORT_EXEMPT") != "1"
+
+
 def obj_world_u_enabled():
     """USER 11-16 D9 object-world clearance in U; BIMANUAL_U_OBJ_CONTACT=0 reproduces the pre-11-16 runs."""
     return os.environ.get("BIMANUAL_U_OBJ_CONTACT", "1") != "0"
@@ -196,7 +202,8 @@ class LeverCtl(TwoCtl):
 
     def _fl(self, d, t):
         """basic FL-MPC step (flmpc_basic) with the payload terms t[side] = (M_extra, bias_extra)."""
-        te, ti, ok = self.fl.step(self.m, d, self.lq, self.ld, self.rq, self.rd, self.qe_ref, self.z, self.qi_ref, self.z,
+        te, ti, ok = self.fl.step(self.m, d, self.lq, self.ld, self.rq, self.rd, self.qe_ref, getattr(self, "qe_vref", self.z),
+                                  self.qi_ref, getattr(self, "qi_vref", self.z),      # 11-17: planned reference velocity [rad/s] (zeros when unset / legacy)
                                   self.pairs(d), M_ego_extra=t["left"][0], bias_ego_extra=t["left"][1],
                                   M_int_extra=t["right"][0], bias_int_extra=t["right"][1])
         self.n_infeasible += int(not ok)
@@ -339,6 +346,7 @@ class CarryEpisode:
         self.lid = m.body("lid").id if (self.task == "pot" and world.lid) else None
         self.u_obj = obj_world_u_enabled()                                         # USER 11-16 D9, read once per episode
         self._ow_pairs = self._obj_world_pairs() if self.u_obj else []
+        self._ow_support = frozenset()                                             # USER 11-17 landing-support exemption (latched at the last weld-off)
         self.lid_rest = self._lid_rel() if self.lid is not None else None          # (xy shift ref, z ref) of the lid in the obj frame at rest
         self.fc = dict(FRIC_COMP, **fric_comp) if isinstance(fric_comp, dict) else (dict(FRIC_COMP) if fric_comp else None)
         if self.fc is not None and ctl == "coopimp" and not C.LEGACY_COOP_FC:
@@ -410,6 +418,8 @@ class CarryEpisode:
               (np.linalg.norm(gx[self._ow_w] - gx[self._ow_l], axis=1) > rb[self._ow_w] + rb[self._ow_l] + _OBJ_WORLD_DMAX)      # bounding spheres farther apart than distmax (planes: rbound 0, never skipped)
         for i in np.flatnonzero(~far):
             w, l = self._ow_pairs[i]
+            if w in self._ow_support:                                                  # USER 11-17: the landing support of a released load
+                continue
             dist = mujoco.mj_geomDistance(m, d, w, l, _OBJ_WORLD_DMAX, fromto)
             if dist >= _OBJ_WORLD_DMAX:
                 continue
@@ -479,6 +489,26 @@ class CarryEpisode:
             m.eq_data[i, 10] = 1.0
         d.eq_active[i] = 1 if on else 0
         self.wc.set(s, bool(on), d)
+        self._latch_support()
+
+    def _latch_support(self):
+        """USER 11-17: latch the landing support when the LAST weld goes off = the world geoms in contact with the load now; cleared on re-grasp."""
+        if any(self.d.eq_active[self.weld_id[s]] for s in SIDES) or not support_exempt_enabled() or not getattr(self, "_ow_pairs", None):
+            self._ow_support = frozenset()
+            return
+        if self._ow_support:
+            return
+        load, d = set(self._ow_load), self.d
+        sup = set()
+        for c in d.contact[:d.ncon]:
+            g1, g2 = int(c.geom1), int(c.geom2)
+            if g1 in load and g2 not in load:
+                sup.add(g2)
+            elif g2 in load and g1 not in load:
+                sup.add(g1)
+        world = set(int(w) for w in self._ow_w)
+        self._ow_support = frozenset(sup & world)
+        self.support_exempt = sorted(self.m.geom(g).name or str(g) for g in self._ow_support)     # (not in track: track values are numeric)
 
     _SPEC = mujoco.mjtState.mjSTATE_INTEGRATION
 
@@ -488,8 +518,15 @@ class CarryEpisode:
         return dict(st=st, weld={s: self.m.eq_data[i].copy() for s, i in self.weld_id.items()},
                     ctl=copy.deepcopy(self.ctl, {id(self.m): self.m}), k=self.k, paths={s: list(v) for s, v in self.paths.items()},
                     track=copy.deepcopy(self.track), acc=copy.deepcopy(self._acc), vprev=copy.deepcopy(self._vprev),
-                    e_int=copy.deepcopy(self.e_int), wc=self.wc.state(),
+                    e_int=copy.deepcopy(self.e_int), wc=self.wc.state(), active_piece=getattr(self, "_active_piece", None), ow_support=getattr(self, "_ow_support", frozenset()),     # 11-17: the closed_chain piece being tracked (path stop)
+                    **({} if os.environ.get("BIMANUAL_LEGACY_SNAPSHOT_NO_LOGS") == "1" else dict(logs=self._logs_state())),
                     **({} if self.base != "swerve" else dict(base=self.driver.state(), bmon=self.bmon.state())))
+
+    _LOGS = ("stop_log", "path_log", "base_stop_log", "base_log")
+
+    def _logs_state(self):
+        """11-17: the four episode logs, copied (a family branch / interrupt restore must not leave the counterfactual runs' entries in the logs).  None = attribute absent."""
+        return {k: (None if getattr(self, k, None) is None else copy.deepcopy(getattr(self, k))) for k in self._LOGS}
 
     def restore(self, sn):
         for s, i in self.weld_id.items():
@@ -501,6 +538,14 @@ class CarryEpisode:
         self.track = copy.deepcopy(sn["track"])
         self._acc, self._vprev = copy.deepcopy(sn["acc"]), copy.deepcopy(sn["vprev"])
         self.e_int = copy.deepcopy(sn["e_int"])
+        self._active_piece = sn.get("active_piece")
+        self._ow_support = sn.get("ow_support", frozenset())                     # USER 11-17: the latched landing support belongs to the snapshot
+        for k, v in (sn.get("logs") or {}).items():       # 11-17 (BIMANUAL_LEGACY_SNAPSHOT_NO_LOGS=1: not saved, so not restored)
+            if v is None:
+                if k in self.__dict__:
+                    del self.__dict__[k]
+            else:
+                setattr(self, k, copy.deepcopy(v))
         if self.base == "swerve":                        # swerve controller state (th_cmd, _wi, _v, yaw_nom, _sgn, _have_cmd ...), route clock, U-flag monitors
             self.driver.set_state(sn["base"])
             self.bmon.set_state(sn["bmon"])
@@ -618,6 +663,13 @@ class CarryEpisode:
                 dq = {s: self.coop["gain"] * dq_c[s] for s in SIDES}
         ctl.qe_ref = np.stack([self._cmd("left", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["left"]
         ctl.qi_ref = np.stack([self._cmd("right", t + i * self.FDT) for i in range(self.NP + 1)]) - dq["right"]
+        if os.environ.get("BIMANUAL_LEGACY_ZERO_VREF") != "1":
+            # 11-17 (USER ruling "velocity reference in tracker"): the FL-MPC velocity reference over the horizon = d/dt of the position reference
+            # (rad/s; control rate 1/DT = 200 Hz, horizon nodes spaced FDT = fl.DT; np.gradient = central difference, one-sided at the ends).  The reference is the
+            # planned joint path (_cmd = piecewise-linear closed_chain / stop / Hermite waypoints), so this is its derivative.  The coop shift dq is constant over the
+            # horizon and drops out.  A held reference (equal nodes) gives exactly 0.  BIMANUAL_LEGACY_ZERO_VREF=1 = zeros (the pre-11-17 tracker).
+            ctl.qe_vref = np.gradient(ctl.qe_ref, self.FDT, axis=0)
+            ctl.qi_vref = np.gradient(ctl.qi_ref, self.FDT, axis=0)
         if self.ctl_kind == "coopimp" and ctl.on:
             ctl.ref_in = dict(qr={s: np.stack([self._cmd(s, t + j * 0.05) - dq[s] for j in (-1, 0, 1)]) for s in SIDES},
                               h_meas=np.concatenate([np.concatenate(self.claw_wrench(s)) for s in SIDES]),           # sim truth (weld constraint wrench)
@@ -804,6 +856,66 @@ class CarryEpisode:
             why.append("U:" + self.track["viol"]["kind"])
         return not why, why
 
+    def landed_safe(self):
+        """USER 11-17 "welded = held, not safe": the SAFE-set test of a recovery landing = in_R() AND both welds released (the object rests on a support, the claws have let go).
+        in_R is unchanged (the nominal end of "place" keeps using it).  BIMANUAL_LEGACY_SAFE_WELDED=1 -> in_R() (a welded object on a support counts as safe).  -> (ok, why)"""
+        ok, why = self.in_R()
+        if os.environ.get("BIMANUAL_LEGACY_SAFE_WELDED") == "1":
+            return ok, why
+        why = list(why)
+        if any(self.d.eq_active[self.weld_id[s]] for s in SIDES):
+            why.append("welded")
+        return not why, why
+
+    # ---------------- claw-load reading (11-17, read_then_retrace / boundary read) ----------------
+    def _claw_read_once(self, rng, noise=True):
+        """(load L [kg], worst-case noise bound nb [kg]) from the CURRENT step: probe.Probe.read's honest formula -- sum over both arms of Pz . (commanded qfrc_applied - bias), uniform
+        +-TAU_NOISE per joint (ASSUMED, probe.TAU_NOISE), Pz = row of pinv(J^T) giving F_z.  Robot-side quantities only (encoders, commanded torque, own model); never sim truth."""
+        from . import probe as PR                      # late: probe imports carry
+        m, d = self.m, self.d
+        mujoco.mj_forward(m, d)
+        Fz, nb = 0.0, 0.0
+        for s in SIDES:
+            dofs = self.dofs[s]
+            jp, jr = np.zeros((3, m.nv)), np.zeros((3, m.nv))
+            mujoco.mj_jacSite(m, d, jp, jr, self.site[s])
+            Pz = np.linalg.pinv(np.vstack([jp[:, dofs], jr[:, dofs]]).T)[2]
+            r = d.qfrc_applied[dofs] - d.qfrc_bias[dofs]
+            if noise:
+                r = r + rng.uniform(-PR.TAU_NOISE, PR.TAU_NOISE, size=7)
+            Fz += float(Pz @ r)
+            nb += float(np.abs(Pz).sum()) * PR.TAU_NOISE
+        return Fz / PR.G, nb / PR.G
+
+    def read_claw_load(self, hold_s, n_read, noise=True):
+        """steps a hold of hold_s seconds and reads the claw load over the LAST n_read control steps (mean) -> dict(y, nb, n, v_max, valid, why).  Writes nothing else.
+        valid = finite and the object speed stayed <= R_SPEED over the read window (a moving object invalidates the quasi-static read, ASSUMED R_SPEED).
+        `self.claw_reader` (callable(ep, n_read) -> (y, nb), default None) replaces the measurement for gates that inject a reading; the hold is stepped either way.
+        The noise stream is seeded by (self.read_seed, step index): reproducible across family branches (ASSUMED: the worlds carry no seed of their own)."""
+        steps = int(round(float(hold_s) / DT))
+        n_read = max(1, min(int(n_read), steps))
+        rng = np.random.default_rng([int(getattr(self, "read_seed", 0)), int(self.k)])
+        da = int(self.m.jnt_dofadr[self.m.body_jntadr[self.obj]])
+        ys, nbs, vmax = [], [], 0.0
+        for i in range(steps):
+            self._step()
+            if i >= steps - n_read:
+                if getattr(self, "claw_reader", None) is None:
+                    y, nb = self._claw_read_once(rng, noise)
+                    ys.append(y)
+                    nbs.append(nb)
+                vmax = max(vmax, float(np.linalg.norm(self.d.qvel[da:da + 3])))
+        if getattr(self, "claw_reader", None) is not None:
+            y, nb = self.claw_reader(self, n_read)
+        else:
+            y, nb = float(np.mean(ys)), float(np.mean(nbs))
+        why = []
+        if not (np.isfinite(y) and np.isfinite(nb)):
+            why.append("non-finite reading")
+        if vmax > R_SPEED:
+            why.append(f"object speed {vmax:.4f} m/s > R_SPEED {R_SPEED} over the read window")
+        return dict(y=float(y), nb=float(nb), n=int(n_read), v_max=vmax, valid=not why, why="; ".join(why))
+
     # ---------------- phases ----------------
     def run_phases(self, phases, branch=None):
         """phases: ("move", delta, T) both claws | ("to", key, T) both claws back to stored pose `key` | ("hold", T) | ("stop", T)
@@ -841,7 +953,7 @@ class CarryEpisode:
         return rec
 
     def base_move(self, ref, branch=None):
-        """run a base route while the arms hold their joint references (ASSUMED A4).  ref = {"route": [["line", d_m] | ["turn", deg], ...],
+        """run a base route while the arms hold their joint references (ASSUMED A4).  ref = {"route": [["line", d_m] | ["turn", deg] | ["shift", d_m: internal, left, yaw held], ...],
         "level": "L1" | "L2" | "L3"}; line d along the robot's CURRENT +x, turn deg CCW.  branch(ep, t_rel) every 0.25 s.  -> record dict (drive.BaseDriver.run)."""
         if self.base != "swerve":
             raise ValueError("base_move needs CarryEpisode(base='swerve')")
@@ -878,10 +990,17 @@ class CarryEpisode:
                 v = float(np.linalg.norm(p[:2] - p_prev[:2])) / (w * DT)
                 om = abs(float((p[2] - p_prev[2] + np.pi) % (2 * np.pi) - np.pi)) / (w * DT)
                 p_prev = p
-                if v < self.BASE_STOP_TOL_MPS and om < self.BASE_STOP_TOL_RADPS and np.linalg.norm(sb._v[:2]) < self.BASE_STOP_TOL_MPS and abs(sb._v[2]) < self.BASE_STOP_TOL_RADPS:
+                # the twist command sb._v is only updated while the driver is active; after the route has ended (driver inactive) sb.stop() decays the wheels but
+                # leaves sb._v at its last value, so the command test never passed (2/2 end-of-route stops timed out, 11-17).  Inactive driver -> no command:
+                # the measured motion alone decides.  BIMANUAL_LEGACY_BASE_STOP_CMD=1 = the old test (sb._v always).
+                cmd_ok = ((not self.driver.active) and os.environ.get("BIMANUAL_LEGACY_BASE_STOP_CMD") != "1") or (
+                    np.linalg.norm(sb._v[:2]) < self.BASE_STOP_TOL_MPS and abs(sb._v[2]) < self.BASE_STOP_TOL_RADPS)
+                if v < self.BASE_STOP_TOL_MPS and om < self.BASE_STOP_TOL_RADPS and cmd_ok:
                     at_rest = True
                     break
         self.driver.active = False
+        if at_rest and os.environ.get("BIMANUAL_LEGACY_BASE_STOP_CMD") != "1":
+            sb._v[:] = 0.0                  # 11-17: at rest and the driver is inactive: the stale twist command is cleared (sb.stop() leaves sb._v at its last value)
         if not at_rest:
             self.base_flag("base_stop_timeout", self.k * DT, max_s=max_s, v_mps=v, w_radps=om, tol="2 mm/s, 2 mrad/s, 4 s ASSUMED")
         out = dict(T_s=(self.k - k0) * DT, at_rest=bool(at_rest), pose=sb.pose().tolist(), v_mps=v, w_radps=om)
@@ -960,8 +1079,9 @@ def world_trial(world, tag, a_plan=E.A_NOM, branch_backups=True, T_cap=None, ctl
     return run_segments(ep, rec, branch_backups, t0)
 
 
-def run_segments(ep, rec, branch_backups=True, t0=None, interrupt=None):
-    """the segment loop of world_trial on an existing episode (11-02: probe.py runs it after the probe, same episode)."""
+def run_segments(ep, rec, branch_backups=True, t0=None, interrupt=None, certs=None, handles=None):
+    """the segment loop of world_trial on an existing episode (11-02: probe.py runs it after the probe, same episode).
+    certs / handles (11-17, default None = the stored backups, no Rule 3 / 4): see stack/executor.run_segments (certs {step index: Rule 1 record}, handles {rule4, theta_0 ...})."""
     from world_model.v2.stack import executor as EX
     from world_model.v2.stack.planners.scripted import ScriptedPlanner
     from world_model.v2.stack.types import SkillCall
@@ -973,7 +1093,7 @@ def run_segments(ep, rec, branch_backups=True, t0=None, interrupt=None):
                                        **({"wp": ep.wp.key_data()} if getattr(ep, "wp", None) is not None else {})))
     else:
         plan = ScriptedPlanner().plan(None, SkillCall("carry_task", dict(task=ep.task, a_plan=ep.a_plan)), None)
-    return EX.run_segments(ep, plan, rec, branch_backups, t0, interrupt=interrupt)
+    return EX.run_segments(ep, plan, rec, branch_backups, t0, interrupt=interrupt, certs=certs, handles=handles)
 
 
 def _theta(world):
