@@ -6,7 +6,7 @@ thesis was DROPPED 2026-10-15.
 newest first, with status). **What is built, wired and tested: `docs/status/current_state_2026-11-17.md`** (status facts live there, not here).
 Current claims + scope: `docs/paper/claims_2026-11-02.md` (four claims; hidden contents; grasp = rigid weld, not our problem; probing = a means;
 problem statement = its §3, user 11-05). Formulation: `docs/paper/proposal_2026-10-27.md` (needs revision). Superseded docs: see `docs/README.md`.
-Current branch: `basestop-1116`, worktree `.claude/worktrees/basestop-1116` (11-18..11-20 work; `contents-armside-2026-11-02` in `.claude/worktrees/contents-armside2` is 3 commits behind it, a fast-forward).
+Current branch: `basestop-1116`, worktree `.claude/worktrees/basestop-1116` (11-18..11-20 work; `contents-armside-2026-11-02` in `.claude/worktrees/contents-armside2` was fast-forwarded to it 11-20).
 `world_model/v2/stack/`, `world_model/v2/flmpc/`, `docs/README.md` and the 11-02..11-17 docs are not on `master` or on the main checkout's
 branch; read them in that worktree.
 This file = how to *operate* here. Last updated 2026-11-20 (current branch, doc paths; 11-19: legacy switches removed from the behind-task path, `BIMANUAL_LEGACY_PIN` remains in `data/contents.py` and `tray_rep/` (out of scope); earlier 11-17: status facts moved to the current-state doc).
