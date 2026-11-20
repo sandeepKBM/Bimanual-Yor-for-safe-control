@@ -35,7 +35,7 @@ than silently overriding it.
 
 ## Core Rules
 
-- Read `AGENTS.md` and `docs/runbooks/workstation_and_slurm.md` first (vendor
+- Read `AGENTS.md` and `docs/runbooks/slurm.md` first (vendor
   repo paths; see vendor repo root).
 - Classify the host before you act:
   - workstation (Arrakis/Westeros): do not run local `sbatch`

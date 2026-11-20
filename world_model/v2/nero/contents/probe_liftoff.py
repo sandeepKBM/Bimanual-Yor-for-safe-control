@@ -1,7 +1,7 @@
 """nero/contents/probe_liftoff.py -- lift-off detection options for the weighing probe, tested separately.  SIMULATION ONLY.
 Diagnosis (11-05 rise calibration): the arms hold a fixed pose reference while the push ramps, so the position loop (and the ki term of
 carry.FRIC_COMP) cancels part of the push; lift-off needs push ~ M + 0.2-0.5 kg, which the payload row forbids for heavy boxes / tray6.
-Variants (probe.py, carry.py, probe_variants.py are NOT edited; probe.Probe is subclassed, patched in per worker):
+Variants (probe.py and carry.py are NOT edited; probe.Probe is subclassed, patched in per worker):
   control  today's Probe (push ladder, load-plateau free test), plus per-rung extras (claw rise, peak payload utilisation, probe time).
   poslift  option A, "lift by position, read while holding": feed-forward ctl.mass = M_lo (current lower bound of the total mass);
            height ladder: both claws move up DZ over T_MOVE, hold T_HOLD, read L (mean of the last N_READ steps).  Each rung: M_lo <- max(M_lo,

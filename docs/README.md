@@ -21,7 +21,7 @@ the box, drive the swerve base about 2.5 m, turn, and place it in the lower comp
 `gpt-5.6-sol:high`, `nero/pan/llm.py` DEFAULT) writes the plan from a goal-only prompt; the run path is `nero/contents/probe_select.py`
 (probe, static admission, planned-path rows, Rule 1 through `adapters/rule1_contents.py`, then `stack/executor.py` with Rules 3 and 4).
 Probe default: `claw_guard` (`nero/contents/probe.py` `PROBE_METHOD`). Rule 1 always plans with ClosedChainPlanner; elsewhere
-ScriptedPlanner is still the default of `CarryEpisode` (`carry.py:156`) and ClosedChainPlanner is opt-in (`BIMANUAL_PLANNER`). Status
+ScriptedPlanner is still the default of `CarryEpisode` (`carry.resolve_planner`, `carry.py:145`) and ClosedChainPlanner is opt-in (`BIMANUAL_PLANNER`). Status
 in detail: `docs/status/current_state_2026-11-17.md`.
 
 ## All documents
@@ -52,6 +52,8 @@ Status: **current** = use it; **superseded by X** = use X instead; **history** =
 | `status/current_state_2026-11-17.md` | built / wired / tested / not built; open findings; pending work | **current** | 11-17 |
 | `status/decisions.md` | ledger of user rulings (one table, with status) and open questions | **current** | 11-17 |
 | `status/geometry_probe_design_2026-11-19.md` | Codex establishes scene geometry by probes: four lab cameras (photos to Codex, depth to the robot software), geometry structure, probe catalog, checker over the geometry set | draft design, not built; 6 ASSUMED values to rule | 11-19 |
+| `status/checker_measured_set_plan_2026-11-19.md` | plan for the checker over the measured set (M1-M8) and the retire/delete list; for the user to read and tune | plan, not built (USER 11-19: later) | 11-19 |
+| `status/2026-11-19_handoff_auto.md` | machine-written handoff | snapshot | 11-19 |
 | `status/speed_envelope_design_2026-11-16.md` | speed modulator inside a certified bound | draft design, not built | 11-16 |
 | `status/table_behind_design_2026-11-09.md` | table-behind task (swerve base, tray6 and box to the table behind): TaskDef, plan vocabulary, checker rows 3a-3g, tracker, AgentChord port, run protocol | current for the base rows and `tray6_behind`; `box_behind` dropped as a demo 11-16 (replaced by `box_bookcase`); base-stop rows are in `stack/checks/base_stop.py` (11-16/17); open questions Q1-Q8 | 11-09 |
 | `status/tracker_skills_design_2026-11-09.md` | arm tracker skills T1-T4, skill cards, proposal aids | current; design only; AS1-AS8, Q1-Q8 open | 11-09 |
@@ -96,12 +98,12 @@ Status: **current** = use it; **superseded by X** = use X instead; **history** =
 |---|---|
 | `stack/checks/base_stop.py` | Rule 1 rows of the base-stop recovery of a `base_move` step; program `base_stop_finish` |
 | `nero/contents/runtime_rules.py` | run-time Rule 3 / Rule 4 helpers; `rule4_hook` (offline mock target proposer) |
-| `nero/gjk_numba.py` | Numba GJK distance (default; `BIMANUAL_LEGACY_GJK_SCIPY=1` = scipy) |
+| `nero/gjk_numba.py` | Numba GJK distance (the only path; the scipy switch was removed 11-19) |
 | `nero/results/base_stop_card_2026-11-16/` | MEASURED stop card per level (L1, L2; no L3) |
 | `nero/results/accel_k_2026-11-17/` | k = achieved / planned acceleration (before vref) |
 | `nero/results/bookcase_codex_2026-11-16/` | live Codex runs 1 and 2 on `box_bookcase` |
 | `nero/results/{assumed_sweep,tilt_table,speed_mono,z3_box,z3_stage0,box_place_video}_2026-11-16/` | sweeps of ASSUMED values, tilt tables, monotonicity, Z3 prototype, place video |
-| gate tests | `stack/tests/test_base_stop_rows.py`, `test_remaining_route_gate.py`; `adapters/tests/test_base_stop_card_gate.py`, `test_base_stop_gate.py`, `test_wide_table_gate.py`; `nero/contents/tests/test_vref_gate.py`, `test_support_exempt_gate.py`; `nero/tests/test_gjk_numba_gate.py` |
+| gate tests | `stack/tests/test_base_stop_rows.py`, `test_remaining_route_gate.py`; `adapters/tests/test_base_stop_card_gate.py`, `test_base_stop_gate.py`; `nero/contents/tests/test_vref_gate.py`, `test_support_exempt_gate.py`; `nero/tests/test_gjk_numba_gate.py` |
 
 ### docs/design (all Sept-Oct; none current)
 

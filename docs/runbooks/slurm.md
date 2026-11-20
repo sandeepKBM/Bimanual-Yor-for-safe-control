@@ -19,10 +19,10 @@ mid-training (dataset build alone took ~13 min; training on the real
    entrypoint must have a real stopping condition (max epochs/steps) so the
    process exits, the sbatch script reaches its last line, and Slurm frees
    the node immediately -- not after sitting idle until the timer fires.
-   - `hj_reachability/floq/configs/bimanual_floq_v1.yaml`: `epochs: 15`,
+   - `archive/hj_reachability/floq/configs/bimanual_floq_v1.yaml`: `epochs: 15`,
      `max_train_batches: 0` (0 = all batches, not unbounded) -- already
      finite, confirmed by the local smoke completing on its own.
-   - `world_model/wm_train.sbatch`, `hj_reachability/train.sbatch`: same
+   - `archive/world_model/wm_train.sbatch`, `archive/hj_reachability/train.sbatch`: same
      rule applies -- verify their training configs have a defined
      epoch/step cap before raising `--time` on them.
 3. **Auto-release belt-and-suspenders.** At the end of every sbatch script,
@@ -54,7 +54,7 @@ mid-training (dataset build alone took ~13 min; training on the real
 Use `scripts/offload/submit_via_slurm_gateway.sh <script.sbatch>` -- it now
 calls `sbatch` on the gateway host (`rlab1` by default) directly (fixed
 2026-09-06; it previously `bash`-ran the script on the login node, so
-nothing was ever enqueued -- see hj_reachability/FLOQ_SETUP.md for the incident). It also
+nothing was ever enqueued -- see archive/hj_reachability/FLOQ_SETUP.md for the incident). It also
 strips an unsupported `#SBATCH --cpus-per-task` line automatically (this
 cluster's `unlimited` partition rejects that flag).
 

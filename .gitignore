@@ -114,3 +114,6 @@ world_model/v2/stack/planners/plan_cache/
 .pytest_cache/
 docs/paper/**/*.aux
 docs/paper/**/*.out
+
+# run logs and scratch of agent sessions (11-20)
+/logs/
